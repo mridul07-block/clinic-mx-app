@@ -5,3 +5,10 @@
  */
 export * from './schema';
 export { createDb, type Db } from './client';
+export {
+  RecordNotFoundError,
+  updateVersioned,
+  type DbOrTransaction,
+  type VersionedResult,
+  type VersionedTable,
+} from './versioned';

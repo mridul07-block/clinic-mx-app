@@ -4,3 +4,11 @@
  */
 export { healthResponseSchema, type HealthResponse } from './health';
 export { staffRoles, staffRoleSchema, type StaffRole } from './staff';
+export {
+  draftSaveRequestSchema,
+  draftSaveResponseSchema,
+  recordVersionSchema,
+  testHarnessNoteSchema,
+  type DraftSaveResponse,
+  type TestHarnessNote,
+} from './drafts';
