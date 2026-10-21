@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { accessScope, actions, can, type Action, type StaffAccess } from './permissions';
+import {
+  accessScope,
+  actions,
+  can,
+  deniedToSupport,
+  type Action,
+  type StaffAccess,
+} from './permissions';
 import { staffRoles, type StaffRole } from './staff';
 
 // IAM-04: the PRD section 2 access summary written out a second time, cell by cell, so a change
@@ -169,5 +176,24 @@ describe('own scope', () => {
   it('does not limit roles with a full grant', () => {
     expect(can(person('front_desk'), 'calendar.view', { ownerId: someoneElse })).toBe(true);
     expect(can(person('centre_manager'), 'leave.manage', { ownerId: someoneElse })).toBe(true);
+  });
+});
+
+// IAM-08: a Velyx support login is a Super Admin without ticks that never reads clinical records.
+describe('a Velyx support login', () => {
+  const support = { ...person('super_admin'), support: true };
+
+  it('has no clinical action, though the Super Admin reads clinical records without a tick', () => {
+    expect(can(person('super_admin'), 'clinical.read')).toBe(true);
+    for (const action of deniedToSupport) expect(can(support, action), action).toBe(false);
+    expect(deniedToSupport).toEqual(
+      expect.arrayContaining(['clinical.read', 'red_flags.view', 'ai_prep.use']),
+    );
+  });
+
+  it('may open what the Super Admin opens otherwise (it is read only in every service)', () => {
+    for (const action of actions.filter((a) => !deniedToSupport.includes(a))) {
+      expect(accessScope(support, action), action).toBe(accessScope(person('super_admin'), action));
+    }
   });
 });

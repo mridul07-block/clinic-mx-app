@@ -2,7 +2,7 @@ import type { Db, StaffMember } from '@clinic-mx/db';
 import type { StaffRole } from '@clinic-mx/schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { NotAllowedError } from './guard';
+import { NotAllowedError, ReadOnlyError } from './guard';
 import { staffService, type ServiceTransaction } from './service';
 
 const fakeTx = { kind: 'transaction' } as unknown as ServiceTransaction;
@@ -22,6 +22,7 @@ const member = (role: StaffRole, extra: Partial<StaffMember> = {}): StaffMember 
   treatsPatients: false,
   consultant: false,
   centreIds: [hsr],
+  support: false,
   ...extra,
 });
 
@@ -76,6 +77,22 @@ describe('staffService', () => {
     expect(parse).not.toHaveBeenCalled();
     expect(db.withStaffAccess).not.toHaveBeenCalled();
     expect(run).not.toHaveBeenCalled();
+  });
+
+  it('refuses a Velyx support login, read only, even for an action its role has (IAM-08)', async () => {
+    const support = member('super_admin', { support: true, centreIds: [] });
+    await expect(book({ db: fakeDb, actor: support }, { centreId: hsr })).rejects.toThrow(
+      ReadOnlyError,
+    );
+    await expect(book({ db: fakeDb, actor: support }, { centreId: hsr })).rejects.toThrow(
+      'Velyx support access is read only.',
+    );
+    expect(db.withStaffAccess).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
+    // The same role without the support mark may.
+    expect(await book({ db: fakeDb, actor: member('super_admin') }, { centreId: hsr })).toBe(
+      `booked in ${hsr}`,
+    );
   });
 
   it('refuses input that fails its schema before any write', async () => {

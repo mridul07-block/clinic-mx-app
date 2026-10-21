@@ -76,10 +76,16 @@ Still to come, with the tickets that create what they need:
    wrapped as `(SELECT ...)` when the value does not depend on the row.
 2. Money: never give Centre Manager or Physiotherapist a policy on a table with amounts. Give them a
    view with `security_invoker = true` that exposes only the flag they may see.
-3. Add the table to `rls.integration.test.ts`: which rows each role sees and which writes succeed.
-4. `rls-catalog.integration.test.ts` fails in CI if any table in `public` has RLS off, has no
+3. Velyx support (IAM-08): add the three RESTRICTIVE policies `support_read_only_insert`,
+   `support_read_only_update` and `support_read_only_delete` with `NOT (SELECT internal.jwt_support())`
+   (see `20261021200452_support_access_rules.sql`). A clinical table's SELECT policy also needs
+   `NOT (SELECT internal.jwt_support())`: support never reads clinical records
+   (`docs/runbooks/support-access.md`).
+4. Add the table to `rls.integration.test.ts`: which rows each role sees and which writes succeed.
+5. `rls-catalog.integration.test.ts` fails in CI if any table in `public` has RLS off, has no
    policy (unless it is in the short server-only list with a reason), has a policy for `anon` or
-   everyone, or if any view is not `security_invoker`.
+   everyone, lacks the three support read only policies, or if any view is not
+   `security_invoker`.
 
 ## Tests
 

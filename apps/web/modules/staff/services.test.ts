@@ -1,7 +1,7 @@
 import type { Db, StaffMember, StaffRecord } from '@clinic-mx/db';
 import type { StaffRole } from '@clinic-mx/schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { NotAllowedError } from '../access/guard';
+import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import {
   StaffActionError,
   createInviteLink,
@@ -55,6 +55,7 @@ const member = (role: StaffRole, id = adminId): StaffMember => ({
   treatsPatients: false,
   consultant: false,
   centreIds: role === 'super_admin' ? [] : [hsr],
+  support: false,
 });
 const superAdmin = member('super_admin');
 const context = (actor = superAdmin) => ({ db: {} as Db, actor });
@@ -69,6 +70,7 @@ const record = (values: Partial<StaffRecord> = {}): StaffRecord => ({
   active: true,
   accessEndsAt: null,
   authUserId: 'auth-new',
+  velyxSupport: false,
   centreIds: [hsr],
   ...values,
 });
@@ -161,6 +163,30 @@ describe('staff management', () => {
     expect(db.withStaffAccess).not.toHaveBeenCalled();
     expect(auth.inviteUserByEmail).not.toHaveBeenCalled();
     expect(auth.listFactors).not.toHaveBeenCalled();
+  });
+
+  it('is refused to a Velyx support login, read only, though it is a Super Admin (IAM-08)', async () => {
+    const support = { ...superAdmin, id: '00000000-0000-4000-8000-000000000212', support: true };
+    await expect(
+      inviteStaff(context(support), { email: 'x@clinicmx.test', details }),
+    ).rejects.toThrow(ReadOnlyError);
+    await expect(
+      setStaffActive(context(support), { staffUserId: targetId, active: false }),
+    ).rejects.toThrow('Velyx support access is read only.');
+    expect(db.withStaffAccess).not.toHaveBeenCalled();
+    expect(auth.inviteUserByEmail).not.toHaveBeenCalled();
+  });
+
+  it('keeps a Velyx support login a Super Admin without ticks (IAM-08)', async () => {
+    db.staffRecord.mockResolvedValue(
+      record({ role: 'super_admin', velyxSupport: true, centreIds: [] }),
+    );
+    await expect(
+      updateStaff(context(), { staffUserId: targetId, details: { ...details, name: 'Renamed' } }),
+    ).rejects.toThrow(
+      new StaffActionError('Velyx support logins keep the Super Admin role and no ticks.'),
+    );
+    expect(db.updateStaffMember).not.toHaveBeenCalled();
   });
 
   it('changes role, ticks, centres and end date', async () => {

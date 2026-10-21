@@ -35,3 +35,19 @@ export function formatIstDate(date: string): string {
     timeZone: 'UTC',
   }).format(new Date(`${date}T00:00:00Z`));
 }
+
+/** An instant for people to read in IST, for example "22 Oct 2026, 14:30 IST". */
+export function formatIstDateTime(instant: Date): string {
+  const parts = new Intl.DateTimeFormat('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: CLINIC_TIME_ZONE,
+  }).formatToParts(instant);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? '';
+  return `${part('day')} ${part('month')} ${part('year')}, ${part('hour')}:${part('minute')} IST`;
+}

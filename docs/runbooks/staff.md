@@ -26,6 +26,8 @@ level security (IAM-05), and every change is audited with them as the actor.
   - Super Admins cannot deactivate themselves.
 - **Reset two step verification** when someone loses or replaces their phone. Their next sign in
   asks them to set it up again (IAM-02, audited `two_step_reset`).
+- **Velyx support logins** (IAM-08) are added on the support access page and listed here with a
+  "Velyx support" tag. Their details cannot be changed; see `docs/runbooks/support-access.md`.
 
 ## Invites
 

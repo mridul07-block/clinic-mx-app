@@ -47,9 +47,10 @@ export async function seed(db: Db) {
           role: sql`excluded.role`,
           treatsPatients: sql`excluded.treats_patients`,
           consultant: sql`excluded.consultant`,
+          velyxSupport: sql`excluded.velyx_support`,
           updatedAt: sql`now()`,
         },
-        setWhere: sql`(${staffUser.name}, ${staffUser.email}, ${staffUser.role}, ${staffUser.treatsPatients}, ${staffUser.consultant}) is distinct from (excluded.name, excluded.email, excluded.role, excluded.treats_patients, excluded.consultant)`,
+        setWhere: sql`(${staffUser.name}, ${staffUser.email}, ${staffUser.role}, ${staffUser.treatsPatients}, ${staffUser.consultant}, ${staffUser.velyxSupport}) is distinct from (excluded.name, excluded.email, excluded.role, excluded.treats_patients, excluded.consultant, excluded.velyx_support)`,
       });
     await tx.insert(staffUserCentre).values(seedStaffCentres).onConflictDoNothing();
   });

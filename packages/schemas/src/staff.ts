@@ -45,7 +45,8 @@ export function seesAllCentres(role: StaffRole): boolean {
 /**
  * The `clinic` claim in every staff token (IAM-03, TAD section 5), built by the database
  * (internal.staff_claims) and read by row level security. `all_centres` is true for the roles
- * that see every centre; `centres` lists the person's assigned centres.
+ * that see every centre; `centres` lists the person's assigned centres. `support` marks a Velyx
+ * support login (IAM-08), which is read only and has a claim only while support access is granted.
  */
 export const staffClaimsSchema = z.object({
   staff_id: z.guid(),
@@ -54,6 +55,7 @@ export const staffClaimsSchema = z.object({
   consultant: z.boolean(),
   all_centres: z.boolean(),
   centres: z.array(z.guid()),
+  support: z.boolean(),
 });
 
 export type StaffClaims = z.infer<typeof staffClaimsSchema>;
@@ -75,6 +77,7 @@ export function sameStaffClaims(token: unknown, current: unknown): boolean {
     a.data.treats_patients === b.data.treats_patients &&
     a.data.consultant === b.data.consultant &&
     a.data.all_centres === b.data.all_centres &&
+    a.data.support === b.data.support &&
     sorted(a.data.centres) === sorted(b.data.centres)
   );
 }

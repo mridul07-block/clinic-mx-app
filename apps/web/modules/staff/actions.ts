@@ -1,11 +1,11 @@
 'use server';
 
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { NotAllowedError } from '../access/guard';
+import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { serviceContext } from '../access/staff-db';
+import { inviteUrl } from './invite-url';
 import {
   StaffActionError,
   createInviteLink,
@@ -44,16 +44,6 @@ function detailsFrom(form: FormData) {
   };
 }
 
-/** Our own address for this request, for invite links (never supabase.co, rule 9). */
-async function inviteUrl(tokenHash: string): Promise<string> {
-  const request = await headers();
-  const host = request.get('x-forwarded-host') ?? request.get('host') ?? 'localhost:3000';
-  const protocol =
-    request.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
-  const query = new URLSearchParams({ token_hash: tokenHash, type: 'invite' });
-  return `${protocol}://${host}/app/reset-password?${query.toString()}`;
-}
-
 /** Refusals and bad input become messages; anything else is ours and is thrown. */
 function failure(error: unknown): StaffFormState {
   if (error instanceof z.ZodError) {
@@ -64,7 +54,9 @@ function failure(error: unknown): StaffFormState {
     }
     return { error: 'Check the highlighted fields.', fieldErrors };
   }
-  if (error instanceof StaffActionError) return { error: error.message };
+  if (error instanceof StaffActionError || error instanceof ReadOnlyError) {
+    return { error: error.message };
+  }
   if (error instanceof NotAllowedError)
     return { error: 'You do not have access to staff management.' };
   throw error;

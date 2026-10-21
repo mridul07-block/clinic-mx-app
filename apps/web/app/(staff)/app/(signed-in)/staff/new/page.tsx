@@ -1,6 +1,7 @@
 import { centreOptions } from '@clinic-mx/db';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { FormMessage } from '../../../../../../components/forms';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../../modules/access/staff-db';
 import { InviteForm } from './invite-form';
@@ -11,7 +12,7 @@ export const metadata: Metadata = { title: 'Invite staff · Clinic Mx' };
 // to set a password, or a link to share when the email cannot be sent.
 export default async function InviteStaffPage() {
   const staff = await requirePermission('staff.manage');
-  const centres = await asStaff(staff, (tx) => centreOptions(tx));
+  const centres = staff.support ? [] : await asStaff(staff, (tx) => centreOptions(tx));
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
       <div className="flex flex-col gap-1">
@@ -20,7 +21,11 @@ export default async function InviteStaffPage() {
         </Link>
         <h1 className="text-title font-semibold">Invite staff</h1>
       </div>
-      <InviteForm centres={centres} />
+      {staff.support ? (
+        <FormMessage tone="info">Velyx support access is read only.</FormMessage>
+      ) : (
+        <InviteForm centres={centres} />
+      )}
     </main>
   );
 }

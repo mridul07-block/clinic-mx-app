@@ -8,6 +8,7 @@ import { FormMessage } from '../../../../../../components/forms';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../../modules/access/staff-db';
 import { invitePending } from '../../../../../../modules/staff/directory';
+import { Tag } from '../../../../../../components/tag';
 import { StaffStatus } from '../staff-status';
 import { AccountActions } from './account-actions';
 import { EditForm } from './edit-form';
@@ -15,7 +16,8 @@ import { EditForm } from './edit-form';
 export const metadata: Metadata = { title: 'Staff member · Clinic Mx' };
 
 // One staff member (IAM-06): role, ticks, centres and end date; invite, two step reset and
-// deactivation. The email is their login and stays as it is.
+// deactivation. The email is their login and stays as it is. A Velyx support login keeps the
+// Super Admin role, so it has no details form; a support viewer sees the page read only (IAM-08).
 export default async function StaffMemberPage({
   params,
   searchParams,
@@ -44,34 +46,45 @@ export default async function StaffMemberPage({
         <p className="text-ink-secondary">
           {staffRoleLabels[member.role]} · {member.email}
         </p>
-        <StaffStatus
-          active={member.active}
-          accessEndsAt={member.accessEndsAt}
-          invitePending={pending}
-        />
+        <span className="flex flex-wrap gap-1.5">
+          {member.velyxSupport ? <Tag tone="outline">Velyx support</Tag> : null}
+          <StaffStatus
+            active={member.active}
+            accessEndsAt={member.accessEndsAt}
+            invitePending={pending}
+          />
+        </span>
       </div>
       {justInvited ? <FormMessage tone="info">Invite sent to {member.email}.</FormMessage> : null}
-      <EditForm
-        staffUserId={member.id}
-        centres={centres}
-        roleLocked={self}
-        defaults={{
-          name: member.name,
-          role: member.role,
-          treatsPatients: member.treatsPatients,
-          consultant: member.consultant,
-          centreIds: member.centreIds,
-          accessEndsOn: member.accessEndsAt ? istDayEndingAt(member.accessEndsAt) : '',
-        }}
-      />
-      <AccountActions
-        staffUserId={member.id}
-        name={member.name}
-        active={member.active}
-        invitePending={pending}
-        hasLogin={Boolean(member.authUserId)}
-        self={self}
-      />
+      {staff.support ? (
+        <FormMessage tone="info">Velyx support access is read only.</FormMessage>
+      ) : (
+        <>
+          {member.velyxSupport ? null : (
+            <EditForm
+              staffUserId={member.id}
+              centres={centres}
+              roleLocked={self}
+              defaults={{
+                name: member.name,
+                role: member.role,
+                treatsPatients: member.treatsPatients,
+                consultant: member.consultant,
+                centreIds: member.centreIds,
+                accessEndsOn: member.accessEndsAt ? istDayEndingAt(member.accessEndsAt) : '',
+              }}
+            />
+          )}
+          <AccountActions
+            staffUserId={member.id}
+            name={member.name}
+            active={member.active}
+            invitePending={pending}
+            hasLogin={Boolean(member.authUserId)}
+            self={self}
+          />
+        </>
+      )}
     </main>
   );
 }

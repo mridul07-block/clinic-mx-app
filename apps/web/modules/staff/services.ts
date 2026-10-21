@@ -59,9 +59,10 @@ async function inviteToken(email: string): Promise<{ authUserId: string; tokenHa
 
 /**
  * Sends the invite email; if Supabase cannot send it (no email sender yet, a refused address),
- * makes an invite link instead for the Super Admin to share.
+ * makes an invite link instead for the Super Admin to share. Also used for Velyx support logins
+ * (IAM-08).
  */
-async function sendInvite(
+export async function sendInvite(
   email: string,
 ): Promise<{ authUserId: string; emailSent: boolean; tokenHash?: string }> {
   const { data, error } = await supabaseAdmin().auth.admin.inviteUserByEmail(email);
@@ -92,6 +93,10 @@ export const updateStaff = staffService({
   input: staffUpdateSchema,
   run: async (tx, { staffUserId, details }, actor) => {
     const member = await existingMember(tx, staffUserId);
+    // IAM-08: a support login is a read only Super Admin without ticks, and stays one.
+    if (member.velyxSupport) {
+      throw new StaffActionError('Velyx support logins keep the Super Admin role and no ticks.');
+    }
     // The clinic must always keep a Super Admin who can sign in.
     if (staffUserId === actor.id && details.role !== member.role) {
       throw new StaffActionError('You cannot change your own role.');

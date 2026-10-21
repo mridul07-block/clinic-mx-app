@@ -14,6 +14,7 @@ import { z } from 'zod';
 
 const minutes = z.int().positive();
 const days = z.int().positive();
+const hours = z.int().positive();
 const count = z.int().nonnegative();
 /** A price item key from the price master (SET-02), for example "zero_gravity_treadmill". */
 const priceItemKey = z.string().regex(/^[a-z][a-z0-9_]*$/);
@@ -124,6 +125,11 @@ export const settingDefinitions = {
     schema: days,
     source: 'Kickoff decision G7',
     description: 'Days a phone session stays signed in.',
+  },
+  'security.support_grant_max_hours': {
+    schema: hours,
+    source: 'User decision, 22 October 2026 (IAM-08)',
+    description: 'Longest Velyx support access the Super Admin can grant, in hours.',
   },
   'reminders.day_before_time': {
     schema: timeOfDay,

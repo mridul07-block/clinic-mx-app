@@ -7,13 +7,14 @@ import {
   setStaffMemberActive,
   staffUser,
   staffUserCentre,
+  supportGrant,
   systemActor,
   withActor,
   withStaffAccess,
 } from '@clinic-mx/db';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, gt, lt, sql } from 'drizzle-orm';
 import { totpCode } from './totp';
 
 // Signing in for end to end tests (IAM-01, IAM-02). The staff are the seed's generated test
@@ -340,6 +341,7 @@ export async function deactivateAsSuperAdmin(staffUserId: string): Promise<numbe
     treatsPatients: admin.treatsPatients,
     consultant: admin.consultant,
     centreIds: [],
+    support: false,
   };
   return withStaffAccess(testDb(), { actor }, async (tx) => {
     await setStaffMemberActive(tx, staffUserId, false);
@@ -353,4 +355,66 @@ export async function sessionCount(email: string): Promise<number> {
     sql`select count(*)::int as n from auth.sessions s join auth.users u on u.id = s.user_id where u.email = ${email}`,
   );
   return rows[0]?.n ?? 0;
+}
+
+/**
+ * A new Super Admin login with the seed password and an authenticator app, made for one test, so
+ * no other test signs in as them at the same time. `support` makes it a Velyx support login
+ * (IAM-08). The row stays afterwards: staff are never deleted.
+ */
+export async function temporarySuperAdmin({ support }: { support: boolean }) {
+  const suffix = crypto.randomUUID().slice(0, 8);
+  const email = `temporary.${support ? 'support' : 'admin'}.${suffix}@clinicmx.test`;
+  const name = `Test Temporary ${support ? 'Support' : 'Admin'} ${suffix}`;
+  const { data, error } = await adminClient().auth.admin.createUser({
+    email,
+    password: seedPassword(),
+    email_confirm: true,
+  });
+  if (error) throw error;
+  const id = await withActor(testDb(), systemActor('tests'), async (tx) => {
+    const [row] = await tx
+      .insert(staffUser)
+      .values({ email, name, role: 'super_admin', velyxSupport: support, authUserId: data.user.id })
+      .returning({ id: staffUser.id });
+    if (!row) throw new Error('temporary staff row not added');
+    return row.id;
+  });
+  return { id, email, name, secret: await addAuthenticator(email) };
+}
+
+/** Signs in through the sign in page and enters the code from `secret`. */
+export async function signInWithCode(page: Page, email: string, secret: string) {
+  await page.goto('/app/sign-in');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(seedPassword());
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/app\/two-step/);
+  await enterCode(page, secret);
+  await expect(page).not.toHaveURL(/\/app\/two-step/);
+}
+
+/** Ends any support access still on, as a test clean up (IAM-08). */
+export async function endSupportAccessForTests() {
+  await withActor(testDb(), systemActor('tests'), (tx) =>
+    tx
+      .update(supportGrant)
+      .set({ endsAt: sql`now()` })
+      .where(and(lt(supportGrant.startsAt, sql`now()`), gt(supportGrant.endsAt, sql`now()`))),
+  );
+}
+
+/**
+ * Runs `work` while no other test process runs work under the same name: a Postgres advisory
+ * lock on its own connection, released when the work ends or the connection closes. For state
+ * shared by the phone and desktop projects, such as support access, which is on or off for all.
+ */
+export async function exclusively<T>(name: string, work: () => Promise<T>): Promise<T> {
+  const lock = createDb(required('DIRECT_DATABASE_URL'), { max: 1 });
+  try {
+    await lock.db.execute(sql`select pg_advisory_lock(hashtext(${name}))`);
+    return await work();
+  } finally {
+    await lock.close();
+  }
 }

@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, isNull, not, or, sql } from 'drizzle-orm';
 import { centre, staffUser, staffUserCentre } from './schema';
 import type { DbOrTransaction } from './versioned';
 
@@ -12,11 +12,21 @@ export interface StaffMember {
   consultant: boolean;
   /** Assigned centres; Super Admin and Finance see every centre whatever is listed here. */
   centreIds: string[];
+  /** A Velyx support login (IAM-08): read only, and signed in only while access is granted. */
+  support: boolean;
 }
 
 /**
+ * Support access is granted now (IAM-08): some grant has started and not ended, by the database
+ * clock that grants are timed with.
+ */
+const supportGranted = sql`exists (
+  select 1 from public.support_grant g where g.starts_at <= now() and g.ends_at > now())`;
+
+/**
  * The staff member a Supabase Auth user signs in as, if they may sign in now: linked, active,
- * and before any access end date (PRD section 2). Anyone else gets no session.
+ * before any access end date (PRD section 2) and, for a Velyx support login, while support access
+ * is granted (IAM-08). Anyone else gets no session.
  */
 export async function staffForSignIn(
   db: DbOrTransaction,
@@ -35,6 +45,7 @@ export async function staffForSignIn(
         select a.centre_id::text from public.staff_user_centre a
         where a.staff_user_id = "staff_user"."id"
         order by a.centre_id)`,
+      support: staffUser.velyxSupport,
     })
     .from(staffUser)
     .where(
@@ -42,10 +53,34 @@ export async function staffForSignIn(
         eq(staffUser.authUserId, authUserId),
         eq(staffUser.active, true),
         or(isNull(staffUser.accessEndsAt), gt(staffUser.accessEndsAt, now)),
+        or(not(staffUser.velyxSupport), supportGranted),
       ),
     )
     .limit(1);
   return member;
+}
+
+/**
+ * Whether a login is an active Velyx support login waiting for support access (IAM-08), so sign
+ * in can say why it is refused once the password was right.
+ */
+export async function supportLoginWithoutGrant(
+  db: DbOrTransaction,
+  authUserId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: staffUser.id })
+    .from(staffUser)
+    .where(
+      and(
+        eq(staffUser.authUserId, authUserId),
+        eq(staffUser.active, true),
+        eq(staffUser.velyxSupport, true),
+        not(supportGranted),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
 }
 
 /**

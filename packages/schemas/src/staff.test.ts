@@ -10,6 +10,7 @@ const claims: StaffClaims = {
   consultant: true,
   all_centres: false,
   centres: [hsr, koramangala],
+  support: false,
 };
 
 // IAM-03: a token is refreshed whenever its claim no longer matches the database.
@@ -26,6 +27,16 @@ describe('sameStaffClaims', () => {
     expect(sameStaffClaims(claims, { ...claims, consultant: false })).toBe(false);
     expect(sameStaffClaims(claims, { ...claims, centres: [hsr] })).toBe(false);
     expect(sameStaffClaims(claims, { ...claims, all_centres: true })).toBe(false);
+  });
+
+  it('sees a login marked as Velyx support, or no longer marked (IAM-08)', () => {
+    expect(sameStaffClaims(claims, { ...claims, support: true })).toBe(false);
+  });
+
+  it('refreshes a token from before IAM-08, which has no support flag', () => {
+    const older: Partial<StaffClaims> = { ...claims };
+    delete older.support;
+    expect(sameStaffClaims(older, claims)).toBe(false);
   });
 
   it('treats a missing claim as different from a staff member, and the same as none', () => {
