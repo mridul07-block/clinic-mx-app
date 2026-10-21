@@ -17,7 +17,8 @@ level security (IAM-05), and every change is audited with them as the actor.
   on their next page (IAM-03).
   - The email is their login and is not changed here.
   - Super Admins cannot change their own role.
-- **Deactivate** stops them signing in and ends their session on their next page.
+- **Deactivate** stops them signing in and ends their Supabase sessions at once; an open page
+  goes to sign in within a minute (IAM-07).
   - Their rows and signed records stay attributed to them.
   - "Reactivate" undoes it, so it asks for no confirmation (the Frontend Specification keeps
     dialogs for what cannot be undone).

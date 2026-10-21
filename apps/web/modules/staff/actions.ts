@@ -122,7 +122,7 @@ export async function staffAccountAction(
       case 'deactivate':
         await setStaffActive(context, { staffUserId, active: false });
         revalidatePath('/app/staff');
-        return { notice: 'Deactivated. They are signed out on their next page.' };
+        return { notice: 'Deactivated. They are signed out on every device now.' };
       case 'reactivate':
         await setStaffActive(context, { staffUserId, active: true });
         revalidatePath('/app/staff');

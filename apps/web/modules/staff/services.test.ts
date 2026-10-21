@@ -14,6 +14,7 @@ import {
 const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
+  endStaffSessions: vi.fn(),
   insertStaffMember: vi.fn(),
   linkStaffLogin: vi.fn(),
   recordAccessEvent: vi.fn(),
@@ -190,13 +191,15 @@ describe('staff management', () => {
     expect(db.setStaffMemberActive).not.toHaveBeenCalled();
   });
 
-  it('deactivates and reactivates, never deletes', async () => {
+  it('deactivates (ending their sessions) and reactivates, never deletes', async () => {
     await setStaffActive(context(), { staffUserId: targetId, active: false });
     await setStaffActive(context(), { staffUserId: targetId, active: true });
     expect(db.setStaffMemberActive.mock.calls).toEqual([
       [fakeTx, targetId, false],
       [fakeTx, targetId, true],
     ]);
+    // IAM-07: deactivating ends their sessions at once; reactivating does not need to.
+    expect(db.endStaffSessions.mock.calls).toEqual([[fakeTx, targetId]]);
   });
 
   it('makes an invite link, and says so once the invite is accepted', async () => {

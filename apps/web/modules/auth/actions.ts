@@ -2,14 +2,17 @@
 
 import { staffForSignIn } from '@clinic-mx/db';
 import {
+  deviceClass,
   newPasswordSchema,
   passwordResetRequestSchema,
   signInSchema,
   twoStepCodeSchema,
 } from '@clinic-mx/schemas';
 import type { JwtPayload } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { appDb } from '../../lib/db';
+import { DEVICE_COOKIE, LAST_SEEN_COOKIE, sessionCookieOptions } from '../../lib/session-cookies';
 import {
   authClient,
   authMessage,
@@ -53,6 +56,12 @@ export async function signIn(_state: AuthFormState, form: FormData): Promise<Aut
     await supabase.auth.signOut({ scope: 'local' });
     return { error: messages.signInFailed, email };
   }
+
+  // IAM-07: the device class for this sign in (G7, from the browser; unknown counts as desktop)
+  // and its first activity.
+  const jar = await cookies();
+  jar.set(DEVICE_COOKIE, deviceClass(form.get('device')), sessionCookieOptions);
+  jar.set(LAST_SEEN_COOKIE, String(Date.now()), sessionCookieOptions);
 
   // The user comes from Supabase Auth's answer, so its authenticator apps can be trusted.
   const hasAuthenticator = (data.user.factors ?? []).some(
@@ -163,11 +172,24 @@ export async function resetPassword(_state: AuthFormState, form: FormData): Prom
   redirect('/app/sign-in?password=changed');
 }
 
-/** Signs out, including part way through two step verification. */
-export async function signOut(): Promise<void> {
+async function endSession(): Promise<void> {
   const state = await signInState();
   const supabase = await authClient();
   if (supabase) await supabase.auth.signOut({ scope: 'local' });
   if (state?.stage === 'complete') await logAccess(state.staff, 'sign_out');
+  const jar = await cookies();
+  jar.delete({ name: LAST_SEEN_COOKIE, path: '/' });
+  jar.delete({ name: DEVICE_COOKIE, path: '/' });
+}
+
+/** Signs out, including part way through two step verification. */
+export async function signOut(): Promise<void> {
+  await endSession();
   redirect('/app/sign-in');
+}
+
+/** The desktop idle timer signed the person out (IAM-07); the sign in page says so. */
+export async function signOutIdle(): Promise<void> {
+  await endSession();
+  redirect('/app/sign-in?reason=idle');
 }

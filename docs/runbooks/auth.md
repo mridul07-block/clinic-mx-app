@@ -24,7 +24,7 @@ the server calls Supabase Auth. The browser never receives the Supabase URL or a
 - **Offline**: the service worker caches the offline page only, never a signed in page.
 
 Roles and claims are IAM-03, what each role may do IAM-04 (`docs/runbooks/permissions.md`),
-session lifetimes and revocation IAM-07, rate limits IAM-11, staff
+session rules and revocation IAM-07 (below), rate limits IAM-11, staff
 invitations IAM-06.
 
 ## Two step verification (IAM-02)
@@ -89,6 +89,35 @@ refuses tokens without the claim, so staff cannot sign in between the deploy and
 `PATCH /v1/projects/<ref>/config/auth` with `hook_custom_access_token_enabled: true` and
 `hook_custom_access_token_uri: "pg-functions://postgres/internal/custom_access_token_hook"` (or
 Authentication, Hooks in the dashboard).
+
+## Session rules (IAM-07)
+
+PRD section 2, TAD section 5, decision G7. Supabase's own session limits are a paid plan feature,
+so our server enforces these.
+
+- **Desktop or phone** is decided once, at sign in.
+  - The sign in form sends the browser's answer to `(pointer: fine) and (min-width: 1024px)`
+    (G7, `DESKTOP_MEDIA_QUERY`), kept in the HTTP-only cookie `clinic_device`.
+  - Anything unknown counts as desktop, the stricter rule.
+- **Desktop: signed out after `security.desktop_idle_logout_minutes` (15) without activity.**
+  - The server keeps the last activity in the HTTP-only cookie `clinic_last_seen`. Every page,
+    server action and activity ping counts; the session check and router prefetches do not.
+  - `proxy.ts` signs out a session idle for longer (audited `sign_out`) and sends the person to
+    `/app/sign-in?reason=idle`. This also catches a laptop that slept or a tab that was closed.
+  - In the open page, `IdleLogout` (`app/(staff)/app/(signed-in)/session-guard.tsx`) watches for
+    activity: pointer, keys, wheel and touch, shared across tabs. While the person is active it
+    pings `POST /app/session` at most once a minute, so typing a long note keeps the session.
+  - A minute before the limit it warns, with "Stay signed in". At the limit it signs out.
+  - Drafts are saved if online, and any that cannot be saved stay on the device for that person
+    only (decision 22 October 2026).
+- **Phone: signed in for `security.phone_session_days` (30, G7)**, counted from the password sign
+  in in the signed token's `amr`. Idle time does not matter. After that, `reason=expired`.
+- **Revoked at once.**
+  - Every request already refuses a deactivated person or a passed `access_ends_at` (IAM-03).
+  - Every open page also asks `GET /app/session` each minute and when it regains focus, and goes to
+    sign in (`reason=ended`) when the answer is no.
+  - Deactivating from the staff screen also ends the person's Supabase sessions
+    (`internal.end_staff_sessions`, Super Admin only), so no device can refresh a token for them.
 
 ## Settings per environment
 

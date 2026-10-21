@@ -73,7 +73,7 @@ test.describe('as the Super Admin', () => {
     // Deactivate: their next page goes to sign in; their row stays.
     await page.getByRole('button', { name: `Deactivate ${person.name}` }).click();
     await expect(
-      page.getByText('Deactivated. They are signed out on their next page.'),
+      page.getByText('Deactivated. They are signed out on every device now.'),
     ).toBeVisible();
     await invited.goto('/app');
     await expect(invited).toHaveURL(/\/app\/sign-in/);

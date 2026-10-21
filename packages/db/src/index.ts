@@ -58,6 +58,7 @@ export {
 export { claimsForStaff, withStaffAccess } from './access';
 export {
   centreOptions,
+  endStaffSessions,
   insertStaffMember,
   linkStaffLogin,
   setStaffMemberActive,
