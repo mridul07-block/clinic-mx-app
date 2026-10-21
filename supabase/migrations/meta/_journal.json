@@ -71,6 +71,13 @@
       "when": 1792603380164,
       "tag": "20261021172300_staff_claims",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792607377160,
+      "tag": "20261021182937_row_level_security",
+      "breakpoints": true
     }
   ]
 }

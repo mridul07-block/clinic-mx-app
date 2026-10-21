@@ -2,7 +2,8 @@
 
 IAM-04, rule 10, rule 17, TAD section 5. What each staff member may do is decided in one place,
 the permission map in code, and every service function checks it before it touches the database.
-Row level security (IAM-05) checks again inside Postgres, so a bug in one layer cannot leak data.
+Row level security (IAM-05, `docs/runbooks/row-level-security.md`) checks again inside Postgres,
+so a bug in one layer cannot leak data.
 
 ## The map
 

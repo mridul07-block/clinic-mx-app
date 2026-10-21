@@ -54,6 +54,7 @@ export {
   type SettingsReader,
   type SettingsReaderOptions,
 } from './settings';
+export { claimsForStaff, withStaffAccess } from './access';
 export {
   authUserIdForStaff,
   centreNamesForStaff,
