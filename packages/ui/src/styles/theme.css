@@ -1,0 +1,144 @@
+/*
+ * Clinic Mx Tailwind v4 theme (design system v2). Import after tailwindcss and tokens.css.
+ *
+ * Tailwind's own colours, fonts, type sizes, radii, shadows and weights are removed, so
+ * only our tokens exist as utilities: bg-canvas, text-ink, border-line-control, text-base
+ * (14/20), rounded-panel, shadow-xs, font-semibold. A class such as bg-red-500 or
+ * font-bold generates nothing.
+ *
+ * `inline` makes utilities use var(--token) from tokens.css directly; `reference` stops
+ * Tailwind from writing its own copies of those variables. Spacing keeps Tailwind's 4 px
+ * steps. Keyframes live in motion.css: inside this reference block they would be dropped.
+ *
+ * Names never clash across groups (a colour called "base" would collide with text-base).
+ * Write class names out in full: Tailwind cannot see a name built at run time.
+ */
+@theme inline reference {
+  --color-*: initial;
+
+  /* Surfaces, lines and ink */
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-line-control: var(--line-control);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+
+  /* Brand, accent, focus */
+  --color-brand: var(--brand);
+  --color-brand-deep: var(--brand-deep);
+  --color-on-brand: var(--on-brand);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-focus: var(--focus);
+
+  /* Status: text, tint and border; strong for marks and solid fills */
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-line: var(--info-line);
+  --color-waiting: var(--waiting);
+  --color-waiting-soft: var(--waiting-soft);
+  --color-waiting-line: var(--waiting-line);
+  --color-waiting-strong: var(--waiting-strong);
+  --color-active: var(--active);
+  --color-active-soft: var(--active-soft);
+  --color-active-line: var(--active-line);
+  --color-done: var(--done);
+  --color-done-soft: var(--done-soft);
+  --color-done-line: var(--done-line);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-line: var(--danger-line);
+  --color-danger-strong: var(--danger-strong);
+  --color-on-danger: var(--on-danger);
+  /* "Warning" is the waiting colour: monitor, below target, not marked. */
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-scrim: var(--scrim);
+
+  /* Data */
+  --color-viz-1: var(--viz-1);
+  --color-viz-compare: var(--viz-compare);
+  --color-viz-target: var(--viz-target);
+  --color-viz-centre-1: var(--viz-centre-1);
+  --color-viz-centre-2: var(--viz-centre-2);
+  --color-viz-centre-3: var(--viz-centre-3);
+  --color-viz-promoter: var(--viz-promoter);
+  --color-viz-passive: var(--viz-passive);
+  --color-viz-detractor: var(--viz-detractor);
+  --color-viz-ramp-1: var(--viz-ramp-1);
+  --color-viz-ramp-2: var(--viz-ramp-2);
+  --color-viz-ramp-3: var(--viz-ramp-3);
+  --color-viz-ramp-4: var(--viz-ramp-4);
+  --color-viz-ramp-5: var(--viz-ramp-5);
+  --color-viz-ramp-6: var(--viz-ramp-6);
+  --color-viz-ramp-7: var(--viz-ramp-7);
+
+  --font-*: initial;
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* Type scale: staff base 14 px, patient pages 16 px; two display sizes, the page title
+     (24/32) and the one number that matters (32/40). */
+  --text-*: initial;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.125rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.25rem;
+  --text-md: 1rem;
+  --text-md--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.875rem;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 2.25rem;
+  --text-title: 1.5rem;
+  --text-title--line-height: 2rem;
+  --text-title--letter-spacing: -0.015em;
+  --text-display: 2rem;
+  --text-display--line-height: 2.5rem;
+  --text-display--letter-spacing: -0.02em;
+
+  /* Semibold (600) for titles and the one number that matters in a row; no bold. */
+  --font-weight-*: initial;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  --radius-*: initial;
+  --radius-control: var(--radius-control);
+  --radius-tag: var(--radius-tag);
+  --radius-panel: var(--radius-panel);
+  --radius-sheet: var(--radius-sheet);
+  --radius-drawer: var(--radius-drawer);
+
+  /* A hairline under panels; real shadows only on what floats. */
+  --shadow-*: initial;
+  --shadow-xs: var(--shadow-xs);
+  --shadow-float: var(--shadow-float);
+  --shadow-drawer: var(--shadow-drawer);
+
+  --ease-standard: var(--ease-standard);
+
+  /* Sizes from the layout tokens: h-row (36 px), h-row-touch (44 px), h-target-patient
+     (56 px), w-drawer (480 px), w-sidebar (240 px) and w-rail (64 px). Controls use h-row
+     with pointer-coarse:h-row-touch, so touch screens get 44 px and a mouse keeps 36 px
+     at any width. */
+  --spacing-row: var(--row-height);
+  --spacing-row-touch: var(--row-height-touch);
+  --spacing-target-patient: var(--touch-target-patient);
+  --container-drawer: var(--drawer-width);
+  --container-sidebar: var(--sidebar-width);
+  --container-rail: var(--rail-width);
+}

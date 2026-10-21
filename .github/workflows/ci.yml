@@ -50,6 +50,11 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # FND-06: no raw colours, no gold text, no Tailwind default palette, no dynamic class
+      # names, and every token pair at WCAG contrast (Frontend Specification section 10).
+      - name: Design token check
+        run: pnpm check:design
+
       - name: Typecheck
         run: pnpm typecheck
 

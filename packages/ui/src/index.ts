@@ -1,6 +1,11 @@
 /**
- * Clinic Mx design system: tokens, Tailwind theme and components.
- * Tokens and the Tailwind v4 theme arrive with FND-06; components follow the
- * Frontend Specification section 5.
+ * Clinic Mx design system. Styles are imported as CSS (`@clinic-mx/ui/styles/*.css`: tokens,
+ * theme, base, motion, hatch); components follow the Frontend Specification section 5 as the
+ * screens that need them are built. `pnpm check:design` enforces the token rules.
  */
-export {};
+export {
+  appointmentStatuses,
+  toneByAppointmentStatus,
+  type AppointmentStatus,
+  type Tone,
+} from './status';
