@@ -1,4 +1,5 @@
 import { and, eq, inArray, lt, lte, sql } from 'drizzle-orm';
+import { setAuditContext, systemActor } from '../audit';
 import { job, task, type Job } from '../schema';
 import type { DbOrTransaction } from '../versioned';
 
@@ -103,6 +104,7 @@ export async function failJob(db: DbOrTransaction, failed: Job, error: unknown):
     return;
   }
   await db.transaction(async (tx) => {
+    await setAuditContext(tx, { actor: systemActor('jobs') });
     await tx
       .update(job)
       .set({ status: 'failed', lastError, finishedAt: sql`now()`, updatedAt: sql`now()` })

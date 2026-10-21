@@ -2,3 +2,4 @@
 export * from './identity';
 export * from './jobs';
 export * from './tasks';
+export * from './audit';
