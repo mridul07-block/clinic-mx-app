@@ -7,6 +7,8 @@ export const healthResponseSchema = z.object({
   commit: z.string().min(1),
   /** Vercel function region, for example "bom1"; "local" outside Vercel. */
   region: z.string().min(1),
+  /** Vercel environment the build runs in; "local" outside Vercel. */
+  environment: z.enum(['local', 'development', 'preview', 'production']),
 });
 
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
