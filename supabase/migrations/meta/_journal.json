@@ -127,6 +127,20 @@
       "when": 1792617129168,
       "tag": "20261021211209_patient_link_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792619033690,
+      "tag": "20261021214353_kiosk",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792619039188,
+      "tag": "20261021214359_kiosk_rules",
+      "breakpoints": true
     }
   ]
 }

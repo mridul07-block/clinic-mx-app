@@ -23,3 +23,9 @@ export function readLastSeen(value: string | undefined): Date | undefined {
   const ms = Number(value);
   return Number.isFinite(ms) && ms > 0 ? new Date(ms) : undefined;
 }
+
+/**
+ * A clinic tablet in kiosk mode (IAM-10): a random token whose sha256 names the tablet. While a
+ * browser holds it, it opens only the kiosk and the form sent to it (proxy.ts, /p/[token]).
+ */
+export const KIOSK_COOKIE = 'clinic_kiosk';

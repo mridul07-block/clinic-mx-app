@@ -137,12 +137,7 @@ export async function setPassword(email: string, password: string) {
     Authorization: `Bearer ${required('SUPABASE_SERVICE_ROLE_KEY')}`,
     'Content-Type': 'application/json',
   };
-  const list = (await (
-    await fetch(`${supabaseUrl()}/auth/v1/admin/users?page=1&per_page=200`, { headers })
-  ).json()) as { users: { id: string; email?: string }[] };
-  const user = list.users.find((u) => u.email === email);
-  if (!user) throw new Error(`No login for ${email}`);
-  const response = await fetch(`${supabaseUrl()}/auth/v1/admin/users/${user.id}`, {
+  const response = await fetch(`${supabaseUrl()}/auth/v1/admin/users/${await authUserId(email)}`, {
     method: 'PUT',
     headers,
     body: JSON.stringify({ password }),
@@ -189,12 +184,12 @@ const adminClient = () =>
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+// The login linked to the staff row, rather than a search of every login: tests add logins
+// (temporaryDesk), and a list of them is paged.
 async function authUserId(email: string): Promise<string> {
-  const { data, error } = await adminClient().auth.admin.listUsers({ perPage: 200 });
-  if (error) throw error;
-  const user = data.users.find((u) => u.email === email);
-  if (!user) throw new Error(`No login for ${email}: run pnpm db:seed with the staff password.`);
-  return user.id;
+  const { authUserId: id } = await staffRow(email);
+  if (!id) throw new Error(`No login for ${email}: run pnpm db:seed with the staff password.`);
+  return id;
 }
 
 /** Removes every authenticator app from a login, as the Super Admin reset does. */

@@ -27,6 +27,11 @@ export default async function StaffHome() {
             Support access
           </Link>
         ) : null}
+        {accessScope(staff, 'check_in.manage') ? (
+          <Link href="/app/kiosk-tablets" className={linkClass}>
+            Kiosk tablets
+          </Link>
+        ) : null}
         <Link href="/app/account" className={linkClass}>
           Account
         </Link>

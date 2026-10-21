@@ -33,6 +33,16 @@ const nextConfig: NextConfig = {
           { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
         ],
       },
+      {
+        // The clinic tablet's welcome screen and its state (IAM-10): the same, so the form it
+        // opens is never kept or passed on.
+        source: '/kiosk/:path*',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'Cache-Control', value: 'private, no-store' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+        ],
+      },
     ]);
   },
 };

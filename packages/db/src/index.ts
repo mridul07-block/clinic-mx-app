@@ -102,3 +102,19 @@ export {
   type PatientLinkClaim,
   type PatientLinkKeys,
 } from './patient-links';
+export {
+  clearKioskLink,
+  findKioskByToken,
+  findKioskDevice,
+  hashKioskToken,
+  insertKioskDevice,
+  kioskDevices,
+  newKioskToken,
+  patientLinkState,
+  sendLinkToKiosk,
+  stopKioskDevice,
+  type KioskDeviceEntry,
+  type KioskDeviceWithCentre,
+  type NewKioskDevice,
+  type PatientLinkState,
+} from './kiosk';

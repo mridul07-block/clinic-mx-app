@@ -28,6 +28,8 @@ const stored: Settings = {
   'links.questionnaire_days': 7,
   'links.feedback_days': 7,
   'links.my_plan_days': 30,
+  'kiosk.idle_seconds': 120,
+  'kiosk.thank_you_seconds': 10,
   'reminders.day_before_time': '18:00',
 };
 

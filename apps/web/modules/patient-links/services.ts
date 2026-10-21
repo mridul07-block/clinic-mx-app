@@ -100,6 +100,27 @@ export const reissueMyPlanLink = systemService({
     issuePatientLink(tx, { patientId, episodeId, purpose: 'my_plan' }),
 });
 
+/**
+ * The page of a link already issued, signed again from its row (IAM-10: the clinic tablet opens
+ * the form sent to it). Signing is deterministic, so this is the link the patient was given.
+ * Null when patient links are not set up.
+ */
+export function patientLinkPath(link: {
+  id: string;
+  purpose: PatientLinkPurpose;
+  expiresAt: Date;
+}): string | null {
+  const secret = linkKeys()?.current;
+  if (!secret) return null;
+  return `/p/${signPatientLink({ linkId: link.id, purpose: link.purpose, expiresAt: link.expiresAt }, secret)}`;
+}
+
+/** The link a token names, if its signature holds; expiry not checked. */
+export function patientLinkIdFromToken(token: string): string | null {
+  const keys = linkKeys();
+  return (keys && readPatientLink(token, keys)?.linkId) ?? null;
+}
+
 /** Marks a single use link submitted; the form tickets call it inside the submit transaction. */
 export async function completePatientLink(
   tx: DbOrTransaction,

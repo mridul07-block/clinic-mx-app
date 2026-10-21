@@ -46,8 +46,11 @@ export function staffService<S extends z.ZodType, R>(definition: ServiceDefiniti
 export type SystemTransaction = Parameters<Parameters<typeof withActor>[2]>[0];
 
 export interface SystemServiceDefinition<S extends z.ZodType, R> {
-  /** The part of the system acting, recorded as `system:<component>`, for example "whatsapp". */
-  component: string;
+  /**
+   * The part of the system acting, recorded as `system:<component>`, for example "whatsapp"; or
+   * one named from the input, for example a clinic tablet (`kiosk.<id>`, IAM-10).
+   */
+  component: string | ((input: z.output<S>) => string);
   input: S;
   run: (tx: SystemTransaction, input: z.output<S>) => Promise<R>;
 }
@@ -61,6 +64,8 @@ export interface SystemServiceDefinition<S extends z.ZodType, R> {
 export function systemService<S extends z.ZodType, R>(definition: SystemServiceDefinition<S, R>) {
   return async (db: Db, rawInput: unknown): Promise<R> => {
     const input = definition.input.parse(rawInput);
-    return withActor(db, systemActor(definition.component), (tx) => definition.run(tx, input));
+    const component =
+      typeof definition.component === 'string' ? definition.component : definition.component(input);
+    return withActor(db, systemActor(component), (tx) => definition.run(tx, input));
   };
 }

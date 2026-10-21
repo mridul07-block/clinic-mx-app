@@ -35,7 +35,7 @@ In the web app:
 ESLint enforces the split:
 
 - `appDb` may be imported only in `proxy.ts`, `lib/`, `modules/auth`, `modules/settings`,
-  `modules/jobs` and `modules/access`;
+  `modules/jobs`, `modules/patient-links`, `modules/kiosk` and `modules/access`;
 - `withStaffAccess`, `withActor` and the other audited writers may be imported only in
   `modules/access`.
 
@@ -54,8 +54,13 @@ claim through the IAM-03 readers (`internal.jwt_staff_id`, `jwt_staff_role`, `jw
 | `setting` | Super Admin | Super Admin updates; the app reads values through the system reader |
 | `task` | For them, for their role, or all for the Super Admin | The same people update (close with a decision) |
 | `job` | None: server only | None |
+| `kiosk_device` (IAM-10) | Check in rights (Super Admin, Centre Manager, Front Desk) in centres they see | The same people insert (as themselves) and update; the tablet's own reset runs on the server as `system:kiosk.<id>` |
 
 No table has a delete policy except centre assignments. Staff are deactivated, never deleted.
+
+Sending a form to a tablet needs the link's state, but staff have no policy on `patient_link`.
+`internal.patient_link_state(link_id)` (SECURITY DEFINER) gives someone with check in rights only
+the link's purpose and state, never who it is for (`docs/runbooks/kiosk.md`).
 
 Colleague visibility uses `internal.staff_in_seen_centre(staff_id)`, a SECURITY DEFINER function,
 so the `staff_user` policy does not run the `staff_user_centre` policies again.

@@ -4,7 +4,9 @@ import type { AuthError } from '@supabase/supabase-js';
 import type { z } from 'zod';
 import { appDb } from '../../lib/db';
 import { supabaseServer } from '../../lib/supabase/server';
-import { clientIp } from './session';
+import { cookies } from 'next/headers';
+import { DEVICE_COOKIE, LAST_SEEN_COOKIE } from '../../lib/session-cookies';
+import { clientIp, signInState } from './session';
 
 /** What the sign in, two step and reset forms show after a post (IAM-01, IAM-02). */
 export interface AuthFormState {
@@ -78,4 +80,15 @@ export async function checkCode(supabase: AuthClient, factorId: string, code: st
     if (!serverError || attempt === 3) return result;
     await new Promise((resolve) => setTimeout(resolve, 150 * attempt + Math.random() * 150));
   }
+}
+
+/** Ends this browser's staff session and its session rule cookies; logged as a sign out. */
+export async function endSession(): Promise<void> {
+  const state = await signInState();
+  const supabase = await authClient();
+  if (supabase) await supabase.auth.signOut({ scope: 'local' });
+  if (state?.stage === 'complete') await logAccess(state.staff, 'sign_out');
+  const jar = await cookies();
+  jar.delete({ name: LAST_SEEN_COOKIE, path: '/' });
+  jar.delete({ name: DEVICE_COOKIE, path: '/' });
 }
