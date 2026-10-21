@@ -93,6 +93,18 @@ describe('audited writes', () => {
       entityId: null,
       after: { staff_user_id: staffId, centre_id: centreIds.whitefield },
     });
+
+    // Leave the seeded assignments as they were: other test files count them.
+    await withActor(db, actor, (tx) =>
+      tx
+        .delete(staffUserCentre)
+        .where(
+          and(
+            eq(staffUserCentre.staffUserId, staffId),
+            eq(staffUserCentre.centreId, centreIds.whitefield),
+          ),
+        ),
+    );
   });
 
   it('reject an actor that is not staff, patient or system', async () => {
