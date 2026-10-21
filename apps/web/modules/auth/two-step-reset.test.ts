@@ -1,7 +1,8 @@
 import type { DbOrTransaction, StaffMember } from '@clinic-mx/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseAdmin } from '../../lib/supabase/admin';
-import { NotAllowedError, resetTwoStep } from './two-step-reset';
+import { NotAllowedError } from '../access/guard';
+import { resetTwoStep } from './two-step-reset';
 
 const db = vi.hoisted(() => ({
   authUserIdForStaff: vi.fn<(db: unknown, staffUserId: string) => Promise<string | undefined>>(),
@@ -19,6 +20,7 @@ const member = (role: StaffMember['role']): StaffMember => ({
   role,
   treatsPatients: false,
   consultant: false,
+  centreIds: [],
 });
 
 function fakeAdmin(factorIds: string[]) {

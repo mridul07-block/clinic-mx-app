@@ -69,6 +69,27 @@ export default defineConfig(
     languageOptions: { sourceType: 'script', globals: globals.serviceworker },
   },
   {
+    // Rule 17, IAM-04: every write in the web app goes through staffService, which checks the
+    // permission map before it opens the audited transaction. Writing around it is refused.
+    files: WEB_FILES,
+    ignores: ['apps/web/modules/access/service.ts', 'apps/web/e2e/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@clinic-mx/db',
+              importNames: ['withActor', 'setAuditContext', 'updateSetting', 'updateVersioned'],
+              message:
+                'Write through staffService (apps/web/modules/access/service.ts): permission, validate, transaction, audit.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     rules: {
       eqeqeq: ['error', 'always'],
       // Every disable comment must say why (rule 14).

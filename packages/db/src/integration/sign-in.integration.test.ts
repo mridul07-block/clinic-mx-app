@@ -4,7 +4,7 @@ import { logAccessEvent, staffActor, systemActor, withActor } from '../audit';
 import { createDb } from '../client';
 import { staffForSignIn } from '../identity';
 import { auditEvent, staffUser } from '../schema';
-import { seedStaff } from '../seed/data';
+import { centreIds, seedStaff } from '../seed/data';
 
 // IAM-01: who may sign in. Runs against the CI database only.
 const url = process.env.DIRECT_DATABASE_URL;
@@ -40,6 +40,7 @@ describe('staffForSignIn', () => {
       id: staffUserId,
       role: 'physiotherapist',
       treatsPatients: true,
+      centreIds: [centreIds.koramangala],
     });
   });
 

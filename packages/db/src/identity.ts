@@ -10,6 +10,8 @@ export interface StaffMember {
   role: (typeof staffUser.$inferSelect)['role'];
   treatsPatients: boolean;
   consultant: boolean;
+  /** Assigned centres; Super Admin and Finance see every centre whatever is listed here. */
+  centreIds: string[];
 }
 
 /**
@@ -29,6 +31,10 @@ export async function staffForSignIn(
       role: staffUser.role,
       treatsPatients: staffUser.treatsPatients,
       consultant: staffUser.consultant,
+      centreIds: sql<string[]>`array(
+        select ${staffUserCentre.centreId}::text from ${staffUserCentre}
+        where ${staffUserCentre.staffUserId} = ${staffUser.id}
+        order by ${staffUserCentre.centreId})`,
     })
     .from(staffUser)
     .where(
