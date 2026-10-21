@@ -1,0 +1,14 @@
+/*
+ * The app's only stylesheet: Tailwind plus the Clinic Mx design system from packages/ui.
+ * Only token utilities exist (bg-canvas, text-ink, rounded-panel); Tailwind's default
+ * palette, fonts, sizes, weights, radii and shadows are removed by theme.css.
+ */
+@import 'tailwindcss';
+@import '@clinic-mx/ui/styles/tokens.css';
+@import '@clinic-mx/ui/styles/theme.css';
+@import '@clinic-mx/ui/styles/base.css';
+@import '@clinic-mx/ui/styles/motion.css';
+@import '@clinic-mx/ui/styles/hatch.css';
+
+/* Components in packages/ui use Tailwind classes too. */
+@source '../../../packages/ui/src';

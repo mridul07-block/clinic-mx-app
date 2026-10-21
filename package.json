@@ -11,6 +11,7 @@
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
     "lint": "eslint . --max-warnings 0",
+    "check:design": "pnpm --filter @clinic-mx/ui check:design",
     "typecheck": "tsc -p tsconfig.json && pnpm -r --no-bail typecheck",
     "test": "vitest run",
     "test:watch": "vitest",

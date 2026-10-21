@@ -1,0 +1,9 @@
+/*
+ * Cancelled and rescheduled visits on the calendar (Frontend Specification section 9): a diagonal
+ * hatch in the line colour on white, with hard stops, so it reads as a pattern, not as a
+ * colour gradient.
+ */
+.cmx-hatch {
+  background-color: var(--surface);
+  background-image: repeating-linear-gradient(135deg, var(--line) 0 1px, transparent 1px 7px);
+}

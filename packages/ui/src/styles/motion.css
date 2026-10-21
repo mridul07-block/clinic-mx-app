@@ -1,0 +1,151 @@
+/*
+ * Clinic Mx motion (design system v2 section 5): change, never decoration.
+ * Import after tailwindcss, without layer(). Keyframes live here rather than in
+ * theme.css, whose @theme reference block drops them.
+ * - Drawers slide in from the right and toasts from the left (240 ms).
+ * - Bars rise from the baseline and lines draw in when a chart first shows, staggered
+ *   12 ms a bar, each in 240 ms, so a 13 week chart is drawn in under half a second.
+ * - When live data changes, bars and points glide to their new place in 240 ms.
+ * - A new row in a live list starts highlighted and fades to plain.
+ * - A consultation the WhatsApp assistant just booked pulses an accent outline three
+ *   times when it appears on the calendar, so the room can spot it.
+ * None of it moves under reduced motion. base.css shortens durations but keeps delays,
+ * which would leave staggered bars hidden for a moment, so chart motion is switched off
+ * below as well.
+ */
+
+/* The drawer floats 8 px from the edge with a shadow, so it travels a little further
+   than its own width to leave the screen cleanly. */
+@keyframes cmx-drawer-in {
+  from {
+    transform: translateX(calc(100% + 1rem));
+  }
+}
+
+@keyframes cmx-drawer-out {
+  to {
+    transform: translateX(calc(100% + 1rem));
+  }
+}
+
+@keyframes cmx-toast-in {
+  from {
+    transform: translateX(calc(-100% - 1rem));
+  }
+}
+
+@keyframes cmx-toast-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes cmx-toast-swipe-out {
+  from {
+    transform: translateX(var(--radix-toast-swipe-end-x));
+  }
+  to {
+    transform: translateX(calc(-100% - 1rem));
+  }
+}
+
+@utility animate-drawer {
+  &[data-state='open'] {
+    animation: cmx-drawer-in var(--duration-motion) var(--ease-standard);
+  }
+  &[data-state='closed'] {
+    animation: cmx-drawer-out var(--duration-motion) ease-in;
+  }
+}
+
+/* Toast: slides in from the left edge, fades out, follows a swipe to the left. */
+@utility animate-toast {
+  &[data-state='open'] {
+    animation: cmx-toast-in var(--duration-motion) var(--ease-standard);
+  }
+  &[data-state='closed'] {
+    animation: cmx-toast-out var(--duration-motion) ease-in;
+  }
+  &[data-swipe='move'] {
+    transform: translateX(var(--radix-toast-swipe-move-x));
+  }
+  &[data-swipe='cancel'] {
+    transform: translateX(0);
+    transition: transform var(--duration-motion) var(--ease-standard);
+  }
+  &[data-swipe='end'] {
+    animation: cmx-toast-swipe-out var(--duration-motion) ease-out;
+  }
+}
+
+@keyframes cmx-bar-rise {
+  from {
+    transform: translateY(var(--cmx-bar-from));
+  }
+}
+
+@keyframes cmx-line-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes cmx-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes cmx-fresh-outline {
+  50% {
+    outline-color: var(--accent);
+  }
+}
+
+@keyframes cmx-row-highlight {
+  from {
+    background-color: var(--accent-soft);
+  }
+}
+
+.cmx-bar {
+  transition: transform var(--duration-motion) var(--ease-standard);
+  animation: cmx-bar-rise var(--duration-motion) var(--ease-standard) backwards;
+  animation-delay: var(--cmx-delay, 0ms);
+}
+
+.cmx-line {
+  stroke-dasharray: 1;
+  transition: d var(--duration-motion) var(--ease-standard);
+  animation: cmx-line-draw var(--duration-motion) var(--ease-standard) backwards;
+}
+
+.cmx-marker {
+  transition: transform var(--duration-motion) var(--ease-standard);
+  animation: cmx-fade-in var(--duration-quick) ease-out backwards;
+  animation-delay: var(--cmx-delay, 0ms);
+}
+
+.cmx-new-row {
+  animation: cmx-row-highlight 1600ms ease-out;
+}
+
+.cmx-fresh-block {
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+  animation: cmx-fresh-outline 1200ms ease-in-out 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmx-bar,
+  .cmx-line,
+  .cmx-marker,
+  .cmx-new-row,
+  .cmx-fresh-block {
+    animation: none;
+    transition: none;
+  }
+}

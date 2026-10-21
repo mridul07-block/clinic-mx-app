@@ -1,0 +1,122 @@
+/*
+ * Clinic Mx design tokens: design system v2 (docs/design/) with the Frontend Specification's
+ * changes. The only file in the repository where colour values are written; everything else
+ * uses these variables through the Tailwind theme (theme.css) or var(--token). The design check
+ * (pnpm check:design) enforces that, and checks the contrast of every pair below.
+ *
+ * The palette was built in OKLCH (warm neutrals at hue 80, status colours at equal lightness)
+ * and is written as hex, so the browser and the contrast check see exactly the same colour.
+ */
+
+:root {
+  /* Surfaces: a warm off-white frame, white sheets and panels. */
+  --canvas: #f7f5f3;
+  --surface: #ffffff;
+  --surface-subtle: #faf9f7;
+  --surface-hover: #f4f2ef;
+  --surface-sunken: #efedea;
+
+  /* Lines. line-control marks where a control is and has 3:1 on white (WCAG 1.4.11). */
+  --line: #e6e3df;
+  --line-strong: #d3d0cc;
+  --line-control: #8c8984;
+
+  /* Ink: text. ink-faint is for placeholders and disabled text only, never meaning. */
+  --ink: #1b1915;
+  --ink-secondary: #45423d;
+  --ink-muted: #66635d;
+  --ink-faint: #8f8c86;
+
+  /* Movementology gold from the official logo file (Frontend Specification section 2; design
+     v2 had #fcb813 from the website). A mark and a fill only: 1.7:1 on white, so never text.
+     Ink on gold is 10:1. */
+  --brand: #fcb714;
+  --brand-deep: #bb8503;
+  --on-brand: #1b1915;
+
+  /* Ink and gold: near-black actions for staff (primary buttons, selection, links); the gold
+     marks where you are, and is the primary button on patient pages. */
+  --accent: #1b1915;
+  --accent-hover: #35322e;
+  --accent-soft: #f0eeeb;
+  --on-accent: #ffffff;
+
+  /* Focus ring: blue, 4.9:1 on white, so it never looks like a selection. */
+  --focus: #2171cc;
+
+  /* Status: text, tint and border (the NHS tag pattern). Always with a word. Info is also
+     "Checked in" (blue), so amber only ever means "needs attention". */
+  --info: #2460a8;
+  --info-soft: #ebf6ff;
+  --info-line: #b7d4f9;
+  --waiting: #8a5100;
+  --waiting-soft: #fff3d3;
+  --waiting-line: #f0cb8d;
+  --waiting-strong: #bb7400;
+  --active: #1d7339;
+  --active-soft: #ebf9ed;
+  --active-line: #b6ddbd;
+  --done: #5a5853;
+  --done-soft: #f1f0ed;
+  --done-line: #d3d0cc;
+  --danger: #ac2724;
+  --danger-soft: #ffefed;
+  --danger-line: #f6c3bc;
+  --danger-strong: #b7191c;
+  --on-danger: #ffffff;
+  --warning: var(--waiting);
+  --warning-soft: var(--waiting-soft);
+
+  /* Data. Series hues sit away from the status hues; charts label their lines directly.
+     The main series is blue, not the ink accent, so a chart never reads as a button. The
+     centre colours are reserved for comparing centres (and are stored on each centre row). */
+  --viz-1: #1b6ab6;
+  --viz-compare: #cac7c2;
+  --viz-target: #66635d;
+  --viz-centre-1: #2f74bb;
+  --viz-centre-2: #7f5bb6;
+  --viz-centre-3: #1c8580;
+  --viz-promoter: #2f74bb;
+  --viz-passive: #cdcac5;
+  --viz-detractor: #d8662a;
+  /* Sequential ramp for heatmaps: one hue, lightness falling in even steps. */
+  --viz-ramp-1: #eaf5ff;
+  --viz-ramp-2: #c7e1ff;
+  --viz-ramp-3: #9fc8f7;
+  --viz-ramp-4: #73aceb;
+  --viz-ramp-5: #4c8fd8;
+  --viz-ramp-6: #2773c0;
+  --viz-ramp-7: #0e599d;
+
+  /* Shape and elevation. Panels are bordered with a hairline; only floating layers (menus,
+     popovers, drawers, toasts) cast a real shadow. */
+  --radius-control: 6px;
+  --radius-tag: 6px;
+  --radius-panel: 12px;
+  --radius-sheet: 14px;
+  --radius-drawer: 16px;
+  --shadow-xs: 0 1px 2px rgb(27 25 21 / 5%);
+  --shadow-float: 0 12px 32px -8px rgb(27 25 21 / 18%), 0 2px 6px rgb(27 25 21 / 6%);
+  --shadow-drawer: -24px 0 48px -16px rgb(27 25 21 / 18%), -1px 0 0 rgb(27 25 21 / 4%);
+  --scrim: rgb(27 25 21 / 40%);
+
+  /* Layout. Controls and rows are 36 px with a mouse and 44 px on touch screens, whatever
+     the width; the kiosk and patient pages use 56 px targets. */
+  --row-height: 36px;
+  --row-height-touch: 44px;
+  --touch-target-patient: 56px;
+  --sidebar-width: 240px;
+  --rail-width: 64px;
+  --drawer-width: 480px;
+
+  /* Motion: change, never decoration. */
+  --duration-quick: 120ms;
+  --duration-motion: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Type. IBM Plex Sans carries the rupee sign (latin-ext) and tabular figures; Plex Mono is
+     for patient IDs, appointment IDs and bill numbers only. The app loads both with next/font,
+     which sets --font-plex-sans and --font-plex-mono on <html>. */
+  --font-sans: var(--font-plex-sans), 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), 'IBM Plex Mono', ui-monospace, monospace;
+}
