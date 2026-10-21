@@ -57,6 +57,13 @@
       "when": 1792597434946,
       "tag": "20261021154354_access_audit_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792600659112,
+      "tag": "20261021163739_two_step_audit_actions",
+      "breakpoints": true
     }
   ]
 }

@@ -5,12 +5,23 @@ import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { appDb } from '../../lib/db';
 import { AuthNotConfiguredError, supabaseServer } from '../../lib/supabase/server';
+import { safeNextPath } from './next-path';
+import { signInStage, stagePath, type SignInStage } from './two-step';
+
+export interface SignInState {
+  staff: StaffMember;
+  stage: SignInStage;
+  /** A verified authenticator app is set up. */
+  twoStepOn: boolean;
+}
 
 /**
- * The signed in staff member for this request, or null: a valid Supabase session whose user is
- * linked to an active staff row with no passed end date. Read once per request.
+ * Who is signing in on this request and how far they have got, or null: a valid Supabase session
+ * whose user is linked to an active staff row with no passed end date. The assurance level comes
+ * from the session's signed token, the authenticator apps from Supabase Auth itself. Read once
+ * per request.
  */
-export const currentStaff = cache(async (): Promise<StaffMember | null> => {
+export const signInState = cache(async (): Promise<SignInState | null> => {
   let supabase: Awaited<ReturnType<typeof supabaseServer>>;
   try {
     supabase = await supabaseServer();
@@ -19,16 +30,46 @@ export const currentStaff = cache(async (): Promise<StaffMember | null> => {
     throw error;
   }
   const { data } = await supabase.auth.getClaims();
-  const authUserId = data?.claims.sub;
-  if (!authUserId) return null;
-  return (await staffForSignIn(appDb(), authUserId)) ?? null;
+  const claims = data?.claims;
+  if (!claims?.sub) return null;
+  const staff = await staffForSignIn(appDb(), claims.sub);
+  if (!staff) return null;
+
+  // aal2 means a code was entered; otherwise ask Supabase Auth, never the cookie.
+  let twoStepOn = true;
+  if (claims.aal !== 'aal2') {
+    const { data: factors, error } = await supabase.auth.mfa.listFactors();
+    if (error) return null;
+    twoStepOn = factors.totp.length > 0;
+  }
+  return {
+    staff,
+    stage: signInStage({ role: staff.role, level: claims.aal, hasAuthenticator: twoStepOn }),
+    twoStepOn,
+  };
 });
 
-/** For signed in pages: the staff member, or a redirect to sign in. */
+/** The fully signed in staff member, or null (not signed in, or two step verification pending). */
+export const currentStaff = cache(async (): Promise<StaffMember | null> => {
+  const state = await signInState();
+  return state?.stage === 'complete' ? state.staff : null;
+});
+
+/** The staff app page this request is for, set by proxy.ts, as a `?next=` for later. */
+async function nextQuery(): Promise<string> {
+  const path = safeNextPath((await headers()).get('x-clinic-path'));
+  return path === '/app' ? '' : `?next=${encodeURIComponent(path)}`;
+}
+
+/**
+ * For signed in pages and every server action: the staff member, or a redirect to sign in or to
+ * two step verification, returning to this page afterwards.
+ */
 export async function requireStaff(): Promise<StaffMember> {
-  const staff = await currentStaff();
-  if (!staff) redirect('/app/sign-in');
-  return staff;
+  const state = await signInState();
+  if (!state) redirect(`/app/sign-in${await nextQuery()}`);
+  if (state.stage !== 'complete') redirect(`${stagePath[state.stage]}${await nextQuery()}`);
+  return state.staff;
 }
 
 /** The client's address for the audit trail, as Vercel passes it. */

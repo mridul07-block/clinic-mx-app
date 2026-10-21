@@ -16,7 +16,9 @@ import {
  * are written by `logRecordView`. Rows are never changed or deleted.
  */
 
-// sign_in, sign_out and password_change record staff access (IAM-01); they change no table row.
+// sign_in, sign_out and password_change record staff access (IAM-01); two_step_on and
+// two_step_reset record two step verification turned on or reset by the Super Admin (IAM-02).
+// None of them changes a table row.
 export const auditActions = [
   'insert',
   'update',
@@ -25,6 +27,8 @@ export const auditActions = [
   'sign_in',
   'sign_out',
   'password_change',
+  'two_step_on',
+  'two_step_reset',
 ] as const;
 export const auditAction = pgEnum('audit_action', auditActions);
 

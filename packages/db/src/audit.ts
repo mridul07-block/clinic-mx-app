@@ -62,9 +62,13 @@ export async function logRecordView(
   await db.insert(auditEvent).values({ actor, action: 'view', entity, entityId, ip });
 }
 
-export type AccessAction = 'sign_in' | 'sign_out' | 'password_change';
+export type AccessAction =
+  'sign_in' | 'sign_out' | 'password_change' | 'two_step_on' | 'two_step_reset';
 
-/** Records a staff member signing in, signing out or changing their password (IAM-01). */
+/**
+ * Records access to a staff account (IAM-01, IAM-02): signing in or out, a password change, two
+ * step verification turned on, or reset by the Super Admin. `actor` did it to `staffUserId`.
+ */
 export async function logAccessEvent(
   db: DbOrTransaction,
   { actor, ip, action, staffUserId }: AuditContext & { action: AccessAction; staffUserId: string },

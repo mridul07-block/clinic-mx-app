@@ -7,6 +7,8 @@ const isCI = Boolean(process.env.CI);
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.spec.ts',
+  // Gives the shared test logins an authenticator app (IAM-02); needs the local Supabase stack.
+  globalSetup: './e2e/global-setup.ts',
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
   workers: isCI ? 2 : undefined,

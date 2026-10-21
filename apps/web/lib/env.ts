@@ -18,6 +18,11 @@ const serverEnvSchema = z.object({
   SUPABASE_URL: z.url({ protocol: /^https?$/ }).optional(),
   /** The anon (public) key; the server uses it for Supabase Auth on behalf of staff. */
   SUPABASE_ANON_KEY: z.string().min(1).optional(),
+  /**
+   * The service role key, for the few admin actions only the server makes (IAM-02: the Super
+   * Admin resetting two step verification). Never sent to the browser.
+   */
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   /** Sent by pg_cron with every job tick (FND-10); at least 32 characters. */
   JOBS_SECRET: z.string().min(32).optional(),
 });

@@ -24,3 +24,11 @@ export const staffRoleLabels: Record<StaffRole, string> = {
   physiotherapist: 'Physiotherapist',
   finance: 'Finance',
 };
+
+/**
+ * Two step verification (PRD section 2, TAD section 5): required for every role except Front
+ * Desk, where it is optional (turned on from the account page).
+ */
+export function twoStepRequired(role: StaffRole): boolean {
+  return role !== 'front_desk';
+}

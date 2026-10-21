@@ -1,17 +1,68 @@
-import { expect, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { expect, test, type Page } from '@playwright/test';
+import { createClient } from '@supabase/supabase-js';
+import { totpCode } from './totp';
 
-// Signing in for end to end tests (IAM-01). The staff are the seed's generated test people
-// (packages/db/src/seed/data.ts); `pnpm db:seed` gives each a login with
-// CLINIC_MX_SEED_STAFF_PASSWORD on the local Supabase stack (docs/runbooks/auth.md).
+// Signing in for end to end tests (IAM-01, IAM-02). The staff are the seed's generated test
+// people (packages/db/src/seed/data.ts); `pnpm db:seed` gives each a login with
+// CLINIC_MX_SEED_STAFF_PASSWORD on the local Supabase stack (docs/runbooks/auth.md), and
+// global-setup.ts gives the accounts that sign in with a code an authenticator app.
+//
+// Tests running side by side never sign in as the same person: Supabase Auth refuses one of two
+// code checks for one person that overlap, and ends that person's other half finished sign ins.
+// So each test file has its own account per project (phone, desktop).
 
 export const testStaff = {
-  physio: { email: 'physio.hsr@clinicmx.test', name: 'Test Consultant Physio HSR' },
-  finance: { email: 'finance@clinicmx.test', name: 'Test Finance' },
-  manager: { email: 'manager@clinicmx.test', name: 'Test Centre Manager' },
-  // Password reset tests change the password, so each project has its own account.
+  physio: {
+    email: 'physio.hsr@clinicmx.test',
+    name: 'Test Consultant Physio HSR',
+    role: 'Physiotherapist',
+  },
+  manager: { email: 'manager@clinicmx.test', name: 'Test Centre Manager', role: 'Centre Manager' },
+  finance: { email: 'finance@clinicmx.test', name: 'Test Finance', role: 'Finance' },
+  superAdmin: { email: 'super.admin@clinicmx.test', name: 'Test Super Admin', role: 'Super Admin' },
+  // Front Desk, never asked for a code; signs in only, so any test may use it.
+  desk: { email: 'desk.hsr@clinicmx.test', name: 'Test Front Desk HSR', role: 'Front Desk' },
+  // Tests that change an account (password, two step setup).
   resetPhone: { email: 'desk.koramangala@clinicmx.test', name: 'Test Front Desk Koramangala' },
   resetDesktop: { email: 'desk.whitefield@clinicmx.test', name: 'Test Front Desk Whitefield' },
+  setupPhone: { email: 'physio.koramangala@clinicmx.test', name: 'Test Physio Koramangala' },
+  setupDesktop: {
+    email: 'physio.whitefield@clinicmx.test',
+    name: 'Test Consultant Physio Whitefield',
+  },
 } as const;
+
+/** Accounts global setup gives an authenticator app. */
+export const accountsWithAuthenticator = [
+  testStaff.physio,
+  testStaff.manager,
+  testStaff.finance,
+  testStaff.superAdmin,
+];
+
+interface TestAccount {
+  email: string;
+  name: string;
+  role?: string;
+}
+
+const perProject = <T extends TestAccount>(phone: T, desktop: T): T =>
+  test.info().project.name === 'phone' ? phone : desktop;
+
+type WithRole = TestAccount & { role: string };
+
+/** The account autosave.spec.ts signs in with. */
+export const autosaveStaff = () => perProject<WithRole>(testStaff.physio, testStaff.manager);
+/** The account auth.spec.ts signs in with. */
+export const signInStaff = () => perProject<WithRole>(testStaff.finance, testStaff.superAdmin);
+/** The account two-step.spec.ts sets two step verification up for. */
+export const setupStaff = () =>
+  perProject<TestAccount>(testStaff.setupPhone, testStaff.setupDesktop);
+/** The Front Desk account auth.spec.ts changes (password, two step on). */
+export const changingDeskStaff = () =>
+  perProject<TestAccount>(testStaff.resetPhone, testStaff.resetDesktop);
 
 function required(name: string): string {
   const value = process.env[name];
@@ -24,13 +75,35 @@ function required(name: string): string {
 export const seedPassword = () => required('CLINIC_MX_SEED_STAFF_PASSWORD');
 export const supabaseUrl = () => required('SUPABASE_URL');
 
-/** Signs in through the sign in page and waits for the page it leads to. */
+function twoStepSecret(email: string): string {
+  const secrets = JSON.parse(
+    readFileSync(join(import.meta.dirname, '.auth', 'two-step.json'), 'utf8'),
+  ) as Record<string, string>;
+  const secret = secrets[email];
+  if (!secret) throw new Error(`No authenticator app for ${email} from global setup`);
+  return secret;
+}
+
+/** Enters the current code from `secret` on the two step page. */
+export async function enterCode(page: Page, secret: string) {
+  await page.getByLabel('6 digit code').fill(totpCode(secret));
+  await page.getByRole('button', { name: 'Verify' }).click();
+}
+
+/**
+ * Signs in through the sign in page, with a code from the authenticator app when the account
+ * has one from global setup, and waits for the page it leads to.
+ */
 export async function signIn(page: Page, email: string, password = seedPassword()) {
   if (!page.url().includes('/app/sign-in')) await page.goto('/app/sign-in');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).not.toHaveURL(/\/app\/sign-in/);
+  if (new URL(page.url()).pathname === '/app/two-step') {
+    await enterCode(page, twoStepSecret(email));
+    await expect(page).not.toHaveURL(/\/app\/two-step/);
+  }
 }
 
 /**
@@ -88,4 +161,46 @@ export async function resetLinkFor(email: string): Promise<string> {
     )
     .toBeTruthy();
   return (link ?? '').replaceAll('&amp;', '&');
+}
+
+const adminClient = () =>
+  createClient(supabaseUrl(), required('SUPABASE_SERVICE_ROLE_KEY'), {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+async function authUserId(email: string): Promise<string> {
+  const { data, error } = await adminClient().auth.admin.listUsers({ perPage: 200 });
+  if (error) throw error;
+  const user = data.users.find((u) => u.email === email);
+  if (!user) throw new Error(`No login for ${email}: run pnpm db:seed with the staff password.`);
+  return user.id;
+}
+
+/** Removes every authenticator app from a login, as the Super Admin reset does. */
+export async function clearTwoStep(email: string) {
+  const admin = adminClient();
+  const userId = await authUserId(email);
+  const { data, error } = await admin.auth.admin.mfa.listFactors({ userId });
+  if (error) throw error;
+  for (const factor of data.factors) {
+    const removed = await admin.auth.admin.mfa.deleteFactor({ userId, id: factor.id });
+    if (removed.error) throw removed.error;
+  }
+}
+
+/** Adds an authenticator app to a login through Supabase Auth; returns its secret. */
+export async function addAuthenticator(email: string, password = seedPassword()): Promise<string> {
+  const client = createClient(supabaseUrl(), required('SUPABASE_ANON_KEY'), {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const signedIn = await client.auth.signInWithPassword({ email, password });
+  if (signedIn.error) throw signedIn.error;
+  const enrolled = await client.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Tests' });
+  if (enrolled.error) throw enrolled.error;
+  const verified = await client.auth.mfa.challengeAndVerify({
+    factorId: enrolled.data.id,
+    code: totpCode(enrolled.data.totp.secret),
+  });
+  if (verified.error) throw verified.error;
+  return enrolled.data.totp.secret;
 }

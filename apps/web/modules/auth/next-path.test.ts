@@ -27,6 +27,8 @@ describe('safeNextPath', () => {
   it('never returns to a sign in page', () => {
     expect(safeNextPath('/app/sign-in')).toBe('/app');
     expect(safeNextPath('/app/reset-password?token_hash=x')).toBe('/app');
+    expect(safeNextPath('/app/two-step')).toBe('/app');
+    expect(safeNextPath('/app/two-step/setup?next=%2Fapp')).toBe('/app');
   });
 });
 

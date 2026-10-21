@@ -1,13 +1,16 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
+  changingDeskStaff,
   clearMail,
+  clearTwoStep,
   resetLinkFor,
   seedPassword,
   setPassword,
   signIn,
+  signInStaff,
   supabaseUrl,
-  testStaff,
 } from './staff';
+import { totpCode } from './totp';
 
 // IAM-01 done when: login works with no browser call to Supabase. Staff sign in, sign out and
 // reset their password through our server only; runs on the 360 px phone and on desktop against
@@ -34,11 +37,10 @@ test('signs in and out with no browser call to Supabase', async ({ page, context
   await expect(page).toHaveURL(/\/app\/sign-in$/);
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
 
-  await signIn(page, testStaff.physio.email);
+  const staff = signInStaff();
+  await signIn(page, staff.email);
   await expect(page).toHaveURL(/\/app$/);
-  await expect(
-    page.getByText(`Signed in as ${testStaff.physio.name}, Physiotherapist`),
-  ).toBeVisible();
+  await expect(page.getByText(`Signed in as ${staff.name}, ${staff.role}`)).toBeVisible();
 
   // The session lives in HTTP only, secure, same site cookies that page scripts cannot read.
   const session = (await context.cookies()).filter((cookie) => cookie.name.startsWith('sb-'));
@@ -59,12 +61,12 @@ test('signs in and out with no browser call to Supabase', async ({ page, context
 test('returns to the page that was asked for after signing in', async ({ page }) => {
   await page.goto('/app/test-harness/autosave?id=next-check');
   await expect(page).toHaveURL(/\/app\/sign-in\?next=/);
-  await signIn(page, testStaff.finance.email);
+  await signIn(page, signInStaff().email);
   await expect(page).toHaveURL(/\/app\/test-harness\/autosave\?id=next-check$/);
 });
 
 test('a signed in person opening sign in goes to the staff app', async ({ page }) => {
-  await signIn(page, testStaff.manager.email);
+  await signIn(page, signInStaff().email);
   await page.goto('/app/sign-in');
   await expect(page).toHaveURL(/\/app$/);
 });
@@ -75,11 +77,12 @@ test('wrong details are refused without saying whether the email has an account'
   await page.goto('/app/sign-in');
   const refusal = page.getByText('That email and password do not match an active staff account.');
 
-  await page.getByLabel('Email').fill(testStaff.physio.email);
+  const { email } = signInStaff();
+  await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill('not the password');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(refusal).toBeVisible();
-  await expect(page.getByLabel('Email')).toHaveValue(testStaff.physio.email);
+  await expect(page.getByLabel('Email')).toHaveValue(email);
 
   await page.getByLabel('Email').fill('nobody@clinicmx.test');
   await page.getByLabel('Password', { exact: true }).fill('not the password');
@@ -91,7 +94,7 @@ test('wrong details are refused without saying whether the email has an account'
 test('signing out deletes drafts from the device, after asking if any are unsaved', async ({
   page,
 }) => {
-  await signIn(page, testStaff.physio.email);
+  await signIn(page, signInStaff().email);
   // A draft the server cannot save: it stays on the device.
   await page.route('**/api/test-harness/notes/**', (route) =>
     route.request().method() === 'PUT' ? route.abort() : route.continue(),
@@ -129,12 +132,38 @@ test('signing out deletes drafts from the device, after asking if any are unsave
   expect(drafts).toBe(0);
 });
 
-test.describe('password reset', () => {
-  const account = () =>
-    test.info().project.name === 'phone' ? testStaff.resetPhone : testStaff.resetDesktop;
+// Tests that change a Front Desk account: one account per project, in this file so they never
+// run at the same time.
+test.describe('Front Desk account changes', () => {
+  const account = changingDeskStaff;
 
+  test.beforeEach(async () => {
+    await clearTwoStep(account().email);
+  });
   test.afterEach(async () => {
     await setPassword(account().email, seedPassword());
+    await clearTwoStep(account().email);
+  });
+
+  test('Front Desk can turn two step verification on from the account page', async ({ page }) => {
+    const { email } = account();
+    await signIn(page, email);
+    await expect(page).toHaveURL(/\/app$/);
+    await page.getByRole('link', { name: 'Account' }).click();
+    await page.getByRole('link', { name: 'Turn on two step verification' }).click();
+    await expect(page.getByText('Each time you sign in you will also enter a code')).toBeVisible();
+    const secret = (await page.getByTestId('two-step-key').innerText()).replace(/\s/g, '');
+    await page.getByLabel('6 digit code').fill(totpCode(secret));
+    await page.getByRole('button', { name: 'Turn on two step verification' }).click();
+    await expect(page).toHaveURL(/\/app\/account\?two-step=on$/);
+    await expect(page.getByText('Two step verification is on.')).toBeVisible();
+
+    // From now on Front Desk is asked for a code like everyone else.
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Password', { exact: true }).fill(seedPassword());
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page).toHaveURL(/\/app\/two-step$/);
   });
 
   test('a reset link from email sets a new password, once', async ({ page }) => {

@@ -5,7 +5,7 @@ import {
   type BrowserContext,
   type Page,
 } from '@playwright/test';
-import { signIn, testStaff } from './staff';
+import { autosaveStaff, signIn } from './staff';
 
 // FND-08: edits survive reload and offline; sync on reconnect with a conflict notice. Uses the
 // autosave test harness (on only in the Playwright web server), on the 360 px phone and desktop.
@@ -22,7 +22,7 @@ async function savedText(request: APIRequestContext): Promise<string> {
 
 // The harness is a signed in page; drafts belong to the signed in staff member (IAM-01).
 test.beforeEach(async ({ page }) => {
-  await signIn(page, testStaff.physio.email);
+  await signIn(page, autosaveStaff().email);
 });
 
 async function openNote(page: Page) {

@@ -15,5 +15,6 @@ export function safeNextPath(next: unknown): string {
   }
   if (url.origin !== 'https://clinic.invalid') return '/app';
   if (!/^\/app(\/|$)/.test(url.pathname) || publicStaffPath.test(url.pathname)) return '/app';
+  if (/^\/app\/two-step(\/|$)/.test(url.pathname)) return '/app';
   return `${url.pathname}${url.search}`;
 }
