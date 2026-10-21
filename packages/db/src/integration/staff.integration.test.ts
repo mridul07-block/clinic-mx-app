@@ -1,5 +1,5 @@
 import { staffDetailsSchema } from '@clinic-mx/schemas';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { withStaffAccess } from '../access';
 import { recordAccessEvent } from '../audit';
@@ -8,7 +8,9 @@ import type { StaffMember } from '../identity';
 import { auditEvent, staffUser } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import {
+  endStaffSessions,
   insertStaffMember,
+  linkStaffLogin,
   setStaffMemberActive,
   staffEmailTaken,
   staffList,
@@ -153,5 +155,47 @@ describe('staff management as anyone else', () => {
       .from(staffUser)
       .where(eq(staffUser.id, desk.id));
     expect(row?.active).toBe(true);
+  });
+});
+
+describe('ending a staff member’s sessions (IAM-07)', () => {
+  it('deletes only that login’s sessions, and only for the Super Admin', async () => {
+    const login = crypto.randomUUID();
+    const otherLogin = crypto.randomUUID();
+    for (const id of [login, otherLogin]) {
+      await db.execute(
+        sql`insert into auth.users (id, email) values (${id}::uuid, ${`${id}@clinicmx.test`})`,
+      );
+      await db.execute(
+        sql`insert into auth.sessions (id, user_id) values (gen_random_uuid(), ${id}::uuid), (gen_random_uuid(), ${id}::uuid)`,
+      );
+    }
+    const sessionsOf = async (id: string) =>
+      (
+        await db.execute<{ n: number }>(
+          sql`select count(*)::int as n from auth.sessions where user_id = ${id}::uuid`,
+        )
+      )[0]?.n;
+    try {
+      const staffUserId = await withStaffAccess(db, { actor: superAdmin }, async (tx) => {
+        const id = await insertStaffMember(tx, { email: newEmail(), details: details() });
+        await linkStaffLogin(tx, id, login);
+        return id;
+      });
+      await expect(
+        withStaffAccess(db, { actor: manager }, (tx) => endStaffSessions(tx, staffUserId)),
+      ).rejects.toThrow();
+      expect(await sessionsOf(login)).toBe(2);
+
+      expect(
+        await withStaffAccess(db, { actor: superAdmin }, (tx) => endStaffSessions(tx, staffUserId)),
+      ).toBe(2);
+      expect(await sessionsOf(login)).toBe(0);
+      expect(await sessionsOf(otherLogin)).toBe(2);
+    } finally {
+      await db.execute(
+        sql`delete from auth.users where id in (${login}::uuid, ${otherLogin}::uuid)`,
+      );
+    }
   });
 });

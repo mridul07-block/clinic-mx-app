@@ -1,5 +1,6 @@
 import 'server-only';
 import {
+  endStaffSessions,
   insertStaffMember,
   linkStaffLogin,
   recordAccessEvent,
@@ -108,6 +109,8 @@ export const setStaffActive = staffService({
       throw new StaffActionError('You cannot deactivate yourself.');
     }
     await setStaffMemberActive(tx, staffUserId, active);
+    // IAM-07: a deactivated person's sessions end at once, on every device.
+    if (!active) await endStaffSessions(tx, staffUserId);
   },
 });
 

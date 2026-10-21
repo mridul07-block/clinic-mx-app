@@ -176,3 +176,14 @@ export async function linkStaffLogin(
 export function centreOptions(db: DbOrTransaction): Promise<{ id: string; name: string }[]> {
   return db.select({ id: centre.id, name: centre.name }).from(centre).orderBy(asc(centre.name));
 }
+
+/**
+ * Ends every Supabase session of a staff member's login (IAM-07), so no device can refresh a
+ * token for them. Only the Super Admin, under row level security; returns how many ended.
+ */
+export async function endStaffSessions(db: DbOrTransaction, staffUserId: string): Promise<number> {
+  const rows = await db.execute<{ ended: number }>(
+    sql`select internal.end_staff_sessions(${staffUserId}::uuid) as ended`,
+  );
+  return rows[0]?.ended ?? 0;
+}

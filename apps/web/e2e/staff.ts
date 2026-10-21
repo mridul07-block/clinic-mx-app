@@ -3,14 +3,17 @@ import { join } from 'node:path';
 import {
   centre,
   createDb,
+  endStaffSessions,
+  setStaffMemberActive,
   staffUser,
   staffUserCentre,
   systemActor,
   withActor,
+  withStaffAccess,
 } from '@clinic-mx/db';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { totpCode } from './totp';
 
 // Signing in for end to end tests (IAM-01, IAM-02). The staff are the seed's generated test
@@ -293,4 +296,61 @@ export async function centreId(name: string): Promise<string> {
   const [row] = await testDb().select({ id: centre.id }).from(centre).where(eq(centre.name, name));
   if (!row) throw new Error(`No centre ${name}`);
   return row.id;
+}
+
+/**
+ * A new Front Desk member at HSR Layout with a login and the seed password, made for one test
+ * (IAM-07), so changing or deactivating them touches no shared account. The row stays afterwards
+ * (deactivated): staff are never deleted.
+ */
+export async function temporaryDesk(): Promise<{ id: string; email: string; name: string }> {
+  const suffix = crypto.randomUUID().slice(0, 8);
+  const email = `temporary.${suffix}@clinicmx.test`;
+  const name = `Test Temporary ${suffix}`;
+  const { data, error } = await adminClient().auth.admin.createUser({
+    email,
+    password: seedPassword(),
+    email_confirm: true,
+  });
+  if (error) throw error;
+  const hsr = await centreId('HSR Layout');
+  const id = await withActor(testDb(), systemActor('tests'), async (tx) => {
+    const [row] = await tx
+      .insert(staffUser)
+      .values({ email, name, role: 'front_desk', authUserId: data.user.id })
+      .returning({ id: staffUser.id });
+    if (!row) throw new Error('temporary staff row not added');
+    await tx.insert(staffUserCentre).values({ staffUserId: row.id, centreId: hsr });
+    return row.id;
+  });
+  return { id, email, name };
+}
+
+/**
+ * Deactivates a staff member the way the Super Admin's staff service does: as the seed Super
+ * Admin under row level security, ending their Supabase sessions. Returns how many ended.
+ */
+export async function deactivateAsSuperAdmin(staffUserId: string): Promise<number> {
+  const admin = await staffRow(testStaff.superAdmin.email);
+  const actor = {
+    id: admin.id,
+    email: admin.email,
+    name: admin.name,
+    role: admin.role,
+    treatsPatients: admin.treatsPatients,
+    consultant: admin.consultant,
+    centreIds: [],
+  };
+  return withStaffAccess(testDb(), { actor }, async (tx) => {
+    await setStaffMemberActive(tx, staffUserId, false);
+    return endStaffSessions(tx, staffUserId);
+  });
+}
+
+/** How many Supabase sessions a login has. */
+export async function sessionCount(email: string): Promise<number> {
+  const rows = await testDb().execute<{ n: number }>(
+    sql`select count(*)::int as n from auth.sessions s join auth.users u on u.id = s.user_id where u.email = ${email}`,
+  );
+  return rows[0]?.n ?? 0;
 }

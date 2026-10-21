@@ -29,6 +29,18 @@ export {
   type StaffRole,
 } from './staff';
 export {
+  DESKTOP_MEDIA_QUERY,
+  deviceClass,
+  deviceClassSchema,
+  deviceClasses,
+  passwordSignInTime,
+  sessionEndReasons,
+  sessionVerdict,
+  type DeviceClass,
+  type SessionEndReason,
+  type SessionFacts,
+} from './session';
+export {
   accessScope,
   actions,
   can,
