@@ -27,6 +27,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Full history, so the forward only check can find where the branch started.
+          fetch-depth: 0
 
       # pnpm first, so setup-node can cache the pnpm store. The version comes from
       # "packageManager" in package.json.
@@ -53,6 +55,30 @@ jobs:
 
       - name: Unit tests
         run: pnpm test
+
+      # FND-04: every schema change ships with its generated migration.
+      - name: Check migrations match the schema
+        run: |
+          pnpm db:generate
+          if [ -n "$(git status --porcelain -- supabase/migrations)" ]; then
+            git status --short -- supabase/migrations
+            echo "::error::The schema changed without a migration. Run pnpm db:generate and commit the result."
+            exit 1
+          fi
+
+      # Rule 18: migrations are forward only. A merged migration is never edited, renamed or deleted.
+      - name: Check migrations are forward only
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          changed=$(git diff --name-status --diff-filter=MDR "origin/$BASE_REF...HEAD" \
+            -- 'supabase/migrations/*.sql')
+          if [ -n "$changed" ]; then
+            echo "$changed"
+            echo "::error::Existing migrations changed. Add a new migration instead."
+            exit 1
+          fi
 
   e2e:
     name: End to end (360 px phone and desktop)
@@ -93,11 +119,15 @@ jobs:
           retention-days: 7
 
   # FND-03: the local Supabase stack from supabase/config.toml. It runs here rather than on
-  # developer machines; IAM-05 adds the row level security tests against it.
+  # developer machines. FND-04 applies the migrations, seeds and runs the database tests;
+  # IAM-05 adds the row level security tests per role.
   supabase:
     name: Local Supabase stack
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      CLINIC_MX_SEED_TARGET: local
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -116,16 +146,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Applies every migration in supabase/migrations to an empty database.
       - name: Start local Supabase
         run: pnpm db:start
 
       - name: Check Postgres answers with the staging major version
         run: |
           pnpm db:status
-          major=$(psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -tAc \
+          major=$(psql "$DIRECT_DATABASE_URL" -tAc \
             "select current_setting('server_version_num')::int / 10000")
           echo "local Postgres major version: $major"
           test "$major" = "17"
+
+      - name: Seed
+        run: pnpm db:seed
+
+      - name: Database tests
+        run: pnpm --filter @clinic-mx/db test:integration
 
       - name: Stop local Supabase
         if: ${{ always() }}

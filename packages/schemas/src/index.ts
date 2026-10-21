@@ -3,3 +3,4 @@
  * response that crosses the network boundary is described here once.
  */
 export { healthResponseSchema, type HealthResponse } from './health';
+export { staffRoles, staffRoleSchema, type StaffRole } from './staff';

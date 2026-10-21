@@ -1,0 +1,64 @@
+# FND-04: applies new migrations to the staging database on every merge to main, then
+# refreshes the seed (TAD section 10). Production gets its own workflow at the upgrade.
+# Actions are pinned to commit SHAs (version in the comment).
+name: Migrate staging
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - supabase/migrations/**
+      - packages/db/**
+      - .github/workflows/migrate-staging.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One migration run at a time, and never cancel one halfway.
+concurrency:
+  group: migrate-staging
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Apply migrations and seed
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      # Session pooler (port 5432, IPv4); repository secret.
+      DIRECT_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      CLINIC_MX_SEED_TARGET: staging
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Install Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check the secret is set
+        run: |
+          if [ -z "$DIRECT_DATABASE_URL" ]; then
+            echo "::error::Repository secret STAGING_DATABASE_URL is not set."
+            exit 1
+          fi
+
+      - name: Apply migrations
+        run: pnpm exec supabase db push --db-url "$DIRECT_DATABASE_URL" --yes
+
+      - name: List applied migrations
+        run: pnpm exec supabase migration list --db-url "$DIRECT_DATABASE_URL"
+
+      - name: Seed
+        run: pnpm db:seed

@@ -1,5 +1,7 @@
 /**
- * Clinic Mx database: Drizzle schema, SQL migrations, row level security policies
- * and seed data. The schema and migrations pipeline arrive with FND-04.
+ * Clinic Mx database: Drizzle schema, the client, and seed data. Migrations are generated
+ * from the schema into `supabase/migrations` (`pnpm db:generate`); see
+ * docs/runbooks/supabase.md.
  */
-export {};
+export * from './schema';
+export { createDb, type Db } from './client';
