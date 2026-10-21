@@ -5,7 +5,7 @@ import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
 import { currentStaffClaims, type StaffMember } from '../identity';
 import { auditEvent, centre, job, setting, staffUser, staffUserCentre, task } from '../schema';
-import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
+import { centreIds, seedCentres, seedStaff, seedStaffCentres } from '../seed/data';
 
 // IAM-05 done when: tests prove each role sees only allowed rows. Each role runs as a seed staff
 // member through withStaffAccess, the way the app runs every staff request. CI database only.
@@ -259,7 +259,9 @@ describe('what each role may change', () => {
       );
     }
     await expect(
-      as(manager, (tx) => tx.insert(centre).values({ name: 'Not allowed', colour: '#2F74BB' })),
+      as(manager, (tx) =>
+        tx.insert(centre).values({ name: 'Not allowed', colour: seedCentres[0]?.colour ?? '' }),
+      ),
     ).rejects.toThrow();
   });
 
