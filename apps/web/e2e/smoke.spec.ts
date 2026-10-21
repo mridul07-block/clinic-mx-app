@@ -26,3 +26,12 @@ for (const path of ['/app', '/p/test-token']) {
     expect(overflow).toBeLessThanOrEqual(0);
   });
 }
+
+test('the job tick refuses a caller without the jobs secret', async ({ request }) => {
+  expect((await request.post('/api/jobs/tick')).status()).toBe(401);
+  const wrong = await request.post('/api/jobs/tick', {
+    headers: { Authorization: 'Bearer wrong' },
+  });
+  expect(wrong.status()).toBe(401);
+  expect((await request.get('/api/jobs/tick')).status()).toBe(405);
+});

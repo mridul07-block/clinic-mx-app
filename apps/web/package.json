@@ -11,6 +11,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@clinic-mx/db": "workspace:*",
     "@clinic-mx/schemas": "workspace:*",
     "@clinic-mx/ui": "workspace:*",
     "@tailwindcss/postcss": "4.3.3",
