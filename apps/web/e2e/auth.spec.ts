@@ -249,6 +249,8 @@ test.describe('Front Desk account changes', () => {
 
     await page.goto('/app/sign-in');
     await page.getByRole('link', { name: 'Forgot password?' }).click();
+    // The sign in page has an Email field too: wait for the reset page before typing.
+    await expect(page.getByRole('heading', { name: 'Reset your password' })).toBeVisible();
     await page.getByLabel('Email').fill(email);
     await page.getByRole('button', { name: 'Send reset link' }).click();
     await expect(page.getByText(`If ${email} has a staff account`)).toBeVisible();
