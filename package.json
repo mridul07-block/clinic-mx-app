@@ -20,7 +20,9 @@
     "supabase": "supabase",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
-    "db:status": "supabase status"
+    "db:status": "supabase status",
+    "db:generate": "pnpm --filter @clinic-mx/db db:generate",
+    "db:seed": "pnpm --filter @clinic-mx/db db:seed"
   },
   "devDependencies": {
     "@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
