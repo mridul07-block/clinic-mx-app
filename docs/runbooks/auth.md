@@ -100,8 +100,10 @@ so our server enforces these.
     (G7, `DESKTOP_MEDIA_QUERY`), kept in the HTTP-only cookie `clinic_device`.
   - Anything unknown counts as desktop, the stricter rule.
 - **Desktop: signed out after `security.desktop_idle_logout_minutes` (15) without activity.**
-  - The server keeps the last activity in the HTTP-only cookie `clinic_last_seen`. Every page,
-    server action and activity ping counts; the session check and router prefetches do not.
+  - The server keeps the last activity in the HTTP-only cookie `clinic_last_seen`. Every page and
+    activity ping counts. The session check, server actions (a cookie on their answer re-renders
+    the page) and router prefetches do not. Prefetches are recognised because `next.config.ts`
+    sets `skipProxyUrlNormalize` (IAM-08).
   - `proxy.ts` signs out a session idle for longer (audited `sign_out`) and sends the person to
     `/app/sign-in?reason=idle`. This also catches a laptop that slept or a tab that was closed.
   - In the open page, `IdleLogout` (`app/(staff)/app/(signed-in)/session-guard.tsx`) watches for
