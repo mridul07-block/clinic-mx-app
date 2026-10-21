@@ -4,10 +4,13 @@
  */
 export { healthResponseSchema, type HealthResponse } from './health';
 export {
+  sameStaffClaims,
+  staffClaimsSchema,
   staffRoleLabels,
   staffRoles,
   staffRoleSchema,
   twoStepRequired,
+  type StaffClaims,
   type StaffRole,
 } from './staff';
 export {

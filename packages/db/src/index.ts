@@ -54,4 +54,10 @@ export {
   type SettingsReader,
   type SettingsReaderOptions,
 } from './settings';
-export { authUserIdForStaff, staffForSignIn, type StaffMember } from './identity';
+export {
+  authUserIdForStaff,
+  centreNamesForStaff,
+  currentStaffClaims,
+  staffForSignIn,
+  type StaffMember,
+} from './identity';

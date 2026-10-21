@@ -1,14 +1,16 @@
+import { centreNamesForStaff } from '@clinic-mx/db';
 import { staffRoleLabels, twoStepRequired } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { FormMessage, primaryButtonClass } from '../../../../../components/forms';
+import { appDb } from '../../../../../lib/db';
 import { requireStaff, signInState } from '../../../../../modules/auth/session';
 import { SignOutButton } from '../sign-out-button';
 
 export const metadata: Metadata = { title: 'Account · Clinic Mx' };
 
-// The signed in staff member's own account (IAM-02): who they are, and two step verification,
-// which Front Desk can turn on here.
+// The signed in staff member's own account: who they are, their centres and ticks (IAM-03), and
+// two step verification, which Front Desk can turn on here (IAM-02).
 export default async function AccountPage({
   searchParams,
 }: {
@@ -17,6 +19,14 @@ export default async function AccountPage({
   const staff = await requireStaff();
   const twoStepOn = (await signInState())?.twoStepOn ?? false;
   const justTurnedOn = (await searchParams)['two-step'] === 'on';
+  // PRD section 2: Super Admin and Finance see every centre; everyone else their assigned ones.
+  const allCentres = staff.role === 'super_admin' || staff.role === 'finance';
+  const assigned = allCentres ? [] : await centreNamesForStaff(appDb(), staff.id);
+  const centres = allCentres ? 'All centres' : assigned.join(', ') || 'None assigned';
+  const ticks =
+    [staff.treatsPatients ? 'Treats patients' : '', staff.consultant ? 'Consultant' : '']
+      .filter(Boolean)
+      .join(', ') || 'None';
 
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
@@ -27,6 +37,17 @@ export default async function AccountPage({
         </p>
         <p className="text-ink-muted">{staff.email}</p>
       </div>
+
+      <dl className="flex flex-col gap-3 rounded-panel border border-line bg-surface p-4">
+        <div className="flex flex-col gap-0.5">
+          <dt className="text-sm text-ink-muted">Centres</dt>
+          <dd className="text-ink">{centres}</dd>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <dt className="text-sm text-ink-muted">Clinical ticks</dt>
+          <dd className="text-ink">{ticks}</dd>
+        </div>
+      </dl>
 
       <section className="flex flex-col gap-3 rounded-panel border border-line bg-surface p-4">
         <h2 className="font-semibold text-ink">Two step verification</h2>
