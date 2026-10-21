@@ -1,0 +1,42 @@
+/*
+ * Base styles for every page of the demo (design system v2). Import after tailwindcss,
+ * tokens.css and theme.css.
+ */
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  /* Ink on the canvas, IBM Plex Sans, staff base size 14/20; patient pages set 16 px.
+     Prose uses proportional figures; tables, times, money and KPIs opt into tabular ones
+     with the tabular-nums utility. (IBM Plex Sans draws tabular figures by default.) */
+  body {
+    background-color: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-variant-numeric: proportional-nums;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* One focus ring for every control: blue, 2 px, 2 px off, so it never looks like a
+     selection. */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  /* Nothing moves when the user asks for reduced motion. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
