@@ -1,0 +1,19 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Save exact versions when adding dependencies. Every version in package.json is pinned.
+savePrefix: ''
+
+# Refuse to install on a Node version outside "engines".
+engineStrict: true
+
+# Supply chain guard: never install a version published less than a day ago.
+minimumReleaseAge: 1440
+
+# Dependencies allowed to run install scripts. Anything not listed here is denied.
+allowBuilds:
+  # Both get their native binary from a platform optional dependency; the
+  # install scripts only re-check it, so they stay denied.
+  esbuild: false
+  unrs-resolver: false
