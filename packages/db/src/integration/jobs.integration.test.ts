@@ -1,6 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
 import { MAX_JOB_ATTEMPTS, claimJobs, enqueueJob, failJob, retryDelayMinutes } from '../jobs/queue';
 import { runDueJobs, type JobHandlers } from '../jobs/runner';
@@ -18,7 +19,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await first.db.delete(task).where(eq(task.kind, 'job.failed'));
+  await withActor(first.db, systemActor('tests'), (tx) =>
+    tx.delete(task).where(eq(task.kind, 'job.failed')),
+  );
   await first.db.delete(job);
 });
 

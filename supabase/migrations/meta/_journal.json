@@ -22,6 +22,20 @@
       "when": 1792589838050,
       "tag": "20261021133718_jobs_tick_cron",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792592375694,
+      "tag": "20261021141935_audit_event",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792592376986,
+      "tag": "20261021141936_audit_triggers",
+      "breakpoints": true
     }
   ]
 }

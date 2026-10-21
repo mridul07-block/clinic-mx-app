@@ -31,3 +31,14 @@ export {
   type TickOptions,
   type TickResult,
 } from './jobs/runner';
+export {
+  isActor,
+  logRecordView,
+  patientActor,
+  setAuditContext,
+  staffActor,
+  systemActor,
+  withActor,
+  type Actor,
+  type AuditContext,
+} from './audit';

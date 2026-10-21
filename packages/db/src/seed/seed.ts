@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { setAuditContext, systemActor } from '../audit';
 import type { Db } from '../client';
 import { centre, staffUser, staffUserCentre } from '../schema';
 import { seedCentres, seedStaff, seedStaffCentres } from './data';
@@ -20,6 +21,7 @@ export function parseSeedTarget(value: string | undefined): SeedTarget {
 /** Inserts or updates the seed rows in one transaction. Safe to run repeatedly. */
 export async function seed(db: Db) {
   await db.transaction(async (tx) => {
+    await setAuditContext(tx, { actor: systemActor('seed') });
     await tx
       .insert(centre)
       .values(seedCentres)
@@ -31,6 +33,8 @@ export async function seed(db: Db) {
           colour: sql`excluded.colour`,
           updatedAt: sql`now()`,
         },
+        // Only rows that differ, so a re-run writes nothing and adds nothing to the audit trail.
+        setWhere: sql`(${centre.name}, ${centre.address}, ${centre.colour}) is distinct from (excluded.name, excluded.address, excluded.colour)`,
       });
     await tx
       .insert(staffUser)
@@ -45,6 +49,7 @@ export async function seed(db: Db) {
           consultant: sql`excluded.consultant`,
           updatedAt: sql`now()`,
         },
+        setWhere: sql`(${staffUser.name}, ${staffUser.email}, ${staffUser.role}, ${staffUser.treatsPatients}, ${staffUser.consultant}) is distinct from (excluded.name, excluded.email, excluded.role, excluded.treats_patients, excluded.consultant)`,
       });
     await tx.insert(staffUserCentre).values(seedStaffCentres).onConflictDoNothing();
   });
