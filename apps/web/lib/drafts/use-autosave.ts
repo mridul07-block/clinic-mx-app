@@ -1,15 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { useStaff } from '../staff-context';
 import { DraftController, type DraftSaver, type DraftState } from './controller';
 import { claimDraft } from './sync';
 
 /**
- * Whose drafts these are. IAM-01 replaces this with the signed in staff member's id and clears
- * their drafts on sign out; until there are logins every draft belongs to "local".
+ * Whose drafts these are: the signed in staff member, so a shared tablet keeps each person's
+ * drafts apart. Signing out deletes them from the device (sign-out-button.tsx).
  */
 export function useDraftScope(): string {
-  return 'local';
+  return useStaff().id;
 }
 
 export interface AutosaveOptions<T> {

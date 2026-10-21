@@ -6,10 +6,10 @@ test('health endpoint reports ok', async ({ request }) => {
   expect(await response.json()).toMatchObject({ status: 'ok' });
 });
 
-test('root redirects to the staff app', async ({ page }) => {
+test('root leads to staff sign in', async ({ page }) => {
   await page.goto('/');
-  await expect(page).toHaveURL(/\/app$/);
-  await expect(page.getByRole('heading', { name: 'Clinic Mx' })).toBeVisible();
+  await expect(page).toHaveURL(/\/app\/sign-in$/);
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
 });
 
 test('patient page renders', async ({ page }) => {
@@ -17,7 +17,12 @@ test('patient page renders', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Movementology Clinics' })).toBeVisible();
 });
 
-for (const path of ['/app', '/p/test-token']) {
+for (const path of [
+  '/app/sign-in',
+  '/app/forgot-password',
+  '/app/reset-password?token_hash=x',
+  '/p/test-token',
+]) {
   test(`${path} has no horizontal scroll`, async ({ page }) => {
     await page.goto(path);
     const overflow = await page.evaluate(

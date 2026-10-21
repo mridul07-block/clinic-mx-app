@@ -19,7 +19,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "supabase": "supabase",
-    "db:start": "supabase start",
+    "db:start": "supabase start -x studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor",
     "db:stop": "supabase stop",
     "db:status": "supabase status",
     "db:generate": "pnpm --filter @clinic-mx/db db:generate",

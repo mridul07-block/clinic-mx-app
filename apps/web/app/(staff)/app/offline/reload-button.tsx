@@ -1,8 +1,20 @@
 'use client';
 
+import { useEffect } from 'react';
+
 // Primary button recipe from design system v2 section 8 (the Button component arrives with the
-// screens that need it).
+// screens that need it). When the connection returns the page reloads by itself: the staff page
+// that was asked for opens, and it saves any drafts still waiting on the device (FND-08).
 export function ReloadButton() {
+  useEffect(() => {
+    const reload = () => {
+      window.location.reload();
+    };
+    window.addEventListener('online', reload);
+    return () => {
+      window.removeEventListener('online', reload);
+    };
+  }, []);
   return (
     <button
       type="button"

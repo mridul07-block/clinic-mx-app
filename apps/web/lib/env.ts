@@ -14,6 +14,10 @@ const serverEnvSchema = z.object({
   VERCEL_GIT_COMMIT_SHA: z.string().min(1).optional(),
   /** Supabase transaction pooler (port 6543) for the app at runtime. */
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
+  /** Supabase API, called only from the server (rule 9), for example https://<ref>.supabase.co. */
+  SUPABASE_URL: z.url({ protocol: /^https?$/ }).optional(),
+  /** The anon (public) key; the server uses it for Supabase Auth on behalf of staff. */
+  SUPABASE_ANON_KEY: z.string().min(1).optional(),
   /** Sent by pg_cron with every job tick (FND-10); at least 32 characters. */
   JOBS_SECRET: z.string().min(32).optional(),
 });

@@ -16,7 +16,16 @@ import {
  * are written by `logRecordView`. Rows are never changed or deleted.
  */
 
-export const auditActions = ['insert', 'update', 'delete', 'view'] as const;
+// sign_in, sign_out and password_change record staff access (IAM-01); they change no table row.
+export const auditActions = [
+  'insert',
+  'update',
+  'delete',
+  'view',
+  'sign_in',
+  'sign_out',
+  'password_change',
+] as const;
 export const auditAction = pgEnum('audit_action', auditActions);
 
 export const auditEvent = pgTable(

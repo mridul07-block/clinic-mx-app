@@ -15,3 +15,12 @@ export const staffRoles = [
 export const staffRoleSchema = z.enum(staffRoles);
 
 export type StaffRole = z.infer<typeof staffRoleSchema>;
+
+/** How each role is named on screen (PRD section 2). */
+export const staffRoleLabels: Record<StaffRole, string> = {
+  super_admin: 'Super Admin',
+  centre_manager: 'Centre Manager',
+  front_desk: 'Front Desk',
+  physiotherapist: 'Physiotherapist',
+  finance: 'Finance',
+};

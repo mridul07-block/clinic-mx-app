@@ -132,7 +132,7 @@
   --ease-standard: var(--ease-standard);
 
   /* Sizes from the layout tokens: h-row (36 px), h-row-touch (44 px), h-target-patient
-     (56 px), w-drawer (480 px), w-sidebar (240 px) and w-rail (64 px). Controls use h-row
+     (56 px), w-drawer (480 px), w-sidebar (240 px), w-rail (64 px) and max-w-signin (400 px). Controls use h-row
      with pointer-coarse:h-row-touch, so touch screens get 44 px and a mouse keeps 36 px
      at any width. */
   --spacing-row: var(--row-height);
@@ -141,4 +141,5 @@
   --container-drawer: var(--drawer-width);
   --container-sidebar: var(--sidebar-width);
   --container-rail: var(--rail-width);
+  --container-signin: var(--signin-width);
 }

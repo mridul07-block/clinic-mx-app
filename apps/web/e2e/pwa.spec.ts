@@ -80,9 +80,10 @@ test('the staff app shell loads offline', async ({ page, context }) => {
   await page.goto('/app');
   await waitForServiceWorker(page);
 
+  // Signed in pages are never cached (IAM-01); offline, every staff page opens the offline page.
   await context.setOffline(true);
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Clinic Mx' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'You are offline' })).toBeVisible();
   // The styles came from the cache too: the design tokens are defined.
   const canvas = await page.evaluate(() =>
     getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim(),
