@@ -37,6 +37,8 @@ export default defineConfig({
     // group, so Playwright's SIGKILL to the server's group misses them and the run hangs.
     // `next` resolves from node_modules/.bin, which pnpm adds to PATH for `test:e2e`.
     command: `next build && next start --port ${PORT}`,
+    // Turns on the autosave test harness (/app/test-harness/...); never set on Vercel.
+    env: { CLINIC_MX_TEST_HARNESS: '1' },
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: !isCI,
     timeout: 180_000,
