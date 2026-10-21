@@ -25,6 +25,10 @@ const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   /** Sent by pg_cron with every job tick (FND-10); at least 32 characters. */
   JOBS_SECRET: z.string().min(32).optional(),
+  /** Signs patient links (IAM-09); at least 32 random characters. Without it no link opens. */
+  PATIENT_LINK_SECRET: z.string().min(32).optional(),
+  /** The key before PATIENT_LINK_SECRET while it rotates: its links keep working until they end. */
+  PATIENT_LINK_SECRET_PREVIOUS: z.string().min(32).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

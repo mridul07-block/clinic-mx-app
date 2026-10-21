@@ -23,6 +23,16 @@ const nextConfig: NextConfig = {
           { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
         ],
       },
+      {
+        // Patient links (IAM-09): the token in the address never goes on to another site, the
+        // page is never kept by a browser or proxy cache, and search engines leave it alone.
+        source: '/p/:path*',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'Cache-Control', value: 'private, no-store' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+        ],
+      },
     ]);
   },
 };

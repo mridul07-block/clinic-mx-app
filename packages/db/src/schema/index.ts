@@ -5,3 +5,4 @@ export * from './tasks';
 export * from './audit';
 export * from './settings';
 export * from './support';
+export * from './patient-links';

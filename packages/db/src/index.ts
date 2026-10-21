@@ -89,3 +89,16 @@ export {
   type SupportLoginEntry,
   type SupportRequestEntry,
 } from './support';
+export {
+  completePatientLinkRow,
+  findPatientLink,
+  insertPatientLink,
+  readPatientLink,
+  revokeMyPlanLinks,
+  signPatientLink,
+  withPatientAccess,
+  type NewPatientLink,
+  type PatientLinkAccess,
+  type PatientLinkClaim,
+  type PatientLinkKeys,
+} from './patient-links';

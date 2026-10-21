@@ -72,6 +72,15 @@ export {
   type Settings,
 } from './settings';
 export {
+  patientLinkDefinitions,
+  patientLinkExpiry,
+  patientLinkPurposes,
+  subjectFits,
+  type PatientLinkPurpose,
+  type PatientLinkPurposeDefinition,
+  type PatientLinkSubject,
+} from './patient-links';
+export {
   endSupportSchema,
   grantEndsAt,
   grantSupportSchema,

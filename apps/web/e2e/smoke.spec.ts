@@ -12,9 +12,10 @@ test('root leads to staff sign in', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
 });
 
-test('patient page renders', async ({ page }) => {
+test('patient page renders, refusing a made up link (IAM-09)', async ({ page }) => {
   await page.goto('/p/test-token');
-  await expect(page.getByRole('heading', { name: 'Movementology Clinics' })).toBeVisible();
+  await expect(page.getByText('Movementology Clinics')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'We could not open this link' })).toBeVisible();
 });
 
 for (const path of [

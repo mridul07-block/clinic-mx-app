@@ -1,5 +1,5 @@
 import 'server-only';
-import { withStaffAccess, type Db, type StaffMember } from '@clinic-mx/db';
+import { systemActor, withActor, withStaffAccess, type Db, type StaffMember } from '@clinic-mx/db';
 import type { AccessTarget, Action } from '@clinic-mx/schemas';
 import type { z } from 'zod';
 import { assertCan, assertMay, assertMayWrite } from './guard';
@@ -40,5 +40,27 @@ export function staffService<S extends z.ZodType, R>(definition: ServiceDefiniti
       assertCan(actor, definition.action, target);
       return definition.run(tx, input, actor);
     });
+  };
+}
+
+export type SystemTransaction = Parameters<Parameters<typeof withActor>[2]>[0];
+
+export interface SystemServiceDefinition<S extends z.ZodType, R> {
+  /** The part of the system acting, recorded as `system:<component>`, for example "whatsapp". */
+  component: string;
+  input: S;
+  run: (tx: SystemTransaction, input: z.output<S>) => Promise<R>;
+}
+
+/**
+ * A write no staff member makes (rule 17): the system acting on a patient's behalf, for example a
+ * new My plan link asked for on WhatsApp (IAM-09). The input passes its zod schema, then one
+ * transaction on `db` writes with `system:<component>` as the audit actor. No permission check:
+ * the caller has already verified who asked (a signed webhook, a job).
+ */
+export function systemService<S extends z.ZodType, R>(definition: SystemServiceDefinition<S, R>) {
+  return async (db: Db, rawInput: unknown): Promise<R> => {
+    const input = definition.input.parse(rawInput);
+    return withActor(db, systemActor(definition.component), (tx) => definition.run(tx, input));
   };
 }

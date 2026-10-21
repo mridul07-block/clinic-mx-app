@@ -81,10 +81,13 @@ Still to come, with the tickets that create what they need:
    (see `20261021200452_support_access_rules.sql`). A clinical table's SELECT policy also needs
    `NOT (SELECT internal.jwt_support())`: support never reads clinical records
    (`docs/runbooks/support-access.md`).
-4. Add the table to `rls.integration.test.ts`: which rows each role sees and which writes succeed.
-5. `rls-catalog.integration.test.ts` fails in CI if any table in `public` has RLS off, has no
-   policy (unless it is in the short server-only list with a reason), has a policy for `anon` or
-   everyone, lacks the three support read only policies, or if any view is not
+4. Patient data (IAM-09): add a policy `TO clinic_patient` showing only the rows the open link
+   reaches (`internal.jwt_patient_link_id()`), and `GRANT SELECT` to `clinic_patient`; patient
+   pages read through `asPatient` (`docs/runbooks/patient-links.md`).
+5. Add the table to `rls.integration.test.ts`: which rows each role sees and which writes succeed.
+6. `rls-catalog.integration.test.ts` fails in CI if any table in `public` has RLS off, has no
+   policy (unless it is in the short server-only list with a reason), has a policy for anyone but
+   `authenticated` or `clinic_patient`, lacks the three support read only policies, or if any view is not
    `security_invoker`.
 
 ## Tests

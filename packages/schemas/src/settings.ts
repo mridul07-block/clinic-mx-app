@@ -131,6 +131,31 @@ export const settingDefinitions = {
     source: 'User decision, 22 October 2026 (IAM-08)',
     description: 'Longest Velyx support access the Super Admin can grant, in hours.',
   },
+  'links.health_form_hours': {
+    schema: hours,
+    source: 'User decision, 22 October 2026 (IAM-09)',
+    description: 'Hours a health form link stays valid (opened from a QR at check in).',
+  },
+  'links.consent_hours': {
+    schema: hours,
+    source: 'User decision, 22 October 2026 (IAM-09)',
+    description: 'Hours a consent link stays valid (opened from a QR at the clinic).',
+  },
+  'links.questionnaire_days': {
+    schema: days,
+    source: 'User decision, 22 October 2026 (IAM-09)',
+    description: 'Days a questionnaire link stays valid.',
+  },
+  'links.feedback_days': {
+    schema: days,
+    source: 'User decision, 22 October 2026 (IAM-09)',
+    description: 'Days a feedback link stays valid.',
+  },
+  'links.my_plan_days': {
+    schema: days,
+    source: 'User decision, 22 October 2026 (IAM-09)',
+    description: 'Days a My plan link stays valid; patients get a new one from WhatsApp.',
+  },
   'reminders.day_before_time': {
     schema: timeOfDay,
     source: 'TAD section 8: Day before reminder',
