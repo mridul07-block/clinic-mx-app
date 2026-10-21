@@ -6,6 +6,19 @@
 # Claude Code local-only settings
 .claude/settings.local.json
 
+# Dependencies and build output
+node_modules/
+.next/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+.vercel/
+
+# Test output
+playwright-report/
+test-results/
+
 # Environment / secrets
 .env
 .env.*

@@ -1,0 +1,14 @@
+# Normalise line endings to LF in the repository and in working copies,
+# including on Windows. Tools (Prettier, Postgres, Docker) expect LF.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
