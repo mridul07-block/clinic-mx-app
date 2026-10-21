@@ -16,6 +16,7 @@ import { DEVICE_COOKIE, LAST_SEEN_COOKIE, sessionCookieOptions } from '../../lib
 import {
   authClient,
   authMessage,
+  endSession,
   checkCode,
   firstIssue,
   logAccess,
@@ -24,7 +25,6 @@ import {
   type AuthFormState,
 } from './auth-support';
 import { safeNextPath } from './next-path';
-import { signInState } from './session';
 import { signInStage, stagePath } from './two-step';
 
 export type { AuthFormState } from './auth-support';
@@ -172,16 +172,6 @@ export async function resetPassword(_state: AuthFormState, form: FormData): Prom
   // Every device signs in again with the new password.
   await supabase.auth.signOut({ scope: 'global' });
   redirect('/app/sign-in?password=changed');
-}
-
-async function endSession(): Promise<void> {
-  const state = await signInState();
-  const supabase = await authClient();
-  if (supabase) await supabase.auth.signOut({ scope: 'local' });
-  if (state?.stage === 'complete') await logAccess(state.staff, 'sign_out');
-  const jar = await cookies();
-  jar.delete({ name: LAST_SEEN_COOKIE, path: '/' });
-  jar.delete({ name: DEVICE_COOKIE, path: '/' });
 }
 
 /** Signs out, including part way through two step verification. */

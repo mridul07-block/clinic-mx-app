@@ -107,12 +107,14 @@ export default defineConfig(
   {
     // System work on the owner connection (IAM-05): sign in and its audit events, the token
     // claims check, the settings reader and jobs. No person drives these reads directly. Opening
-    // a patient link is the patients' sign in (IAM-09): the signed token is checked first.
+    // a patient link is the patients' sign in (IAM-09): the signed token is checked first. A clinic
+    // tablet's cookie is its sign in (IAM-10): the token's hash finds the tablet.
     files: [
       'apps/web/proxy.ts',
       'apps/web/lib/**',
       'apps/web/modules/auth/**',
       'apps/web/modules/patient-links/**',
+      'apps/web/modules/kiosk/**',
       'apps/web/modules/settings/**',
       'apps/web/modules/jobs/**',
     ],

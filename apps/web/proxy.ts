@@ -18,6 +18,7 @@ import { appDb } from './lib/db';
 import { serverEnv } from './lib/env';
 import {
   DEVICE_COOKIE,
+  KIOSK_COOKIE,
   LAST_SEEN_COOKIE,
   readDevice,
   readLastSeen,
@@ -86,11 +87,21 @@ function supportRequestKind(request: NextRequest): 'page' | 'action' | null {
  * - IAM-07: ends a desktop session after the idle minutes and a phone session after the phone
  *   days (settings), and keeps a desktop's last activity.
  * - IAM-08: logs every page and action a Velyx support login asks for under the active grant.
+ * - IAM-10: a clinic tablet in kiosk mode (its cookie) opens nothing here: the home page and
+ *   every staff page go to its welcome screen. It shows only /kiosk and the form sent to it.
  *
  * Whether the session belongs to an active staff member, and has passed two step verification,
  * is checked by the pages (`requireStaff`); they read the page asked for from `x-clinic-path`.
  */
 export async function proxy(request: NextRequest) {
+  if (request.cookies.has(KIOSK_COOKIE)) {
+    const welcome = request.nextUrl.clone();
+    welcome.pathname = '/kiosk';
+    welcome.search = '';
+    return NextResponse.redirect(welcome);
+  }
+  // The home page is matched only for the kiosk lock; it sends everyone else on to /app.
+  if (request.nextUrl.pathname === '/') return NextResponse.next();
   const { pathname } = request.nextUrl;
   const search = visibleSearch(request.nextUrl);
   const { SUPABASE_URL, SUPABASE_ANON_KEY, DATABASE_URL } = serverEnv();
@@ -200,4 +211,4 @@ async function logIfSupport(request: NextRequest, clinic: unknown) {
   });
 }
 
-export const config = { matcher: ['/app', '/app/:path*'] };
+export const config = { matcher: ['/', '/app', '/app/:path*'] };

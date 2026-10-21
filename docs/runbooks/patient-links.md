@@ -121,3 +121,10 @@ Headers on `/p/*` (`next.config.ts`):
 | `apps/web/modules/patient-links/services.test.ts` | Issue, reissue, open states, complete |
 | `packages/db/src/integration/patient-links.integration.test.ts` | Checks, audit, a patient sees only its link and changes nothing, staff see none |
 | `apps/web/e2e/patient-links.spec.ts` | 360 px and desktop |
+
+## On the clinic tablet (IAM-10)
+
+The front desk can send a health form, consent, questionnaire or feedback link to the centre's
+kiosk tablet instead of showing a QR. The tablet opens only the link sent to it, and goes back to
+its welcome screen after a submit or when idle. My plan never opens on the tablet. See
+`docs/runbooks/kiosk.md`.

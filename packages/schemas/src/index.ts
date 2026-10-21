@@ -81,6 +81,16 @@ export {
   type PatientLinkSubject,
 } from './patient-links';
 export {
+  KIOSK_DEFAULT_NAME,
+  kioskPurposes,
+  kioskStateSchema,
+  opensOnKiosk,
+  sendToKioskSchema,
+  setUpKioskSchema,
+  stopKioskSchema,
+  type KioskState,
+} from './kiosk';
+export {
   endSupportSchema,
   grantEndsAt,
   grantSupportSchema,

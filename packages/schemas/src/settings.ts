@@ -156,6 +156,17 @@ export const settingDefinitions = {
     source: 'User decision, 22 October 2026 (IAM-09)',
     description: 'Days a My plan link stays valid; patients get a new one from WhatsApp.',
   },
+  'kiosk.idle_seconds': {
+    schema: z.int().positive(),
+    source: 'Frontend Specification section 7: Kiosk mode',
+    description:
+      'Seconds without a touch after which the clinic tablet goes back to its welcome screen.',
+  },
+  'kiosk.thank_you_seconds': {
+    schema: z.int().positive(),
+    source: 'User decision, 22 October 2026 (IAM-10)',
+    description: 'Seconds the thank you screen stays on the clinic tablet after a submit.',
+  },
   'reminders.day_before_time': {
     schema: timeOfDay,
     source: 'TAD section 8: Day before reminder',
