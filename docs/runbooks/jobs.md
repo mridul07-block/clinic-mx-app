@@ -1,0 +1,63 @@
+# Background jobs
+
+FND-10, TAD section 8. Reminders, follow ups, AI preparation sheets and every other piece of time
+based work run as jobs.
+
+## How it works
+
+1. Code enqueues a job with `enqueueJob(tx, { kind, payload, runAt, idempotencyKey })` inside the
+   transaction of the change that causes it (a booking, a submitted form), so both commit or
+   neither does. A second enqueue with the same idempotency key is ignored.
+2. Every minute pg_cron runs `internal.jobs_tick()`, which POSTs to `/api/jobs/tick` with
+   `Authorization: Bearer <JOBS_SECRET>`.
+3. The tick claims due jobs with `FOR UPDATE SKIP LOCKED` (overlapping ticks take different jobs),
+   runs each with its handler from `apps/web/modules/jobs/handlers.ts`, and marks it done.
+4. A failure queues the job again after 1, 2, 4, then 8 minutes. After the 5th failed attempt the
+   job is marked failed and a high priority task "Background job … failed 5 times" is created for
+   the Super Admin, in the same transaction. A job still running after 10 minutes counts as a
+   failed attempt.
+
+Runs are at least once: after a crash a job can run again, so every handler must be safe to repeat
+(check before sending, use idempotency keys with providers). Payloads hold ids only, never patient
+names or phone numbers; `last_error` keeps only the error's name and message.
+
+## Adding a job
+
+1. Add a handler to `jobHandlers`: a Zod schema for the payload and `run(payload, { db, job })`.
+2. Enqueue it where the event happens, with an idempotency key that names the event
+   (`reminder.day_before:<appointment id>`).
+3. Test the handler, including running it twice.
+
+## Setting up an environment
+
+Once per environment (staging now, production at the upgrade):
+
+1. Generate a secret of at least 32 random characters. Set it as `JOBS_SECRET` in the Vercel
+   project (Production and Preview), with `DATABASE_URL` (the transaction pooler).
+2. Store the tick URL and the same secret in Supabase Vault (SQL editor, or the session pooler):
+
+   ```sql
+   select vault.create_secret('https://<app host>/api/jobs/tick', 'jobs_tick_url');
+   select vault.create_secret('<the secret>', 'jobs_tick_secret');
+   ```
+
+   To change one later: `select vault.update_secret(id, '<new value>')` with the id from
+   `vault.secrets`.
+3. Check it: within a minute `select * from cron.job_run_details order by start_time desc limit 5`
+   shows succeeded runs, and `select status_code from net._http_response order by created desc
+   limit 5` shows 200. Enqueue `system.ping` and it becomes `done` within a minute:
+
+   ```sql
+   insert into job (kind) values ('system.ping') returning id;
+   select status, attempts from job where kind = 'system.ping' order by created_at desc limit 1;
+   ```
+
+Local and CI databases have no Vault secrets, so their tick does nothing.
+
+## Watching it
+
+- Waiting work: `select kind, count(*) from job where status = 'queued' group by kind`.
+- Failures: open tasks of kind `job.failed`, or `select kind, last_error from job where status = 'failed'`.
+- To run a failed job again after fixing the cause:
+  `update job set status = 'queued', attempts = 0, run_at = now() where id = '<id>'`, then close
+  its task with the decision.

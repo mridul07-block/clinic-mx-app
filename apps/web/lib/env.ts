@@ -12,6 +12,10 @@ const serverEnvSchema = z.object({
   VERCEL_REGION: z.string().min(1).optional(),
   /** Set by Vercel: the git commit of the deployment. */
   VERCEL_GIT_COMMIT_SHA: z.string().min(1).optional(),
+  /** Supabase transaction pooler (port 6543) for the app at runtime. */
+  DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
+  /** Sent by pg_cron with every job tick (FND-10); at least 32 characters. */
+  JOBS_SECRET: z.string().min(32).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

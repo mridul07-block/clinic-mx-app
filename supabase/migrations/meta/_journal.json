@@ -8,6 +8,20 @@
       "when": 1792583896652,
       "tag": "20261021115816_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792589829685,
+      "tag": "20261021133709_jobs_and_tasks",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792589838050,
+      "tag": "20261021133718_jobs_tick_cron",
+      "breakpoints": true
     }
   ]
 }

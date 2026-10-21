@@ -12,3 +12,22 @@ export {
   type VersionedResult,
   type VersionedTable,
 } from './versioned';
+export {
+  JOB_LEASE_MINUTES,
+  MAX_JOB_ATTEMPTS,
+  claimJobs,
+  completeJob,
+  describeError,
+  enqueueJob,
+  failJob,
+  retryDelayMinutes,
+  staleJobs,
+  type EnqueueOptions,
+} from './jobs/queue';
+export {
+  runDueJobs,
+  type JobHandler,
+  type JobHandlers,
+  type TickOptions,
+  type TickResult,
+} from './jobs/runner';
