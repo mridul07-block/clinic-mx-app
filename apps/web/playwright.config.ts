@@ -33,7 +33,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm build && pnpm start --port ${PORT}`,
+    // Next.js directly, never through pnpm: pnpm 12.6 runs scripts in their own process
+    // group, so Playwright's SIGKILL to the server's group misses them and the run hangs.
+    // `next` resolves from node_modules/.bin, which pnpm adds to PATH for `test:e2e`.
+    command: `next build && next start --port ${PORT}`,
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: !isCI,
     timeout: 180_000,
