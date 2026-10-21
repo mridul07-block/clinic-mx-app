@@ -37,11 +37,13 @@ describe('row level security covers every table', () => {
     ).toEqual(serverOnly);
   });
 
-  it('gives policies to signed in staff only, never to anon or everyone', async () => {
+  it('gives policies to signed in staff or a patient link only, never to anon or everyone', async () => {
+    // clinic_patient: patient pages behind a checked link (IAM-09).
     expect(
       await names(sql`
         select tablename || '.' || policyname as name from pg_policies
-        where schemaname = 'public' and roles <> '{authenticated}'::name[]
+        where schemaname = 'public'
+          and roles not in ('{authenticated}'::name[], '{clinic_patient}'::name[])
         order by 1`),
     ).toEqual([]);
   });

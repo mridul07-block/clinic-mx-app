@@ -120,7 +120,8 @@ jobs:
       - name: Start local Supabase
         run: pnpm db:start
 
-      # The local stack's URL and its fixed demo keys (not secrets), and a fresh staff password.
+      # The local stack's URL and its fixed demo keys (not secrets), a fresh staff password, and a
+      # fresh patient link key (IAM-09) for this run only.
       - name: Point the app and the seed at local Supabase
         run: |
           pnpm --silent exec supabase status -o env | tr -d '"' | sed -n \
@@ -129,6 +130,7 @@ jobs:
             -e 's/^SERVICE_ROLE_KEY=/SUPABASE_SERVICE_ROLE_KEY=/p' \
             -e 's/^MAILPIT_URL=/MAILPIT_URL=/p' >> "$GITHUB_ENV"
           echo "CLINIC_MX_SEED_STAFF_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+          echo "PATIENT_LINK_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
       - name: Seed with staff logins
         run: pnpm db:seed

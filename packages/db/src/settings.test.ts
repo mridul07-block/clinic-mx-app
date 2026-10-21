@@ -23,6 +23,11 @@ const stored: Settings = {
   'security.desktop_idle_logout_minutes': 15,
   'security.phone_session_days': 30,
   'security.support_grant_max_hours': 24,
+  'links.health_form_hours': 2,
+  'links.consent_hours': 2,
+  'links.questionnaire_days': 7,
+  'links.feedback_days': 7,
+  'links.my_plan_days': 30,
   'reminders.day_before_time': '18:00',
 };
 
