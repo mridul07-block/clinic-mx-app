@@ -34,6 +34,14 @@ export function twoStepRequired(role: StaffRole): boolean {
 }
 
 /**
+ * Super Admin and Finance see every centre (PRD section 2); everyone else only the centres they
+ * are assigned. internal.staff_claims applies the same rule in the database.
+ */
+export function seesAllCentres(role: StaffRole): boolean {
+  return role === 'super_admin' || role === 'finance';
+}
+
+/**
  * The `clinic` claim in every staff token (IAM-03, TAD section 5), built by the database
  * (internal.staff_claims) and read by row level security. `all_centres` is true for the roles
  * that see every centre; `centres` lists the person's assigned centres.

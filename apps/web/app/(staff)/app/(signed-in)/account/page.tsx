@@ -1,5 +1,5 @@
 import { centreNamesForStaff } from '@clinic-mx/db';
-import { staffRoleLabels, twoStepRequired } from '@clinic-mx/schemas';
+import { seesAllCentres, staffRoleLabels, twoStepRequired } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { FormMessage, primaryButtonClass } from '../../../../../components/forms';
@@ -19,8 +19,7 @@ export default async function AccountPage({
   const staff = await requireStaff();
   const twoStepOn = (await signInState())?.twoStepOn ?? false;
   const justTurnedOn = (await searchParams)['two-step'] === 'on';
-  // PRD section 2: Super Admin and Finance see every centre; everyone else their assigned ones.
-  const allCentres = staff.role === 'super_admin' || staff.role === 'finance';
+  const allCentres = seesAllCentres(staff.role);
   const assigned = allCentres ? [] : await centreNamesForStaff(appDb(), staff.id);
   const centres = allCentres ? 'All centres' : assigned.join(', ') || 'None assigned';
   const ticks =

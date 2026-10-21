@@ -7,25 +7,20 @@ import {
   type StaffMember,
 } from '@clinic-mx/db';
 import type { SupabaseAdmin } from '../../lib/supabase/admin';
-
-export class NotAllowedError extends Error {
-  override name = 'NotAllowedError';
-}
+import { assertMay, NotAllowedError } from '../access/guard';
 
 /**
  * The Super Admin clears a staff member's authenticator apps when they lose or replace their
  * phone (IAM-02, decision 21 October 2026). Their next sign in asks them to set one up again
  * (required roles) or signs them in with the password (Front Desk). Audited as two_step_reset.
- * The staff screen (IAM-06) calls this; the permission map arrives with IAM-04.
+ * The staff screen (IAM-06) calls this; `staff.manage` in the permission map (IAM-04).
  */
 export async function resetTwoStep(
   { db, admin, ip }: { db: DbOrTransaction; admin: SupabaseAdmin; ip?: string },
   actor: StaffMember,
   staffUserId: string,
 ): Promise<{ removed: number }> {
-  if (actor.role !== 'super_admin') {
-    throw new NotAllowedError('Only the Super Admin can reset two step verification.');
-  }
+  assertMay(actor, 'staff.manage');
   const authUserId = await authUserIdForStaff(db, staffUserId);
   if (!authUserId) throw new NotAllowedError('That staff member has no login.');
 

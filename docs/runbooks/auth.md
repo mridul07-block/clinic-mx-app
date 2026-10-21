@@ -23,7 +23,8 @@ the server calls Supabase Auth. The browser never receives the Supabase URL or a
   in `audit_event` with the address. `sign_in` is recorded when the sign in is complete.
 - **Offline**: the service worker caches the offline page only, never a signed in page.
 
-Roles and claims are IAM-03, session lifetimes and revocation IAM-07, rate limits IAM-11, staff
+Roles and claims are IAM-03, what each role may do IAM-04 (`docs/runbooks/permissions.md`),
+session lifetimes and revocation IAM-07, rate limits IAM-11, staff
 invitations IAM-06.
 
 ## Two step verification (IAM-02)

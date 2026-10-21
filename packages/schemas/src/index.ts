@@ -5,6 +5,7 @@
 export { healthResponseSchema, type HealthResponse } from './health';
 export {
   sameStaffClaims,
+  seesAllCentres,
   staffClaimsSchema,
   staffRoleLabels,
   staffRoles,
@@ -13,6 +14,17 @@ export {
   type StaffClaims,
   type StaffRole,
 } from './staff';
+export {
+  accessScope,
+  actions,
+  can,
+  permissionMap,
+  type AccessTarget,
+  type Action,
+  type Grant,
+  type StaffAccess,
+  type Tick,
+} from './permissions';
 export {
   draftSaveRequestSchema,
   draftSaveResponseSchema,

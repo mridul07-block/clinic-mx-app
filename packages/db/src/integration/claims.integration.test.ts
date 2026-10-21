@@ -1,4 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
+import { seesAllCentres, staffRoles } from '@clinic-mx/schemas';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
@@ -75,6 +76,22 @@ describe('staff claims', () => {
     expect(await currentStaffClaims(db, loginOf(physio))).toBeNull();
     await setStaff(physio, { accessEndsAt: null });
     expect(await currentStaffClaims(db, crypto.randomUUID())).toBeNull();
+  });
+});
+
+describe('centres by role', () => {
+  // IAM-04: the guard (seesAllCentres) and row level security (all_centres) agree for every role.
+  it('match seesAllCentres for every role', async () => {
+    const { role: originalRole } = original.get(physio) ?? {};
+    try {
+      for (const role of staffRoles) {
+        await setStaff(physio, { role });
+        const claims = await currentStaffClaims(db, loginOf(physio));
+        expect(claims, role).toMatchObject({ role, all_centres: seesAllCentres(role) });
+      }
+    } finally {
+      await setStaff(physio, { role: originalRole });
+    }
   });
 });
 
