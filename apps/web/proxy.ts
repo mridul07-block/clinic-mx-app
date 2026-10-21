@@ -45,9 +45,25 @@ function isActivity(request: NextRequest): boolean {
   return !isPrefetch(request);
 }
 
+/**
+ * A prefetch nobody asked for: a link the router fetches ahead (`next-router-prefetch`, or a
+ * segment prefetch) or a browser prefetch. The router headers reach the proxy only because
+ * next.config.ts sets `skipProxyUrlNormalize`; by default Next removes them first.
+ */
 function isPrefetch(request: NextRequest): boolean {
   const purpose = request.headers.get('sec-purpose') ?? request.headers.get('purpose') ?? '';
-  return request.headers.has('next-router-prefetch') || purpose.includes('prefetch');
+  return (
+    request.headers.has('next-router-prefetch') ||
+    request.headers.has('next-router-segment-prefetch') ||
+    purpose.includes('prefetch')
+  );
+}
+
+/** The query people see: without `_rsc`, the router's cache key, which the proxy now receives. */
+function visibleSearch(url: URL): string {
+  const query = new URLSearchParams(url.searchParams);
+  query.delete('_rsc');
+  return query.size ? `?${query.toString()}` : '';
 }
 
 /**
@@ -75,7 +91,8 @@ function supportRequestKind(request: NextRequest): 'page' | 'action' | null {
  * is checked by the pages (`requireStaff`); they read the page asked for from `x-clinic-path`.
  */
 export async function proxy(request: NextRequest) {
-  const { pathname, search } = request.nextUrl;
+  const { pathname } = request.nextUrl;
+  const search = visibleSearch(request.nextUrl);
   const { SUPABASE_URL, SUPABASE_ANON_KEY, DATABASE_URL } = serverEnv();
   const refreshed: { name: string; value: string; options: CookieOptions }[] = [];
   const device = readDevice(request.cookies.get(DEVICE_COOKIE)?.value);

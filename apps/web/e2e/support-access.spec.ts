@@ -79,8 +79,14 @@ test('the Super Admin grants support access for a time; support is read only and
       await expect(
         supportPage.getByText(/^Velyx support access, read only, until .+ IST\. Everything/),
       ).toBeVisible();
+      // The staff list prefetches the pages it links to; a page fetched ahead is not one opened.
+      const managerPage = '/app/staff/00000000-0000-4000-8000-000000000203';
+      const prefetched = supportPage.waitForRequest((request) =>
+        request.url().includes(managerPage),
+      );
       await supportPage.goto('/app/staff');
       await expect(supportPage.getByRole('heading', { name: 'Staff' })).toBeVisible();
+      await prefetched;
       await expect(supportPage.getByRole('link', { name: 'Invite staff' })).toHaveCount(0);
       await supportPage.getByRole('link').filter({ hasText: admin.name }).click();
       await expect(supportPage.getByText('Velyx support access is read only.')).toBeVisible();
@@ -108,6 +114,7 @@ test('the Super Admin grants support access for a time; support is read only and
       await expect(activity).toContainText(
         `${support.name} · Action on /app/test-harness/permission`,
       );
+      await expect(activity).not.toContainText(managerPage);
 
       // Ending it signs support out everywhere; its open page goes to sign in within a minute.
       await supportPage.goto('/app/account');

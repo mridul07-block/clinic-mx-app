@@ -3,6 +3,10 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // proxy.ts sees requests as sent, router headers included, so it can tell a link prefetch from a
+  // page someone opened: IAM-07 activity and the IAM-08 log of what Velyx support opened. It
+  // drops the router's `_rsc` query itself.
+  skipProxyUrlNormalize: true,
   // Workspace packages export TypeScript source; Next compiles them with the app.
   transpilePackages: ['@clinic-mx/schemas', '@clinic-mx/ui', '@clinic-mx/db'],
   env: {

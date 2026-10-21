@@ -85,6 +85,12 @@ A support login signs in only while a grant is active:
 | after | `{ path, kind }`, where `kind` is `page` (opened or navigated to) or `action` (a server action, refused or not) |
 
 - **Left out:** the session check, the activity ping and prefetches.
+  - By default Next removes the router headers (`next-router-prefetch`,
+    `next-router-segment-prefetch`, `rsc`) before the proxy runs. Then a link prefetched from the
+    staff list looks like a page opened, which staging showed on the first walkthrough.
+  - `next.config.ts` sets `skipProxyUrlNormalize`, so the proxy sees them, and the proxy drops the
+    router's `_rsc` query itself.
+  - The end to end test waits for such a prefetch and checks it is not logged.
 - **Path only:** the query string is never kept, because it can hold search terms (rule 12).
 - **Where to read it.** On the support access page, each past grant has "What support opened (n)":
   who opened which page, when, in IST.
