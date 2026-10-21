@@ -3,7 +3,7 @@ import { seesAllCentres, staffRoleLabels, twoStepRequired } from '@clinic-mx/sch
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { FormMessage, primaryButtonClass } from '../../../../../components/forms';
-import { appDb } from '../../../../../lib/db';
+import { asStaff } from '../../../../../modules/access/staff-db';
 import { requireStaff, signInState } from '../../../../../modules/auth/session';
 import { SignOutButton } from '../sign-out-button';
 
@@ -20,7 +20,9 @@ export default async function AccountPage({
   const twoStepOn = (await signInState())?.twoStepOn ?? false;
   const justTurnedOn = (await searchParams)['two-step'] === 'on';
   const allCentres = seesAllCentres(staff.role);
-  const assigned = allCentres ? [] : await centreNamesForStaff(appDb(), staff.id);
+  const assigned = allCentres
+    ? []
+    : await asStaff(staff, (tx) => centreNamesForStaff(tx, staff.id));
   const centres = allCentres ? 'All centres' : assigned.join(', ') || 'None assigned';
   const ticks =
     [staff.treatsPatients ? 'Treats patients' : '', staff.consultant ? 'Consultant' : '']

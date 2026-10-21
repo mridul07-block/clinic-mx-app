@@ -7,12 +7,9 @@ import { staffService, type ServiceTransaction } from './service';
 
 const fakeTx = { kind: 'transaction' } as unknown as ServiceTransaction;
 const db = vi.hoisted(() => ({
-  withActor: vi.fn(),
+  withStaffAccess: vi.fn(),
 }));
-vi.mock('@clinic-mx/db', () => ({
-  ...db,
-  staffActor: (id: string) => `staff:${id}`,
-}));
+vi.mock('@clinic-mx/db', () => db);
 
 const hsr = '00000000-0000-4000-8000-000000000101';
 const whitefield = '00000000-0000-4000-8000-000000000103';
@@ -44,21 +41,21 @@ const book = staffService({
 describe('staffService', () => {
   beforeEach(() => {
     run.mockClear();
-    db.withActor
+    db.withStaffAccess
       .mockReset()
       .mockImplementation((_db: Db, _context: unknown, work: (tx: ServiceTransaction) => unknown) =>
         work(fakeTx),
       );
   });
 
-  it('runs the work in one transaction that names the actor and address', async () => {
+  it('runs the work in one transaction as the actor, under row level security', async () => {
     const desk = member('front_desk');
     expect(await book({ db: fakeDb, actor: desk, ip: '203.0.113.5' }, { centreId: hsr })).toBe(
       `booked in ${hsr}`,
     );
-    expect(db.withActor).toHaveBeenCalledWith(
+    expect(db.withStaffAccess).toHaveBeenCalledWith(
       fakeDb,
-      { actor: `staff:${desk.id}`, ip: '203.0.113.5' },
+      { actor: desk, ip: '203.0.113.5' },
       expect.any(Function),
     );
     expect(run).toHaveBeenCalledWith(fakeTx, { centreId: hsr }, desk);
@@ -77,7 +74,7 @@ describe('staffService', () => {
       );
     }
     expect(parse).not.toHaveBeenCalled();
-    expect(db.withActor).not.toHaveBeenCalled();
+    expect(db.withStaffAccess).not.toHaveBeenCalled();
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -85,7 +82,7 @@ describe('staffService', () => {
     await expect(
       book({ db: fakeDb, actor: member('front_desk') }, { centreId: 'not an id' }),
     ).rejects.toThrow(z.ZodError);
-    expect(db.withActor).not.toHaveBeenCalled();
+    expect(db.withStaffAccess).not.toHaveBeenCalled();
   });
 
   it('refuses a record in a centre the person is not assigned', async () => {

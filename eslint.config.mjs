@@ -70,9 +70,10 @@ export default defineConfig(
   },
   {
     // Rule 17, IAM-04: every write in the web app goes through staffService, which checks the
-    // permission map before it opens the audited transaction. Writing around it is refused.
+    // permission map before it opens the audited transaction. Rule 10, IAM-05: staff reads run
+    // under row level security (asStaff); the owner connection (appDb) is for system work only.
     files: WEB_FILES,
-    ignores: ['apps/web/modules/access/service.ts', 'apps/web/e2e/**'],
+    ignores: ['apps/web/modules/access/**', 'apps/web/e2e/**'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -80,7 +81,53 @@ export default defineConfig(
           paths: [
             {
               name: '@clinic-mx/db',
-              importNames: ['withActor', 'setAuditContext', 'updateSetting', 'updateVersioned'],
+              importNames: [
+                'withActor',
+                'withStaffAccess',
+                'setAuditContext',
+                'updateSetting',
+                'updateVersioned',
+              ],
+              message:
+                'Write through staffService (apps/web/modules/access/service.ts): permission, validate, transaction, audit.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['**/lib/db'],
+              importNames: ['appDb'],
+              message:
+                'Read as the staff member with asStaff (apps/web/modules/access/staff-db.ts), under row level security. appDb is for system work.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // System work on the owner connection (IAM-05): sign in and its audit events, the token
+    // claims check, the settings reader and jobs. No person drives these reads directly.
+    files: [
+      'apps/web/proxy.ts',
+      'apps/web/lib/**',
+      'apps/web/modules/auth/**',
+      'apps/web/modules/settings/**',
+      'apps/web/modules/jobs/**',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@clinic-mx/db',
+              importNames: [
+                'withActor',
+                'withStaffAccess',
+                'setAuditContext',
+                'updateSetting',
+                'updateVersioned',
+              ],
               message:
                 'Write through staffService (apps/web/modules/access/service.ts): permission, validate, transaction, audit.',
             },
