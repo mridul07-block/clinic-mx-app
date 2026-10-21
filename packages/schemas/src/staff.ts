@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { calendarDateSchema } from './ist';
 
 /**
  * The five staff roles (PRD section 2). Each staff member has exactly one. The database
@@ -77,3 +78,61 @@ export function sameStaffClaims(token: unknown, current: unknown): boolean {
     sorted(a.data.centres) === sorted(b.data.centres)
   );
 }
+
+/**
+ * A staff member's details as the Super Admin sets them (IAM-06, PRD section 2). Physiotherapists
+ * always treat patients, and the Consultant tick needs Treats patients (decision G5; the database
+ * checks both too). People act only in their assigned centres, so every role but those that see
+ * all centres needs at least one; for those roles assignments are not kept.
+ */
+export const staffDetailsSchema = z
+  .object({
+    name: z.string().trim().min(1, { error: 'Enter their name.' }).max(120),
+    role: staffRoleSchema,
+    treatsPatients: z.boolean(),
+    consultant: z.boolean(),
+    centreIds: z.array(z.guid()),
+    /** The last day they can sign in, in IST; empty for no end date. */
+    accessEndsOn: calendarDateSchema.optional(),
+  })
+  .transform((details) => ({
+    ...details,
+    treatsPatients: details.treatsPatients || details.role === 'physiotherapist',
+    centreIds: seesAllCentres(details.role) ? [] : [...new Set(details.centreIds)],
+  }))
+  .superRefine((details, context) => {
+    if (details.consultant && !details.treatsPatients) {
+      context.addIssue({
+        code: 'custom',
+        path: ['consultant'],
+        message: 'The Consultant tick needs Treats patients too.',
+      });
+    }
+    if (!seesAllCentres(details.role) && details.centreIds.length === 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['centreIds'],
+        message: 'Choose at least one centre.',
+      });
+    }
+  });
+
+export type StaffDetails = z.output<typeof staffDetailsSchema>;
+
+/** Inviting a new staff member: their details and the email they sign in with. */
+export const staffInviteSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .pipe(z.email({ error: 'Enter their email address.' })),
+  details: staffDetailsSchema,
+});
+
+/** Changing an existing staff member's details. */
+export const staffUpdateSchema = z.object({ staffUserId: z.guid(), details: staffDetailsSchema });
+
+/** An action on one staff member: deactivate, reactivate, invite again, link, reset. */
+export const staffMemberRefSchema = z.object({ staffUserId: z.guid() });
+
+export const staffActiveSchema = z.object({ staffUserId: z.guid(), active: z.boolean() });

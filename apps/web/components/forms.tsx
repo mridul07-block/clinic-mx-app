@@ -8,6 +8,12 @@ import { useId, type InputHTMLAttributes, type ReactNode } from 'react';
 export const primaryButtonClass =
   'inline-flex h-row w-full items-center justify-center gap-2 rounded-control border border-transparent bg-accent px-3.5 font-medium text-on-accent shadow-xs transition-colors duration-[var(--duration-quick)] hover:bg-accent-hover disabled:border-line disabled:bg-surface-sunken disabled:text-ink-faint disabled:shadow-none pointer-coarse:h-row-touch';
 
+export const secondaryButtonClass =
+  'inline-flex h-row w-full items-center justify-center gap-2 rounded-control border border-line-control bg-surface px-3.5 font-medium text-ink shadow-xs transition-colors duration-[var(--duration-quick)] hover:bg-surface-hover disabled:text-ink-faint disabled:shadow-none pointer-coarse:h-row-touch';
+
+export const dangerButtonClass =
+  'inline-flex h-row w-full items-center justify-center gap-2 rounded-control border border-danger-line bg-surface px-3.5 font-medium text-danger shadow-xs transition-colors duration-[var(--duration-quick)] hover:bg-danger-soft disabled:text-ink-faint disabled:shadow-none pointer-coarse:h-row-touch';
+
 interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   name: string;

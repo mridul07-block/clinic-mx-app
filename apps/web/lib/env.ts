@@ -19,8 +19,8 @@ const serverEnvSchema = z.object({
   /** The anon (public) key; the server uses it for Supabase Auth on behalf of staff. */
   SUPABASE_ANON_KEY: z.string().min(1).optional(),
   /**
-   * The service role key, for the few admin actions only the server makes (IAM-02: the Super
-   * Admin resetting two step verification). Never sent to the browser.
+   * The service role key, for the few admin actions only the server makes (IAM-06: the Super
+   * Admin inviting staff and resetting two step verification). Never sent to the browser.
    */
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   /** Sent by pg_cron with every job tick (FND-10); at least 32 characters. */

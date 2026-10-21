@@ -45,10 +45,10 @@ Admin, Centre Manager, Physiotherapist and Finance; optional for Front Desk (TAD
   2026). Once on, they enter a code at every sign in like everyone else.
 - **Password reset**: with two step verification on, Supabase changes the password only after a
   code too, so the reset form asks for one when needed.
-- **Lost phone** (decision 21 October 2026): the Super Admin resets the person's two step
-  verification (`resetTwoStep` in `apps/web/modules/auth/two-step-reset.ts`, audited as
-  `two_step_reset`; the button arrives with the staff screen, IAM-06). Their next sign in asks
-  them to set it up again. It needs `SUPABASE_SERVICE_ROLE_KEY` on the server (Vercel, added with
+- **Lost phone** (decision 21 October 2026): the Super Admin presses "Reset two step
+  verification" on the person's staff page (`resetStaffTwoStep` in
+  `apps/web/modules/staff/services.ts`, audited as `two_step_reset`). Their next sign in asks
+  them to set it up again. It needs `SUPABASE_SERVICE_ROLE_KEY` on the server (Vercel, set with
   IAM-06).
 - **Super Admin lost their own phone**: Velyx support removes the factor in the Supabase dashboard
   (Authentication, Users, the user, Multi factor authentication, delete the factor) once the
@@ -114,7 +114,7 @@ then resets are tested locally, where Mailpit catches every email (http://127.0.
 
 ## Test logins
 
-`pnpm db:seed` gives the nine seed staff (`@clinicmx.test`, generated people) logins when
+`pnpm db:seed` gives the eleven seed staff (`@clinicmx.test`, generated people) logins when
 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `CLINIC_MX_SEED_STAFF_PASSWORD` are set. The
 staging password is in the repository secret `STAGING_SEED_STAFF_PASSWORD` (and in the developer's
 `apps/web/.env.local`); the Migrate staging workflow also needs `STAGING_SUPABASE_URL` and

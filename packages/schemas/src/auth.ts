@@ -12,7 +12,12 @@ import { z } from 'zod';
  */
 export const PASSWORD_MIN_LENGTH = 12;
 
-const email = z.email({ error: 'Enter your email address.' }).trim().toLowerCase();
+// Trimmed before it is checked, so a pasted address with a space around it still works.
+const email = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(z.email({ error: 'Enter your email address.' }));
 
 export const signInSchema = z.object({
   email,
@@ -23,6 +28,8 @@ export const passwordResetRequestSchema = z.object({ email });
 
 export const newPasswordSchema = z.object({
   tokenHash: z.string().min(1),
+  /** Which email the link came from: a password reset, or an invite (IAM-06). */
+  linkType: z.enum(['recovery', 'invite']).default('recovery'),
   password: z
     .string()
     .min(PASSWORD_MIN_LENGTH, { error: `Use at least ${String(PASSWORD_MIN_LENGTH)} characters.` }),

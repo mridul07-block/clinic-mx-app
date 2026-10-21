@@ -32,9 +32,9 @@ export async function staffForSignIn(
       treatsPatients: staffUser.treatsPatients,
       consultant: staffUser.consultant,
       centreIds: sql<string[]>`array(
-        select ${staffUserCentre.centreId}::text from ${staffUserCentre}
-        where ${staffUserCentre.staffUserId} = ${staffUser.id}
-        order by ${staffUserCentre.centreId})`,
+        select a.centre_id::text from public.staff_user_centre a
+        where a.staff_user_id = "staff_user"."id"
+        order by a.centre_id)`,
     })
     .from(staffUser)
     .where(
@@ -46,19 +46,6 @@ export async function staffForSignIn(
     )
     .limit(1);
   return member;
-}
-
-/** The Supabase Auth user of a staff member, if their login exists. */
-export async function authUserIdForStaff(
-  db: DbOrTransaction,
-  staffUserId: string,
-): Promise<string | undefined> {
-  const [row] = await db
-    .select({ authUserId: staffUser.authUserId })
-    .from(staffUser)
-    .where(eq(staffUser.id, staffUserId))
-    .limit(1);
-  return row?.authUserId ?? undefined;
 }
 
 /**
