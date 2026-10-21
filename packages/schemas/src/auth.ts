@@ -29,3 +29,14 @@ export const newPasswordSchema = z.object({
 });
 
 export type SignInInput = z.infer<typeof signInSchema>;
+
+const code = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/, { error: 'Enter the 6 digit code from your authenticator app.' });
+
+/** A code from the authenticator app, to finish signing in (IAM-02). */
+export const twoStepCodeSchema = z.object({ code });
+
+/** The first code from a newly added authenticator app, to turn two step verification on. */
+export const twoStepSetupSchema = z.object({ factorId: z.string().min(1), code });

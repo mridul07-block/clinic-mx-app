@@ -19,11 +19,45 @@ the server calls Supabase Auth. The browser never receives the Supabase URL or a
   use it up. After a change every device is signed out (`password=changed` notice on sign in).
 - **Sign out**: drafts are saved first; drafts that cannot be saved are deleted from the device
   only after the person agrees, so the next person on a shared phone never sees them.
-- **Audit**: `sign_in`, `sign_out` and `password_change` events in `audit_event` with the address.
+- **Audit**: `sign_in`, `sign_out`, `password_change`, `two_step_on` and `two_step_reset` events
+  in `audit_event` with the address. `sign_in` is recorded when the sign in is complete.
 - **Offline**: the service worker caches the offline page only, never a signed in page.
 
-Two step verification is IAM-02, roles and claims IAM-03, session lifetimes and revocation IAM-07,
-rate limits IAM-11, staff invitations IAM-06.
+Roles and claims are IAM-03, session lifetimes and revocation IAM-07, rate limits IAM-11, staff
+invitations IAM-06.
+
+## Two step verification (IAM-02)
+
+A code from an authenticator app (TOTP, Supabase Auth MFA) after the password: required for Super
+Admin, Centre Manager, Physiotherapist and Finance; optional for Front Desk (TAD section 5).
+
+- **Sign in**: after the password the session is at assurance level aal1. Someone with an
+  authenticator app goes to `/app/two-step` for a code; a required role without one goes to
+  `/app/two-step/setup`. Only a code raises the session to aal2. `requireStaff`, used by every
+  signed in page and server action, lets a session through only when its stage is complete
+  (`signInStage` in `apps/web/modules/auth/two-step.ts`). The level comes from the session's
+  signed token, the authenticator apps from Supabase Auth itself, never from the cookie.
+- **Setup**: the page adds an authenticator app and shows a QR code (an SVG drawn in the page),
+  an "Add to authenticator app" link for the same phone, and the key to type. The first code
+  turns it on. Unfinished setups are removed on the next visit.
+- **Front Desk**: never asked at sign in; turns it on from `/app/account` (decision 21 October
+  2026). Once on, they enter a code at every sign in like everyone else.
+- **Password reset**: with two step verification on, Supabase changes the password only after a
+  code too, so the reset form asks for one when needed.
+- **Lost phone** (decision 21 October 2026): the Super Admin resets the person's two step
+  verification (`resetTwoStep` in `apps/web/modules/auth/two-step-reset.ts`, audited as
+  `two_step_reset`; the button arrives with the staff screen, IAM-06). Their next sign in asks
+  them to set it up again. It needs `SUPABASE_SERVICE_ROLE_KEY` on the server (Vercel, added with
+  IAM-06).
+- **Super Admin lost their own phone**: Velyx support removes the factor in the Supabase dashboard
+  (Authentication, Users, the user, Multi factor authentication, delete the factor) once the
+  request is confirmed with the clinic.
+- **Supabase behaviour to know**: two code checks for one person that overlap can deadlock in
+  Supabase Auth (a server error); the server retries twice. A completed code check also ends that
+  person's other sign ins still waiting for a code.
+
+Settings: TOTP enroll and verify on (`[auth.mfa.totp]` in `supabase/config.toml`; on by default on
+hosted projects, checked on staging 21 October 2026).
 
 ## Settings per environment
 

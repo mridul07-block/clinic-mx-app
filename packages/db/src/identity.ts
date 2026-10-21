@@ -41,3 +41,16 @@ export async function staffForSignIn(
     .limit(1);
   return member;
 }
+
+/** The Supabase Auth user of a staff member, if their login exists. */
+export async function authUserIdForStaff(
+  db: DbOrTransaction,
+  staffUserId: string,
+): Promise<string | undefined> {
+  const [row] = await db
+    .select({ authUserId: staffUser.authUserId })
+    .from(staffUser)
+    .where(eq(staffUser.id, staffUserId))
+    .limit(1);
+  return row?.authUserId ?? undefined;
+}

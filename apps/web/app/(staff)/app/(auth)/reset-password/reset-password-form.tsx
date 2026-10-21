@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useActionState } from 'react';
 import { FormMessage, primaryButtonClass } from '../../../../../components/forms';
 import { resetPassword, type AuthFormState } from '../../../../../modules/auth/actions';
+import { CodeInput } from '../code-input';
 import { PasswordInput } from '../password-input';
 
 const initialState: AuthFormState = {};
@@ -32,6 +33,8 @@ export function ResetPasswordForm({ tokenHash }: { tokenHash: string }) {
         autoComplete="new-password"
         helper={`At least ${String(PASSWORD_MIN_LENGTH)} characters.`}
       />
+      {/* Accounts with two step verification also need a code (IAM-02). */}
+      {state.needCode ? <CodeInput label="Code from your authenticator app" /> : null}
       <button type="submit" disabled={pending} className={primaryButtonClass}>
         {pending ? 'Saving' : 'Save password'}
       </button>

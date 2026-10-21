@@ -1,4 +1,5 @@
 import { staffRoleLabels } from '@clinic-mx/schemas';
+import Link from 'next/link';
 import { requireStaff } from '../../../../modules/auth/session';
 import { SignOutButton } from './sign-out-button';
 
@@ -13,6 +14,12 @@ export default async function StaffHome() {
           Signed in as {staff.name}, {staffRoleLabels[staff.role]}
         </p>
       </div>
+      <Link
+        href="/app/account"
+        className="self-start text-accent underline underline-offset-2 pointer-coarse:py-3"
+      >
+        Account
+      </Link>
       <div className="w-full max-w-signin">
         <SignOutButton />
       </div>

@@ -64,9 +64,15 @@ describe('staffForSignIn', () => {
 });
 
 describe('access events', () => {
-  it('record sign in, sign out and password changes against the staff member', async () => {
+  it('record sign in, sign out, password and two step changes against the staff member', async () => {
     const actor = staffActor(staffUserId);
-    for (const action of ['sign_in', 'sign_out', 'password_change'] as const) {
+    for (const action of [
+      'sign_in',
+      'sign_out',
+      'password_change',
+      'two_step_on',
+      'two_step_reset',
+    ] as const) {
       await logAccessEvent(db, { actor, ip: '203.0.113.20', action, staffUserId });
     }
     const events = await db
@@ -74,7 +80,13 @@ describe('access events', () => {
       .from(auditEvent)
       .where(and(eq(auditEvent.entity, 'staff_user'), eq(auditEvent.ip, '203.0.113.20')));
     expect(events.map((e) => e.action)).toEqual(
-      expect.arrayContaining(['sign_in', 'sign_out', 'password_change']),
+      expect.arrayContaining([
+        'sign_in',
+        'sign_out',
+        'password_change',
+        'two_step_on',
+        'two_step_reset',
+      ]),
     );
   });
 });

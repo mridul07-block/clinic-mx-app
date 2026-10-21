@@ -18,6 +18,8 @@ next-env.d.ts
 # Test output
 playwright-report/
 test-results/
+# Authenticator secrets the end to end global setup creates for local test logins (IAM-02).
+apps/web/e2e/.auth/
 
 # Environment / secrets
 .env
