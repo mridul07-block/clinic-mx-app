@@ -1,11 +1,13 @@
 // Clinic Mx service worker (FND-07): caches the staff app shell so it loads offline.
 //
 // It controls /app only (registered with that scope) and caches only:
-// - the shell pages below, refreshed from the network on every online visit, and
+// - the offline page, refreshed from the network on every online visit, and
 // - the build's static files (/_next/static: scripts, styles, fonts), which never change
 //   under the same URL.
 // API responses and every other page pass straight through and are never stored, so no
-// patient data is kept in the cache (rule 12). Offline drafts are FND-08's job.
+// patient data is kept in the cache (rule 12). Signed in pages are never cached either (IAM-01):
+// on a shared phone or tablet the next person must not see the last one's screen offline.
+// Offline drafts are FND-08's job.
 //
 // Each deployment registers /sw.js?v=<commit>; a new version installs a fresh shell and
 // deletes the old caches.
@@ -13,7 +15,7 @@
 const VERSION = new URL(self.location.href).searchParams.get('v') || 'dev';
 const SHELL_CACHE = `clinic-mx-shell-${VERSION}`;
 const STATIC_CACHE = `clinic-mx-static-${VERSION}`;
-const SHELL_PAGES = ['/app', '/app/offline'];
+const SHELL_PAGES = ['/app/offline'];
 const OFFLINE_PAGE = '/app/offline';
 
 /** A response safe to keep: same origin, complete, not a redirect. */

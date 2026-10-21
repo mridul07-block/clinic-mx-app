@@ -1,11 +1,6 @@
-import {
-  createDb,
-  createSettingsReader,
-  readSettingRows,
-  type SettingsReader,
-} from '@clinic-mx/db';
+import { createSettingsReader, readSettingRows, type SettingsReader } from '@clinic-mx/db';
 import type { SettingKey, SettingValue } from '@clinic-mx/schemas';
-import { serverEnv } from '../../lib/env';
+import { appDb } from '../../lib/db';
 
 /**
  * Business rules for server code (FND-14, rule 6): `await getSetting('day.running_late_minutes')`.
@@ -17,9 +12,7 @@ let reader: SettingsReader | undefined;
 
 function settingsReader(): SettingsReader {
   if (!reader) {
-    const url = serverEnv().DATABASE_URL;
-    if (!url) throw new Error('DATABASE_URL is not set, so settings cannot be read.');
-    const { db } = createDb(url, { max: 1 });
+    const db = appDb();
     reader = createSettingsReader(() => readSettingRows(db));
   }
   return reader;

@@ -2,10 +2,10 @@
 
 import type { TestHarnessNote } from '@clinic-mx/schemas';
 import { useMemo } from 'react';
-import { ConflictNotice } from '../../../../../lib/drafts/conflict-notice';
-import { SaveStatus } from '../../../../../lib/drafts/save-status';
-import { saveTestHarnessNote } from '../../../../../lib/drafts/savers';
-import { useAutosave } from '../../../../../lib/drafts/use-autosave';
+import { ConflictNotice } from '../../../../../../lib/drafts/conflict-notice';
+import { SaveStatus } from '../../../../../../lib/drafts/save-status';
+import { saveTestHarnessNote } from '../../../../../../lib/drafts/savers';
+import { useAutosave } from '../../../../../../lib/drafts/use-autosave';
 
 export function AutosaveNote({
   id,

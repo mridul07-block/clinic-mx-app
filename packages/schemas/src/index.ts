@@ -3,7 +3,7 @@
  * response that crosses the network boundary is described here once.
  */
 export { healthResponseSchema, type HealthResponse } from './health';
-export { staffRoles, staffRoleSchema, type StaffRole } from './staff';
+export { staffRoleLabels, staffRoles, staffRoleSchema, type StaffRole } from './staff';
 export {
   draftSaveRequestSchema,
   draftSaveResponseSchema,
@@ -22,3 +22,10 @@ export {
   type SettingValue,
   type Settings,
 } from './settings';
+export {
+  PASSWORD_MIN_LENGTH,
+  newPasswordSchema,
+  passwordResetRequestSchema,
+  signInSchema,
+  type SignInInput,
+} from './auth';

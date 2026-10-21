@@ -1,0 +1,12 @@
+<!-- IAM-01: the password reset email. The link opens our staff app, which uses the token on our
+     server; it never points at supabase.co (rule 9). Staging and production use the same body
+     in their project auth settings (docs/runbooks/auth.md). -->
+<h2>Reset your Clinic Mx password</h2>
+<p>Someone asked to reset the password for this Clinic Mx staff account.</p>
+<p>
+  <a href="{{ .SiteURL }}/app/reset-password?token_hash={{ .TokenHash }}">Choose a new password</a>
+</p>
+<p>
+  The link works once, for one hour. If you did not ask for it, ignore this email; your password
+  stays the same.
+</p>

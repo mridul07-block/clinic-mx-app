@@ -61,3 +61,16 @@ export async function logRecordView(
   if (!isActor(actor)) throw new Error(`Not an audit actor: ${String(actor)}`);
   await db.insert(auditEvent).values({ actor, action: 'view', entity, entityId, ip });
 }
+
+export type AccessAction = 'sign_in' | 'sign_out' | 'password_change';
+
+/** Records a staff member signing in, signing out or changing their password (IAM-01). */
+export async function logAccessEvent(
+  db: DbOrTransaction,
+  { actor, ip, action, staffUserId }: AuditContext & { action: AccessAction; staffUserId: string },
+): Promise<void> {
+  if (!isActor(actor)) throw new Error(`Not an audit actor: ${String(actor)}`);
+  await db
+    .insert(auditEvent)
+    .values({ actor, action, entity: 'staff_user', entityId: staffUserId, ip });
+}

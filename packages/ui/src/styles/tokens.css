@@ -108,6 +108,7 @@
   --sidebar-width: 240px;
   --rail-width: 64px;
   --drawer-width: 480px;
+  --signin-width: 400px;
 
   /* Motion: change, never decoration. */
   --duration-quick: 120ms;

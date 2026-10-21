@@ -33,12 +33,14 @@ export {
 } from './jobs/runner';
 export {
   isActor,
+  logAccessEvent,
   logRecordView,
   patientActor,
   setAuditContext,
   staffActor,
   systemActor,
   withActor,
+  type AccessAction,
   type Actor,
   type AuditContext,
 } from './audit';
@@ -52,3 +54,4 @@ export {
   type SettingsReader,
   type SettingsReaderOptions,
 } from './settings';
+export { staffForSignIn, type StaffMember } from './identity';

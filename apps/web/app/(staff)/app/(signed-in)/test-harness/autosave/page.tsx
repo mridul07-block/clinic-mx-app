@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { readTestNote, testHarnessEnabled } from '../../../../../lib/drafts/test-harness-store';
+import { readTestNote, testHarnessEnabled } from '../../../../../../lib/drafts/test-harness-store';
 import { AutosaveNote } from './autosave-note';
 
 // Autosave test harness (end to end tests only; 404 unless CLINIC_MX_TEST_HARNESS=1): one note

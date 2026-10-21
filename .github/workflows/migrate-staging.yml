@@ -29,6 +29,10 @@ jobs:
       # Session pooler (port 5432, IPv4); repository secret.
       DIRECT_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
       CLINIC_MX_SEED_TARGET: staging
+      # IAM-01: the seed gives the test staff logins through the Supabase admin API.
+      SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      CLINIC_MX_SEED_STAFF_PASSWORD: ${{ secrets.STAGING_SEED_STAFF_PASSWORD }}
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -47,12 +51,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check the secret is set
+      - name: Check the secrets are set
         run: |
-          if [ -z "$DIRECT_DATABASE_URL" ]; then
-            echo "::error::Repository secret STAGING_DATABASE_URL is not set."
-            exit 1
-          fi
+          for name in DIRECT_DATABASE_URL SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY CLINIC_MX_SEED_STAFF_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::The repository secret for $name is not set (docs/runbooks/auth.md)."
+              exit 1
+            fi
+          done
 
       - name: Apply migrations
         run: pnpm exec supabase db push --db-url "$DIRECT_DATABASE_URL" --yes

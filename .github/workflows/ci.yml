@@ -85,11 +85,17 @@ jobs:
             exit 1
           fi
 
+  # IAM-01: the app signs in against the local Supabase stack; the seed gives the test staff
+  # logins with a password made for this run.
   e2e:
     name: End to end (360 px phone and desktop)
     needs: checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      CLINIC_MX_SEED_TARGET: local
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -111,6 +117,22 @@ jobs:
       - name: Install Chromium
         run: pnpm --filter web exec playwright install --with-deps chromium
 
+      - name: Start local Supabase
+        run: pnpm db:start
+
+      # The local stack's URL and its fixed demo keys (not secrets), and a fresh staff password.
+      - name: Point the app and the seed at local Supabase
+        run: |
+          pnpm --silent exec supabase status -o env | tr -d '"' | sed -n \
+            -e 's/^API_URL=/SUPABASE_URL=/p' \
+            -e 's/^ANON_KEY=/SUPABASE_ANON_KEY=/p' \
+            -e 's/^SERVICE_ROLE_KEY=/SUPABASE_SERVICE_ROLE_KEY=/p' \
+            -e 's/^MAILPIT_URL=/MAILPIT_URL=/p' >> "$GITHUB_ENV"
+          echo "CLINIC_MX_SEED_STAFF_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+
+      - name: Seed with staff logins
+        run: pnpm db:seed
+
       # Playwright builds the app and runs `next start` (playwright.config.ts webServer).
       - name: End to end tests
         run: pnpm test:e2e
@@ -122,6 +144,10 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report/
           retention-days: 7
+
+      - name: Stop local Supabase
+        if: ${{ always() }}
+        run: pnpm db:stop --no-backup
 
   # FND-03: the local Supabase stack from supabase/config.toml. It runs here rather than on
   # developer machines. FND-04 applies the migrations, seeds and runs the database tests;

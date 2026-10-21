@@ -5,6 +5,7 @@ import {
   type BrowserContext,
   type Page,
 } from '@playwright/test';
+import { signIn, testStaff } from './staff';
 
 // FND-08: edits survive reload and offline; sync on reconnect with a conflict notice. Uses the
 // autosave test harness (on only in the Playwright web server), on the 360 px phone and desktop.
@@ -18,6 +19,11 @@ async function savedText(request: APIRequestContext): Promise<string> {
   const note = (await (await request.get(apiUrl())).json()) as { value: { text: string } };
   return note.value.text;
 }
+
+// The harness is a signed in page; drafts belong to the signed in staff member (IAM-01).
+test.beforeEach(async ({ page }) => {
+  await signIn(page, testStaff.physio.email);
+});
 
 async function openNote(page: Page) {
   await page.goto(noteUrl());
@@ -108,9 +114,12 @@ test('saves an offline draft on reconnect even after leaving its screen', async 
   await expect(page.getByText('Saved on this device', { exact: true })).toBeVisible();
   await outlastAutosavePause(page);
 
+  // Signed in pages are not cached (IAM-01): offline, the offline page opens, and reloads by
+  // itself when the connection returns.
   await page.goto('/app');
-  await expect(page.getByRole('heading', { name: 'Clinic Mx' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'You are offline' })).toBeVisible();
   await context.setOffline(false);
+  await expect(page.getByRole('heading', { name: 'Clinic Mx' })).toBeVisible();
   await expect.poll(() => savedText(request)).toBe('Left this screen while offline');
 });
 
