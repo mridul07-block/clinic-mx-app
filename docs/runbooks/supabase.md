@@ -35,9 +35,14 @@ ignored. Check it with `supabase migration list --linked`.
 
 ## Local stack
 
-`pnpm db:start`, `pnpm db:status`, `pnpm db:stop`. Needs Docker Desktop running. Studio, analytics
-and the edge runtime are off in `supabase/config.toml` to keep memory use low; turn Studio on there
-when you need the dashboard.
+`pnpm db:start`, `pnpm db:status`, `pnpm db:stop`. Needs Docker Desktop running and about 2 to 3 GB
+of free memory. Studio, analytics and the edge runtime are off in `supabase/config.toml` to keep
+memory use low; turn Studio on there when you need the dashboard.
+
+The stack runs in CI (job "Local Supabase stack" in `.github/workflows/ci.yml`) on every pull
+request; IAM-05's row level security tests run against it there. The main development machine
+(7.7 GB RAM, nearly full C: drive whose page file grows under memory pressure) does not run it
+(decision of 21 October 2026); develop against the staging project instead.
 
 ## Known network issue: ISP block of supabase.co
 
