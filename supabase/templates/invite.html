@@ -1,0 +1,14 @@
+<!-- IAM-06: the invite email. The link opens our staff app to set a password; the token is used
+     on our server and the link never points at supabase.co (rule 9). Staging and production use
+     the same body in their project auth settings (docs/runbooks/staff.md). -->
+<h2>You're invited to Clinic Mx</h2>
+<p>You have been given a Clinic Mx staff account for Movementology Clinics.</p>
+<p>
+  <a href="{{ .SiteURL }}/app/reset-password?token_hash={{ .TokenHash }}&type=invite"
+    >Set your password</a
+  >
+</p>
+<p>
+  The link works once, for one hour. If it has expired, ask your Super Admin to send the invite
+  again.
+</p>

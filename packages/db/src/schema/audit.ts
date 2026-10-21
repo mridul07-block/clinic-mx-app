@@ -17,8 +17,9 @@ import {
  */
 
 // sign_in, sign_out and password_change record staff access (IAM-01); two_step_on and
-// two_step_reset record two step verification turned on or reset by the Super Admin (IAM-02).
-// None of them changes a table row.
+// two_step_reset record two step verification turned on or reset by the Super Admin (IAM-02);
+// staff_invited and invite_link_created record invites sent and links made (IAM-06). None of
+// them changes a table row.
 export const auditActions = [
   'insert',
   'update',
@@ -29,6 +30,8 @@ export const auditActions = [
   'password_change',
   'two_step_on',
   'two_step_reset',
+  'staff_invited',
+  'invite_link_created',
 ] as const;
 export const auditAction = pgEnum('audit_action', auditActions);
 

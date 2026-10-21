@@ -10,10 +10,16 @@ import { PasswordInput } from '../password-input';
 
 const initialState: AuthFormState = {};
 
-export function ResetPasswordForm({ tokenHash }: { tokenHash: string }) {
+export function ResetPasswordForm({ tokenHash, invite }: { tokenHash: string; invite: boolean }) {
   const [state, action, pending] = useActionState(resetPassword, initialState);
   if (!tokenHash || state.linkExpired) {
-    return (
+    // An invite link is replaced by the Super Admin, not by the forgot password page.
+    return invite ? (
+      <FormMessage tone="danger">
+        This invite link has expired or was already used. Ask your Super Admin to send the invite
+        again.
+      </FormMessage>
+    ) : (
       <div className="flex flex-col gap-4">
         <FormMessage tone="danger">
           {state.error ?? 'This reset link is not complete. Ask for a new one.'}
@@ -28,8 +34,9 @@ export function ResetPasswordForm({ tokenHash }: { tokenHash: string }) {
     <form action={action} className="flex flex-col gap-4" noValidate>
       {state.error ? <FormMessage tone="danger">{state.error}</FormMessage> : null}
       <input type="hidden" name="tokenHash" value={tokenHash} />
+      <input type="hidden" name="linkType" value={invite ? 'invite' : 'recovery'} />
       <PasswordInput
-        label="New password"
+        label={invite ? 'Password' : 'New password'}
         autoComplete="new-password"
         helper={`At least ${String(PASSWORD_MIN_LENGTH)} characters.`}
       />

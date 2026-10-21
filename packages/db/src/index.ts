@@ -36,6 +36,7 @@ export {
   logAccessEvent,
   logRecordView,
   patientActor,
+  recordAccessEvent,
   setAuditContext,
   staffActor,
   systemActor,
@@ -56,7 +57,18 @@ export {
 } from './settings';
 export { claimsForStaff, withStaffAccess } from './access';
 export {
-  authUserIdForStaff,
+  centreOptions,
+  insertStaffMember,
+  linkStaffLogin,
+  setStaffMemberActive,
+  staffEmailTaken,
+  staffList,
+  staffRecord,
+  updateStaffMember,
+  type StaffListEntry,
+  type StaffRecord,
+} from './staff';
+export {
   centreNamesForStaff,
   currentStaffClaims,
   staffForSignIn,

@@ -63,7 +63,13 @@ export async function logRecordView(
 }
 
 export type AccessAction =
-  'sign_in' | 'sign_out' | 'password_change' | 'two_step_on' | 'two_step_reset';
+  | 'sign_in'
+  | 'sign_out'
+  | 'password_change'
+  | 'two_step_on'
+  | 'two_step_reset'
+  | 'staff_invited'
+  | 'invite_link_created';
 
 /**
  * Records access to a staff account (IAM-01, IAM-02): signing in or out, a password change, two
@@ -77,4 +83,19 @@ export async function logAccessEvent(
   await db
     .insert(auditEvent)
     .values({ actor, action, entity: 'staff_user', entityId: staffUserId, ip });
+}
+
+/**
+ * Records an access event about `staffUserId` from inside a transaction that names its actor,
+ * including one under row level security (IAM-06): internal.record_access_event writes it with
+ * that transaction's actor and address, so it cannot be recorded as anyone else.
+ */
+export async function recordAccessEvent(
+  tx: DbOrTransaction,
+  {
+    action,
+    staffUserId,
+  }: { action: Exclude<AccessAction, 'sign_in' | 'sign_out'>; staffUserId: string },
+): Promise<void> {
+  await tx.execute(sql`select internal.record_access_event(${action}, ${staffUserId}::uuid)`);
 }

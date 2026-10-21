@@ -1,6 +1,8 @@
 import 'server-only';
 import { withStaffAccess, type StaffMember } from '@clinic-mx/db';
 import { appDb } from '../../lib/db';
+import { clientIp, requireStaff } from '../auth/session';
+import type { ServiceContext } from './service';
 
 type Work<R> = Parameters<typeof withStaffAccess<R>>[2];
 
@@ -11,4 +13,9 @@ type Work<R> = Parameters<typeof withStaffAccess<R>>[2];
  */
 export function asStaff<R>(actor: StaffMember, work: Work<R>): Promise<R> {
   return withStaffAccess(appDb(), { actor }, work);
+}
+
+/** Who is acting and where from, for a server action that calls a staffService. */
+export async function serviceContext(): Promise<ServiceContext> {
+  return { db: appDb(), actor: await requireStaff(), ip: await clientIp() };
 }

@@ -41,6 +41,9 @@ export const testStaff = {
     email: 'physio.whitefield@clinicmx.test',
     name: 'Test Consultant Physio Whitefield',
   },
+  // Super Admins for staff-management.spec.ts (IAM-06).
+  adminPhone: { email: 'admin.phone@clinicmx.test', name: 'Test Staff Admin Phone' },
+  adminDesktop: { email: 'admin.desktop@clinicmx.test', name: 'Test Staff Admin Desktop' },
 } as const;
 
 /** Accounts global setup gives an authenticator app. */
@@ -49,6 +52,8 @@ export const accountsWithAuthenticator = [
   testStaff.manager,
   testStaff.finance,
   testStaff.superAdmin,
+  testStaff.adminPhone,
+  testStaff.adminDesktop,
 ];
 
 interface TestAccount {
@@ -69,6 +74,9 @@ export const signInStaff = () => perProject<WithRole>(testStaff.finance, testSta
 /** The account two-step.spec.ts sets two step verification up for. */
 export const setupStaff = () =>
   perProject<TestAccount>(testStaff.setupPhone, testStaff.setupDesktop);
+/** The Super Admin staff-management.spec.ts signs in with. */
+export const staffAdmin = () =>
+  perProject<TestAccount>(testStaff.adminPhone, testStaff.adminDesktop);
 /** The Front Desk account auth.spec.ts changes (password, two step on). */
 export const changingDeskStaff = () =>
   perProject<TestAccount>(testStaff.resetPhone, testStaff.resetDesktop);

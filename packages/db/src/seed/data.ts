@@ -112,6 +112,22 @@ const staff: SeedStaff[] = [
     consultant: true,
     centres: [centreIds.whitefield],
   },
+  // Super Admins for the staff management end to end tests (IAM-06), one per browser project, so
+  // they never share two step verification with the Super Admin above.
+  {
+    id: staffId(10),
+    name: 'Test Staff Admin Phone',
+    email: 'admin.phone@clinicmx.test',
+    role: 'super_admin',
+    centres: [],
+  },
+  {
+    id: staffId(11),
+    name: 'Test Staff Admin Desktop',
+    email: 'admin.desktop@clinicmx.test',
+    role: 'super_admin',
+    centres: [],
+  },
 ];
 
 export const seedStaff: NewStaffUser[] = staff.map(({ centres: _centres, ...row }) => row);

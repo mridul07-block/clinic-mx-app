@@ -78,6 +78,20 @@
       "when": 1792607377160,
       "tag": "20261021182937_row_level_security",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792608700825,
+      "tag": "20261021185140_staff_invite_audit_actions",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792608701870,
+      "tag": "20261021185141_record_access_event",
+      "breakpoints": true
     }
   ]
 }

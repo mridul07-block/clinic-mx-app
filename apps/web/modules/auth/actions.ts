@@ -99,6 +99,7 @@ function isRecoverySession(claims: JwtPayload | undefined): claims is JwtPayload
 export async function resetPassword(_state: AuthFormState, form: FormData): Promise<AuthFormState> {
   const parsed = newPasswordSchema.safeParse({
     tokenHash: form.get('tokenHash'),
+    linkType: form.get('linkType') ?? undefined,
     password: form.get('password'),
   });
   if (!parsed.success) {
@@ -120,7 +121,7 @@ export async function resetPassword(_state: AuthFormState, form: FormData): Prom
   // The link's token is used here, on submit, not when the page opens: mail scanners that open
   // links cannot use it up.
   const verified = await supabase.auth.verifyOtp({
-    type: 'recovery',
+    type: parsed.data.linkType,
     token_hash: parsed.data.tokenHash,
   });
   let authUserId = verified.data.user?.id;
