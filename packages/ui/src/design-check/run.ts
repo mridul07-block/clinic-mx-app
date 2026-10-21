@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { checkTokens } from './contrast';
 import type { Problem } from './problems';
+import { tokenValues } from '../token-values';
 import { checkSource } from './source';
 import { parseTokens } from './tokens';
 
@@ -10,10 +11,14 @@ import { parseTokens } from './tokens';
 
 const root = join(import.meta.dirname, '..', '..', '..', '..');
 const tokensFile = 'packages/ui/src/styles/tokens.css';
+const tokenValuesFile = 'packages/ui/src/token-values.ts';
 const seedFile = 'packages/db/src/seed/data.ts';
 
-/** Files the raw colour rule skips: the tokens themselves, and the seed's centre colours. */
-const rawColourAllowed = new Set([tokensFile, seedFile]);
+/**
+ * Files the raw colour rule skips: the tokens themselves, and two mirrors checked against
+ * them below (token values for non-CSS consumers, and the seed's centre colours).
+ */
+const rawColourAllowed = new Set([tokensFile, tokenValuesFile, seedFile]);
 
 /** Tests that name forbidden values on purpose, to prove the page or theme lacks them. */
 const testsOfTheRules = new Set([
@@ -58,6 +63,18 @@ for (const top of ['apps', 'packages']) {
     scanned++;
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- a file found by the walk above
     problems.push(...checkSource(file, readFileSync(path, 'utf8'), rawColourAllowed.has(file)));
+  }
+}
+
+// Token values used outside CSS (manifest, icons) must equal tokens.css.
+for (const [name, value] of Object.entries(tokenValues)) {
+  if (value !== tokens.get(name)) {
+    problems.push({
+      file: tokenValuesFile,
+      line: 1,
+      rule: 'token-value',
+      message: `${name} is ${value} but --${name} is ${tokens.get(name) ?? 'missing'}`,
+    });
   }
 }
 

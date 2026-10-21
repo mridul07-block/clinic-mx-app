@@ -23,7 +23,14 @@ const colourUtilities = [
 /* eslint-disable security/detect-unsafe-regex, security/detect-non-literal-regexp -- every
    repeated group ends at a fixed delimiter (":" or "-"), so matching is linear; the patterns
    are built from the constant lists above and only ever read this repository's source. */
-const rules: { rule: string; pattern: RegExp; message: string; skipRawColour?: boolean }[] = [
+const rules: {
+  rule: string;
+  pattern: RegExp;
+  message: string;
+  skipRawColour?: boolean;
+  /** Apply the rule only to files whose path matches. */
+  onlyIn?: RegExp;
+}[] = [
   {
     rule: 'raw-colour',
     // Hex colours (not `this.#field` or `&#123;`) and colour functions.
@@ -54,6 +61,9 @@ const rules: { rule: string; pattern: RegExp; message: string; skipRawColour?: b
     rule: 'dynamic-class',
     pattern: /(?<![\w-])(?:[\w-]+:)*-?[a-z]+(?:-[a-z0-9]+)*-\$\{/g,
     message: 'class name built at run time; Tailwind cannot see it. Write it out in full',
+    // Class names live in TypeScript; plain JS (the service worker, configs) has none, and
+    // its `name-${x}` strings are cache keys and the like.
+    onlyIn: /\.tsx?$/,
   },
 ];
 /* eslint-enable security/detect-unsafe-regex, security/detect-non-literal-regexp -- end of the rule patterns */
@@ -73,8 +83,9 @@ export function stripComments(text: string): string {
 export function checkSource(file: string, text: string, allowRawColour = false): Problem[] {
   const problems: Problem[] = [];
   const lines = stripComments(text).split('\n');
-  for (const { rule, pattern, message, skipRawColour } of rules) {
+  for (const { rule, pattern, message, skipRawColour, onlyIn } of rules) {
     if (skipRawColour && allowRawColour) continue;
+    if (onlyIn && !onlyIn.test(file)) continue;
     lines.forEach((content, index) => {
       for (const match of content.matchAll(pattern)) {
         problems.push({ file, line: index + 1, rule, message: `${match[0]}: ${message}` });

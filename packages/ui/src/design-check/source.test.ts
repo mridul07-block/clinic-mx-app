@@ -75,6 +75,12 @@ describe('dynamic class names', () => {
   it('passes full names chosen at run time', () => {
     expect(rulesIn('className={`rounded-tag ${active ? "bg-accent" : "bg-surface"}`}')).toEqual([]);
   });
+
+  it('ignores plain JavaScript, which holds no class names', () => {
+    const cacheKey = 'const CACHE = `clinic-mx-shell-${VERSION}`;';
+    expect(checkSource('public/sw.js', cacheKey).map((p) => p.rule)).toEqual([]);
+    expect(checkSource('lib/a.ts', cacheKey).map((p) => p.rule)).toContain('dynamic-class');
+  });
 });
 
 describe('comments', () => {

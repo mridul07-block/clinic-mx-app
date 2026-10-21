@@ -3,6 +3,7 @@ import js from '@eslint/js';
 import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import { defineConfig } from 'eslint/config';
 import security from 'eslint-plugin-security';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 const TS_FILES = ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'];
@@ -61,6 +62,11 @@ export default defineConfig(
     // parser (without type information) so ESLint 10's scope manager API is available.
     files: ['**/*.js', '**/*.jsx', '**/*.mjs', '**/*.cjs'],
     languageOptions: { parser: tseslint.parser },
+  },
+  {
+    // The service worker runs in the browser's service worker scope, not the page or Node.
+    files: ['apps/web/public/sw.js'],
+    languageOptions: { sourceType: 'script', globals: globals.serviceworker },
   },
   {
     rules: {
