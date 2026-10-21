@@ -12,3 +12,13 @@ export {
   type DraftSaveResponse,
   type TestHarnessNote,
 } from './drafts';
+export {
+  consultationFeeTimings,
+  isSettingKey,
+  parseSetting,
+  settingDefinitions,
+  settingKeys,
+  type SettingKey,
+  type SettingValue,
+  type Settings,
+} from './settings';

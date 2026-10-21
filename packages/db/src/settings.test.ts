@@ -1,0 +1,119 @@
+import type { Settings } from '@clinic-mx/schemas';
+import { describe, expect, it, vi } from 'vitest';
+import { SettingsError, createSettingsReader, parseSettings } from './settings';
+
+// Test values only; the real ones are in the settings migration.
+const stored: Settings = {
+  'scheduling.consultation_minutes': 45,
+  'scheduling.session_minutes': { shortest: 45, longest: 60 },
+  'booking.self_booking_block_reschedules': 2,
+  'booking.self_booking_block_no_shows': 2,
+  'packages.reschedules_per_10_sessions': 1,
+  'packages.never_reschedulable_items': ['zero_gravity_treadmill'],
+  'day.running_late_minutes': 15,
+  'day.no_show_allowed_minutes': 25,
+  'billing.consultation_fee_timing': 'after_consultation',
+  'packages.validity_months': 3,
+  'packages.expiry_reminder_days': 14,
+  'clinical.baseline_reuse_days': 7,
+  'clinical.reassessment_session': 4,
+  'clinical.review_weeks': 6,
+  'billing.unpaid_sessions_flag_above': 3,
+  'engagement.follow_ups_after_discharge': [{ count: 2, unit: 'week' }],
+  'security.desktop_idle_logout_minutes': 15,
+  'security.phone_session_days': 30,
+  'reminders.day_before_time': '18:00',
+};
+
+const rows = (overrides: Record<string, unknown> = {}) =>
+  Object.entries({ ...stored, ...overrides }).map(([key, value]) => ({ key, value }));
+
+function readerWith(load = vi.fn(() => Promise.resolve(rows()))) {
+  let clock = 0;
+  const reader = createSettingsReader(load, { maxAgeSeconds: 60, now: () => clock });
+  return {
+    reader,
+    load,
+    advanceSeconds: (seconds: number) => {
+      clock += seconds * 1000;
+    },
+  };
+}
+
+describe('parseSettings', () => {
+  it('returns every setting with its value', () => {
+    expect(parseSettings(rows())).toEqual(stored);
+  });
+
+  it('names every missing and malformed setting at once', () => {
+    const broken = rows({ 'day.running_late_minutes': 'fifteen' }).filter(
+      (row) => row.key !== 'clinical.review_weeks',
+    );
+    expect(() => parseSettings(broken)).toThrow(SettingsError);
+    expect(() => parseSettings(broken)).toThrow(
+      /day\.running_late_minutes is invalid.*clinical\.review_weeks is missing/,
+    );
+  });
+
+  it('ignores rows the code no longer knows', () => {
+    expect(parseSettings([...rows(), { key: 'old.retired_rule', value: 1 }])).toEqual(stored);
+  });
+});
+
+describe('the settings reader', () => {
+  it('reads a value', async () => {
+    const { reader } = readerWith();
+    expect(await reader.get('day.no_show_allowed_minutes')).toBe(25);
+    expect(await reader.get('scheduling.session_minutes')).toEqual({ shortest: 45, longest: 60 });
+  });
+
+  it('loads once for reads within the cache time, including reads that arrive together', async () => {
+    const { reader, load, advanceSeconds } = readerWith();
+    await Promise.all([
+      reader.get('day.running_late_minutes'),
+      reader.get('clinical.review_weeks'),
+    ]);
+    advanceSeconds(59);
+    await reader.all();
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads again once the cache time has passed', async () => {
+    const load = vi
+      .fn()
+      .mockResolvedValueOnce(rows())
+      .mockResolvedValueOnce(rows({ 'day.running_late_minutes': 20 }));
+    const { reader, advanceSeconds } = readerWith(load);
+    expect(await reader.get('day.running_late_minutes')).toBe(15);
+    advanceSeconds(60);
+    expect(await reader.get('day.running_late_minutes')).toBe(20);
+  });
+
+  it('loads again after invalidate', async () => {
+    const load = vi
+      .fn()
+      .mockResolvedValueOnce(rows())
+      .mockResolvedValueOnce(rows({ 'day.running_late_minutes': 20 }));
+    const { reader } = readerWith(load);
+    await reader.get('day.running_late_minutes');
+    reader.invalidate();
+    expect(await reader.get('day.running_late_minutes')).toBe(20);
+  });
+
+  it('does not keep a failed load', async () => {
+    const load = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('connection reset'))
+      .mockResolvedValueOnce(rows());
+    const { reader } = readerWith(load);
+    await expect(reader.get('day.running_late_minutes')).rejects.toThrow('connection reset');
+    expect(await reader.get('day.running_late_minutes')).toBe(15);
+  });
+
+  it('refuses to answer from a table with a malformed value', async () => {
+    const { reader } = readerWith(
+      vi.fn(() => Promise.resolve(rows({ 'clinical.review_weeks': -1 }))),
+    );
+    await expect(reader.get('day.running_late_minutes')).rejects.toThrow(SettingsError);
+  });
+});
