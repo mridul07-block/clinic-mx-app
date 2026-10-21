@@ -42,3 +42,13 @@ export {
   type Actor,
   type AuditContext,
 } from './audit';
+export {
+  SETTINGS_CACHE_SECONDS,
+  SettingsError,
+  createSettingsReader,
+  parseSettings,
+  readSettingRows,
+  updateSetting,
+  type SettingsReader,
+  type SettingsReaderOptions,
+} from './settings';
