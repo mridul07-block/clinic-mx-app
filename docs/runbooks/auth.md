@@ -59,6 +59,36 @@ Admin, Centre Manager, Physiotherapist and Finance; optional for Front Desk (TAD
 Settings: TOTP enroll and verify on (`[auth.mfa.totp]` in `supabase/config.toml`; on by default on
 hosted projects, checked on staging 21 October 2026).
 
+## Role, ticks and centres in the token (IAM-03)
+
+Every token Supabase issues carries a `clinic` claim, read by row level security (IAM-05):
+
+```json
+{ "staff_id": "…", "role": "physiotherapist", "treats_patients": true, "consultant": true,
+  "all_centres": false, "centres": ["<centre id>"] }
+```
+
+- `internal.staff_claims(auth_user_id)` builds it from `staff_user` and `staff_user_centre`; null
+  for anyone who is not an active staff member before their end date. `all_centres` is true for
+  Super Admin and Finance (PRD section 2). The shape is `staffClaimsSchema` in
+  `packages/schemas/src/staff.ts`.
+- The custom access token hook `internal.custom_access_token_hook` adds it at sign in, at the two
+  step code and at every refresh. Only `supabase_auth_admin` may run it.
+- **Refreshed on change**: `apps/web/proxy.ts` compares the token's claim with `staff_claims` on
+  every staff request and, if they differ, refreshes the session at once, so the new role, ticks or
+  centres apply from the next page or action. The two step level is kept. If the refresh fails,
+  the stale token is not accepted (`signInState`) and the person signs in again.
+- Readers for policies: `internal.jwt_staff_role()`, `jwt_treats()`, `jwt_consultant()`,
+  `jwt_centre_ids()`, `jwt_sees_centre(centre_id)`, callable by the `authenticated` role.
+
+**Enabling the hook per environment**, in this order: apply the migration (`*_staff_claims.sql`),
+turn the hook on, then deploy the app. A hook that does not exist stops every sign in, and the app
+refuses tokens without the claim, so staff cannot sign in between the deploy and the hook. Locally
+`[auth.hook.custom_access_token]` in `supabase/config.toml`; on a hosted project the Management API
+`PATCH /v1/projects/<ref>/config/auth` with `hook_custom_access_token_enabled: true` and
+`hook_custom_access_token_uri: "pg-functions://postgres/internal/custom_access_token_hook"` (or
+Authentication, Hooks in the dashboard).
+
 ## Settings per environment
 
 Supabase project auth settings (Authentication in the dashboard, or the Management API

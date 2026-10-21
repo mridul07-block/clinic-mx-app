@@ -1,7 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test, type Page } from '@playwright/test';
+import {
+  centre,
+  createDb,
+  staffUser,
+  staffUserCentre,
+  systemActor,
+  withActor,
+} from '@clinic-mx/db';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
+import { eq } from 'drizzle-orm';
 import { totpCode } from './totp';
 
 // Signing in for end to end tests (IAM-01, IAM-02). The staff are the seed's generated test
@@ -203,4 +212,77 @@ export async function addAuthenticator(email: string, password = seedPassword())
   });
   if (verified.error) throw verified.error;
   return enrolled.data.totp.secret;
+}
+
+/**
+ * The claims of the access token in the browser's session cookie, read by the test runner (the
+ * page cannot read the cookie). @supabase/ssr stores the session as "base64-" and base64url JSON,
+ * split over numbered cookies when long.
+ */
+export async function sessionTokenClaims(
+  context: BrowserContext,
+): Promise<Record<string, unknown>> {
+  const parts = (await context.cookies())
+    .filter((cookie) => {
+      // "sb-<ref>-auth-token", or one of its numbered parts; not the code verifier cookies.
+      const base = cookie.name.replace(/\.\d+$/, '');
+      return base.startsWith('sb-') && base.endsWith('-auth-token');
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'en', { numeric: true }));
+  const raw = parts.map((cookie) => cookie.value).join('');
+  const json = raw.startsWith('base64-')
+    ? Buffer.from(raw.slice('base64-'.length), 'base64url').toString('utf8')
+    : decodeURIComponent(raw);
+  const session = JSON.parse(json) as { access_token: string };
+  const [, payload = ''] = session.access_token.split('.');
+  return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>;
+}
+
+let database: ReturnType<typeof createDb> | undefined;
+const testDb = () => {
+  database ??= createDb(required('DIRECT_DATABASE_URL'), { max: 1, idleTimeoutSeconds: 1 });
+  return database.db;
+};
+
+/** The seed staff row for a test account. */
+export async function staffRow(email: string) {
+  const [row] = await testDb().select().from(staffUser).where(eq(staffUser.email, email));
+  if (!row) throw new Error(`No staff row for ${email}`);
+  return row;
+}
+
+/** Changes a staff row and its centres in the database, as the Super Admin's staff screen will. */
+export async function changeStaff(
+  email: string,
+  change: { values?: Partial<typeof staffUser.$inferInsert>; centres?: string[] },
+) {
+  const { id } = await staffRow(email);
+  await withActor(testDb(), systemActor('tests'), async (tx) => {
+    if (change.values) await tx.update(staffUser).set(change.values).where(eq(staffUser.id, id));
+    if (change.centres) {
+      await tx.delete(staffUserCentre).where(eq(staffUserCentre.staffUserId, id));
+      if (change.centres.length > 0) {
+        await tx
+          .insert(staffUserCentre)
+          .values(change.centres.map((centreId) => ({ staffUserId: id, centreId })));
+      }
+    }
+  });
+}
+
+/** The ids of a staff member's assigned centres. */
+export async function staffCentres(email: string): Promise<string[]> {
+  const { id } = await staffRow(email);
+  const rows = await testDb()
+    .select({ centreId: staffUserCentre.centreId })
+    .from(staffUserCentre)
+    .where(eq(staffUserCentre.staffUserId, id));
+  return rows.map((row) => row.centreId);
+}
+
+/** A seed centre's id, by name. */
+export async function centreId(name: string): Promise<string> {
+  const [row] = await testDb().select({ id: centre.id }).from(centre).where(eq(centre.name, name));
+  if (!row) throw new Error(`No centre ${name}`);
+  return row.id;
 }

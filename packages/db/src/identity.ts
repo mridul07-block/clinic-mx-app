@@ -1,5 +1,5 @@
-import { and, eq, gt, isNull, or } from 'drizzle-orm';
-import { staffUser } from './schema';
+import { and, asc, eq, gt, isNull, or, sql } from 'drizzle-orm';
+import { centre, staffUser, staffUserCentre } from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /** What the server knows about a signed in staff member. */
@@ -53,4 +53,32 @@ export async function authUserIdForStaff(
     .where(eq(staffUser.id, staffUserId))
     .limit(1);
   return row?.authUserId ?? undefined;
+}
+
+/**
+ * The claims a token for this login should carry now (IAM-03): what internal.staff_claims builds
+ * for the access token hook, or null when the login is not an active staff member.
+ */
+export async function currentStaffClaims(
+  db: DbOrTransaction,
+  authUserId: string,
+): Promise<unknown> {
+  const rows = await db.execute<{ claims: unknown }>(
+    sql`select internal.staff_claims(${authUserId}::uuid) as claims`,
+  );
+  return rows[0]?.claims ?? null;
+}
+
+/** Names of the centres a staff member is assigned to, in name order. */
+export async function centreNamesForStaff(
+  db: DbOrTransaction,
+  staffUserId: string,
+): Promise<string[]> {
+  const rows = await db
+    .select({ name: centre.name })
+    .from(staffUserCentre)
+    .innerJoin(centre, eq(centre.id, staffUserCentre.centreId))
+    .where(eq(staffUserCentre.staffUserId, staffUserId))
+    .orderBy(asc(centre.name));
+  return rows.map((row) => row.name);
 }

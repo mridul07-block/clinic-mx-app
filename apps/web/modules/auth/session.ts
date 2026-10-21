@@ -1,5 +1,6 @@
 import 'server-only';
-import { staffForSignIn, type StaffMember } from '@clinic-mx/db';
+import { currentStaffClaims, staffForSignIn, type StaffMember } from '@clinic-mx/db';
+import { sameStaffClaims } from '@clinic-mx/schemas';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
@@ -17,9 +18,9 @@ export interface SignInState {
 
 /**
  * Who is signing in on this request and how far they have got, or null: a valid Supabase session
- * whose user is linked to an active staff row with no passed end date. The assurance level comes
- * from the session's signed token, the authenticator apps from Supabase Auth itself. Read once
- * per request.
+ * whose user is linked to an active staff row with no passed end date, and whose role, ticks
+ * and centres claim is current. The assurance level comes from the session's signed token, the
+ * authenticator apps from Supabase Auth itself. Read once per request.
  */
 export const signInState = cache(async (): Promise<SignInState | null> => {
   let supabase: Awaited<ReturnType<typeof supabaseServer>>;
@@ -34,6 +35,9 @@ export const signInState = cache(async (): Promise<SignInState | null> => {
   if (!claims?.sub) return null;
   const staff = await staffForSignIn(appDb(), claims.sub);
   if (!staff) return null;
+  // IAM-03: proxy.ts replaces a token whose role, ticks or centres are out of date. If that
+  // failed, the request does not go on with old claims: the person signs in again.
+  if (!sameStaffClaims(claims.clinic, await currentStaffClaims(appDb(), claims.sub))) return null;
 
   // aal2 means a code was entered; otherwise ask Supabase Auth, never the cookie.
   let twoStepOn = true;

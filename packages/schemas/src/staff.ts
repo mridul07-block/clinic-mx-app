@@ -32,3 +32,40 @@ export const staffRoleLabels: Record<StaffRole, string> = {
 export function twoStepRequired(role: StaffRole): boolean {
   return role !== 'front_desk';
 }
+
+/**
+ * The `clinic` claim in every staff token (IAM-03, TAD section 5), built by the database
+ * (internal.staff_claims) and read by row level security. `all_centres` is true for the roles
+ * that see every centre; `centres` lists the person's assigned centres.
+ */
+export const staffClaimsSchema = z.object({
+  staff_id: z.guid(),
+  role: staffRoleSchema,
+  treats_patients: z.boolean(),
+  consultant: z.boolean(),
+  all_centres: z.boolean(),
+  centres: z.array(z.guid()),
+});
+
+export type StaffClaims = z.infer<typeof staffClaimsSchema>;
+
+/**
+ * Whether a token's claim still says what the database says now. Missing on both sides counts as
+ * the same; a malformed claim never matches.
+ */
+export function sameStaffClaims(token: unknown, current: unknown): boolean {
+  const missing = (claim: unknown) => claim === null || claim === undefined;
+  if (missing(token) || missing(current)) return missing(token) && missing(current);
+  const a = staffClaimsSchema.safeParse(token);
+  const b = staffClaimsSchema.safeParse(current);
+  if (!a.success || !b.success) return false;
+  const sorted = (ids: string[]) => [...ids].sort().join(',');
+  return (
+    a.data.staff_id === b.data.staff_id &&
+    a.data.role === b.data.role &&
+    a.data.treats_patients === b.data.treats_patients &&
+    a.data.consultant === b.data.consultant &&
+    a.data.all_centres === b.data.all_centres &&
+    sorted(a.data.centres) === sorted(b.data.centres)
+  );
+}

@@ -1,5 +1,8 @@
+import { currentStaffClaims } from '@clinic-mx/db';
+import { sameStaffClaims } from '@clinic-mx/schemas';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { appDb } from './lib/db';
 import { serverEnv } from './lib/env';
 import { authCookieOptions } from './lib/supabase/cookies';
 import { publicStaffPath } from './modules/auth/next-path';
@@ -12,7 +15,7 @@ import { publicStaffPath } from './modules/auth/next-path';
  */
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  const { SUPABASE_URL, SUPABASE_ANON_KEY } = serverEnv();
+  const { SUPABASE_URL, SUPABASE_ANON_KEY, DATABASE_URL } = serverEnv();
   const refreshed: { name: string; value: string; options: CookieOptions }[] = [];
 
   let signedIn = false;
@@ -30,7 +33,15 @@ export async function proxy(request: NextRequest) {
       },
     });
     const { data } = await supabase.auth.getClaims();
-    signedIn = Boolean(data?.claims.sub);
+    const authUserId = data?.claims.sub;
+    signedIn = Boolean(authUserId);
+    // IAM-03: when the person's role, ticks or centres changed since the token was issued, a
+    // new token (with the current claims, from the access token hook) replaces it now, before
+    // the page or server action runs. The session keeps its two step level.
+    if (authUserId && DATABASE_URL) {
+      const current = await currentStaffClaims(appDb(), authUserId);
+      if (!sameStaffClaims(data.claims.clinic, current)) await supabase.auth.refreshSession();
+    }
   }
 
   let response: NextResponse;

@@ -1,13 +1,18 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
+  centreId,
+  changeStaff,
   changingDeskStaff,
   clearMail,
   clearTwoStep,
   resetLinkFor,
   seedPassword,
+  sessionTokenClaims,
   setPassword,
   signIn,
   signInStaff,
+  staffCentres,
+  staffRow,
   supabaseUrl,
 } from './staff';
 import { totpCode } from './totp';
@@ -130,6 +135,77 @@ test('signing out deletes drafts from the device, after asking if any are unsave
       }),
   );
   expect(drafts).toBe(0);
+});
+
+// IAM-03 done when: claims refresh when a user's role, ticks or centres change. Uses this file's
+// own accounts (signInStaff), so no other test signs in as them meanwhile.
+test.describe('role, ticks and centres in the token', () => {
+  let original: Awaited<ReturnType<typeof staffRow>>;
+  let originalCentres: string[];
+
+  test.beforeEach(async () => {
+    original = await staffRow(signInStaff().email);
+    originalCentres = await staffCentres(signInStaff().email);
+  });
+  test.afterEach(async () => {
+    await changeStaff(signInStaff().email, {
+      values: {
+        role: original.role,
+        treatsPatients: original.treatsPatients,
+        consultant: original.consultant,
+        active: original.active,
+      },
+      centres: originalCentres,
+    });
+  });
+
+  test('follow changes on the next page, without signing in again', async ({ page, context }) => {
+    const staff = signInStaff();
+    await signIn(page, staff.email);
+    expect((await sessionTokenClaims(context)).clinic).toMatchObject({
+      staff_id: original.id,
+      role: original.role,
+      all_centres: true,
+      centres: [],
+    });
+
+    // The Super Admin moves them to Centre Manager at HSR Layout, treating patients.
+    const hsr = await centreId('HSR Layout');
+    await changeStaff(staff.email, {
+      values: { role: 'centre_manager', treatsPatients: true },
+      centres: [hsr],
+    });
+    await page.goto('/app/account');
+    await expect(page).toHaveURL(/\/app\/account$/);
+    await expect(page.getByText(`${staff.name}, Centre Manager`)).toBeVisible();
+    await expect(page.getByText('HSR Layout')).toBeVisible();
+    await expect(page.getByText('Treats patients')).toBeVisible();
+    const moved = await sessionTokenClaims(context);
+    expect(moved.aal).toBe('aal2');
+    expect(moved.clinic).toEqual({
+      staff_id: original.id,
+      role: 'centre_manager',
+      treats_patients: true,
+      consultant: original.consultant,
+      all_centres: false,
+      centres: [hsr],
+    });
+
+    // Then the Consultant tick, the other way from how it was.
+    await changeStaff(staff.email, { values: { consultant: !original.consultant } });
+    await page.goto('/app');
+    await expect(page).toHaveURL(/\/app$/);
+    expect((await sessionTokenClaims(context)).clinic).toMatchObject({
+      consultant: !original.consultant,
+    });
+  });
+
+  test('a deactivated person is signed out on their next page', async ({ page }) => {
+    await signIn(page, signInStaff().email);
+    await changeStaff(signInStaff().email, { values: { active: false } });
+    await page.goto('/app/account');
+    await expect(page).toHaveURL(/\/app\/sign-in/);
+  });
 });
 
 // Tests that change a Front Desk account: one account per project, in this file so they never
