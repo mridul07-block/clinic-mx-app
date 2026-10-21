@@ -1,6 +1,6 @@
 'use server';
 
-import { staffForSignIn } from '@clinic-mx/db';
+import { staffForSignIn, supportLoginWithoutGrant } from '@clinic-mx/db';
 import {
   deviceClass,
   newPasswordSchema,
@@ -50,11 +50,13 @@ export async function signIn(_state: AuthFormState, form: FormData): Promise<Aut
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { error: authMessage(error, messages.signInFailed), email };
 
-  // A login whose staff member is deactivated or past their end date gets no session.
+  // A login whose staff member is deactivated or past their end date gets no session, nor does
+  // a Velyx support login while support access is off (IAM-08).
   const staff = await staffForSignIn(appDb(), data.user.id);
   if (!staff) {
     await supabase.auth.signOut({ scope: 'local' });
-    return { error: messages.signInFailed, email };
+    const supportOff = await supportLoginWithoutGrant(appDb(), data.user.id);
+    return { error: supportOff ? messages.supportOff : messages.signInFailed, email };
   }
 
   // IAM-07: the device class for this sign in (G7, from the browser; unknown counts as desktop)

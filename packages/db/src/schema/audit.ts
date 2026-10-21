@@ -18,8 +18,9 @@ import {
 
 // sign_in, sign_out and password_change record staff access (IAM-01); two_step_on and
 // two_step_reset record two step verification turned on or reset by the Super Admin (IAM-02);
-// staff_invited and invite_link_created record invites sent and links made (IAM-06). None of
-// them changes a table row.
+// staff_invited and invite_link_created record invites sent and links made (IAM-06);
+// support_request records each page or action a Velyx support login asks for under a grant
+// (IAM-08). None of them changes a table row.
 export const auditActions = [
   'insert',
   'update',
@@ -32,6 +33,7 @@ export const auditActions = [
   'two_step_reset',
   'staff_invited',
   'invite_link_created',
+  'support_request',
 ] as const;
 export const auditAction = pgEnum('audit_action', auditActions);
 

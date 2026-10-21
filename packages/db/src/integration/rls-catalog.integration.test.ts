@@ -55,4 +55,27 @@ describe('row level security covers every table', () => {
         order by 1`),
     ).toEqual([]);
   });
+
+  it('keeps Velyx support read only on every table people reach (IAM-08)', async () => {
+    // Each table with policies has a restrictive policy for every write command, so no permissive
+    // policy a later table adds can let a support login write.
+    expect(
+      await names(sql`
+        select c.relname || ':' || cmd.name as name
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        cross join (values ('INSERT'), ('UPDATE'), ('DELETE')) as cmd(name)
+        where n.nspname = 'public' and c.relkind in ('r', 'p')
+          and c.relname not in (${sql.join(
+            serverOnly.map((table) => sql`${table}`),
+            sql`, `,
+          )})
+          and not exists (
+            select 1 from pg_policies p
+            where p.schemaname = 'public' and p.tablename = c.relname
+              and p.permissive = 'RESTRICTIVE' and p.cmd = cmd.name
+              and p.policyname = 'support_read_only_' || lower(cmd.name))
+        order by 1`),
+    ).toEqual([]);
+  });
 });

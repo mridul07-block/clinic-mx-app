@@ -15,6 +15,7 @@ export function claimsForStaff(staff: StaffMember): StaffClaims {
     consultant: staff.consultant,
     all_centres: seesAllCentres(staff.role),
     centres: [...staff.centreIds].sort(),
+    support: staff.support,
   };
 }
 
@@ -23,7 +24,8 @@ export function claimsForStaff(staff: StaffMember): StaffClaims {
  * one transaction as the `authenticated` role with their claims, the way their own token would
  * be, and with them as the audit actor. Everything is local to the transaction, so a pooled
  * connection never keeps the role. The claims equal the token's: the app refuses a request whose
- * token differs from the database (IAM-03).
+ * token differs from the database (IAM-03). A Velyx support login's transaction is read only
+ * (IAM-08): Postgres refuses every write in it, SECURITY DEFINER functions included.
  */
 export async function withStaffAccess<R>(
   db: Db,
@@ -31,6 +33,7 @@ export async function withStaffAccess<R>(
   work: (tx: Transaction) => Promise<R>,
 ): Promise<R> {
   return db.transaction(async (tx) => {
+    if (actor.support) await tx.execute(sql`set transaction read only`);
     await setAuditContext(tx, { actor: staffActor(actor.id), ip });
     const claims = JSON.stringify({ role: 'authenticated', clinic: claimsForStaff(actor) });
     await tx.execute(sql`select set_config('request.jwt.claims', ${claims}, true)`);

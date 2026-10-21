@@ -2,7 +2,7 @@ import 'server-only';
 import { withStaffAccess, type Db, type StaffMember } from '@clinic-mx/db';
 import type { AccessTarget, Action } from '@clinic-mx/schemas';
 import type { z } from 'zod';
-import { assertCan, assertMay } from './guard';
+import { assertCan, assertMay, assertMayWrite } from './guard';
 
 export type ServiceTransaction = Parameters<Parameters<typeof withStaffAccess>[2]>[0];
 
@@ -23,13 +23,15 @@ export interface ServiceDefinition<S extends z.ZodType, R> {
 
 /**
  * A module service function (rule 17, IAM-04): permission, validate, transaction, audit event.
- * In order: the role and ticks may take `action`; the input passes its zod schema (a ZodError
+ * In order: the actor is not a read only Velyx support login (IAM-08; its transaction is read
+ * only in the database too); the role and ticks may take `action`; the input passes its zod schema (a ZodError
  * otherwise); then one transaction, as the actor under row level security (IAM-05) and named
  * for the audit trail, checks the record's centre and owner from `target` and runs the work.
  * Every write in apps/web goes through here; ESLint refuses the audited writers anywhere else.
  */
 export function staffService<S extends z.ZodType, R>(definition: ServiceDefinition<S, R>) {
   return async ({ db, actor, ip }: ServiceContext, rawInput: unknown): Promise<R> => {
+    assertMayWrite(actor);
     assertMay(actor, definition.action);
     const input = definition.input.parse(rawInput);
     return withStaffAccess(db, { actor, ip }, async (tx) => {

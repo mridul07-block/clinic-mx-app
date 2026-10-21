@@ -16,6 +16,8 @@ export interface StaffListEntry {
   active: boolean;
   accessEndsAt: Date | null;
   authUserId: string | null;
+  /** A Velyx support login (IAM-08). */
+  velyxSupport: boolean;
   /** Names of their centres, in name order. */
   centres: string[];
 }
@@ -31,6 +33,7 @@ export async function staffList(db: DbOrTransaction): Promise<StaffListEntry[]> 
       active: staffUser.active,
       accessEndsAt: staffUser.accessEndsAt,
       authUserId: staffUser.authUserId,
+      velyxSupport: staffUser.velyxSupport,
       // Table names written out: inside the join, a bare "id" would be the centre's.
       centres: sql<string[]>`array(
         select c.name from public.staff_user_centre a
@@ -52,6 +55,7 @@ export interface StaffRecord {
   active: boolean;
   accessEndsAt: Date | null;
   authUserId: string | null;
+  velyxSupport: boolean;
   centreIds: string[];
 }
 
@@ -71,6 +75,7 @@ export async function staffRecord(
       active: staffUser.active,
       accessEndsAt: staffUser.accessEndsAt,
       authUserId: staffUser.authUserId,
+      velyxSupport: staffUser.velyxSupport,
       centreIds: sql<string[]>`array(
         select a.centre_id::text from public.staff_user_centre a
         where a.staff_user_id = "staff_user"."id"
@@ -119,14 +124,18 @@ async function setCentres(db: DbOrTransaction, staffUserId: string, centreIds: s
   }
 }
 
-/** Adds a staff member and their centres; returns their id. */
+/** Adds a staff member and their centres, or a Velyx support login (IAM-08); returns their id. */
 export async function insertStaffMember(
   db: DbOrTransaction,
-  { email, details }: { email: string; details: StaffDetails },
+  {
+    email,
+    details,
+    velyxSupport = false,
+  }: { email: string; details: StaffDetails; velyxSupport?: boolean },
 ): Promise<string> {
   const [row] = await db
     .insert(staffUser)
-    .values({ email, ...detailColumns(details) })
+    .values({ email, ...detailColumns(details), velyxSupport })
     .returning({ id: staffUser.id });
   if (!row) throw new Error('The staff member was not added.');
   await setCentres(db, row.id, details.centreIds);

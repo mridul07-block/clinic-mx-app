@@ -22,6 +22,8 @@ export interface AuthFormState {
 export const messages = {
   signInFailed: 'That email and password do not match an active staff account.',
   unavailable: 'Sign in is not available right now. Try again in a few minutes.',
+  // IAM-08: shown only once the password was right, so it says nothing about other emails.
+  supportOff: "Support access is off. The clinic's Super Admin can turn it on.",
   tooMany: 'Too many attempts. Wait a few minutes, then try again.',
   linkExpired: 'This reset link has expired or was already used. Ask for a new one.',
   wrongCode:

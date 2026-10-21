@@ -1,4 +1,10 @@
-import { currentStaffClaims, logAccessEvent, staffActor } from '@clinic-mx/db';
+import {
+  activeGrant,
+  currentStaffClaims,
+  logAccessEvent,
+  logSupportRequest,
+  staffActor,
+} from '@clinic-mx/db';
 import {
   passwordSignInTime,
   sameStaffClaims,
@@ -36,8 +42,23 @@ const LAST_SEEN_REFRESH_MS = 60_000;
 function isActivity(request: NextRequest): boolean {
   if (request.nextUrl.pathname === SESSION_PATH) return request.method === 'POST';
   if (request.method !== 'GET' || request.headers.has('next-action')) return false;
+  return !isPrefetch(request);
+}
+
+function isPrefetch(request: NextRequest): boolean {
   const purpose = request.headers.get('sec-purpose') ?? request.headers.get('purpose') ?? '';
-  return !request.headers.has('next-router-prefetch') && !purpose.includes('prefetch');
+  return request.headers.has('next-router-prefetch') || purpose.includes('prefetch');
+}
+
+/**
+ * What a Velyx support login asked for (IAM-08), to log: a page (opened or navigated to) or a
+ * server action. Not the session check or activity ping, and not a prefetch nobody asked for.
+ */
+function supportRequestKind(request: NextRequest): 'page' | 'action' | null {
+  if (request.nextUrl.pathname === SESSION_PATH) return null;
+  if (request.headers.has('next-action')) return 'action';
+  if (request.method === 'GET' && !isPrefetch(request)) return 'page';
+  return null;
 }
 
 /**
@@ -48,6 +69,7 @@ function isActivity(request: NextRequest): boolean {
  * - IAM-03: replaces a token whose role, ticks or centres are out of date.
  * - IAM-07: ends a desktop session after the idle minutes and a phone session after the phone
  *   days (settings), and keeps a desktop's last activity.
+ * - IAM-08: logs every page and action a Velyx support login asks for under the active grant.
  *
  * Whether the session belongs to an active staff member, and has passed two step verification,
  * is checked by the pages (`requireStaff`); they read the page asked for from `x-clinic-path`.
@@ -97,6 +119,7 @@ export async function proxy(request: NextRequest) {
       if (verdict === 'ok') {
         const stale = !lastSeen || Date.now() - lastSeen.getTime() >= LAST_SEEN_REFRESH_MS;
         activeNow = device === 'desktop' && stale && isActivity(request);
+        await logIfSupport(request, data.claims.clinic);
       } else {
         await supabase.auth.signOut({ scope: 'local' });
         signedIn = false;
@@ -138,6 +161,26 @@ export async function proxy(request: NextRequest) {
   }
   if (ended) response.cookies.delete({ name: LAST_SEEN_COOKIE, path: '/' });
   return response;
+}
+
+/**
+ * IAM-08, TAD section 5: every request under support access is audit logged, with the grant it
+ * ran under. Only the path is kept, never the query string, which can hold search terms. Once
+ * the grant has ended nothing is logged: the page refuses the request (signInState).
+ */
+async function logIfSupport(request: NextRequest, clinic: unknown) {
+  const claims = staffClaimsSchema.safeParse(clinic);
+  const kind = supportRequestKind(request);
+  if (!claims.success || !claims.data.support || !kind) return;
+  const grant = await activeGrant(appDb());
+  if (!grant) return;
+  await logSupportRequest(appDb(), {
+    actor: staffActor(claims.data.staff_id),
+    ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || undefined,
+    grantId: grant.id,
+    path: request.nextUrl.pathname,
+    kind,
+  });
 }
 
 export const config = { matcher: ['/app', '/app/:path*'] };

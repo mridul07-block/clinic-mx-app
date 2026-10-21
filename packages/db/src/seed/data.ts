@@ -128,6 +128,15 @@ const staff: SeedStaff[] = [
     role: 'super_admin',
     centres: [],
   },
+  // A Velyx support login (IAM-08): signs in only while the Super Admin grants support access.
+  {
+    id: staffId(12),
+    name: 'Test Velyx Support',
+    email: 'support.velyx@clinicmx.test',
+    role: 'super_admin',
+    velyxSupport: true,
+    centres: [],
+  },
 ];
 
 export const seedStaff: NewStaffUser[] = staff.map(({ centres: _centres, ...row }) => row);

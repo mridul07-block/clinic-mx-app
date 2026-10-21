@@ -106,6 +106,20 @@ export type Action = keyof typeof permissionMap;
 
 export const actions = Object.keys(permissionMap) as Action[];
 
+/**
+ * Clinical actions a Velyx support login never has, though its role is Super Admin (IAM-08, user
+ * decision 22 October 2026: support sees no clinical records). Row level security on clinical
+ * tables refuses its claim the same way (`internal.jwt_support()`).
+ */
+export const deniedToSupport: readonly Action[] = [
+  'clinical.read',
+  'ai_prep.use',
+  'consultant_records.write',
+  'consultant_records.sign',
+  'session_notes.write',
+  'red_flags.view',
+];
+
 /** What the guard needs to know about a staff member. */
 export interface StaffAccess {
   id: string;
@@ -113,6 +127,8 @@ export interface StaffAccess {
   treatsPatients: boolean;
   consultant: boolean;
   centreIds: readonly string[];
+  /** A Velyx support login (IAM-08): no clinical action, and read only in every service. */
+  support?: boolean;
 }
 
 /** The record an action is about: its centre, and the staff member it belongs to. */
@@ -122,6 +138,7 @@ export interface AccessTarget {
 }
 
 function grantFor(staff: StaffAccess, action: Action): Grant | null {
+  if (staff.support && deniedToSupport.includes(action)) return null;
   const grant = permissionMap[action][staff.role];
   if (!grant) return null;
   return (grant.ticks ?? []).every((tick) => staff[tick]) ? grant : null;

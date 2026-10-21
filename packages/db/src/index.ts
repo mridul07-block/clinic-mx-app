@@ -73,5 +73,19 @@ export {
   centreNamesForStaff,
   currentStaffClaims,
   staffForSignIn,
+  supportLoginWithoutGrant,
   type StaffMember,
 } from './identity';
+export {
+  activeGrant,
+  endSupportGrant,
+  endSupportSessions,
+  insertSupportGrant,
+  logSupportRequest,
+  supportGrantHistory,
+  supportLogins,
+  type SupportGrantEntry,
+  type SupportGrantWithActivity,
+  type SupportLoginEntry,
+  type SupportRequestEntry,
+} from './support';

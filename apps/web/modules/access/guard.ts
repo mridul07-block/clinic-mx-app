@@ -12,6 +12,19 @@ export class NotAllowedError extends Error {
   override name = 'NotAllowedError';
 }
 
+/** A Velyx support login tried to change something (IAM-08): support access is read only. */
+export class ReadOnlyError extends NotAllowedError {
+  override name = 'ReadOnlyError';
+  constructor() {
+    super('Velyx support access is read only.');
+  }
+}
+
+/** Refuses any write by a Velyx support login (IAM-08). */
+export function assertMayWrite(staff: { support: boolean }): void {
+  if (staff.support) throw new ReadOnlyError();
+}
+
 /**
  * Refuses unless the permission map gives `staff` the action at all, on any record or only their
  * own (packages/schemas/src/permissions.ts). Pages and the first step of a service use it.

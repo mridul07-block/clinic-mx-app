@@ -189,6 +189,7 @@ test.describe('role, ticks and centres in the token', () => {
       consultant: original.consultant,
       all_centres: false,
       centres: [hsr],
+      support: false,
     });
 
     // Then the Consultant tick, the other way from how it was.

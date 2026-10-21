@@ -22,6 +22,11 @@ export default async function StaffHome() {
             Staff
           </Link>
         ) : null}
+        {accessScope(staff, 'support_access.grant') ? (
+          <Link href="/app/support-access" className={linkClass}>
+            Support access
+          </Link>
+        ) : null}
         <Link href="/app/account" className={linkClass}>
           Account
         </Link>

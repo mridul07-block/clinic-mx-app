@@ -4,3 +4,4 @@ export * from './jobs';
 export * from './tasks';
 export * from './audit';
 export * from './settings';
+export * from './support';

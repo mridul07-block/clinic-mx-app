@@ -6,12 +6,13 @@ import { primaryButtonClass } from '../../../../../components/forms';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../modules/access/staff-db';
 import { loginsWithPendingInvite } from '../../../../../modules/staff/directory';
+import { Tag } from '../../../../../components/tag';
 import { StaffStatus } from './staff-status';
 
 export const metadata: Metadata = { title: 'Staff · Clinic Mx' };
 
 // Staff management for the Super Admin (IAM-06, PRD M16): everyone, active first. Read as the
-// Super Admin under row level security.
+// Super Admin under row level security. A Velyx support login sees it read only (IAM-08).
 export default async function StaffPage() {
   const staff = await requirePermission('staff.manage');
   const [members, pending] = await Promise.all([
@@ -27,9 +28,11 @@ export default async function StaffPage() {
           </Link>
           <h1 className="text-title font-semibold">Staff</h1>
         </div>
-        <Link href="/app/staff/new" className={[primaryButtonClass, 'sm:w-auto'].join(' ')}>
-          Invite staff
-        </Link>
+        {staff.support ? null : (
+          <Link href="/app/staff/new" className={[primaryButtonClass, 'sm:w-auto'].join(' ')}>
+            Invite staff
+          </Link>
+        )}
       </div>
       <ul className="flex flex-col divide-y divide-line rounded-panel border border-line bg-surface">
         {members.map((member) => (
@@ -47,11 +50,14 @@ export default async function StaffPage() {
                     : member.centres.join(', ') || 'No centre'}
                 </span>
               </span>
-              <StaffStatus
-                active={member.active}
-                accessEndsAt={member.accessEndsAt}
-                invitePending={member.authUserId ? pending.has(member.authUserId) : false}
-              />
+              <span className="flex flex-wrap gap-1.5">
+                {member.velyxSupport ? <Tag tone="outline">Velyx support</Tag> : null}
+                <StaffStatus
+                  active={member.active}
+                  accessEndsAt={member.accessEndsAt}
+                  invitePending={member.authUserId ? pending.has(member.authUserId) : false}
+                />
+              </span>
             </Link>
           </li>
         ))}

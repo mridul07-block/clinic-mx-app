@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { endOfIstDay, formatIstDate, istDate, istDayEndingAt } from './ist';
+import { endOfIstDay, formatIstDate, formatIstDateTime, istDate, istDayEndingAt } from './ist';
 
 // Rule 15: stored in UTC, shown in IST (UTC+05:30).
 describe('IST days', () => {
@@ -20,5 +20,10 @@ describe('IST days', () => {
 
   it('format a date for people to read', () => {
     expect(formatIstDate('2026-11-30')).toBe('30 Nov 2026');
+  });
+
+  it('format an instant in IST, on a 24 hour clock', () => {
+    expect(formatIstDateTime(new Date('2026-10-22T09:00:00Z'))).toBe('22 Oct 2026, 14:30 IST');
+    expect(formatIstDateTime(new Date('2026-10-22T18:45:00Z'))).toBe('23 Oct 2026, 00:15 IST');
   });
 });

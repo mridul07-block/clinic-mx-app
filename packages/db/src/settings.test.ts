@@ -22,6 +22,7 @@ const stored: Settings = {
   'engagement.follow_ups_after_discharge': [{ count: 2, unit: 'week' }],
   'security.desktop_idle_logout_minutes': 15,
   'security.phone_session_days': 30,
+  'security.support_grant_max_hours': 24,
   'reminders.day_before_time': '18:00',
 };
 

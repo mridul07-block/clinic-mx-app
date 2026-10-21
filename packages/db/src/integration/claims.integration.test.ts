@@ -58,6 +58,7 @@ describe('staff claims', () => {
       consultant: true,
       all_centres: false,
       centres: [centreIds.whitefield],
+      support: false,
     });
   });
 

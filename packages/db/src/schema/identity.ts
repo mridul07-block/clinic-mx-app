@@ -58,6 +58,11 @@ export const staffUser = pgTable(
     active: boolean('active').notNull().default(true),
     /** Access stops at this moment; null means no end date. */
     accessEndsAt: timestamp('access_ends_at', { withTimezone: true }),
+    /**
+     * A Velyx support login (IAM-08): signs in only while support access is granted, and is read
+     * only. It sees what the Super Admin sees, without ticks, so never clinical records.
+     */
+    velyxSupport: boolean('velyx_support').notNull().default(false),
     ...timestamps,
   },
   (table) => [
@@ -67,6 +72,10 @@ export const staffUser = pgTable(
     check(
       'staff_user_physio_treats',
       sql`${table.role} <> 'physiotherapist' or ${table.treatsPatients}`,
+    ),
+    check(
+      'staff_user_support_super_admin',
+      sql`not ${table.velyxSupport} or (${table.role} = 'super_admin' and not ${table.treatsPatients})`,
     ),
   ],
 ).enableRLS();

@@ -38,6 +38,7 @@ function member(email: string): StaffMember {
     treatsPatients: row.treatsPatients ?? false,
     consultant: row.consultant ?? false,
     centreIds: seedStaffCentres.filter((c) => c.staffUserId === id).map((c) => c.centreId),
+    support: row.velyxSupport ?? false,
   };
 }
 const superAdmin = member('super.admin@clinicmx.test');
