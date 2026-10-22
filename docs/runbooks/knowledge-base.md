@@ -33,9 +33,11 @@ rules.
 
 | Table | One row per | Holds |
 | --- | --- | --- |
-| `kb_version` | import | number, draft or approved, the workbooks' names and SHA-256, the import report (JSON), who made it (`system:kb-import`) |
+| `kb_version` | import | number, draft or approved, the workbooks' and the red flag rules file's names and SHA-256, the import report (JSON), who made it (`system:kb-import`) |
 | `kb_condition` | condition per version | stable ID (`SHO-001`), name, synonyms (from the names' brackets), home workbook |
 | `kb_condition_listing` | workbook row per version | the region (workbook) and row; the subregion (Region column); age, onset, sex, activity tags and red flag tier as read, each beside its text; the discriminating question, tests and imaging, symptoms and biomechanical cause; every other column word for word in `details` |
+| `kb_red_flag_rule` | rule per version (SET-10) | the rules the health form submit runs, from `packages/db/src/knowledge/red-flag-rules.json` (`docs/runbooks/red-flags.md`) |
+| `kb_red_flag_presentation` | Red Flags sheet row per version (SET-10) | each workbook's red flag presentations (features, action, why it cannot wait) and its screening notes, word for word |
 
 A version is never edited in place. Clinical records will store the version they used, so a later
 version never changes what a past record meant.

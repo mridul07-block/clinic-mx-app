@@ -1,0 +1,247 @@
+[
+  {
+    "key": "everywhere.dvt_pe",
+    "name": "Possible DVT or pulmonary embolism",
+    "regions": [],
+    "trigger": { "all": [{ "question": "calf_chest_breath", "is": "yes" }] },
+    "triage": "immediate_emergency",
+    "action": "Stop physiotherapy. Refer to A&E now for DVT or PE assessment (Doppler, Wells score, D-dimer; CT pulmonary angiography for PE).",
+    "source": "Framework §11 (DVT and PE) and §14 (immediate emergency: DVT / PE symptoms)",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.cauda_equina",
+    "name": "Possible cauda equina syndrome",
+    "regions": [],
+    "trigger": {
+      "any": [
+        { "question": "bowel_bladder_change", "is": "yes" },
+        { "question": "saddle_numbness", "is": "yes" }
+      ]
+    },
+    "triage": "immediate_emergency",
+    "action": "Stop physiotherapy. Refer to A&E now for emergency MRI; do not discharge or delay.",
+    "source": "Framework §4A (cauda equina: bladder or bowel dysfunction, saddle anaesthesia) and §14",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.septic_joint",
+    "name": "Possible septic arthritis",
+    "regions": [],
+    "trigger": {
+      "all": [
+        { "question": "hot_swollen_joint", "is": "yes" },
+        { "question": "fever_sweats", "is": "yes" }
+      ]
+    },
+    "triage": "immediate_emergency",
+    "action": "Stop physiotherapy. Refer to A&E now for joint aspiration.",
+    "source": "Framework §3 (fever with musculoskeletal pain), §6, §9 and §14 (septic arthritis suspicion)",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.fever",
+    "name": "Fever with musculoskeletal pain",
+    "regions": [],
+    "trigger": { "all": [{ "question": "fever_sweats", "is": "yes" }] },
+    "triage": "immediate_emergency",
+    "action": "Possible septic arthritis or infection: emergency referral before any physiotherapy.",
+    "source": "Framework §3 (fever + MSK pain: emergency referral)",
+    "signedOff": false
+  },
+  {
+    "key": "back.cauda_equina",
+    "name": "Possible cauda equina syndrome (back)",
+    "regions": ["back"],
+    "trigger": {
+      "any": [
+        { "question": "back_bladder", "is": "yes" },
+        { "question": "back_bowel", "is": "yes" },
+        { "question": "back_saddle", "is": "yes" },
+        { "question": "back_both_legs", "is": "yes" }
+      ]
+    },
+    "triage": "immediate_emergency",
+    "action": "Stop physiotherapy. Refer to A&E now for emergency MRI; neurosurgical review within hours.",
+    "source": "Framework §4A (NICE CKS revised criteria) and §4D",
+    "signedOff": false
+  },
+  {
+    "key": "neck.arterial_dysfunction",
+    "name": "Possible cervical arterial dysfunction",
+    "regions": ["neck"],
+    "trigger": {
+      "any": [
+        { "question": "neck_dizziness", "is": "yes" },
+        { "question": "neck_double_vision", "is": "yes" },
+        { "question": "neck_speech_swallow", "is": "yes" }
+      ]
+    },
+    "triage": "immediate_emergency",
+    "action": "Defer all manual therapy. Same-day medical referral (vascular or neurological) under the IFOMPT cervical framework.",
+    "source": "Framework §4B (5Ds and 3Ns, IFOMPT 2023) and §14 (cervical arterial dysfunction)",
+    "signedOff": false
+  },
+  {
+    "key": "neck.myelopathy",
+    "name": "Possible cervical myelopathy",
+    "regions": ["neck"],
+    "trigger": { "all": [{ "question": "neck_both_arms_walking", "is": "yes" }] },
+    "triage": "urgent_medical_referral",
+    "action": "Urgent neurological referral and MRI before treatment.",
+    "source": "Framework §4B (bilateral arm symptoms with gait disturbance)",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.cancer_history",
+    "name": "History of cancer with new pain",
+    "regions": [],
+    "trigger": { "all": [{ "question": "cancer_history", "is": "yes" }] },
+    "triage": "urgent_medical_referral",
+    "action": "Treat new pain as possible metastasis until cleared: same-day oncology referral before physiotherapy.",
+    "source": "Framework §3, §13 (history of cancer + new or changing pain) and §19 (cancer survivors)",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.weight_loss",
+    "name": "Unexplained weight loss over the threshold",
+    "regions": [],
+    "trigger": {
+      "all": [
+        { "question": "weight_loss", "is": "yes" },
+        { "question": "weight_loss_kg", "atLeast": { "setting": "screening.weight_loss_kg" } },
+        {
+          "question": "weight_loss_months",
+          "atMost": { "setting": "screening.weight_loss_months" }
+        }
+      ]
+    },
+    "triage": "urgent_medical_referral",
+    "action": "Possible malignancy: urgent physician referral.",
+    "source": "Framework §3 and §13 (unexplained weight loss over 5 kg in 6 months); decision #5",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.weight_loss_some",
+    "name": "Unexplained weight loss",
+    "regions": [],
+    "trigger": { "all": [{ "question": "weight_loss", "is": "yes" }] },
+    "triage": "monitor_with_caution",
+    "action": "Ask about the amount and period; re-screen for malignancy features at each visit.",
+    "source": "Framework §1 and §3",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.malignancy_cluster",
+    "name": "Malignancy risk cluster",
+    "regions": [],
+    "trigger": {
+      "all": [{ "age": { "atLeast": 50 } }],
+      "any": [
+        { "question": "cancer_history", "is": "yes" },
+        { "question": "weight_loss", "is": "yes" }
+      ]
+    },
+    "triage": "urgent_imaging",
+    "action": "Urgent imaging before loading treatment (multi red flag cluster).",
+    "source": "Framework §3 and §13 (age over 50 with a risk factor: urgent imaging)",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.night_pain",
+    "name": "Severe or non-mechanical night pain",
+    "regions": [],
+    "trigger": { "all": [{ "question": "night_pain", "is": "yes" }] },
+    "triage": "urgent_medical_referral",
+    "action": "Possible tumour or infection: medical referral and imaging work-up.",
+    "source": "Framework §3 (night pain unrelieved by rest) and §14 (severe unexplained night pain)",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.progressive_weakness",
+    "name": "Progressive neurological weakness",
+    "regions": [],
+    "trigger": { "all": [{ "question": "progressive_weakness", "is": "yes" }] },
+    "triage": "urgent_medical_referral",
+    "action": "Same-day specialist review; full neurological examination before treatment.",
+    "source": "Framework §14 (rapid progressive weakness)",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.rapidly_worsening",
+    "name": "Rapidly worsening symptoms",
+    "regions": [],
+    "trigger": { "all": [{ "question": "rapidly_worsening", "is": "yes" }] },
+    "triage": "urgent_medical_referral",
+    "action": "Stop routine rehabilitation and refer for medical review.",
+    "source": "Framework §20 (severe, progressive or deteriorating: stop and refer)",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.dizziness",
+    "name": "Dizziness, blackouts or balance problems",
+    "regions": [],
+    "trigger": { "all": [{ "question": "dizziness_balance", "is": "yes" }] },
+    "triage": "urgent_medical_referral",
+    "action": "Medical review before treatment; for neck presentations apply the cervical vascular screen.",
+    "source": "Framework §1 and §4B",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.fatigue",
+    "name": "Severe fatigue or unexplained weakness",
+    "regions": [],
+    "trigger": { "all": [{ "question": "fatigue_weakness", "is": "yes" }] },
+    "triage": "specialist_referral",
+    "action": "Rheumatology, haematology or oncology screening with bloods.",
+    "source": "Framework §3 (severe fatigue + inflammatory pattern) and §13 (unexplained fatigue)",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.morning_stiffness",
+    "name": "Prolonged morning stiffness",
+    "regions": [],
+    "trigger": {
+      "all": [
+        {
+          "question": "morning_stiffness_minutes",
+          "atLeast": { "setting": "screening.morning_stiffness_minutes" }
+        }
+      ]
+    },
+    "triage": "specialist_referral",
+    "action": "Possible inflammatory arthritis: rheumatology referral with ESR, CRP, RF and anti-CCP.",
+    "source": "Framework §12 (morning stiffness over 60 minutes); decision #6",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.immunosuppression",
+    "name": "Immunocompromised, diabetic or on long-term steroids",
+    "regions": [],
+    "trigger": { "all": [{ "question": "immune_diabetes_steroids", "is": "yes" }] },
+    "triage": "monitor_with_caution",
+    "action": "Lower referral threshold and re-screen more often (infection and fracture risk).",
+    "source": "Framework §19 (high-risk populations)",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.recent_infection_surgery",
+    "name": "Recent infection, surgery or hospitalisation",
+    "regions": [],
+    "trigger": { "all": [{ "question": "recent_infection_surgery", "is": "yes" }] },
+    "triage": "monitor_with_caution",
+    "action": "DVT and infection vigilance: Wells score and vascular check at every assessment.",
+    "source": "Framework §11 and §19 (post-surgical patients)",
+    "signedOff": false
+  },
+  {
+    "key": "everywhere.recent_trauma",
+    "name": "Recent trauma or accident",
+    "regions": [],
+    "trigger": { "all": [{ "question": "recent_trauma", "is": "yes" }] },
+    "triage": "monitor_with_caution",
+    "action": "Screen for fracture before loading (Ottawa rules where they apply).",
+    "source": "Framework §1, §9, §10 and §16",
+    "signedOff": false
+  }
+]

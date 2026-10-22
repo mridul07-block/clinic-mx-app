@@ -4,10 +4,15 @@ import {
   knowledgeRegions,
   redFlagTierLabels,
   redFlagTiers,
+  redFlagTriageLabels,
+  screeningRegionLabels,
+  triggerText,
   type KnowledgeRegion,
+  type RedFlagTriage,
 } from '@clinic-mx/schemas';
 import { baseName, type BuiltKnowledge, type Listing } from './build';
 import { mapColumns } from './columns';
+import type { RedFlags } from './red-flags';
 import type { Workbook } from './workbook';
 
 /**
@@ -48,6 +53,20 @@ export interface ImportReport {
   assigned: number;
   unmatched: { key: string; conditionId: string }[];
   gaps: string[];
+  /** The red flag rules file (SET-10), part of the version's source. */
+  rulesFile: { name: string; sha256: string };
+  redFlagRules: {
+    key: string;
+    name: string;
+    where: string;
+    triage: RedFlagTriage;
+    raisedWhen: string;
+    action: string;
+    source: string;
+    signedOff: boolean;
+  }[];
+  /** Per workbook region: presentations and screening notes from its Red Flags sheet. */
+  redFlagPresentations: Record<string, { presentations: number; notes: number }>;
 }
 
 const named = (l: Listing): Named => ({
@@ -100,7 +119,11 @@ const count = <T>(items: T[], key: (item: T) => string) => {
   return counts;
 };
 
-export function buildReport(workbooks: Workbook[], built: BuiltKnowledge): ImportReport {
+export function buildReport(
+  workbooks: Workbook[],
+  built: BuiltKnowledge,
+  redFlags: RedFlags,
+): ImportReport {
   const { listings, conditions } = built;
   const byCondition = new Map<string, Listing[]>();
   for (const listing of listings) {
@@ -217,6 +240,32 @@ export function buildReport(workbooks: Workbook[], built: BuiltKnowledge): Impor
     gaps: [
       'Thoracic spine: no workbook yet; its conditions are missing (client clean up, OPS-02).',
     ],
+    rulesFile: redFlags.rulesFile,
+    redFlagRules: redFlags.rules.map((rule) => ({
+      key: rule.key,
+      name: rule.name,
+      where:
+        rule.regions.length === 0
+          ? 'Everywhere'
+          : rule.regions.map((r) => screeningRegionLabels[r]).join(', '),
+      triage: rule.triage,
+      raisedWhen: triggerText(rule.trigger),
+      action: rule.action,
+      source: rule.source,
+      signedOff: rule.signedOff,
+    })),
+    redFlagPresentations: Object.fromEntries(
+      workbooks.map((w) => {
+        const own = redFlags.presentations.filter((p) => p.region === w.region);
+        return [
+          w.region,
+          {
+            presentations: own.filter((p) => p.kind === 'presentation').length,
+            notes: own.filter((p) => p.kind === 'screening_note').length,
+          },
+        ];
+      }),
+    ),
   };
 }
 
@@ -339,6 +388,36 @@ export function reportMarkdown(report: ImportReport): string {
       ([region, columns]) =>
         `**${knowledgeRegions[region as KnowledgeRegion].label}:** ` +
         columns.map((c) => `${cell(c.label)} → \`${c.key}\``).join(' · '),
+    ),
+    '## Red flag rules (SET-10)',
+    `${report.redFlagRules.length} rules from \`packages/db/src/knowledge/${report.rulesFile.name}\` ` +
+      `(SHA-256 ${report.rulesFile.sha256.slice(0, 12)}); ` +
+      `${report.redFlagRules.filter((r) => !r.signedOff).length} await clinical sign-off. ` +
+      'Drafted from the Red Flag Screening Framework; the health form submit runs them over the ' +
+      'screening answers (`docs/runbooks/red-flags.md`). Thresholds are settings: ' +
+      '`screening.weight_loss_kg`, `screening.weight_loss_months`, `screening.morning_stiffness_minutes`.',
+    table(
+      ['Rule', 'Where', 'Triage', 'Raised when', 'Action', 'Source', 'Signed off'],
+      report.redFlagRules.map((r) => [
+        `${r.name} (\`${r.key}\`)`,
+        r.where,
+        redFlagTriageLabels[r.triage],
+        r.raisedWhen,
+        r.action,
+        r.source,
+        r.signedOff ? 'Yes' : 'Awaiting clinical sign-off',
+      ]),
+    ),
+    '### Red flag presentations from the workbooks',
+    'Each Red Flags sheet, word for word: reference for the clinician screening checklist and the ' +
+      'tier choice in consultation; never run automatically.',
+    table(
+      ['Workbook', 'Presentations', 'Screening notes'],
+      Object.entries(report.redFlagPresentations).map(([region, n]) => [
+        knowledgeRegions[region as KnowledgeRegion].label,
+        String(n.presentations),
+        String(n.notes),
+      ]),
     ),
     '## Condition IDs',
     `${report.assigned} new IDs assigned in this run; ` +

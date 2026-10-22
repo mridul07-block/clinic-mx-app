@@ -48,6 +48,25 @@ export const settingDefinitions = {
     description:
       'The calendar grid, in minutes; every appointment length is a whole number of slots (SET-03).',
   },
+  'screening.weight_loss_kg': {
+    schema: z.int().positive(),
+    source:
+      'PRD section 10 decision 5 (placeholder: 5 kg, from the Red Flag Screening Framework §13)',
+    description:
+      'Unexplained weight loss of at least this many kilograms (within screening.weight_loss_months) raises a red flag (SET-10).',
+  },
+  'screening.weight_loss_months': {
+    schema: z.int().positive(),
+    source:
+      'PRD section 10 decision 5 (placeholder: 6 months, from the Red Flag Screening Framework §13)',
+    description: 'The period, in months, the weight loss red flag counts within (SET-10).',
+  },
+  'screening.morning_stiffness_minutes': {
+    schema: minutes,
+    source:
+      'PRD section 10 decision 6 (placeholder: 60 minutes, from the Red Flag Screening Framework §12)',
+    description: 'Morning stiffness lasting at least this many minutes raises a red flag (SET-10).',
+  },
   'booking.self_booking_block_reschedules': {
     schema: z.int().positive(),
     source: 'PRD section 7: Self booking block',

@@ -201,7 +201,11 @@ export {
   knowledgeConditions,
   knowledgeListings,
   latestKnowledgeVersion,
+  redFlagPresentations,
+  redFlagRules,
   type KnowledgeCondition,
   type KnowledgeListing,
+  type KnowledgeRedFlagPresentation,
+  type KnowledgeRedFlagRule,
   type KnowledgeVersion,
 } from './knowledge';

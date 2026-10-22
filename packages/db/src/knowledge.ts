@@ -1,5 +1,11 @@
 import { asc, desc, eq } from 'drizzle-orm';
-import { kbCondition, kbConditionListing, kbVersion } from './schema';
+import {
+  kbCondition,
+  kbConditionListing,
+  kbRedFlagPresentation,
+  kbRedFlagRule,
+  kbVersion,
+} from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /**
@@ -60,4 +66,34 @@ export function knowledgeListings(
       asc(kbConditionListing.region),
       asc(kbConditionListing.rowNumber),
     );
+}
+
+export type KnowledgeRedFlagRule = typeof kbRedFlagRule.$inferSelect;
+export type KnowledgeRedFlagPresentation = typeof kbRedFlagPresentation.$inferSelect;
+
+/**
+ * A version's red flag rules (SET-10), by key. The health form submit (INT-10) runs them with
+ * `evaluateRedFlags` from `@clinic-mx/schemas`.
+ */
+export function redFlagRules(
+  db: DbOrTransaction,
+  versionId: string,
+): Promise<KnowledgeRedFlagRule[]> {
+  return db
+    .select()
+    .from(kbRedFlagRule)
+    .where(eq(kbRedFlagRule.kbVersionId, versionId))
+    .orderBy(asc(kbRedFlagRule.ruleKey));
+}
+
+/** A version's red flag presentations and screening notes, by workbook and row. */
+export function redFlagPresentations(
+  db: DbOrTransaction,
+  versionId: string,
+): Promise<KnowledgeRedFlagPresentation[]> {
+  return db
+    .select()
+    .from(kbRedFlagPresentation)
+    .where(eq(kbRedFlagPresentation.kbVersionId, versionId))
+    .orderBy(asc(kbRedFlagPresentation.region), asc(kbRedFlagPresentation.rowNumber));
 }

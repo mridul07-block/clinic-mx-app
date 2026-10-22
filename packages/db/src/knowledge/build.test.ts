@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildKnowledge, KnowledgeImportError, type ConditionIds } from './build';
 import { buildReport, reportMarkdown } from './report';
-import { readConditionIds, readReport, WORKBOOK_FOLDER_PATH } from './paths';
+import { readConditionIds, readReport, readRulesFile, WORKBOOK_FOLDER_PATH } from './paths';
+import { buildRedFlags } from './red-flags';
 import { readWorkbooks, type Workbook } from './workbook';
 
 // SET-05 done when: stable condition IDs; normalised age, onset, sex, tags, red flag tier;
@@ -110,7 +111,8 @@ describe('the knowledge base import', () => {
     const first = buildKnowledge(workbooks, ids);
     expect(buildKnowledge(copy(), ids)).toEqual(first);
     expect(first.ids).toEqual(ids);
-    expect(reportMarkdown(buildReport(workbooks, first))).toBe(await readReport());
+    const redFlags = buildRedFlags(workbooks, await readRulesFile());
+    expect(reportMarkdown(buildReport(workbooks, first, redFlags))).toBe(await readReport());
   });
 
   it('stops on a row the ID file does not know, unless assigning', () => {
@@ -150,6 +152,52 @@ describe('the knowledge base import', () => {
       expect.stringContaining('unknown column "Diagnosis"'),
       expect.stringContaining('age "adults" cannot be read'),
       expect.stringContaining('red flag status "Possibly" cannot be read'),
+    ]);
+  });
+
+  it('reads each workbook’s Red Flags sheet: presentations, then screening notes', async () => {
+    const { presentations, rules } = buildRedFlags(workbooks, await readRulesFile());
+    const counts = Object.fromEntries(
+      workbooks.map((w) => {
+        const own = presentations.filter((p) => p.region === w.region);
+        return [w.region, [own.filter((p) => p.kind === 'presentation').length, own.length]];
+      }),
+    );
+    expect(counts).toEqual({
+      shoulder: [12, 16],
+      elbow: [12, 16],
+      forearm_wrist: [12, 17],
+      hip: [12, 16],
+      knee: [8, 11],
+      foot_ankle: [12, 17],
+      cervical: [12, 17],
+      lumbar_sij: [12, 18],
+      bone_stress: [8, 8],
+    });
+    expect(presentations.find((p) => p.region === 'lumbar_sij' && p.rowNumber === 4)).toMatchObject(
+      {
+        kind: 'presentation',
+        presentation: 'CAUDA EQUINA SYNDROME',
+      },
+    );
+    expect(presentations.find((p) => p.kind === 'screening_note')?.presentation).not.toMatch(/^•/);
+    expect(rules.length).toBe(20);
+  });
+
+  it('stops on a broken rules file or an unknown Red Flags column', async () => {
+    const text = await readRulesFile();
+    expect(problemsOf(() => buildRedFlags(workbooks, '[{"key": "x"}'))).toEqual([
+      expect.stringContaining('not valid JSON'),
+    ]);
+    const unknownQuestion = text.replace('"calf_chest_breath"', '"calf_ache"');
+    expect(problemsOf(() => buildRedFlags(workbooks, unknownQuestion)).length).toBeGreaterThan(0);
+    const books = copy();
+    const sheet = books[0]?.redFlags;
+    if (!sheet) throw new Error('no Red Flags sheet');
+    sheet.header[1] = 'Signs';
+    expect(problemsOf(() => buildRedFlags(books, text))).toEqual([
+      expect.stringContaining('unknown column "Signs"'),
+      expect.stringContaining('no column for "features"'),
     ]);
   });
 });

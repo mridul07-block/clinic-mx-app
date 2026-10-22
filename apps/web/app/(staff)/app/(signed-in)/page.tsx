@@ -37,6 +37,11 @@ export default async function StaffHome() {
             Appointment types
           </Link>
         ) : null}
+        {accessScope(staff, 'knowledge_base.view') ? (
+          <Link href="/app/red-flags" className={linkClass}>
+            Red flags
+          </Link>
+        ) : null}
         {accessScope(staff, 'prices.view') ? (
           <Link href="/app/prices" className={linkClass}>
             Prices

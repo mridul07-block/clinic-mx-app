@@ -3,10 +3,17 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { claimsForStaff } from '../access';
 import { createDb } from '../client';
 import type { StaffMember } from '../identity';
-import { knowledgeConditions, knowledgeListings, latestKnowledgeVersion } from '../knowledge';
+import {
+  knowledgeConditions,
+  knowledgeListings,
+  latestKnowledgeVersion,
+  redFlagPresentations,
+  redFlagRules,
+} from '../knowledge';
 import { AlreadyImportedError, applyKnowledge, KB_IMPORT_ACTOR } from '../knowledge/apply';
 import { buildKnowledge, type BuiltKnowledge } from '../knowledge/build';
-import { readConditionIds, WORKBOOK_FOLDER_PATH } from '../knowledge/paths';
+import { readConditionIds, readRulesFile, WORKBOOK_FOLDER_PATH } from '../knowledge/paths';
+import { buildRedFlags, type RedFlags } from '../knowledge/red-flags';
 import { buildReport, type ImportReport } from '../knowledge/report';
 import { readWorkbooks } from '../knowledge/workbook';
 import { auditEvent, kbCondition, kbVersion } from '../schema';
@@ -81,20 +88,26 @@ async function failure(tx: Tx, work: (sp: Tx) => Promise<unknown>): Promise<stri
 
 let built: BuiltKnowledge;
 let report: ImportReport;
+let redFlags: RedFlags;
 
 beforeAll(async () => {
   const workbooks = await readWorkbooks(WORKBOOK_FOLDER_PATH);
   built = buildKnowledge(workbooks, await readConditionIds());
-  report = buildReport(workbooks, built);
+  redFlags = buildRedFlags(workbooks, await readRulesFile());
+  report = buildReport(workbooks, built, redFlags);
   // A source no real import has, so a version this database already holds never refuses it.
   report = { ...report, files: report.files.map((f) => ({ ...f, sha256: `${f.sha256}0` })) };
+  redFlags = {
+    ...redFlags,
+    rulesFile: { ...redFlags.rulesFile, sha256: `${redFlags.rulesFile.sha256}0` },
+  };
 }, 60_000);
 
 describe('the knowledge base import', () => {
   it('records the next version as a draft, audited as the import', async () => {
     await rolledBack(async (tx) => {
       const before = (await latestKnowledgeVersion(tx))?.number ?? 0;
-      const version = await applyKnowledge(tx, built, report);
+      const version = await applyKnowledge(tx, built, report, redFlags);
       expect(version.number).toBe(before + 1);
       expect(await latestKnowledgeVersion(tx)).toMatchObject({
         id: version.id,
@@ -131,15 +144,38 @@ describe('the knowledge base import', () => {
       expect(audited).toEqual([
         { entity: 'kb_condition', n: 345 },
         { entity: 'kb_condition_listing', n: 354 },
+        { entity: 'kb_red_flag_presentation', n: 136 },
+        { entity: 'kb_red_flag_rule', n: 20 },
         { entity: 'kb_version', n: 1 },
       ]);
     });
   });
 
+  it('stores the red flag rules as written, and a changed rules file makes a new version', async () => {
+    await rolledBack(async (tx) => {
+      const { id, number } = await applyKnowledge(tx, built, report, redFlags);
+      const cauda = (await redFlagRules(tx, id)).find((r) => r.ruleKey === 'back.cauda_equina');
+      expect(cauda).toMatchObject({
+        regions: ['back'],
+        triage: 'immediate_emergency',
+        signedOff: false,
+        trigger: redFlags.rules.find((r) => r.key === 'back.cauda_equina')?.trigger,
+      });
+      const lumbar = (await redFlagPresentations(tx, id)).filter((p) => p.region === 'lumbar_sij');
+      expect(lumbar[0]).toMatchObject({
+        kind: 'presentation',
+        presentation: 'CAUDA EQUINA SYNDROME',
+      });
+      expect(lumbar.filter((p) => p.kind === 'screening_note')).toHaveLength(6);
+      const edited = { ...redFlags, rulesFile: { ...redFlags.rulesFile, sha256: 'edited' } };
+      expect((await applyKnowledge(tx, built, report, edited)).number).toBe(number + 1);
+    });
+  });
+
   it('refuses the same workbooks twice', async () => {
     await rolledBack(async (tx) => {
-      const { number } = await applyKnowledge(tx, built, report);
-      await expect(applyKnowledge(tx, built, report)).rejects.toEqual(
+      const { number } = await applyKnowledge(tx, built, report, redFlags);
+      await expect(applyKnowledge(tx, built, report, redFlags)).rejects.toEqual(
         new AlreadyImportedError(number),
       );
     });
@@ -147,16 +183,20 @@ describe('the knowledge base import', () => {
 
   it('is read by the Super Admin, Centre Managers and physiotherapists only', async () => {
     await rolledBack(async (tx) => {
-      const { id } = await applyKnowledge(tx, built, report);
+      const { id } = await applyKnowledge(tx, built, report, redFlags);
       for (const reader of [superAdmin, manager, physio, support]) {
         await becomes(tx, reader);
         expect((await knowledgeConditions(tx, id)).length, reader.email).toBe(345);
         expect((await knowledgeListings(tx, id)).length, reader.email).toBe(354);
+        expect((await redFlagRules(tx, id)).length, reader.email).toBe(20);
+        expect((await redFlagPresentations(tx, id)).length, reader.email).toBe(136);
         expect((await latestKnowledgeVersion(tx))?.id, reader.email).toBe(id);
       }
       for (const outsider of [desk, finance]) {
         await becomes(tx, outsider);
         expect(await knowledgeConditions(tx, id), outsider.email).toEqual([]);
+        expect(await redFlagRules(tx, id), outsider.email).toEqual([]);
+        expect(await redFlagPresentations(tx, id), outsider.email).toEqual([]);
         expect(await latestKnowledgeVersion(tx), outsider.email).toBeUndefined();
       }
     });
@@ -164,7 +204,7 @@ describe('the knowledge base import', () => {
 
   it('is written by nobody signed in, the Super Admin and support included', async () => {
     await rolledBack(async (tx) => {
-      const { id } = await applyKnowledge(tx, built, report);
+      const { id } = await applyKnowledge(tx, built, report, redFlags);
       for (const writer of [superAdmin, support, physio]) {
         await becomes(tx, writer);
         expect(

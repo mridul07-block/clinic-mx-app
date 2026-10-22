@@ -8,6 +8,13 @@ const repo = join(import.meta.dirname, '..', '..', '..', '..');
 export const WORKBOOK_FOLDER_PATH = join(repo, 'docs', 'Joint wise AI Training');
 export const ID_FILE_PATH = join(import.meta.dirname, 'condition-ids.json');
 export const REPORT_FILE_PATH = join(repo, 'docs', 'knowledge-base', 'import-report.md');
+export const RULES_FILE_NAME = 'red-flag-rules.json';
+export const RULES_FILE_PATH = join(import.meta.dirname, RULES_FILE_NAME);
+
+/** The committed red flag rules file, as written (SET-10). */
+export function readRulesFile(): Promise<string> {
+  return readFile(RULES_FILE_PATH, 'utf8');
+}
 
 /** The committed ID file; empty before the first import. */
 export async function readConditionIds(): Promise<ConditionIds> {
