@@ -56,13 +56,13 @@ claim through the IAM-03 readers (`internal.jwt_staff_id`, `jwt_staff_role`, `jw
 | `job` | None: server only | None |
 | `rate_limit` (IAM-11) | None: server only (`docs/runbooks/rate-limits.md`) | None |
 | `kiosk_device` (IAM-10) | Check in rights (Super Admin, Centre Manager, Front Desk) in centres they see | The same people insert (as themselves) and update; the tablet's own reset runs on the server as `system:kiosk.<id>` |
-
 | `price_item`, `package_type`, `discount_preset` (SET-02) | Prices readers (Super Admin, Centre Manager, Front Desk, Finance; `internal.jwt_views_prices`) | Finance and Super Admin insert and update (`internal.jwt_manages_prices`) |
 | `package_type_item` (SET-02) | Prices readers | Finance and Super Admin insert and delete (a type's covered items are replaced) |
 | `appointment_type` (SET-03) | Every signed in staff member | Super Admin inserts and updates |
 | `physio_appointment_length` (SET-03) | Every signed in staff member | Super Admin inserts, updates and deletes (clearing a length back to the type's) |
 | `roster` (SET-04) | Their own; anyone who sees the centre; the person's managers (`internal.jwt_manages_staff`) | Centre Manager and Super Admin insert and update in centres they see, as themselves |
 | `staff_leave` (SET-04) | The person and their managers | The person inserts their own request and only cancels it; a manager inserts and updates others' leave, never their own (`docs/runbooks/rosters-and-leave.md`) |
+| `kb_version`, `kb_condition`, `kb_condition_listing` (SET-05) | Knowledge base readers (Super Admin, Centre Manager, Physiotherapist; `internal.jwt_views_knowledge`) | Nobody signed in: versions are imported by the owner (`pnpm kb:import --apply`, audited `system:kb-import`); approval comes with SET-06 (`docs/runbooks/knowledge-base.md`) |
 
 No table has a delete policy except centre assignments, a package type's covered items and a physio's
 own appointment lengths. Staff,

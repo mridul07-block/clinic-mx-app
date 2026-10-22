@@ -1,0 +1,108 @@
+# Knowledge base
+
+SET-05, TAD section 4 ("Knowledge base tables"), PRD rule 4 ("clinical knowledge is versioned
+data"). The nine Assessment and Management workbooks in `docs/Joint wise AI Training/` are
+imported as a knowledge base version. Condition search (CLN-06), the diagnosis shortlist (AI-02)
+and the version viewer with approval (SET-06) read it. Later tickets import the other sheets:
+SET-07 exercises, SET-08 questionnaires, SET-09 programme phases and criteria, SET-10 red flag
+rules.
+
+## Decisions (user, 22 October 2026)
+
+- **Red flag tier, from the Red Flag Status wording:**
+  - "No" → none;
+  - "Screen: …" → screen;
+  - "YES if/for …" → conditional;
+  - any other "YES …" → red flag.
+
+  The Bone Stress workbook has no such column: its rows are "not stated", and its Risk Class is
+  kept separately. The text itself is always kept word for word.
+- **Duplicates:**
+  - **Merged:** a condition two workbooks name the same (brackets ignored) has one ID, and each
+    workbook's row is kept as a listing with its own text. There are 9, for example Cervical
+    Radiculopathy in Shoulder and Cervical.
+  - **Look-alikes:** listed in the report for a clinician to confirm (client clean up, OPS-02),
+    and merged only when the ID file says so.
+- **Activity tags:** a fixed vocabulary (`activityTagVocabulary` in
+  `packages/schemas/src/knowledge.ts`), matched by keywords. The report lists rows that matched
+  no tag.
+- **Version state:** an import is a new version, recorded as a draft. Approval and the viewer
+  come with SET-06; nothing signed in can write or approve a version until then.
+
+## What is stored
+
+| Table | One row per | Holds |
+| --- | --- | --- |
+| `kb_version` | import | number, draft or approved, the workbooks' names and SHA-256, the import report (JSON), who made it (`system:kb-import`) |
+| `kb_condition` | condition per version | stable ID (`SHO-001`), name, synonyms (from the names' brackets), home workbook |
+| `kb_condition_listing` | workbook row per version | the region (workbook) and row; the subregion (Region column); age, onset, sex, activity tags and red flag tier as read, each beside its text; the discriminating question, tests and imaging, symptoms and biomechanical cause; every other column word for word in `details` |
+
+A version is never edited in place. Clinical records will store the version they used, so a later
+version never changes what a past record meant.
+
+## How each column is read
+
+| Column | Read as | Unreadable |
+| --- | --- | --- |
+| Age | Min and max years. "20-50"; "50+" (no max); "Under 45" (up to 44); "Any …" (any). Alternatives ("20-40 (athletes) / 70+") become the range covering both, and "… also young …" becomes any age, so the shortlist never leaves a condition out on age. | Stops the import |
+| Onset | `sudden`, `gradual` (Slow), `recurrent`, `subacute`; "A/B" gives both; words after "after" are kept in the text | Stops the import |
+| Predominance | `male`, `female` or `equal`; "… athletes" also adds the athlete tag | Stops the import |
+| Red Flag Status | The tier above | Stops the import |
+| Activity Level | Tags from the vocabulary (Bone Stress: Sport & Load Pattern and Athlete Profile) | No tag; listed in the report |
+| Region | The subregion, spelled one way ("Pediatric" reads as "Paediatric"; Bone Stress: Tissue) | Not applicable |
+
+Each workbook names its columns its own way. `packages/db/src/knowledge/columns.ts` maps every
+header to one key, and an unknown header stops the import, so a renamed column is never silently
+dropped.
+
+## Condition IDs
+
+`packages/db/src/knowledge/condition-ids.json` maps `region|name as written` to an ID. The prefix
+is the first workbook that named the condition (SHO, ELB, WRI, HIP, KNE, ANK, CER, LUM, BSC),
+followed by three digits. An ID is never reused. Diagnoses and AI suggestions refer to these IDs,
+so they must survive workbook edits:
+
+- **A renamed row** stops the import ("has no condition ID"). Give the new name the old ID in the
+  file by hand (change the key, keep the ID), then run again.
+- **A new row:** run `pnpm kb:import --assign`. It gets the next ID of its workbook, or joins a
+  condition another workbook names the same. Commit the changed file.
+- **A merge** (a look-alike confirmed by a clinician): give both keys the same ID, keeping the
+  older one.
+- **A removed row:** its key stays in the file, and the report lists it under "matched no row".
+  Delete the key only when no record uses the ID.
+
+## Running it
+
+```sh
+pnpm kb:import            # read and check; writes docs/knowledge-base/import-report.md
+pnpm kb:import --assign   # also give new rows IDs (commit condition-ids.json)
+pnpm kb:import --apply    # also record the next version, a draft, at DIRECT_DATABASE_URL
+```
+
+- **Dry run and `--assign`:** need no database.
+- **`--apply`:**
+  - writes in one transaction, audited as `system:kb-import`;
+  - refuses ("already imported as version N") when the latest version came from the same files,
+    so running it twice does nothing;
+  - prints counts only.
+- **Staging or production:** run from `packages/db` with that environment's `DIRECT_DATABASE_URL`
+  (the session pooler, see `docs/runbooks/environments.md`) after its migrations have run.
+
+The committed report must match what the import writes; a unit test compares them. After changing
+a workbook, the vocabulary or the ID file, run `pnpm kb:import` and commit the report with the
+change.
+
+## The report
+
+`docs/knowledge-base/import-report.md`, also stored on the version for SET-06's viewer. It is for
+the client's clean up and the Super Admin's approval:
+
+- workbooks with their row counts and hashes (two sheet titles state a different count from the
+  rows: Cervical says 38 and has 41, Bone Stress says 41 and has 39);
+- gaps (no thoracic spine workbook);
+- merged conditions, and look-alikes to confirm;
+- identical long text under different conditions (possible copied text, OPS-02);
+- red flag tier counts, conditional red flags, and Bone Stress risk classes;
+- ages read as more than a plain range, and onsets with a note;
+- tag counts and untagged rows;
+- synonyms, the columns read, and IDs that matched no row.
