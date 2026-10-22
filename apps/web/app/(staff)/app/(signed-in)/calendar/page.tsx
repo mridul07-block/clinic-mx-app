@@ -9,9 +9,11 @@ import {
   addDays,
   calendarDateSchema,
   can,
+  canUndoNoShow,
   formatIstDate,
   isChangeable,
   istDate,
+  noShowAllowedFrom,
   patientSearch,
 } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
@@ -25,7 +27,7 @@ import { getSetting } from '../../../../../modules/settings/settings';
 import { shownStatus } from './calendar-block';
 import { CalendarView } from './calendar-view';
 import { BookingSheet, NewBookingSheet } from './booking-sheet';
-import { CancelSheet, RescheduleConfirm, ReschedulePicker } from './change-sheets';
+import { CancelSheet, NoShowSheet, RescheduleConfirm, ReschedulePicker } from './change-sheets';
 import { AppointmentDrawer, SlotDrawer } from './drawer';
 import { calendarHref, readSlot } from './links';
 
@@ -45,7 +47,8 @@ const weekday = (date: string) =>
 // Phones get the agenda, one physio or everyone at a time, with details in a bottom sheet (SCH-06).
 // The front desk books from a free slot or New booking: the start is held, then the patient is
 // found or added with a name and mobile (SCH-07). A Booked or Confirmed appointment is
-// rescheduled or cancelled from its sheet, recording who asked (SCH-08).
+// rescheduled or cancelled from its sheet, recording who asked (SCH-08). From the setting's
+// minutes after the start, those who check in mark a no show, and undo it on the same day (INT-11).
 export default async function CalendarPage({
   searchParams,
 }: {
@@ -84,9 +87,10 @@ export default async function CalendarPage({
     );
   }
 
-  const [step, lateMinutes, refreshSeconds] = [
+  const [step, lateMinutes, noShowMinutes, refreshSeconds] = [
     await getSetting('scheduling.slot_minutes'),
     await getSetting('day.running_late_minutes'),
+    await getSetting('day.no_show_allowed_minutes'),
     await getSetting('live.refresh_seconds'),
   ];
   const day = await loadCalendar(staff, { centreId: centre.id, date });
@@ -140,6 +144,53 @@ export default async function CalendarPage({
         }),
       }
     : undefined;
+
+  // No shows (INT-11): for those who check in, once the start has passed; the services refuse
+  // anyone else, and anything too early, as well.
+  const canCheckIn = can(staff, 'check_in.manage') && !staff.support;
+  const noShowPlace = opened
+    ? { appointmentId: opened.appointment.id, centreId: centre.id, date, view: physioId }
+    : undefined;
+  const noShowFrom = opened
+    ? noShowAllowedFrom(opened.appointment.startsAt, noShowMinutes)
+    : undefined;
+  const markable =
+    canCheckIn &&
+    opened &&
+    isChangeable(opened.appointment.status) &&
+    renderedAt >= opened.appointment.startsAt.getTime()
+      ? opened
+      : undefined;
+  const markingNoShow =
+    markable && noShowFrom && renderedAt >= noShowFrom.getTime() && params.change === 'no_show'
+      ? markable
+      : undefined;
+  const noShow =
+    noShowPlace && noShowFrom && opened
+      ? {
+          place: noShowPlace,
+          mark: markable
+            ? {
+                allowedFrom: noShowFrom,
+                href:
+                  renderedAt >= noShowFrom.getTime()
+                    ? calendarHref({
+                        centreId: centre.id,
+                        date,
+                        physioId,
+                        appointmentId: opened.appointment.id,
+                        change: 'no_show',
+                      })
+                    : undefined,
+              }
+            : undefined,
+          undo:
+            canCheckIn &&
+            opened.appointment.status === 'no_show' &&
+            canUndoNoShow(opened.appointment.startsAt, new Date(renderedAt)),
+        }
+      : undefined;
+
   const moveTo = change === 'reschedule' ? readSlot(params.book) : undefined;
   const moveHold = moveTo ? await heldSlot(staff) : undefined;
   const moveHeldUntil =
@@ -283,7 +334,7 @@ export default async function CalendarPage({
         />
       )}
 
-      {opened && !change ? (
+      {opened && !change && !markingNoShow ? (
         <AppointmentDrawer
           appointment={opened.appointment}
           status={shownStatus(opened.appointment, renderedAt, lateMinutes)}
@@ -313,6 +364,25 @@ export default async function CalendarPage({
                 }
               : undefined
           }
+          noShow={noShow}
+        />
+      ) : null}
+      {markingNoShow ? (
+        <NoShowSheet
+          appointment={markingNoShow.appointment}
+          physioName={markingNoShow.physioName}
+          place={{
+            centreId: centre.id,
+            centreName: centre.name,
+            date,
+            view: physioId,
+            backHref: calendarHref({
+              centreId: centre.id,
+              date,
+              physioId,
+              appointmentId: markingNoShow.appointment.id,
+            }),
+          }}
         />
       ) : null}
       {changing && changePlace && change === 'cancel' ? (

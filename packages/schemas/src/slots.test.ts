@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { istInstant } from './ist';
 import {
   cancelAppointmentSchema,
+  canUndoNoShow,
+  noShowAllowedFrom,
   isChangeable,
   rescheduleAppointmentSchema,
   selfBookingBlock,
@@ -149,5 +151,20 @@ describe('self booking block', () => {
       blocked: true,
       because: 'reschedules',
     });
+  });
+});
+
+// INT-11 (PRD J2.9): a no show from the setting's minutes after the start; undone on its own day.
+describe('no show timing', () => {
+  it('is allowed from the setting after the start', () => {
+    expect(noShowAllowedFrom(istInstant(day, 600), 25)).toEqual(istInstant(day, 625));
+  });
+
+  it("is undone only on the appointment's day in IST", () => {
+    const start = istInstant(day, 600);
+    expect(canUndoNoShow(start, istInstant(day, 24 * 60 - 1))).toBe(true);
+    expect(canUndoNoShow(start, istInstant(day, 24 * 60))).toBe(false);
+    // 23:30 IST is still the same day though it is 18:00 UTC.
+    expect(canUndoNoShow(start, new Date('2026-11-02T18:00:00.000Z'))).toBe(true);
   });
 });

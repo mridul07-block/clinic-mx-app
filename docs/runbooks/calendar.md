@@ -204,6 +204,42 @@ How it works:
 - **The patient's page** shows "Can book on WhatsApp" or "Self booking blocked: 2 reschedules
   asked by the patient", the counts against the limits, and the last lift.
 
+## Running late and no show (INT-11)
+
+PRD J2.9: "Running late" shows at 15 minutes past the start; the front desk can mark a no show
+from 25 minutes. Both are settings: `day.running_late_minutes` and `day.no_show_allowed_minutes`.
+
+Decisions (user, 23 October 2026):
+
+- **A confirm sheet,** like Cancel: "Mark no show" on the appointment opens "Mark MVH-… as a no
+  show? It counts toward the self booking block.", and its red button marks it.
+- **Undo the same day:** a no show marked by mistake (the patient walks in at 28 minutes) is
+  undone by those who check in until the end of the appointment's day in IST. It goes back to
+  Confirmed if the patient had confirmed (`confirmed_at`), otherwise Booked, and the count goes
+  back down. Both changes are audited.
+
+How it works:
+
+- **Running late is worked out, not stored** (`shownStatus` in `calendar-block.tsx`): Booked or
+  Confirmed, not checked in, and past the start by the setting. Amber on the grid, the agenda and
+  the drawer; the calendar's live check redraws it.
+- **Who:** `check_in.manage` (Super Admin, Centre Manager, Front Desk), at their centres. A
+  physio sees Running late and No show but no actions.
+- **The drawer** (for those who check in, once the start has passed): before the setting's
+  minutes, "No show can be marked from 10:25."; from then, "Mark no show". A no show shows
+  "Marked by …, date time" and, on its day, "Undo no show".
+- **The service** (`markNoShow`, `undoNoShow` in `modules/scheduling/services.ts`) reads the
+  setting before the transaction and refuses too early, anything but Booked or Confirmed, and an
+  undo on another day.
+- **The database** records `no_show_at` and `no_show_by` (the check `appointment_no_show`: set
+  exactly when the status is No show). `appointment_status_guard` lets an appointment become No
+  show only from Booked or Confirmed after its start, and leave No show only back to Booked or
+  Confirmed on its own IST day. `count_booking_change` adds a no show and takes one back on an
+  undo, never below zero (a lift in between stays lifted).
+- **No show keeps its time:** only Cancelled and Rescheduled free a slot.
+- **Later:** the no show WhatsApp message and the call task (ALT-04, WA tickets); the Today board
+  (INT-01) uses the same rules.
+
 ## Live updates
 
 1. `CalendarView` (a client component) holds the day the server drew, and gives it to both the
@@ -250,10 +286,12 @@ When FND-09's relay arrives, the same component listens for changes instead of a
 | `apps/web/e2e/reschedule.spec.ts` | 360 px and desktop: cancel by the patient (who asked is required; the time is free again); move to another day and physio (new number, "Moved from", "Rescheduled to", by the clinic); move to an overlapping time with the same physio; a physio cannot change appointments |
 | `apps/web/e2e/booking-block.spec.ts` | 360 px and desktop: two reschedules asked by the patient block self booking and the desk still books them; one asked by the clinic does not count; a Centre Manager lifts the block |
 | `apps/web/e2e/booking.spec.ts` | 360 px and desktop: book a patient found by mobile from a free slot ("Booked MVH-…", "Front desk, by …"); add a new caller and book; a mobile on file lists its patients; New booking by type and day; Cancel gives the slot back; a time taken meanwhile is refused in the engine's words; a physio cannot book |
+| `apps/web/e2e/no-show.spec.ts` | 360 px and desktop: at 20 minutes Running late with "No show can be marked from" and no Mark button; at 30 minutes the desk marks a no show through the sheet (No show, marked by the desk, counted on the patient's page) and undoes it (Booked, the count back to 0); a physio sees Running late but no actions |
 | `apps/web/e2e/calendar.spec.ts` | Desktop: the fee, a block and its drawer, a free cell and its drawer, Esc closes. 360 px: the same through the agenda (Everyone with the physio named, a physio chip with the fee, the bottom sheet across the screen's foot, a free start chip), no sideways scroll. Both: a booking made elsewhere appears without a reload; a physio sees their own column; Finance refused; the Super Admin sets a fee |
 
 **Negative checks (23 October 2026).** With the live day not applied, the "appears without a
 reload" test failed (SCH-05); with the agenda given the day as first drawn, it failed on the phone
 (SCH-06); with Cancel not releasing the hold, "Cancel booking gives the slot back" failed (SCH-07); without `freeing`, the overlapping move test failed, and without
 `appointment_status_guard`, the database guard test failed (SCH-08); with every reschedule counted, "a reschedule asked by the clinic does not count"
-failed (SCH-09).
+failed (SCH-09); with the undo not taking the count back down, the database no show test and
+"marks a no show … and undoes it" failed (INT-11).

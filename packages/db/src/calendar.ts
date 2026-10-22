@@ -43,6 +43,9 @@ export interface CalendarAppointment {
   changeReason: AppointmentChangeReason | null;
   changedByName: string | null;
   changedAt: Date | null;
+  /** Marked a no show (INT-11): when, and by whom. */
+  noShowAt: Date | null;
+  noShowByName: string | null;
   /** The appointment a reschedule booked in its place, or the one it replaced (SCH-08). */
   rescheduledTo: LinkedAppointment | null;
   rescheduledFrom: LinkedAppointment | null;
@@ -92,6 +95,7 @@ export interface CalendarRequest {
 
 const bookedBy = alias(staffUser, 'booked_by_staff');
 const changedBy = alias(staffUser, 'changed_by_staff');
+const noShowBy = alias(staffUser, 'no_show_by_staff');
 const replacedBy = alias(appointment, 'replaced_by');
 const replaced = alias(appointment, 'replaced');
 
@@ -147,6 +151,8 @@ export async function calendarDay(
             changeReason: appointment.changeReason,
             changedByName: changedBy.name,
             changedAt: appointment.changedAt,
+            noShowAt: appointment.noShowAt,
+            noShowByName: noShowBy.name,
             toId: replacedBy.id,
             toNumber: replacedBy.number,
             toCentreId: replacedBy.centreId,
@@ -161,6 +167,7 @@ export async function calendarDay(
           .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
           .leftJoin(bookedBy, eq(bookedBy.id, appointment.bookedBy))
           .leftJoin(changedBy, eq(changedBy.id, appointment.changedBy))
+          .leftJoin(noShowBy, eq(noShowBy.id, appointment.noShowBy))
           .leftJoin(replacedBy, eq(replacedBy.rescheduledFromId, appointment.id))
           .leftJoin(replaced, eq(replaced.id, appointment.rescheduledFromId))
           .where(

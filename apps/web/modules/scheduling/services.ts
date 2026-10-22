@@ -9,9 +9,11 @@ import {
   episodeRecord,
   freeSlots,
   liftBookingBlock,
+  markNoShow as markAppointmentNoShow,
   patientRecord,
   placeHold,
   releaseHold,
+  undoNoShow as undoAppointmentNoShow,
   type DbOrTransaction,
   type PatientMatch,
   type PhysioSlots,
@@ -20,14 +22,19 @@ import {
 import {
   bookNewPatientSchema,
   bookSlotSchema,
+  canUndoNoShow,
   cancelAppointmentSchema,
+  formatIstDateTime,
   freeSlotsQuerySchema,
   isChangeable,
   liftSelfBookingBlockSchema,
+  markNoShowSchema,
+  noShowAllowedFrom,
   releaseSlotSchema,
   rescheduleAppointmentSchema,
   selfBookingBlock,
   slotChoiceSchema,
+  undoNoShowSchema,
   type SelfBookingBlock,
 } from '@clinic-mx/schemas';
 import { assertCan, assertMay } from '../access/guard';
@@ -299,6 +306,61 @@ export const liftSelfBookingBlock = staffService({
   run: async (tx, input, actor) => {
     if (!(await liftBookingBlock(tx, { ...input, liftedBy: actor.id, now: new Date() }))) {
       throw new SchedulingError('There is nothing to lift: no reschedules or no shows counted.');
+    }
+  },
+});
+
+/**
+ * Marks a Booked or Confirmed appointment a no show (INT-11, PRD J2.9): the front desk, from
+ * `day.no_show_allowed_minutes` after the start. The database counts it towards the self booking
+ * block (SCH-09); the WhatsApp message and call task come with ALT-04.
+ */
+export async function markNoShow(context: ServiceContext, rawInput: unknown) {
+  const allowedMinutes = await getSetting('day.no_show_allowed_minutes');
+  return staffService({
+    action: 'check_in.manage',
+    input: markNoShowSchema,
+    target: (input, tx) => appointmentTarget(tx, input.appointmentId),
+    run: async (tx, input, actor) => {
+      const found = await appointmentRecord(tx, input.appointmentId);
+      if (!found || !isChangeable(found.status)) {
+        throw new SchedulingError(
+          'Only a booked or confirmed appointment can be marked a no show.',
+        );
+      }
+      const now = new Date();
+      const from = noShowAllowedFrom(found.startsAt, allowedMinutes);
+      if (now < from) {
+        throw new SchedulingError(`A no show can be marked from ${formatIstDateTime(from)}.`);
+      }
+      if (!(await markAppointmentNoShow(tx, { appointmentId: found.id, by: actor.id, now }))) {
+        throw new SchedulingError(
+          'Only a booked or confirmed appointment can be marked a no show.',
+        );
+      }
+    },
+  })(context, rawInput);
+}
+
+/**
+ * Undoes a no show marked by mistake (INT-11, user decision 23 October 2026): on the
+ * appointment's own day, back to Booked or Confirmed, and the count goes back down.
+ */
+export const undoNoShow = staffService({
+  action: 'check_in.manage',
+  input: undoNoShowSchema,
+  target: (input, tx) => appointmentTarget(tx, input.appointmentId),
+  run: async (tx, input) => {
+    const found = await appointmentRecord(tx, input.appointmentId);
+    if (!found || found.status !== 'no_show') {
+      throw new SchedulingError('This appointment is not a no show.');
+    }
+    const now = new Date();
+    if (!canUndoNoShow(found.startsAt, now)) {
+      throw new SchedulingError('A no show can only be undone on its own day.');
+    }
+    if (!(await undoAppointmentNoShow(tx, { appointmentId: found.id, now }))) {
+      throw new SchedulingError('This appointment is not a no show.');
     }
   },
 });

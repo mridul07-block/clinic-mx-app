@@ -621,3 +621,45 @@ export async function changeAppointment(
     .returning({ id: appointment.id });
   return row;
 }
+
+/**
+ * Marks a Booked or Confirmed appointment a no show (INT-11), recording when and who; the
+ * database counts it (SCH-09). The service checks `day.no_show_allowed_minutes` first.
+ */
+export async function markNoShow(
+  tx: DbOrTransaction,
+  mark: { appointmentId: string; by: string; now: Date },
+): Promise<{ id: string } | undefined> {
+  const [row] = await tx
+    .update(appointment)
+    .set({ status: 'no_show', noShowAt: mark.now, noShowBy: mark.by, updatedAt: mark.now })
+    .where(
+      and(
+        eq(appointment.id, mark.appointmentId),
+        inArray(appointment.status, [...changeableStatuses]),
+      ),
+    )
+    .returning({ id: appointment.id });
+  return row;
+}
+
+/**
+ * Undoes a no show marked by mistake (INT-11, user decision 23 October 2026): back to Confirmed
+ * if the patient had confirmed, otherwise Booked; the database takes the count back down.
+ */
+export async function undoNoShow(
+  tx: DbOrTransaction,
+  undo: { appointmentId: string; now: Date },
+): Promise<{ id: string } | undefined> {
+  const [row] = await tx
+    .update(appointment)
+    .set({
+      status: sql`case when ${appointment.confirmedAt} is null then 'booked' else 'confirmed' end::appointment_status`,
+      noShowAt: null,
+      noShowBy: null,
+      updatedAt: undo.now,
+    })
+    .where(and(eq(appointment.id, undo.appointmentId), eq(appointment.status, 'no_show')))
+    .returning({ id: appointment.id });
+  return row;
+}

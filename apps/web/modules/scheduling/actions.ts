@@ -15,8 +15,10 @@ import {
   cancelAppointment,
   holdSlot,
   liftSelfBookingBlock,
+  markNoShow,
   releaseSlot,
   rescheduleAppointment,
+  undoNoShow,
 } from './services';
 
 /** What a booking form shows after a post (SCH-07). */
@@ -243,4 +245,41 @@ export async function liftSelfBookingBlockAction(
     return failure(error);
   }
   redirect(`/app/patients/${patientId}?done=self-booking`);
+}
+
+/** The open appointment on the calendar, after a no show is marked or undone (INT-11). */
+const backToAppointment = (form: FormData, appointmentId: string) =>
+  calendarHref({
+    centreId: text(form, 'centreId'),
+    date: text(form, 'date'),
+    physioId: viewFrom(form),
+    appointmentId,
+  });
+
+/** Marks the open appointment a no show (INT-11); then shows it. */
+export async function markNoShowAction(
+  _state: BookingFormState,
+  form: FormData,
+): Promise<BookingFormState> {
+  const appointmentId = text(form, 'appointmentId');
+  try {
+    await markNoShow(await serviceContext(), { appointmentId });
+  } catch (error) {
+    return failure(error);
+  }
+  redirect(backToAppointment(form, appointmentId));
+}
+
+/** Undoes a no show marked by mistake (INT-11); then shows the appointment. */
+export async function undoNoShowAction(
+  _state: BookingFormState,
+  form: FormData,
+): Promise<BookingFormState> {
+  const appointmentId = text(form, 'appointmentId');
+  try {
+    await undoNoShow(await serviceContext(), { appointmentId });
+  } catch (error) {
+    return failure(error);
+  }
+  redirect(backToAppointment(form, appointmentId));
 }
