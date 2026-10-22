@@ -261,7 +261,9 @@ describe('what each role may change', () => {
     }
     await expect(
       as(manager, (tx) =>
-        tx.insert(centre).values({ name: 'Not allowed', colour: seedCentres[0]?.colour ?? '' }),
+        tx
+          .insert(centre)
+          .values({ name: 'Not allowed', code: 'NA', colour: seedCentres[0]?.colour ?? '' }),
       ),
     ).rejects.toThrow();
   });

@@ -63,10 +63,12 @@ claim through the IAM-03 readers (`internal.jwt_staff_id`, `jwt_staff_role`, `jw
 | `roster` (SET-04) | Their own; anyone who sees the centre; the person's managers (`internal.jwt_manages_staff`) | Centre Manager and Super Admin insert and update in centres they see, as themselves |
 | `staff_leave` (SET-04) | The person and their managers | The person inserts their own request and only cancels it; a manager inserts and updates others' leave, never their own (`docs/runbooks/rosters-and-leave.md`) |
 | `kb_version`, `kb_condition`, `kb_condition_listing` (SET-05), `kb_red_flag_rule`, `kb_red_flag_presentation` (SET-10) | Knowledge base readers (Super Admin, Centre Manager, Physiotherapist; `internal.jwt_views_knowledge`) | Nobody signed in: versions are imported by the owner (`pnpm kb:import --apply`, audited `system:kb-import`); approval comes with SET-06 (`docs/runbooks/knowledge-base.md`) |
+| `patient` (SCH-01) | Every signed in staff member, in every centre (records are shared, PRD J7.6) | Super Admin, Centre Manager and Front Desk (`internal.jwt_edits_patients`) insert at a centre they see, and update; nobody deletes. Triggers set the OP number and keep it and the registering centre fixed (`docs/runbooks/patients.md`) |
+| `centre_sequence` (SCH-01) | None: server only; advanced by `internal.next_centre_number` | None |
 
 No table has a delete policy except centre assignments, a package type's covered items and a physio's
 own appointment lengths. Staff,
-centres and prices are deactivated, never deleted.
+centres and prices are deactivated, never deleted; patients are never deleted.
 
 List prices are not patient money: Centre Managers read them by decision C3. The money rule
 below (step 2) covers bills, payments and balances (`docs/runbooks/prices.md`).

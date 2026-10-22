@@ -11,10 +11,11 @@ import {
   type NewPatientLink,
 } from '@clinic-mx/db';
 import { and, eq } from 'drizzle-orm';
+import { testPatient } from './patients';
 
 // Patient links for end to end tests (IAM-09), made from the test runner the way the service
-// makes them: a patient_link row, then its id signed with PATIENT_LINK_SECRET. Patient,
-// appointment and episode ids are generated (rule 12: no real patient data).
+// makes them: a patient_link row, then its id signed with PATIENT_LINK_SECRET. Patients are
+// generated (SCH-01); appointment and episode ids too (rule 12: no real patient data).
 
 const tests = systemActor('tests');
 let database: ReturnType<typeof createDb> | undefined;
@@ -46,7 +47,7 @@ export async function testLink(
       ? { appointmentId: crypto.randomUUID() }
       : { episodeId: crypto.randomUUID() };
   const link = {
-    patientId: crypto.randomUUID(),
+    patientId: values.patientId ?? (await testPatient()).id,
     expiresAt: new Date(Date.now() + 3_600_000),
     ...subject,
     ...values,

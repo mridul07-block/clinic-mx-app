@@ -1,4 +1,4 @@
-import type { CentreDetails } from '@clinic-mx/schemas';
+import type { CentreDetails, NewCentreDetails } from '@clinic-mx/schemas';
 import { and, asc, desc, eq, ne, sql } from 'drizzle-orm';
 import { centre } from './schema';
 import type { DbOrTransaction } from './versioned';
@@ -12,6 +12,8 @@ import type { DbOrTransaction } from './versioned';
 export interface CentreEntry {
   id: string;
   name: string;
+  /** Starts every OP number the centre issues (SCH-01). */
+  code: string;
   address: string | null;
   mapLink: string | null;
   phone: string | null;
@@ -22,6 +24,7 @@ export interface CentreEntry {
 const columns = {
   id: centre.id,
   name: centre.name,
+  code: centre.code,
   address: centre.address,
   mapLink: centre.mapLink,
   phone: centre.phone,
@@ -44,7 +47,10 @@ export async function centreRecord(
 }
 
 /** Records a new, active centre; returns its id. */
-export async function insertCentre(db: DbOrTransaction, details: CentreDetails): Promise<string> {
+export async function insertCentre(
+  db: DbOrTransaction,
+  details: NewCentreDetails,
+): Promise<string> {
   const [row] = await db.insert(centre).values(details).returning({ id: centre.id });
   if (!row) throw new Error('The centre was not recorded.');
   return row.id;
@@ -112,5 +118,11 @@ export async function centreNameTaken(
         exceptId ? ne(centre.id, exceptId) : undefined,
       ),
     );
+  return Boolean(row);
+}
+
+/** Whether a centre already has this code; codes never repeat, even on inactive centres. */
+export async function centreCodeTaken(db: DbOrTransaction, code: string): Promise<boolean> {
+  const [row] = await db.select({ id: centre.id }).from(centre).where(eq(centre.code, code));
   return Boolean(row);
 }

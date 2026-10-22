@@ -42,9 +42,15 @@ test('the Super Admin keeps each centre’s address, phone, map link and colour'
     await expect(centreCard(page, 'HSR Layout')).toContainText('Blue');
     await expect(centreCard(page, 'Koramangala')).toContainText('Violet');
     await expect(centreCard(page, 'Whitefield')).toContainText('Teal');
+    // SCH-01: each centre's code, at the start of its OP numbers.
+    await expect(centreCard(page, 'HSR Layout')).toContainText('HSR');
+    await expect(centreCard(page, 'Whitefield')).toContainText('WFD');
 
     await centreCard(page, 'HSR Layout').click();
     await expect(page.getByRole('heading', { name: 'HSR Layout' })).toBeVisible();
+    // The code is shown, never offered for editing.
+    await expect(page.getByTestId('centre-code')).toContainText('HSR');
+    await expect(page.getByLabel('Code')).toHaveCount(0);
     // Bad details are refused, field by field.
     await page.getByLabel('Phone').fill('12345');
     await page.getByLabel('Map link').fill('https://example.com/hsr');
@@ -101,6 +107,11 @@ test('deactivating a centre frees its colour; reactivating needs it free again',
     await expect(page.getByRole('radio', { name: /Blue/ })).toBeDisabled();
     await expect(page.getByRole('radio', { name: /Violet/ })).toBeDisabled();
     await page.getByLabel('Name').fill(name);
+    // Codes never repeat (SCH-01): four random letters, typed in lower case.
+    const code = Array.from(crypto.getRandomValues(new Uint8Array(4)), (byte) =>
+      String.fromCharCode(97 + (byte % 26)),
+    ).join('');
+    await page.getByLabel('Code').fill(code);
     await page.getByLabel('Address').fill('100 Feet Rd, Indiranagar, Bengaluru 560038');
     await page.getByLabel('Phone').fill('98450 12345');
     await page.getByLabel('Map link').fill('https://maps.app.goo.gl/TestOnly123');
@@ -108,6 +119,7 @@ test('deactivating a centre frees its colour; reactivating needs it free again',
     await page.getByRole('button', { name: 'Add centre' }).click();
     await expect(page.getByRole('status')).toHaveText('Centre added.');
     await expect(page.getByRole('heading', { name })).toBeVisible();
+    await expect(page.getByTestId('centre-code')).toContainText(code.toUpperCase());
 
     // Whitefield cannot come back while teal is taken.
     await page.goto('/app/centres');

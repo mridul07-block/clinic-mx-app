@@ -299,9 +299,11 @@ describe('read only, twice over', () => {
     expect(
       await failure(
         asSupportClaimsOnly((tx) =>
-          tx
-            .insert(centre)
-            .values({ name: 'Support test centre', colour: seedCentres[0]?.colour ?? '' }),
+          tx.insert(centre).values({
+            name: 'Support test centre',
+            code: 'ST',
+            colour: seedCentres[0]?.colour ?? '',
+          }),
         ),
       ),
     ).toBe(REFUSED);

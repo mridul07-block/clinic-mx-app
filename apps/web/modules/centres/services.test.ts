@@ -9,6 +9,7 @@ const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
   activeCentreWithColour: vi.fn(),
+  centreCodeTaken: vi.fn(),
   centreList: vi.fn(),
   centreNameTaken: vi.fn(),
   centreRecord: vi.fn(),
@@ -40,6 +41,7 @@ const member = (extra: Partial<StaffMember> = {}): StaffMember => ({
 const context = (actor = member()) => ({ db: {} as Db, actor });
 const details = {
   name: 'Indiranagar',
+  code: 'ind',
   address: '100 Feet Rd, Indiranagar, Bengaluru 560038',
   phone: '080 4123 4567',
   mapLink: 'https://maps.app.goo.gl/abc123',
@@ -48,6 +50,7 @@ const details = {
 const centre = (id: string, name: string, colour: string, active = true) => ({
   id,
   name,
+  code: name.slice(0, 3).toUpperCase(),
   colour,
   active,
   address: null,
@@ -67,6 +70,7 @@ describe('centres', () => {
       centre(whitefield, 'Whitefield', violet),
     ]);
     db.centreNameTaken.mockResolvedValue(false);
+    db.centreCodeTaken.mockResolvedValue(false);
     db.activeCentreWithColour.mockResolvedValue(undefined);
     db.insertCentre.mockResolvedValue(newId);
     db.centreRecord.mockResolvedValue(centre(hsr, 'HSR Layout', blue));
@@ -75,7 +79,20 @@ describe('centres', () => {
 
   it('adds a centre with its details, the phone stored as +91', async () => {
     expect(await addCentre(context(), details)).toBe(newId);
-    expect(db.insertCentre).toHaveBeenCalledWith(fakeTx, { ...details, phone: '+918041234567' });
+    expect(db.insertCentre).toHaveBeenCalledWith(fakeTx, {
+      ...details,
+      code: 'IND',
+      phone: '+918041234567',
+    });
+  });
+
+  it('refuses a code another centre has, or none (SCH-01: codes start OP numbers)', async () => {
+    db.centreCodeTaken.mockResolvedValueOnce(true);
+    await expect(addCentre(context(), details)).rejects.toThrow(
+      'Another centre has the code IND. Choose another code.',
+    );
+    await expect(addCentre(context(), { ...details, code: '' })).rejects.toThrow(z.ZodError);
+    expect(db.insertCentre).not.toHaveBeenCalled();
   });
 
   it('is for the Super Admin only, and read only for Velyx support', async () => {
@@ -119,10 +136,12 @@ describe('centres', () => {
   });
 
   it('edits a centre, checking the colour against the other active centres', async () => {
+    // The code is left out: it never changes once the centre is added.
     await editCentre(context(), { centreId: hsr, ...details, name: 'HSR Layout', colour: blue });
     expect(db.activeCentreWithColour).toHaveBeenCalledWith(fakeTx, blue, hsr);
     expect(db.updateCentre).toHaveBeenCalledWith(fakeTx, hsr, {
       ...details,
+      code: undefined,
       name: 'HSR Layout',
       colour: blue,
       phone: '+918041234567',

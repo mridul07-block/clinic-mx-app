@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { withStaffAccess } from '../access';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
+import { fakePatientId } from './fake-patients';
 import type { StaffMember } from '../identity';
 import {
   clearKioskLink,
@@ -76,15 +77,17 @@ const setUp = async (actor = deskHsr, centreId: string = centreIds.hsrLayout) =>
   );
   return { id, token };
 };
-const healthForm = () =>
-  withActor(db, systemActor('tests'), (tx) =>
+const healthForm = async () => {
+  const patientId = await fakePatientId(db);
+  return withActor(db, systemActor('tests'), (tx) =>
     insertPatientLink(tx, {
-      patientId: crypto.randomUUID(),
+      patientId,
       purpose: 'health_form',
       appointmentId: crypto.randomUUID(),
       expiresAt: new Date(Date.now() + 3_600_000),
     }),
   );
+};
 
 describe('kiosk tablets', () => {
   it('keep only the hash of the tablet token and find the tablet by it', async () => {

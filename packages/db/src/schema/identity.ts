@@ -33,6 +33,8 @@ export const centre = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     name: text('name').notNull().unique(),
+    /** SCH-01: the start of every OP number the centre issues, for example HSR; never changes. */
+    code: text('code').notNull().unique(),
     address: text('address'),
     mapLink: text('map_link'),
     phone: text('phone'),
@@ -43,6 +45,7 @@ export const centre = pgTable(
   },
   (table) => [
     check('centre_colour_hex', sql`${table.colour} ~ '^#[0-9A-F]{6}$'`),
+    check('centre_code_letters', sql`${table.code} ~ '^[A-Z]{2,4}$'`),
     // SET-01: each chart colour belongs to one active centre at a time.
     uniqueIndex('centre_colour_active_key')
       .on(table.colour)
