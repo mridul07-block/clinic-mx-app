@@ -59,8 +59,11 @@ claim through the IAM-03 readers (`internal.jwt_staff_id`, `jwt_staff_role`, `jw
 
 | `price_item`, `package_type`, `discount_preset` (SET-02) | Prices readers (Super Admin, Centre Manager, Front Desk, Finance; `internal.jwt_views_prices`) | Finance and Super Admin insert and update (`internal.jwt_manages_prices`) |
 | `package_type_item` (SET-02) | Prices readers | Finance and Super Admin insert and delete (a type's covered items are replaced) |
+| `appointment_type` (SET-03) | Every signed in staff member | Super Admin inserts and updates |
+| `physio_appointment_length` (SET-03) | Every signed in staff member | Super Admin inserts, updates and deletes (clearing a length back to the type's) |
 
-No table has a delete policy except centre assignments and a package type's covered items. Staff,
+No table has a delete policy except centre assignments, a package type's covered items and a physio's
+own appointment lengths. Staff,
 centres and prices are deactivated, never deleted.
 
 List prices are not patient money: Centre Managers read them by decision C3. The money rule

@@ -26,6 +26,15 @@ const limit = z.strictObject({ count: z.int().positive(), minutes: z.int().posit
 
 export const consultationFeeTimings = ['after_consultation', 'at_check_in'] as const;
 
+/**
+ * PRD section 7 Setting rows whose values live on records, not in the `setting` table: the Super
+ * Admin still changes them without a code release (SET-03, user decision 22 October 2026).
+ */
+export const recordRules = {
+  'Consultation length': 'The Consultation appointment type, and per physio lengths (SET-03)',
+  'Session length': 'The Session appointment type, and per physio lengths (SET-03)',
+} as const;
+
 interface SettingDefinition {
   schema: z.ZodType;
   source: string;
@@ -33,19 +42,11 @@ interface SettingDefinition {
 }
 
 export const settingDefinitions = {
-  // DECISION #2: 45 minutes until the client confirms; SET-03 adds per physio lengths.
-  'scheduling.consultation_minutes': {
+  'scheduling.slot_minutes': {
     schema: minutes,
-    source: 'PRD section 7: Consultation length',
-    description: 'Length of a consultation appointment, in minutes.',
-  },
-  'scheduling.session_minutes': {
-    schema: z
-      .strictObject({ shortest: minutes, longest: minutes })
-      .refine((range) => range.shortest <= range.longest, 'shortest is longer than longest'),
-    source: 'PRD section 7: Session length',
+    source: 'Decision G2 (kickoff review, 21 October 2026): 15 minute slot step, no buffer',
     description:
-      'Range of treatment session lengths, in minutes; SET-03 sets the length per appointment type and physio within it.',
+      'The calendar grid, in minutes; every appointment length is a whole number of slots (SET-03).',
   },
   'booking.self_booking_block_reschedules': {
     schema: z.int().positive(),

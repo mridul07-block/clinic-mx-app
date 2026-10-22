@@ -1,4 +1,4 @@
-import { centreOptions, staffRecord } from '@clinic-mx/db';
+import { appointmentTypeList, centreOptions, physioLengths, staffRecord } from '@clinic-mx/db';
 import { istDayEndingAt, staffRoleLabels } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -7,16 +7,18 @@ import { z } from 'zod';
 import { FormMessage } from '../../../../../../components/forms';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../../modules/access/staff-db';
+import { getSetting } from '../../../../../../modules/settings/settings';
 import { invitePending } from '../../../../../../modules/staff/directory';
 import { Tag } from '../../../../../../components/tag';
 import { StaffStatus } from '../staff-status';
 import { AccountActions } from './account-actions';
 import { EditForm } from './edit-form';
+import { LengthsForm } from './lengths-form';
 
 export const metadata: Metadata = { title: 'Staff member · Clinic Mx' };
 
-// One staff member (IAM-06): role, ticks, centres and end date; invite, two step reset and
-// deactivation. The email is their login and stays as it is. A Velyx support login keeps the
+// One staff member (IAM-06): role, ticks, centres and end date; their own appointment lengths
+// when they treat patients (SET-03); invite, two step reset and deactivation. The email is their login and stays as it is. A Velyx support login keeps the
 // Super Admin role, so it has no details form; a support viewer sees the page read only (IAM-08).
 export default async function StaffMemberPage({
   params,
@@ -28,13 +30,19 @@ export default async function StaffMemberPage({
   const staff = await requirePermission('staff.manage');
   const { staffUserId } = await params;
   if (!z.guid().safeParse(staffUserId).success) notFound();
-  const [member, centres] = await asStaff(staff, (tx) =>
-    Promise.all([staffRecord(tx, staffUserId), centreOptions(tx)]),
+  const [member, centres, types, own] = await asStaff(staff, (tx) =>
+    Promise.all([
+      staffRecord(tx, staffUserId),
+      centreOptions(tx),
+      appointmentTypeList(tx),
+      physioLengths(tx, staffUserId),
+    ]),
   );
   if (!member) notFound();
   const pending = await invitePending(member.authUserId);
   const justInvited = (await searchParams).invited === 'sent';
   const self = member.id === staff.id;
+  const slotMinutes = await getSetting('scheduling.slot_minutes');
 
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
@@ -75,6 +83,23 @@ export default async function StaffMemberPage({
               }}
             />
           )}
+          {member.treatsPatients ? (
+            <section className="flex flex-col gap-3 border-t border-line pt-4">
+              <h2 className="font-semibold text-ink">Appointment lengths</h2>
+              <LengthsForm
+                staffUserId={member.id}
+                slotMinutes={slotMinutes}
+                types={types
+                  .filter((type) => type.active)
+                  .map((type) => ({
+                    id: type.id,
+                    name: type.name,
+                    minutes: type.minutes,
+                    own: own.get(type.id),
+                  }))}
+              />
+            </section>
+          ) : null}
           <AccountActions
             staffUserId={member.id}
             name={member.name}

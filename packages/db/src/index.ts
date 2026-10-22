@@ -160,3 +160,16 @@ export {
   type PackageTypeEntry,
   type PriceItemEntry,
 } from './prices';
+export {
+  appointmentTypeKeyTaken,
+  appointmentTypeList,
+  appointmentTypeNameTaken,
+  appointmentTypeRecord,
+  insertAppointmentType,
+  lengthFor,
+  physioLengths,
+  setAppointmentTypeActive,
+  setPhysioLengths,
+  updateAppointmentType,
+  type AppointmentTypeEntry,
+} from './appointment-types';

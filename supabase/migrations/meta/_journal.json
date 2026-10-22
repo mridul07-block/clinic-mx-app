@@ -176,6 +176,20 @@
       "when": 1792654802088,
       "tag": "20261022074002_price_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792657316789,
+      "tag": "20261022082156_appointment_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792657317737,
+      "tag": "20261022082157_appointment_type_rules",
+      "breakpoints": true
     }
   ]
 }
