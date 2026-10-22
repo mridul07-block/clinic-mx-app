@@ -28,6 +28,8 @@ const expected: Record<Action, Expected> = {
   'calendar.view': ['yes', 'yes', 'yes', 'own', '-'],
   'bookings.manage': ['yes', 'yes', 'yes', '-', '-'],
   'bookings.book_next_session': ['yes', 'yes', 'yes', 'yes', '-'],
+  // User decision 23 October 2026 (SCH-09), not a PRD row: managers lift the self booking block.
+  'bookings.lift_self_booking_block': ['yes', 'yes', '-', '-', '-'],
   'check_in.manage': ['yes', 'yes', 'yes', '-', '-'],
   'check_in.view': ['yes', 'yes', 'yes', 'yes', '-'],
   'patients.view_contact': ['yes', 'yes', 'yes', 'yes', 'yes'],

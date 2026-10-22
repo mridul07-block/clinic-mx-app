@@ -66,6 +66,36 @@ const changeReasonSchema = z.enum(appointmentChangeReasons, {
   error: 'Choose who asked for the change.',
 });
 
+/** Whether a patient may still book themselves, and why not (SCH-09, PRD J1.8). */
+export interface SelfBookingBlock {
+  blocked: boolean;
+  reschedules: number;
+  noShows: number;
+  /** The limit reached first, reschedules before no shows; null when not blocked. */
+  because: 'reschedules' | 'no_shows' | null;
+}
+
+/**
+ * PRD J1.8: after `booking.self_booking_block_reschedules` reschedules asked by the patient, or
+ * `booking.self_booking_block_no_shows` verified no shows, the patient books through the front
+ * desk only. The WhatsApp Flow checks this before offering times; the front desk can always book.
+ */
+export function selfBookingBlock(
+  counts: { reschedules: number; noShows: number },
+  limits: { reschedules: number; noShows: number },
+): SelfBookingBlock {
+  const because =
+    counts.reschedules >= limits.reschedules
+      ? 'reschedules'
+      : counts.noShows >= limits.noShows
+        ? 'no_shows'
+        : null;
+  return { blocked: because !== null, ...counts, because };
+}
+
+/** Letting a blocked patient book themselves again (SCH-09): both counts back to zero. */
+export const liftSelfBookingBlockSchema = z.object({ patientId: z.guid() });
+
 /** PRD section 7: patients book on the WhatsApp Flow; the front desk books callers and walk ins. */
 export const bookingChannels = ['whatsapp', 'front_desk'] as const;
 

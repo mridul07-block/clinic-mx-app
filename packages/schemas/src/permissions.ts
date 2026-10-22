@@ -61,6 +61,8 @@ export const permissionMap = {
   'calendar.view': row(yes, yes, yes, own, no),
   'bookings.manage': row(yes, yes, yes, no, no),
   'bookings.book_next_session': row(yes, yes, yes, yes, no),
+  // Not in the PRD summary: user decision 23 October 2026 (SCH-09), managers lift the block.
+  'bookings.lift_self_booking_block': row(yes, yes, no, no, no),
   // Check in, health form, consent.
   'check_in.manage': row(yes, yes, yes, no, no),
   'check_in.view': row(yes, yes, yes, yes, no),

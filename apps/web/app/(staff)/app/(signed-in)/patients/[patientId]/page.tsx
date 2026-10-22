@@ -2,6 +2,7 @@ import { episodesOf, guardiansOf, patientRecord, patientsOnPhone } from '@clinic
 import {
   accessScope,
   ageOn,
+  can,
   dischargeReasonLabels,
   episodeStatusLabels,
   formatIndianPhone,
@@ -22,8 +23,10 @@ import { FormMessage } from '../../../../../../components/forms';
 import { Tag } from '../../../../../../components/tag';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../../modules/access/staff-db';
+import { selfBookingStatus } from '../../../../../../modules/scheduling/services';
 import { getSetting } from '../../../../../../modules/settings/settings';
 import { GuardianForm, RemoveGuardianForm } from '../guardian-forms';
+import { LiftBlockForm } from '../lift-block-form';
 import { PatientForm } from '../patient-form';
 
 export const metadata: Metadata = { title: 'Patient · Clinic Mx' };
@@ -47,12 +50,14 @@ const notices: Record<string, string> = {
   'guardian-added': 'Guardian added.',
   'guardian-saved': 'Guardian saved.',
   'guardian-removed': 'Guardian removed. They stay on record for any consent they signed.',
+  'self-booking': 'The patient can book themselves again.',
 };
 
 // One patient (SCH-01): OP number, registering centre and contact details, and the others on the
 // same mobile. Those with patients.edit_contact edit the details; the OP number never changes.
 // Guardians (SCH-02): a patient under the adult age is marked, and "Guardian needed" until one is
-// added. The full patient record (episodes, notes, documents) grows here in CLN-12.
+// added. Self booking (SCH-09): for those who book, whether the patient may still book themselves,
+// and for a manager, lifting the block. The full patient record grows here in CLN-12.
 export default async function PatientPage({
   params,
   searchParams,
@@ -82,6 +87,10 @@ export default async function PatientPage({
   const showGuardians = minor || age === null || guardians.length > 0;
   const notice = notices[(await searchParams).done ?? ''];
   const canEdit = accessScope(staff, 'patients.edit_contact') && !staff.support;
+  const selfBooking = can(staff, 'bookings.manage')
+    ? await selfBookingStatus(staff, patient.id)
+    : undefined;
+  const canLift = can(staff, 'bookings.lift_self_booking_block') && !staff.support;
 
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
@@ -179,6 +188,48 @@ export default async function PatientPage({
           </ul>
         )}
       </section>
+
+      {selfBooking ? (
+        <section aria-labelledby="self-booking" className="flex flex-col gap-3">
+          <h2 id="self-booking" className="font-semibold text-ink">
+            Self booking
+          </h2>
+          {selfBooking.blocked ? (
+            <div
+              data-testid="self-booking-blocked"
+              className="flex flex-col gap-1 rounded-panel border border-waiting-line bg-waiting-soft p-4"
+            >
+              <span className="font-semibold text-ink">
+                Self booking blocked:{' '}
+                {selfBooking.because === 'reschedules'
+                  ? `${String(selfBooking.reschedules)} reschedules asked by the patient.`
+                  : `${String(selfBooking.noShows)} no shows.`}
+              </span>
+              <span className="text-ink-secondary">
+                They are asked to call; book them at the front desk.
+              </span>
+            </div>
+          ) : (
+            <p className="text-ink-secondary" data-testid="self-booking-allowed">
+              Can book on WhatsApp.
+            </p>
+          )}
+          <p className="text-sm text-ink-secondary tabular-nums" data-testid="booking-counts">
+            Reschedules asked by the patient {selfBooking.reschedules} of{' '}
+            {selfBooking.limits.reschedules} · No shows {selfBooking.noShows} of{' '}
+            {selfBooking.limits.noShows}
+          </p>
+          {selfBooking.liftedAt ? (
+            <p className="text-sm text-ink-muted">
+              Last allowed again{selfBooking.liftedByName ? ` by ${selfBooking.liftedByName}` : ''},{' '}
+              {formatIstDate(istDate(selfBooking.liftedAt))}
+            </p>
+          ) : null}
+          {canLift && (selfBooking.reschedules > 0 || selfBooking.noShows > 0) ? (
+            <LiftBlockForm patientId={patient.id} />
+          ) : null}
+        </section>
+      ) : null}
 
       {showGuardians ? (
         <section aria-labelledby="guardians" className="flex flex-col gap-3">

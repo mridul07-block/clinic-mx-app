@@ -316,6 +316,20 @@
       "when": 1792699898408,
       "tag": "20261022201138_appointment_change_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1792701876994,
+      "tag": "20261022204436_booking_counter",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1792701878013,
+      "tag": "20261022204438_booking_counter_rules",
+      "breakpoints": true
     }
   ]
 }

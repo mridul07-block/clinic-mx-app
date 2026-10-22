@@ -4,6 +4,7 @@ import {
   cancelAppointmentSchema,
   isChangeable,
   rescheduleAppointmentSchema,
+  selfBookingBlock,
   appointmentStatuses,
   checkSlot,
   holdsSlot,
@@ -129,5 +130,24 @@ describe('reschedule and cancel', () => {
       reason: 'clinic',
     });
     expect(move.startsAt).toEqual(new Date('2026-11-03T05:00:00.000Z'));
+  });
+});
+
+// SCH-09 (PRD J1.8): at either limit the patient books through the front desk only.
+describe('self booking block', () => {
+  const limits = { reschedules: 2, noShows: 2 };
+  it('blocks at either limit, reschedules named first', () => {
+    expect(selfBookingBlock({ reschedules: 1, noShows: 1 }, limits)).toEqual({
+      blocked: false,
+      reschedules: 1,
+      noShows: 1,
+      because: null,
+    });
+    expect(selfBookingBlock({ reschedules: 2, noShows: 0 }, limits).because).toBe('reschedules');
+    expect(selfBookingBlock({ reschedules: 0, noShows: 3 }, limits).because).toBe('no_shows');
+    expect(selfBookingBlock({ reschedules: 2, noShows: 2 }, limits)).toMatchObject({
+      blocked: true,
+      because: 'reschedules',
+    });
   });
 });

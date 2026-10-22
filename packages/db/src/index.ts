@@ -253,6 +253,7 @@ export {
   type PhysioSlots,
   type SlotRequest,
 } from './slots';
+export { bookingCounterOf, liftBookingBlock, type BookingCounterEntry } from './booking-counters';
 export {
   calendarDay,
   calendarVersion,

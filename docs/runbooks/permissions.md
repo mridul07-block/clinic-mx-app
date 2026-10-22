@@ -34,6 +34,11 @@ How the less obvious PRD cells are read (decided with IAM-04, 21 October 2026):
 - **Front Desk:** no setup or leave actions.
 - **Red flag alert decisions:** not in the map yet. The ticket that builds alerts adds them.
 
+Rows the PRD summary does not have, added by the user's decision:
+
+- **`bookings.lift_self_booking_block`** (SCH-09, 23 October 2026): the Super Admin and Centre
+  Managers let a blocked patient book themselves again. Front Desk, physios and Finance do not.
+
 The same map can be read in the browser to hide what someone cannot use, but only the server
 decides.
 

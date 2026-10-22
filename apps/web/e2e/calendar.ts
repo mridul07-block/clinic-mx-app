@@ -3,6 +3,7 @@ import {
   appointmentType,
   bookAppointment,
   centre,
+  changeAppointment,
   createDb,
   priceItem,
   roster,
@@ -129,4 +130,50 @@ export async function expireHolds(physioIds: string[]): Promise<void> {
       .set({ expiresAt: new Date(Date.now() - 1000) })
       .where(inArray(slotHold.physioId, physioIds)),
   );
+}
+
+/**
+ * A WhatsApp booking at `from` minutes moved to `to` on the same day, as the reschedule does it
+ * (SCH-08), with who asked; the seed Super Admin is recorded as who moved it.
+ */
+export async function testMove(
+  physioId: string,
+  patientId: string,
+  date: string,
+  from: number,
+  to: number,
+  reason: 'patient' | 'clinic',
+): Promise<void> {
+  const hsr = await centreIdByCode('HSR');
+  const [session] = await db()
+    .select({ id: appointmentType.id })
+    .from(appointmentType)
+    .where(eq(appointmentType.key, 'session'));
+  const [admin] = await db()
+    .select({ id: staffUser.id })
+    .from(staffUser)
+    .where(eq(staffUser.email, 'super.admin@clinicmx.test'));
+  if (!session || !admin) throw new Error('The seed is missing Session or the Super Admin.');
+  const request = (minutes: number) => ({
+    centreId: hsr,
+    physioId,
+    appointmentTypeId: session.id,
+    startsAt: istInstant(date, minutes),
+    holder: `test:${crypto.randomUUID()}`,
+    patientId,
+    channel: 'whatsapp' as const,
+    step: 15,
+    now: new Date(),
+  });
+  await withActor(db(), systemActor('tests'), async (tx) => {
+    const first = await bookAppointment(tx, request(from));
+    await changeAppointment(tx, {
+      appointmentId: first.id,
+      status: 'rescheduled',
+      reason,
+      changedBy: admin.id,
+      now: new Date(),
+    });
+    await bookAppointment(tx, { ...request(to), rescheduledFromId: first.id });
+  });
 }

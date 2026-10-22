@@ -138,3 +138,29 @@ export const slotHold = pgTable(
 
 export type Appointment = typeof appointment.$inferSelect;
 export type SlotHold = typeof slotHold.$inferSelect;
+
+/**
+ * A patient's reschedules (asked by the patient) and verified no shows (SCH-09, PRD J1.8, TAD
+ * `booking_counter`): at `booking.self_booking_block_*` the patient can no longer book themselves.
+ * Only the database's trigger on appointment counts; a Centre Manager or the Super Admin lifts
+ * the block, which sets both to zero and records who and when.
+ */
+export const bookingCounter = pgTable(
+  'booking_counter',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    patientId: uuid('patient_id')
+      .notNull()
+      .unique()
+      .references(() => patient.id, { onDelete: 'cascade' }),
+    reschedules: integer('reschedules').notNull().default(0),
+    noShows: integer('no_shows').notNull().default(0),
+    liftedAt: timestamp('lifted_at', { withTimezone: true }),
+    liftedBy: uuid('lifted_by').references(() => staffUser.id),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check('booking_counter_counts', sql`${table.reschedules} >= 0 and ${table.noShows} >= 0`),
+    check('booking_counter_lifted', sql`(${table.liftedAt} is null) = (${table.liftedBy} is null)`),
+  ],
+).enableRLS();
