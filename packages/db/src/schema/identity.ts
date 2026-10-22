@@ -41,7 +41,13 @@ export const centre = pgTable(
     active: boolean('active').notNull().default(true),
     ...timestamps,
   },
-  (table) => [check('centre_colour_hex', sql`${table.colour} ~ '^#[0-9A-F]{6}$'`)],
+  (table) => [
+    check('centre_colour_hex', sql`${table.colour} ~ '^#[0-9A-F]{6}$'`),
+    // SET-01: each chart colour belongs to one active centre at a time.
+    uniqueIndex('centre_colour_active_key')
+      .on(table.colour)
+      .where(sql`${table.active}`),
+  ],
 ).enableRLS();
 
 export const staffUser = pgTable(

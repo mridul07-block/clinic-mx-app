@@ -37,9 +37,10 @@ describe('seed', () => {
       staff: seedStaff.length,
       assignments: seedStaffCentres.length,
     };
-    // Other tests add staff (IAM-06), and nothing deletes them, so there can be more rows.
+    // Other tests add staff (IAM-06) and centres (SET-01), and nothing deletes them, so there
+    // can be more rows.
     const first = await seed(db);
-    expect(first?.centres).toBe(expected.centres);
+    expect(first?.centres).toBeGreaterThanOrEqual(expected.centres);
     expect(first?.staff).toBeGreaterThanOrEqual(expected.staff);
     expect(first?.assignments).toBeGreaterThanOrEqual(expected.assignments);
     expect(await seed(db)).toEqual(first);

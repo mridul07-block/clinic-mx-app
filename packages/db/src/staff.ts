@@ -181,9 +181,17 @@ export async function linkStaffLogin(
   await db.update(staffUser).set({ authUserId }).where(eq(staffUser.id, staffUserId));
 }
 
-/** The centres the caller sees, in name order, to choose from. */
-export function centreOptions(db: DbOrTransaction): Promise<{ id: string; name: string }[]> {
-  return db.select({ id: centre.id, name: centre.name }).from(centre).orderBy(asc(centre.name));
+/**
+ * The centres the caller sees, in name order, to choose from. New choices offer active centres
+ * only (SET-01); an existing choice of an inactive one is still shown, marked, so it is kept.
+ */
+export function centreOptions(
+  db: DbOrTransaction,
+): Promise<{ id: string; name: string; active: boolean }[]> {
+  return db
+    .select({ id: centre.id, name: centre.name, active: centre.active })
+    .from(centre)
+    .orderBy(asc(centre.name));
 }
 
 /**

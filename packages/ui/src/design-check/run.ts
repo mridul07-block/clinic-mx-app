@@ -13,12 +13,14 @@ const root = join(import.meta.dirname, '..', '..', '..', '..');
 const tokensFile = 'packages/ui/src/styles/tokens.css';
 const tokenValuesFile = 'packages/ui/src/token-values.ts';
 const seedFile = 'packages/db/src/seed/data.ts';
+const centreColoursFile = 'packages/schemas/src/centres.ts';
 
 /**
- * Files the raw colour rule skips: the tokens themselves, and two mirrors checked against
- * them below (token values for non-CSS consumers, and the seed's centre colours).
+ * Files the raw colour rule skips: the tokens themselves, and mirrors checked against them below
+ * (token values for non-CSS consumers, the seed's centre colours, and the centre colours a Super
+ * Admin chooses from, SET-01).
  */
-const rawColourAllowed = new Set([tokensFile, tokenValuesFile, seedFile]);
+const rawColourAllowed = new Set([tokensFile, tokenValuesFile, seedFile, centreColoursFile]);
 
 /** Tests that name forbidden values on purpose, to prove the page or theme lacks them. */
 const testsOfTheRules = new Set([
@@ -26,6 +28,8 @@ const testsOfTheRules = new Set([
   'apps/web/e2e/design.spec.ts',
   // Asserts Tailwind's default palette and bold generate nothing.
   'packages/ui/src/theme.test.ts',
+  // Proves a colour outside the reserved centre colours is refused (SET-01).
+  'packages/schemas/src/centres.test.ts',
 ]);
 
 /** The check's own folder holds the rules and their failing fixtures. */
@@ -88,6 +92,30 @@ seedColours.forEach(([, colour], i) => {
       line: 1,
       rule: 'centre-colour',
       message: `centre ${i + 1} colour ${colour ?? ''} differs from --${token}`,
+    });
+  }
+});
+
+// The centre colours a Super Admin chooses from (SET-01) must be the centre tokens, in order.
+const choosable = [
+  ...readFileSync(join(root, centreColoursFile), 'utf8').matchAll(/value: '(#\w+)'/g),
+];
+if (choosable.length !== 3) {
+  problems.push({
+    file: centreColoursFile,
+    line: 1,
+    rule: 'centre-colour',
+    message: `expected the 3 centre colours, found ${String(choosable.length)}`,
+  });
+}
+choosable.forEach(([, colour], i) => {
+  const token = `viz-centre-${String(i + 1)}`;
+  if (colour?.toLowerCase() !== tokens.get(token)) {
+    problems.push({
+      file: centreColoursFile,
+      line: 1,
+      rule: 'centre-colour',
+      message: `centre colour ${String(i + 1)} ${colour ?? ''} differs from --${token}`,
     });
   }
 });

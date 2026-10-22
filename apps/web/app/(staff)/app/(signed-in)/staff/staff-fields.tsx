@@ -13,7 +13,7 @@ export interface StaffFieldDefaults {
 }
 
 interface StaffFieldsProps {
-  centres: { id: string; name: string }[];
+  centres: { id: string; name: string; active?: boolean }[];
   defaults: StaffFieldDefaults;
   fieldErrors?: Record<string, string>;
   /** The Super Admin editing themselves: their own role cannot change. */
@@ -120,18 +120,25 @@ export function StaffFields({ centres, defaults, fieldErrors = {}, roleLocked }:
         {allCentres ? (
           <p className="text-ink-secondary">{staffRoleLabels[role]} sees all centres.</p>
         ) : (
-          centres.map((centre) => (
-            <label key={centre.id} className={choiceClass}>
-              <input
-                type="checkbox"
-                name="centreIds"
-                value={centre.id}
-                defaultChecked={defaults.centreIds.includes(centre.id)}
-                className={boxClass}
-              />
-              {centre.name}
-            </label>
-          ))
+          // Active centres to choose from (SET-01); an inactive one stays listed, marked, while
+          // the person is assigned to it, so saving never drops that assignment silently.
+          centres
+            .filter((centre) => centre.active !== false || defaults.centreIds.includes(centre.id))
+            .map((centre) => (
+              <label key={centre.id} className={choiceClass}>
+                <input
+                  type="checkbox"
+                  name="centreIds"
+                  value={centre.id}
+                  defaultChecked={defaults.centreIds.includes(centre.id)}
+                  className={boxClass}
+                />
+                {centre.name}
+                {centre.active === false ? (
+                  <span className="text-ink-muted">(inactive)</span>
+                ) : null}
+              </label>
+            ))
         )}
         {fieldError(`${id}-centres-error`, fieldErrors.centreIds)}
       </fieldset>
