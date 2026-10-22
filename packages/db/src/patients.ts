@@ -1,6 +1,13 @@
-import type { NewPatient, PatientDetails, PatientSearch, PatientSex } from '@clinic-mx/schemas';
-import { and, asc, eq, ne, sql } from 'drizzle-orm';
-import { centre, patient } from './schema';
+import type {
+  GuardianDetails,
+  GuardianRelationship,
+  NewPatient,
+  PatientDetails,
+  PatientSearch,
+  PatientSex,
+} from '@clinic-mx/schemas';
+import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm';
+import { centre, guardian, patient } from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /**
@@ -138,4 +145,79 @@ export async function updatePatient(
     .where(eq(patient.id, patientId))
     .returning({ id: patient.id });
   return updated.length > 0;
+}
+
+/** A guardian as the patient page shows them (SCH-02). */
+export interface GuardianEntry {
+  id: string;
+  patientId: string;
+  name: string;
+  relationship: GuardianRelationship;
+  phone: string;
+  removedAt: Date | null;
+}
+
+const guardianColumns = {
+  id: guardian.id,
+  patientId: guardian.patientId,
+  name: guardian.name,
+  relationship: guardian.relationship,
+  phone: guardian.phone,
+  removedAt: guardian.removedAt,
+};
+
+/** A patient's current guardians (removed ones left out), by name. */
+export function guardiansOf(db: DbOrTransaction, patientId: string): Promise<GuardianEntry[]> {
+  return db
+    .select(guardianColumns)
+    .from(guardian)
+    .where(and(eq(guardian.patientId, patientId), isNull(guardian.removedAt)))
+    .orderBy(asc(guardian.name));
+}
+
+/** One guardian, removed or not, or undefined when not found. */
+export async function guardianRecord(
+  db: DbOrTransaction,
+  guardianId: string,
+): Promise<GuardianEntry | undefined> {
+  const [row] = await db.select(guardianColumns).from(guardian).where(eq(guardian.id, guardianId));
+  return row;
+}
+
+/** Records a guardian for a patient; returns its id. */
+export async function insertGuardian(
+  db: DbOrTransaction,
+  patientId: string,
+  details: GuardianDetails,
+): Promise<string> {
+  const [row] = await db
+    .insert(guardian)
+    .values({ patientId, ...details })
+    .returning({ id: guardian.id });
+  if (!row) throw new Error('The guardian was not recorded.');
+  return row.id;
+}
+
+/** Changes a current guardian's details; false when not found or removed. */
+export async function updateGuardian(
+  db: DbOrTransaction,
+  guardianId: string,
+  details: GuardianDetails,
+): Promise<boolean> {
+  const updated = await db
+    .update(guardian)
+    .set({ ...details, updatedAt: sql`now()` })
+    .where(and(eq(guardian.id, guardianId), isNull(guardian.removedAt)))
+    .returning({ id: guardian.id });
+  return updated.length > 0;
+}
+
+/** Removes a guardian (kept for the consents they signed); false when not found or removed. */
+export async function removeGuardian(db: DbOrTransaction, guardianId: string): Promise<boolean> {
+  const removed = await db
+    .update(guardian)
+    .set({ removedAt: sql`now()`, updatedAt: sql`now()` })
+    .where(and(eq(guardian.id, guardianId), isNull(guardian.removedAt)))
+    .returning({ id: guardian.id });
+  return removed.length > 0;
 }

@@ -95,3 +95,60 @@ export function patientSearch(typed: string): PatientSearch | undefined {
   }
   return { kind: 'name', text };
 }
+
+/**
+ * Guardians (SCH-02, PRD J2.7): a patient under the adult age (setting `patients.adult_age_years`)
+ * needs a guardian, who signs and attends. Decisions (user, 22 October 2026): several guardians per
+ * patient; the relationship is one of a fixed list; a patient without one is flagged, not blocked
+ * (the consent gate, INT-07, needs a guardian to sign).
+ */
+export const guardianRelationships = [
+  'mother',
+  'father',
+  'legal_guardian',
+  'other_relative',
+] as const;
+
+export type GuardianRelationship = (typeof guardianRelationships)[number];
+
+export const guardianRelationshipLabels: Record<GuardianRelationship, string> = {
+  mother: 'Mother',
+  father: 'Father',
+  legal_guardian: 'Legal guardian',
+  other_relative: 'Other relative',
+};
+
+/** A guardian's details, as staff enter them. */
+export const guardianDetailsSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, { error: 'Enter the guardian’s name.' })
+    .max(100, { error: 'Keep the name under 100 characters.' }),
+  relationship: z.enum(guardianRelationships, {
+    error: 'Choose how they are related to the patient.',
+  }),
+  phone: indianPhoneSchema,
+});
+
+export type GuardianDetails = z.output<typeof guardianDetailsSchema>;
+
+export const newGuardianSchema = guardianDetailsSchema.extend({ patientId: z.guid() });
+
+export const guardianUpdateSchema = guardianDetailsSchema.extend({ guardianId: z.guid() });
+
+export const guardianRemoveSchema = z.object({ guardianId: z.guid() });
+
+/** Whole years from a date of birth to a date (both `YYYY-MM-DD`, IST calendar dates). */
+export function ageOn(dateOfBirth: string, date: string): number {
+  const [by = 0, bm = 0, bd = 0] = dateOfBirth.split('-').map(Number);
+  const [y = 0, m = 0, d = 0] = date.split('-').map(Number);
+  // Born on 29 February: the birthday counts from 1 March in other years.
+  const hadBirthday = m > bm || (m === bm && d >= bd);
+  return y - by - (hadBirthday ? 0 : 1);
+}
+
+/** Whether a patient of this age needs a guardian; unknown (no date of birth) is not flagged. */
+export function needsGuardian(age: number | null, adultAge: number): boolean {
+  return age !== null && age < adultAge;
+}

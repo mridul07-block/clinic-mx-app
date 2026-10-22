@@ -139,11 +139,17 @@ export {
 } from './centres';
 export {
   PATIENT_SEARCH_LIMIT,
+  guardianRecord,
+  guardiansOf,
+  insertGuardian,
   insertPatient,
   patientRecord,
   patientsOnPhone,
+  removeGuardian,
   searchPatients,
+  updateGuardian,
   updatePatient,
+  type GuardianEntry,
   type PatientEntry,
   type PatientMatch,
 } from './patients';

@@ -1,4 +1,4 @@
-import { patientSexes } from '@clinic-mx/schemas';
+import { guardianRelationships, patientSexes } from '@clinic-mx/schemas';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -74,3 +74,34 @@ export const centreSequence = pgTable(
     check('centre_sequence_positive', sql`${table.lastValue} >= 0`),
   ],
 ).enableRLS();
+
+/**
+ * Guardians (SCH-02, TAD section 4): several per patient, for a patient under the adult age
+ * (setting `patients.adult_age_years`). Removed, never deleted: consent records (INT-07) point to
+ * the guardian who signed.
+ */
+export const guardianRelationship = pgEnum('guardian_relationship', guardianRelationships);
+
+export const guardian = pgTable(
+  'guardian',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patient.id),
+    name: text('name').notNull(),
+    relationship: guardianRelationship('relationship').notNull(),
+    /** E.164, +91 and 10 digits; often the patient's own mobile. */
+    phone: text('phone').notNull(),
+    removedAt: timestamp('removed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('guardian_patient_idx').on(table.patientId),
+    check('guardian_phone_e164', sql`${table.phone} ~ '^\\+91[1-9][0-9]{9}$'`),
+    check('guardian_name_present', sql`btrim(${table.name}) <> ''`),
+  ],
+).enableRLS();
+
+export type Guardian = typeof guardian.$inferSelect;

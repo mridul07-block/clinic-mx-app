@@ -1,9 +1,12 @@
-import { patientRecord, patientsOnPhone } from '@clinic-mx/db';
+import { guardiansOf, patientRecord, patientsOnPhone } from '@clinic-mx/db';
 import {
   accessScope,
+  ageOn,
   formatIndianPhone,
   formatIstDate,
+  guardianRelationshipLabels,
   istDate,
+  needsGuardian,
   patientSexLabels,
 } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
@@ -11,8 +14,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { FormMessage } from '../../../../../../components/forms';
+import { Tag } from '../../../../../../components/tag';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../../modules/access/staff-db';
+import { getSetting } from '../../../../../../modules/settings/settings';
+import { GuardianForm, RemoveGuardianForm } from '../guardian-forms';
 import { PatientForm } from '../patient-form';
 
 export const metadata: Metadata = { title: 'Patient · Clinic Mx' };
@@ -20,11 +26,15 @@ export const metadata: Metadata = { title: 'Patient · Clinic Mx' };
 const notices: Record<string, string> = {
   added: 'Patient added.',
   saved: 'Details saved.',
+  'guardian-added': 'Guardian added.',
+  'guardian-saved': 'Guardian saved.',
+  'guardian-removed': 'Guardian removed. They stay on record for any consent they signed.',
 };
 
 // One patient (SCH-01): OP number, registering centre and contact details, and the others on the
 // same mobile. Those with patients.edit_contact edit the details; the OP number never changes.
-// The full patient record (episodes, notes, documents) grows here in CLN-12.
+// Guardians (SCH-02): a patient under the adult age is marked, and "Guardian needed" until one is
+// added. The full patient record (episodes, notes, documents) grows here in CLN-12.
 export default async function PatientPage({
   params,
   searchParams,
@@ -35,16 +45,24 @@ export default async function PatientPage({
   const staff = await requirePermission('patients.view_contact');
   const { patientId } = await params;
   if (!z.guid().safeParse(patientId).success) notFound();
+  // Settings are read before the transaction opens (docs/runbooks/settings.md).
+  const adultAge = await getSetting('patients.adult_age_years');
   const found = await asStaff(staff, async (tx) => {
     const patient = await patientRecord(tx, patientId);
-    return patient
-      ? { patient, family: await patientsOnPhone(tx, patient.phone, patientId) }
-      : null;
+    if (!patient) return null;
+    return {
+      patient,
+      family: await patientsOnPhone(tx, patient.phone, patientId),
+      guardians: await guardiansOf(tx, patientId),
+    };
   });
   if (!found) notFound();
-  const { patient, family } = found;
+  const { patient, family, guardians } = found;
+  const age = patient.dateOfBirth ? ageOn(patient.dateOfBirth, istDate(new Date())) : null;
+  const minor = needsGuardian(age, adultAge);
+  const showGuardians = minor || age === null || guardians.length > 0;
   const notice = notices[(await searchParams).done ?? ''];
-  const canEdit = accessScope(staff, 'patients.edit_contact');
+  const canEdit = accessScope(staff, 'patients.edit_contact') && !staff.support;
 
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
@@ -60,13 +78,19 @@ export default async function PatientPage({
           </span>
           {patient.registeredCentreName ? `, registered at ${patient.registeredCentreName}` : null}
         </p>
+        {minor ? (
+          <span className="flex flex-wrap gap-2" data-testid="guardian-tags">
+            <Tag tone="neutral">Under {adultAge}</Tag>
+            {guardians.length === 0 ? <Tag tone="waiting">Guardian needed</Tag> : null}
+          </span>
+        ) : null}
       </div>
       {notice ? <FormMessage tone="info">{notice}</FormMessage> : null}
       {staff.support ? (
         <FormMessage tone="info">Velyx support access is read only.</FormMessage>
       ) : null}
 
-      {canEdit && !staff.support ? (
+      {canEdit ? (
         <PatientForm
           today={istDate(new Date())}
           patient={{
@@ -93,6 +117,67 @@ export default async function PatientPage({
           <dd>{patient.occupation ?? 'Not given'}</dd>
         </dl>
       )}
+
+      {showGuardians ? (
+        <section aria-labelledby="guardians" className="flex flex-col gap-3">
+          <h2 id="guardians" className="font-semibold text-ink">
+            Guardians
+          </h2>
+          <p className="text-sm text-ink-secondary">
+            {minor
+              ? `Patients under ${adultAge} need a guardian, who signs the consent and attends.`
+              : `Needed for patients under ${adultAge}. Add one if the patient is a child.`}
+          </p>
+          {guardians.length === 0 ? (
+            <p className="text-ink-muted">No guardian yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {guardians.map((guardian) => (
+                <li
+                  key={guardian.id}
+                  data-testid="guardian"
+                  className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-4"
+                >
+                  <span className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="font-medium text-ink">{guardian.name}</span>
+                    <span className="text-sm text-ink-secondary">
+                      {guardianRelationshipLabels[guardian.relationship]}
+                    </span>
+                  </span>
+                  <span className="text-sm text-ink-secondary">
+                    {formatIndianPhone(guardian.phone)}
+                  </span>
+                  {canEdit ? (
+                    <details>
+                      <summary className="cursor-pointer text-accent underline underline-offset-2 pointer-coarse:py-3">
+                        Edit or remove {guardian.name}
+                      </summary>
+                      <div className="mt-3 flex flex-col gap-3">
+                        <GuardianForm patientId={patient.id} guardian={guardian} />
+                        <RemoveGuardianForm
+                          patientId={patient.id}
+                          guardianId={guardian.id}
+                          name={guardian.name}
+                        />
+                      </div>
+                    </details>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+          {canEdit ? (
+            <details open={guardians.length === 0 && minor ? true : undefined}>
+              <summary className="cursor-pointer font-medium text-accent pointer-coarse:py-3">
+                {guardians.length === 0 ? 'Add guardian' : 'Add another guardian'}
+              </summary>
+              <div className="mt-3">
+                <GuardianForm patientId={patient.id} defaultPhone={patient.phone} />
+              </div>
+            </details>
+          ) : null}
+        </section>
+      ) : null}
 
       {family.length > 0 ? (
         <section aria-labelledby="same-mobile" className="flex flex-col gap-2">

@@ -1,4 +1,12 @@
-import { centre, createDb, insertPatient, systemActor, withActor } from '@clinic-mx/db';
+import {
+  centre,
+  createDb,
+  insertGuardian,
+  insertPatient,
+  systemActor,
+  withActor,
+} from '@clinic-mx/db';
+import type { GuardianRelationship } from '@clinic-mx/schemas';
 import { eq } from 'drizzle-orm';
 
 // Patients for end to end tests (SCH-01), made from the test runner. Generated details only
@@ -25,7 +33,7 @@ export function fakeName(label = 'Test Patient'): string {
 
 /** Adds a generated patient at the centre with this code; returns their id and OP number. */
 export async function testPatient(
-  values: { name?: string; phone?: string; centreCode?: string } = {},
+  values: { name?: string; phone?: string; centreCode?: string; dateOfBirth?: string } = {},
 ): Promise<{ id: string; opNumber: string; name: string; phone: string }> {
   const [registering] = await db()
     .select({ id: centre.id })
@@ -35,7 +43,30 @@ export async function testPatient(
   const name = values.name ?? fakeName();
   const phone = values.phone ?? fakeMobile();
   const added = await withActor(db(), systemActor('tests'), (tx) =>
-    insertPatient(tx, { name, phone, registeredCentreId: registering.id }),
+    insertPatient(tx, {
+      name,
+      phone,
+      registeredCentreId: registering.id,
+      ...(values.dateOfBirth ? { dateOfBirth: values.dateOfBirth } : {}),
+    }),
   );
   return { ...added, name, phone };
+}
+
+/** Adds a generated guardian to a patient (SCH-02); returns their name. */
+export async function testGuardian(
+  patientId: string,
+  relationship: GuardianRelationship = 'mother',
+): Promise<string> {
+  const name = fakeName('Test Guardian');
+  await withActor(db(), systemActor('tests'), (tx) =>
+    insertGuardian(tx, patientId, { name, relationship, phone: fakeMobile() }),
+  );
+  return name;
+}
+
+/** A date of birth `years` years before today, in IST. */
+export function bornYearsAgo(years: number): string {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+  return `${Number(today.slice(0, 4)) - years}${today.slice(4)}`;
 }
