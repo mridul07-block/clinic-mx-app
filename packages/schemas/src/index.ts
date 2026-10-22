@@ -106,6 +106,7 @@ export {
   type PatientLinkSubject,
 } from './patient-links';
 export {
+  appointmentPrefixSchema,
   centreActiveSchema,
   centreCodeSchema,
   centreColourIndex,
@@ -117,8 +118,10 @@ export {
   indianPhoneSchema,
   mapLinkSchema,
   newCentreSchema,
+  treadmillsSchema,
   type CentreColour,
   type CentreDetails,
+  type CentreUpdate,
   type NewCentreDetails,
 } from './centres';
 export {
@@ -275,3 +278,32 @@ export {
   type EpisodeStatus,
   type EpisodeTransition,
 } from './episodes';
+export {
+  appointmentStatusLabels,
+  appointmentStatuses,
+  bookSlotSchema,
+  bookingChannels,
+  checkSlot,
+  freeSlotsQuerySchema,
+  freedStatuses,
+  holdsSlot,
+  machineLabels,
+  machines,
+  onGrid,
+  overlaps,
+  slotChoiceSchema,
+  slotRefusalMessages,
+  slotRefusals,
+  slotStarts,
+  type AppointmentStatus,
+  type BookSlotInput,
+  type BookingChannel,
+  type FreeSlot,
+  type FreeSlotsQuery,
+  type Interval,
+  type Machine,
+  type SlotCheck,
+  type SlotChoice,
+  type SlotQuery,
+  type SlotRefusal,
+} from './slots';

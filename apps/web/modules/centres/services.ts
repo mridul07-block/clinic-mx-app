@@ -1,6 +1,7 @@
 import 'server-only';
 import {
   activeCentreWithColour,
+  appointmentPrefixTaken,
   centreCodeTaken,
   centreList,
   centreNameTaken,
@@ -46,7 +47,10 @@ async function checkDetails(tx: ServiceTransaction, details: CentreDetails, cent
   }
 }
 
-/** Adds a centre, active from now, with a code no centre has used (it starts OP numbers). */
+/**
+ * Adds a centre, active from now, with a code and an appointment prefix no centre has used (they
+ * start OP numbers and appointment IDs).
+ */
 export const addCentre = staffService({
   action: 'centres.manage',
   input: newCentreSchema,
@@ -60,11 +64,16 @@ export const addCentre = staffService({
     if (await centreCodeTaken(tx, details.code)) {
       throw new CentreError(`Another centre has the code ${details.code}. Choose another code.`);
     }
+    if (await appointmentPrefixTaken(tx, details.appointmentPrefix)) {
+      throw new CentreError(
+        `Another centre has the appointment prefix ${details.appointmentPrefix}. Choose another prefix.`,
+      );
+    }
     return insertCentre(tx, details);
   },
 });
 
-/** Changes a centre's name, address, phone, map link or colour. */
+/** Changes a centre's name, address, phone, map link, colour or treadmill count. */
 export const editCentre = staffService({
   action: 'centres.manage',
   input: centreUpdateSchema,

@@ -128,6 +128,7 @@ export {
 } from './rate-limits';
 export {
   activeCentreWithColour,
+  appointmentPrefixTaken,
   centreCodeTaken,
   centreList,
   centreNameTaken,
@@ -233,3 +234,17 @@ export {
   updateEpisodeState,
   type EpisodeEntry,
 } from './episodes';
+export {
+  SlotRefusedError,
+  appointmentRecord,
+  bookAppointment,
+  datesWithFreeSlots,
+  freeSlots,
+  placeHold,
+  releaseHold,
+  type AppointmentEntry,
+  type BookingRequest,
+  type FreeSlotsRequest,
+  type PhysioSlots,
+  type SlotRequest,
+} from './slots';

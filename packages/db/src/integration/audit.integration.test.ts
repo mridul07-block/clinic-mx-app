@@ -41,6 +41,7 @@ describe('audited writes', () => {
         id,
         name: `Audit test ${id}`,
         code: testCode(),
+        appointmentPrefix: testCode(),
         colour: testColour,
         active: false,
       }),
@@ -68,6 +69,7 @@ describe('audited writes', () => {
       db.insert(centre).values({
         name: `No actor ${crypto.randomUUID()}`,
         code: testCode(),
+        appointmentPrefix: testCode(),
         colour: testColour,
         active: false,
       }),
@@ -84,6 +86,7 @@ describe('audited writes', () => {
         id,
         name: `Rolled back ${id}`,
         code: testCode(),
+        appointmentPrefix: testCode(),
         colour: testColour,
         active: false,
       });
@@ -174,7 +177,8 @@ describe('the audit trail', () => {
     // rate_limit: a counter per attempt (IAM-11); the attempts themselves are the events.
     // audit_event: the trail itself.
     // centre_sequence: the last number issued (SCH-01); the patient row it numbers is the event.
-    const exempt = ['audit_event', 'centre_sequence', 'job', 'rate_limit'];
+    // slot_hold: a picked slot held for minutes (SCH-04); the appointment booked is the event.
+    const exempt = ['audit_event', 'centre_sequence', 'job', 'rate_limit', 'slot_hold'];
     const rows = await db.execute<{ table: string }>(sql`
       select c.relname as table
       from pg_class c join pg_namespace n on n.oid = c.relnamespace

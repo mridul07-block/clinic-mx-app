@@ -114,13 +114,39 @@ export const centreCodeSchema = z
   .transform((typed) => typed.toUpperCase())
   .pipe(z.string().regex(/^[A-Z]{2,4}$/, { error: 'Enter 2 to 4 letters, for example HSR.' }));
 
-/** Adding a centre: its details and its code. */
-export const newCentreSchema = centreDetailsSchema.extend({ code: centreCodeSchema });
+/**
+ * A centre's appointment ID prefix (SCH-04, decision G6: MVH, MVK, MVW), for example MVK-00042:
+ * 2 to 4 capital letters, fixed once the centre is added.
+ */
+export const appointmentPrefixSchema = z
+  .string()
+  .trim()
+  .transform((typed) => typed.toUpperCase())
+  .pipe(z.string().regex(/^[A-Z]{2,4}$/, { error: 'Enter 2 to 4 letters, for example MVH.' }));
+
+/** How many Zero Gravity Treadmills a centre has (decision G2: machines are resources). */
+export const treadmillsSchema = z.coerce
+  .number({ error: 'Enter a whole number, 0 or more.' })
+  .int({ error: 'Enter a whole number, 0 or more.' })
+  .min(0, { error: 'Enter a whole number, 0 or more.' })
+  .max(20, { error: 'Enter 20 or fewer.' });
+
+/** Adding a centre: its details, its code and its appointment prefix. */
+export const newCentreSchema = centreDetailsSchema.extend({
+  code: centreCodeSchema,
+  appointmentPrefix: appointmentPrefixSchema,
+  treadmills: treadmillsSchema,
+});
 
 export type NewCentreDetails = z.output<typeof newCentreSchema>;
 
-/** Editing a centre: which one, and its details (the code never changes). */
-export const centreUpdateSchema = centreDetailsSchema.extend({ centreId: z.guid() });
+/** Editing a centre: which one, and its details (the code and prefix never change). */
+export const centreUpdateSchema = centreDetailsSchema.extend({
+  centreId: z.guid(),
+  treadmills: treadmillsSchema,
+});
+
+export type CentreUpdate = z.output<typeof centreUpdateSchema>;
 
 /** Deactivating or reactivating a centre. */
 export const centreActiveSchema = z.object({ centreId: z.guid(), active: z.boolean() });

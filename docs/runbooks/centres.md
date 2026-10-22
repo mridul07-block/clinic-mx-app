@@ -5,6 +5,9 @@ SET-01, PRD M16, TAD section 3. Each centre has:
 - a name;
 - a code (SCH-01), 2 to 4 capital letters that start every OP number it issues, for example
   `HSR-00042`;
+- an appointment prefix (SCH-04), 2 to 4 capital letters that start every appointment ID it
+  issues, for example `MVH-00042`;
+- a count of Zero Gravity Treadmills (SCH-04);
 - an address;
 - a Google Maps link;
 - a front desk phone;
@@ -19,6 +22,8 @@ Later tickets use these details:
 | Phone | Letterheads and receipts; the front desk number in WhatsApp when a phone cannot open Flows (PRD J1.10) |
 | Colour | Marks the centre when charts compare centres |
 | Code | Starts the OP numbers of the patients the centre registers (`docs/runbooks/patients.md`) |
+| Appointment prefix | Starts the IDs of the appointments booked at the centre (`docs/runbooks/slots.md`) |
+| Zero Gravity Treadmills | How many treadmill appointments the centre takes at once (`docs/runbooks/slots.md`) |
 
 ## Decisions (user, 22 October 2026)
 
@@ -62,6 +67,8 @@ Later tickets use these details:
 | --- | --- |
 | Name | 1 to 60 characters; unique, ignoring case |
 | Code | 2 to 4 letters, saved in capitals; unique, even against inactive centres. Set when the centre is added and never changed (OP numbers carry it): the edit page shows it read only and a database trigger refuses a change. The seed and the SCH-01 migration give HSR Layout `HSR`, Koramangala `KOR` and Whitefield `WFD`. |
+| Appointment prefix | 2 to 4 letters, saved in capitals; unique, even against inactive centres. Set when the centre is added and never changed, like the code (decision G6). The SCH-04 migration gives HSR Layout `MVH`, Koramangala `MVK` and Whitefield `MVW`; any other centre already there got its code. |
+| Zero Gravity Treadmills | A whole number from 0 to 20; 1 when the centre is added. Can be changed at any time. |
 | Address | 1 to 300 characters |
 | Phone | Any Indian number as typed (`98450 12345`, `+91 98450 12345`, `080 4123 4567`). It is stored as E.164 (`+919845012345`) and shown as `+91 98450 12345` or, for Bengaluru landlines, `+91 80 4123 4567`. `indianPhoneSchema` is shared for patients later. |
 | Map link | https Google Maps only: `maps.app.goo.gl`, `goo.gl/maps`, `google.com/maps` and `maps.google.com`. Patients open it, so no other site is accepted. |

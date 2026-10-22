@@ -9,6 +9,7 @@ const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
   activeCentreWithColour: vi.fn(),
+  appointmentPrefixTaken: vi.fn(),
   centreCodeTaken: vi.fn(),
   centreList: vi.fn(),
   centreNameTaken: vi.fn(),
@@ -42,6 +43,8 @@ const context = (actor = member()) => ({ db: {} as Db, actor });
 const details = {
   name: 'Indiranagar',
   code: 'ind',
+  appointmentPrefix: 'mvi',
+  treadmills: '2',
   address: '100 Feet Rd, Indiranagar, Bengaluru 560038',
   phone: '080 4123 4567',
   mapLink: 'https://maps.app.goo.gl/abc123',
@@ -71,6 +74,7 @@ describe('centres', () => {
     ]);
     db.centreNameTaken.mockResolvedValue(false);
     db.centreCodeTaken.mockResolvedValue(false);
+    db.appointmentPrefixTaken.mockResolvedValue(false);
     db.activeCentreWithColour.mockResolvedValue(undefined);
     db.insertCentre.mockResolvedValue(newId);
     db.centreRecord.mockResolvedValue(centre(hsr, 'HSR Layout', blue));
@@ -82,6 +86,8 @@ describe('centres', () => {
     expect(db.insertCentre).toHaveBeenCalledWith(fakeTx, {
       ...details,
       code: 'IND',
+      appointmentPrefix: 'MVI',
+      treadmills: 2,
       phone: '+918041234567',
     });
   });
@@ -92,6 +98,20 @@ describe('centres', () => {
       'Another centre has the code IND. Choose another code.',
     );
     await expect(addCentre(context(), { ...details, code: '' })).rejects.toThrow(z.ZodError);
+    expect(db.insertCentre).not.toHaveBeenCalled();
+  });
+
+  it('refuses an appointment prefix another centre has, or a bad one or count (SCH-04)', async () => {
+    db.appointmentPrefixTaken.mockResolvedValueOnce(true);
+    await expect(addCentre(context(), details)).rejects.toThrow(
+      'Another centre has the appointment prefix MVI. Choose another prefix.',
+    );
+    await expect(addCentre(context(), { ...details, appointmentPrefix: 'M1' })).rejects.toThrow(
+      z.ZodError,
+    );
+    await expect(addCentre(context(), { ...details, treadmills: '-1' })).rejects.toThrow(
+      z.ZodError,
+    );
     expect(db.insertCentre).not.toHaveBeenCalled();
   });
 
@@ -142,6 +162,8 @@ describe('centres', () => {
     expect(db.updateCentre).toHaveBeenCalledWith(fakeTx, hsr, {
       ...details,
       code: undefined,
+      appointmentPrefix: undefined,
+      treadmills: 2,
       name: 'HSR Layout',
       colour: blue,
       phone: '+918041234567',

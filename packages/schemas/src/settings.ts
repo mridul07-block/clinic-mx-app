@@ -48,6 +48,12 @@ export const settingDefinitions = {
     description:
       'The calendar grid, in minutes; every appointment length is a whole number of slots (SET-03).',
   },
+  'booking.slot_hold_minutes': {
+    schema: minutes,
+    source: 'TAD section 6 Booking Flow: a 5 minute hold when a slot is picked (SCH-04)',
+    description:
+      'How long a picked slot is held for the person booking it before others can take it.',
+  },
   'screening.weight_loss_kg': {
     schema: z.int().positive(),
     source:

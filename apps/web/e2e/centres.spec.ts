@@ -48,21 +48,28 @@ test('the Super Admin keeps each centre’s address, phone, map link and colour'
 
     await centreCard(page, 'HSR Layout').click();
     await expect(page.getByRole('heading', { name: 'HSR Layout' })).toBeVisible();
-    // The code is shown, never offered for editing.
+    // The code and appointment prefix are shown, never offered for editing.
     await expect(page.getByTestId('centre-code')).toContainText('HSR');
+    await expect(page.getByTestId('centre-code')).toContainText('MVH');
     await expect(page.getByLabel('Code')).toHaveCount(0);
+    await expect(page.getByLabel('Appointment prefix')).toHaveCount(0);
     // Bad details are refused, field by field.
     await page.getByLabel('Phone').fill('12345');
     await page.getByLabel('Map link').fill('https://example.com/hsr');
+    await page.getByLabel('Zero Gravity Treadmills').fill('-1');
     await page.getByRole('button', { name: 'Save centre' }).click();
     await expect(page.getByText('Enter a 10 digit Indian phone number')).toBeVisible();
     await expect(page.getByText('Paste the Google Maps link to the centre')).toBeVisible();
+    await expect(page.getByText('Enter a whole number, 0 or more.')).toBeVisible();
+    // SCH-04: each treadmill takes one booking at a time.
+    await page.getByLabel('Zero Gravity Treadmills').fill('2');
 
     await page.getByLabel('Phone').fill('080 4123 4567');
     await page.getByLabel('Map link').fill('https://maps.app.goo.gl/TestOnly123');
     await page.getByRole('button', { name: 'Save centre' }).click();
     await expect(page.getByRole('status')).toHaveText('Centre saved.');
     await expect(page.getByLabel('Phone')).toHaveValue('+91 80 4123 4567');
+    await expect(page.getByLabel('Zero Gravity Treadmills')).toHaveValue('2');
 
     await page.getByRole('link', { name: 'Centres' }).click();
     await expect(centreCard(page, 'HSR Layout')).toContainText('+91 80 4123 4567 · Map link set');
@@ -107,19 +114,30 @@ test('deactivating a centre frees its colour; reactivating needs it free again',
     await expect(page.getByRole('radio', { name: /Blue/ })).toBeDisabled();
     await expect(page.getByRole('radio', { name: /Violet/ })).toBeDisabled();
     await page.getByLabel('Name').fill(name);
-    // Codes never repeat (SCH-01): four random letters, typed in lower case.
-    const code = Array.from(crypto.getRandomValues(new Uint8Array(4)), (byte) =>
-      String.fromCharCode(97 + (byte % 26)),
-    ).join('');
+    // Codes and appointment prefixes never repeat (SCH-01, SCH-04): four random letters each,
+    // typed in lower case.
+    const letters = () =>
+      Array.from(crypto.getRandomValues(new Uint8Array(4)), (byte) =>
+        String.fromCharCode(97 + (byte % 26)),
+      ).join('');
+    const code = letters();
+    const prefix = letters();
     await page.getByLabel('Code').fill(code);
+    // A bad prefix is refused first.
+    await page.getByLabel('Appointment prefix').fill('m1');
     await page.getByLabel('Address').fill('100 Feet Rd, Indiranagar, Bengaluru 560038');
     await page.getByLabel('Phone').fill('98450 12345');
     await page.getByLabel('Map link').fill('https://maps.app.goo.gl/TestOnly123');
     await expect(page.getByRole('radio', { name: 'Teal' })).toBeChecked();
     await page.getByRole('button', { name: 'Add centre' }).click();
+    await expect(page.getByText('Enter 2 to 4 letters, for example MVH.')).toBeVisible();
+    await page.getByLabel('Appointment prefix').fill(prefix);
+    await page.getByRole('button', { name: 'Add centre' }).click();
     await expect(page.getByRole('status')).toHaveText('Centre added.');
     await expect(page.getByRole('heading', { name })).toBeVisible();
     await expect(page.getByTestId('centre-code')).toContainText(code.toUpperCase());
+    await expect(page.getByTestId('centre-code')).toContainText(prefix.toUpperCase());
+    await expect(page.getByLabel('Zero Gravity Treadmills')).toHaveValue('1');
 
     // Whitefield cannot come back while teal is taken.
     await page.goto('/app/centres');

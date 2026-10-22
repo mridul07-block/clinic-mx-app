@@ -6,6 +6,7 @@ import { SettingsError, createSettingsReader, parseSettings } from './settings';
 const stored: Settings = {
   'scheduling.slot_minutes': 15,
   'patients.adult_age_years': 18,
+  'booking.slot_hold_minutes': 5,
   'screening.weight_loss_kg': 5,
   'screening.weight_loss_months': 6,
   'screening.morning_stiffness_minutes': 60,

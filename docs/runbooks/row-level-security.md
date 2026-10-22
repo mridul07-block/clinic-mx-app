@@ -67,6 +67,8 @@ claim through the IAM-03 readers (`internal.jwt_staff_id`, `jwt_staff_role`, `jw
 | `guardian` (SCH-02) | Every signed in staff member | The same roles as `patient` insert and update (remove sets `removed_at`); nobody deletes, since consent records point to the guardian who signed |
 | `episode` (SCH-03) | Every signed in staff member | Super Admin, Centre Manager and Front Desk insert at a centre they see; any signed in staff member updates (each service checks its event's permission); the `episode_transition_guard` trigger allows only the status machine's moves; nobody deletes (`docs/runbooks/episodes.md`) |
 | `centre_sequence` (SCH-01) | None: server only; advanced by `internal.next_centre_number` | None |
+| `appointment` (SCH-04) | Super Admin, Centre Manager and Front Desk at centres they see; a physio reads their own | The same three roles insert (as `booked_by`) and update at a centre they see; exclusion constraints refuse overlaps for a physio and for a machine unit; the number, patient, physio, type and time never change; nobody deletes (`docs/runbooks/slots.md`) |
+| `slot_hold` (SCH-04) | The holder's own holds | A staff member inserts and deletes their own (`holder = 'staff:<id>'`) at a centre they book for; others' holds and leave reach the engine only as times, through `internal.busy_times` and `internal.machine_busy`; not audited |
 
 No table has a delete policy except centre assignments, a package type's covered items and a physio's
 own appointment lengths. Staff,

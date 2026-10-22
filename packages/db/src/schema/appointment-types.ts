@@ -1,3 +1,4 @@
+import { machines } from '@clinic-mx/schemas';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -34,9 +35,17 @@ export const appointmentType = pgTable(
     name: text('name').notNull(),
     minutes: integer('minutes').notNull(),
     active: boolean('active').notNull().default(true),
+    /** SCH-04 (user decision, 22 October 2026): booked only with a physio who has the tick. */
+    needsConsultant: boolean('needs_consultant').notNull().default(false),
+    /** A machine the appointment also takes, one of the centre's units (decision G2). */
+    machine: text('machine', { enum: machines }),
     ...timestamps,
   },
   (table) => [
+    check(
+      'appointment_type_machine',
+      sql`${table.machine} is null or ${table.machine} in (${sql.raw(machines.map((m) => `'${m}'`).join(', '))})`,
+    ),
     check('appointment_type_key', sql`${table.key} ~ '^[a-z][a-z0-9_]*$'`),
     check('appointment_type_name', sql`length(trim(${table.name})) between 1 and 60`),
     check('appointment_type_minutes', sql`${table.minutes} > 0`),

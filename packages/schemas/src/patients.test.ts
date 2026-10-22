@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { centreCodeSchema, centreColours, newCentreSchema } from './centres';
+import {
+  appointmentPrefixSchema,
+  centreCodeSchema,
+  centreColours,
+  newCentreSchema,
+  treadmillsSchema,
+} from './centres';
 import { addDays, istDate } from './ist';
 import {
   ageOn,
@@ -111,8 +117,20 @@ describe('centre codes', () => {
       mapLink: 'https://maps.app.goo.gl/abc123',
       colour: centreColours[0].value,
     };
-    expect(newCentreSchema.safeParse(details).success).toBe(false);
-    expect(newCentreSchema.parse({ ...details, code: 'tst' }).code).toBe('TST');
+    const numbered = { ...details, appointmentPrefix: 'mvt', treadmills: '1' };
+    expect(newCentreSchema.safeParse(numbered).success).toBe(false);
+    expect(newCentreSchema.parse({ ...numbered, code: 'tst' }).code).toBe('TST');
+  });
+
+  it('come with an appointment prefix and a treadmill count (SCH-04)', () => {
+    expect(appointmentPrefixSchema.parse(' mvh ')).toBe('MVH');
+    expect(appointmentPrefixSchema.safeParse('M').success).toBe(false);
+    expect(appointmentPrefixSchema.safeParse('MV1').success).toBe(false);
+    expect(treadmillsSchema.parse('2')).toBe(2);
+    expect(treadmillsSchema.parse('0')).toBe(0);
+    expect(treadmillsSchema.safeParse('-1').success).toBe(false);
+    expect(treadmillsSchema.safeParse('1.5').success).toBe(false);
+    expect(treadmillsSchema.safeParse('21').success).toBe(false);
   });
 });
 
