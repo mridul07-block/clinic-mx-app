@@ -17,7 +17,7 @@ runs:
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: /tmp/supabase-images.tar
-        key: supabase-images-${{ runner.os }}-${{ steps.cli.outputs.version }}-${{ hashFiles('supabase/config.toml') }}
+        key: supabase-images-v2-${{ runner.os }}-${{ steps.cli.outputs.version }}-${{ hashFiles('supabase/config.toml') }}
 
     - name: Load the Supabase images
       if: steps.images.outputs.cache-hit == 'true'
@@ -31,11 +31,16 @@ runs:
     - name: Keep the Supabase images for the next run
       if: steps.images.outputs.cache-hit != 'true'
       shell: bash
-      run: docker save -o /tmp/supabase-images.tar $(docker ps --format '{{.Image}}' | sort -u)
+      # Every Supabase image, not only the running ones: start also uses the realtime and storage
+      # images once to set up their schemas, then stops them.
+      run: |
+        images=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '(^|/)supabase/' | sort -u)
+        echo "Keeping: $images"
+        docker save -o /tmp/supabase-images.tar $images
 
     - name: Save the Supabase images
       if: steps.images.outputs.cache-hit != 'true'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: /tmp/supabase-images.tar
-        key: supabase-images-${{ runner.os }}-${{ steps.cli.outputs.version }}-${{ hashFiles('supabase/config.toml') }}
+        key: supabase-images-v2-${{ runner.os }}-${{ steps.cli.outputs.version }}-${{ hashFiles('supabase/config.toml') }}
