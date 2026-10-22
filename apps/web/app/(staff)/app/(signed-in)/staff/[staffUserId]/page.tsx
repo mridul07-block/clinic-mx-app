@@ -1,4 +1,10 @@
-import { appointmentTypeList, centreOptions, physioLengths, staffRecord } from '@clinic-mx/db';
+import {
+  appointmentTypeList,
+  centreOptions,
+  consultationFeeOptions,
+  physioLengths,
+  staffRecord,
+} from '@clinic-mx/db';
 import { istDayEndingAt, staffRoleLabels } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -13,12 +19,13 @@ import { Tag } from '../../../../../../components/tag';
 import { StaffStatus } from '../staff-status';
 import { AccountActions } from './account-actions';
 import { EditForm } from './edit-form';
+import { FeeForm } from './fee-form';
 import { LengthsForm } from './lengths-form';
 
 export const metadata: Metadata = { title: 'Staff member · Clinic Mx' };
 
-// One staff member (IAM-06): role, ticks, centres and end date; their own appointment lengths
-// when they treat patients (SET-03); invite, two step reset and deactivation. The email is their login and stays as it is. A Velyx support login keeps the
+// One staff member (IAM-06): role, ticks, centres and end date; a consultant's consultation fee
+// (SCH-05); their own appointment lengths when they treat patients (SET-03); invite, two step reset and deactivation. The email is their login and stays as it is. A Velyx support login keeps the
 // Super Admin role, so it has no details form; a support viewer sees the page read only (IAM-08).
 export default async function StaffMemberPage({
   params,
@@ -30,12 +37,14 @@ export default async function StaffMemberPage({
   const staff = await requirePermission('staff.manage');
   const { staffUserId } = await params;
   if (!z.guid().safeParse(staffUserId).success) notFound();
-  const [member, centres, types, own] = await asStaff(staff, (tx) =>
+  const feeKeys = await getSetting('billing.consultation_price_items');
+  const [member, centres, types, own, fees] = await asStaff(staff, (tx) =>
     Promise.all([
       staffRecord(tx, staffUserId),
       centreOptions(tx),
       appointmentTypeList(tx),
       physioLengths(tx, staffUserId),
+      consultationFeeOptions(tx, feeKeys),
     ]),
   );
   if (!member) notFound();
@@ -83,6 +92,16 @@ export default async function StaffMemberPage({
               }}
             />
           )}
+          {member.consultant ? (
+            <section className="flex flex-col gap-3 border-t border-line pt-4">
+              <h2 className="font-semibold text-ink">Consultation fee</h2>
+              <FeeForm
+                staffUserId={member.id}
+                options={fees}
+                current={member.consultationPriceItemId}
+              />
+            </section>
+          ) : null}
           {member.treatsPatients ? (
             <section className="flex flex-col gap-3 border-t border-line pt-4">
               <h2 className="font-semibold text-ink">Appointment lengths</h2>

@@ -12,7 +12,9 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
+import { priceItem } from './prices';
 
 /**
  * Identity: centres, staff and which centres each staff member works in (TAD section 4).
@@ -79,6 +81,13 @@ export const staffUser = pgTable(
      * only. It sees what the Super Admin sees, without ticks, so never clinical records.
      */
     velyxSupport: boolean('velyx_support').notNull().default(false),
+    /**
+     * Decision G4: a consultant's consultation fee is a price item by their level (PRD section 7:
+     * Consultation or Senior consultation); shown in their calendar column (SCH-05).
+     */
+    consultationPriceItemId: uuid('consultation_price_item_id').references(
+      (): AnyPgColumn => priceItem.id,
+    ),
     ...timestamps,
   },
   (table) => [

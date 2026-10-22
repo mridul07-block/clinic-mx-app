@@ -151,7 +151,8 @@ export type SlotRefusal = (typeof slotRefusals)[number];
 export const slotRefusalMessages = {
   past: 'That time has passed. Pick a later time.',
   off_grid: 'Pick a start time on the calendar grid.',
-  outside_hours: 'The physio does not work at this centre then. Pick another time.',
+  outside_hours:
+    'The physio is not working at this centre for all of that time. Pick another time.',
   taken: 'This slot was just booked. Pick another time.',
   no_machine: 'No Zero Gravity Treadmill is free then. Pick another time.',
   not_offered: 'That physio does not take appointments at this centre.',

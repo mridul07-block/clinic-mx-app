@@ -1,0 +1,2 @@
+ALTER TABLE "staff_user" ADD COLUMN "consultation_price_item_id" uuid;--> statement-breakpoint
+ALTER TABLE "staff_user" ADD CONSTRAINT "staff_user_consultation_price_item_id_price_item_id_fk" FOREIGN KEY ("consultation_price_item_id") REFERENCES "public"."price_item"("id") ON DELETE no action ON UPDATE no action;

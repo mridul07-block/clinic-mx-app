@@ -307,3 +307,11 @@ export {
   type SlotQuery,
   type SlotRefusal,
 } from './slots';
+export {
+  bookingChannelLabels,
+  calendarQuerySchema,
+  consultationFeeSchema,
+  slotOptionsQuerySchema,
+  type CalendarQuery,
+  type ConsultationFeeInput,
+} from './calendar';

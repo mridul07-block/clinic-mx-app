@@ -57,10 +57,12 @@ export {
 } from './settings';
 export { claimsForStaff, withStaffAccess } from './access';
 export {
+  consultationFeeOptions,
   centreOptions,
   endStaffSessions,
   insertStaffMember,
   linkStaffLogin,
+  setConsultationFee,
   setStaffMemberActive,
   staffEmailTaken,
   staffList,
@@ -242,9 +244,18 @@ export {
   freeSlots,
   placeHold,
   releaseHold,
+  slotFit,
   type AppointmentEntry,
   type BookingRequest,
   type FreeSlotsRequest,
   type PhysioSlots,
   type SlotRequest,
 } from './slots';
+export {
+  calendarDay,
+  calendarVersion,
+  type CalendarAppointment,
+  type CalendarColumn,
+  type CalendarDay,
+  type CalendarRequest,
+} from './calendar';

@@ -7,6 +7,8 @@ const stored: Settings = {
   'scheduling.slot_minutes': 15,
   'patients.adult_age_years': 18,
   'booking.slot_hold_minutes': 5,
+  'live.refresh_seconds': 3,
+  'billing.consultation_price_items': ['consultation', 'senior_consultation'],
   'screening.weight_loss_kg': 5,
   'screening.weight_loss_months': 6,
   'screening.morning_stiffness_minutes': 60,
