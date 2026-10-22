@@ -98,9 +98,10 @@ the code location.
   instead of after them; same tests, a run takes about 5 minutes instead of 8. Every job must pass
   before a merge, judged job by job: during a GitHub Actions incident a run reported success while
   its end to end job sat queued and never ran.
-- 22 October 2026 (CI speed, follow up): CI keeps the Supabase Docker images, Chromium and the
-  Next.js build cache in the Actions cache, so nothing large is downloaded on every run (a
-  Chromium `apt` install once stalled for 11 minutes). Locally, `pnpm verify` runs format, lint,
+- 22 October 2026 (CI speed, follow up): CI keeps Chromium and the Next.js build cache in the
+  Actions cache (a Chromium `apt` install once stalled for 11 minutes; a warm build takes seconds).
+  Caching the Supabase Docker images was tried and dropped: restoring and loading them took about
+  2.5 minutes, longer than pulling them. Locally, `pnpm verify` runs format, lint,
   typecheck, unit tests and the design check side by side, and only the end to end specs for the
   area changed run before a push; CI runs the full suite on both viewports and gates the merge
   (`docs/runbooks/checks.md`).

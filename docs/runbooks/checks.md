@@ -32,14 +32,17 @@ These jobs all start together:
 | End to end (desktop) | The full suite at 1440 px, on its own local stack | 4 to 5 min |
 | Secret scan | gitleaks over the history | 10 s |
 
-Each run reuses three things from the Actions cache. Each restores the same thing a fresh run
-would download or build, so the tests are unchanged:
+Each run reuses two things from the Actions cache. Each restores the same thing a fresh run would
+download or build, so the tests are unchanged:
 
-- **The Supabase Docker images** (`.github/actions/start-supabase`), keyed on the pinned Supabase
-  CLI version and `supabase/config.toml`.
 - **Chromium,** keyed on the Playwright version. A cached Chromium skips the `apt` step, which
   once stalled for 11 minutes.
-- **The Next.js build cache,** following the Next.js CI build caching guide.
+- **The Next.js build cache,** following the Next.js CI build caching guide. A warm build takes
+  seconds.
+
+The Supabase Docker images are pulled on every run, deliberately. Measured on 22 October 2026, a
+cached copy was slower: restoring it took 33 s and `docker load` 1 min 50 s, against 1.5 to 3 min
+for a plain pull. Starting the stack is now the largest fixed cost in each job.
 
 Pull requests can read the caches saved on main, so the first run of a branch is warm too.
 

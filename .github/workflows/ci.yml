@@ -147,7 +147,7 @@ jobs:
           restore-keys: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Start local Supabase
-        uses: ./.github/actions/start-supabase
+        run: pnpm db:start
 
       # The local stack's URL and its fixed demo keys (not secrets), a fresh staff password, and a
       # fresh patient link key (IAM-09) for this run only.
@@ -214,7 +214,7 @@ jobs:
 
       # Applies every migration in supabase/migrations to an empty database.
       - name: Start local Supabase
-        uses: ./.github/actions/start-supabase
+        run: pnpm db:start
 
       - name: Check Postgres answers with the staging major version
         run: |
