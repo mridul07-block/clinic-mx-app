@@ -89,6 +89,9 @@ the code location.
   is whole days or part of a day, requested by the person and approved or declined (with a
   reason) by their Centre Manager or the Super Admin, never by themselves; only people who treat
   patients have rosters and leave.
+- 22 October 2026 (IAM-09 follow up): the settings cache loads on its own database connection, so
+  a setting read inside a service transaction (patient link lifetimes, and any later service) never
+  waits on that transaction; the SET-03 stall can no longer happen anywhere.
 - 22 October 2026 (SET-03): the Super Admin keeps appointment types (add, rename, length,
   deactivate) and each physio's own lengths for any type; lengths are whole 15 minute slots; Review
   45 and Zero Gravity Treadmill 30 minutes are placeholders.

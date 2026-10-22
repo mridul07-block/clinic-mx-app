@@ -18,6 +18,12 @@ Each server instance loads the whole table at once and keeps it for `SETTINGS_CA
 instances see it within 60 s. If any setting is missing or malformed, every read fails with a
 `SettingsError` naming it, rather than running a rule on a wrong value.
 
+The cache loads on its own connection (`settingsDb()` in `apps/web/lib/db.ts`), not the app's.
+The app has one connection per server instance, so a load on it during an open service
+transaction would wait for that transaction while the transaction waits for the setting: the save
+never finishes (seen on staging in SET-03). With its own connection, `getSetting` is safe anywhere,
+including inside a transaction (patient links read their lifetime there).
+
 Outside the web app (jobs, scripts, tests) build a reader over a database client:
 `createSettingsReader(() => readSettingRows(db))` from `@clinic-mx/db`.
 
