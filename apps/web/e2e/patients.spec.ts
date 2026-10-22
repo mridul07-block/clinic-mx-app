@@ -28,8 +28,8 @@ test('the front desk adds two people on one mobile, each with their own OP numbe
   await expect(page.getByText('Registered at HSR Layout')).toBeVisible();
   await page.getByRole('button', { name: 'Add patient' }).click();
   await expect(page.getByText('Enter the patient’s name.')).toBeVisible();
-  await page.getByLabel('Name').fill(parent);
-  await page.getByLabel('Mobile').fill(typedMobile);
+  await page.getByLabel('Name', { exact: true }).fill(parent);
+  await page.getByLabel('Mobile', { exact: true }).fill(typedMobile);
   await page.getByRole('button', { name: 'Add patient' }).click();
   await expect(page.getByRole('status')).toHaveText('Patient added.');
   await expect(page.getByRole('heading', { name: parent })).toBeVisible();
@@ -38,8 +38,8 @@ test('the front desk adds two people on one mobile, each with their own OP numbe
 
   // The same mobile: the desk sees who is on it, then adds another person.
   await page.goto('/app/patients/new');
-  await page.getByLabel('Name').fill(child);
-  await page.getByLabel('Mobile').fill(mobile);
+  await page.getByLabel('Name', { exact: true }).fill(child);
+  await page.getByLabel('Mobile', { exact: true }).fill(mobile);
   await page.getByRole('button', { name: 'Add patient' }).click();
   const matches = page.getByTestId('phone-matches');
   await expect(matches.getByText('This mobile is already on file')).toBeVisible();
