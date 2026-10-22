@@ -5,7 +5,8 @@ import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
 import type { StaffMember } from '../identity';
 import { insertLeave } from '../rosters';
-import { appointment, auditEvent, centre, slotHold } from '../schema';
+import { liftBookingBlock } from '../booking-counters';
+import { appointment, auditEvent, bookingCounter, centre, slotHold } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import {
   SlotRefusedError,
@@ -49,6 +50,8 @@ const superAdmin = member('super.admin@clinicmx.test');
 const deskHsr = member('desk.hsr@clinicmx.test');
 const deskWhitefield = member('desk.whitefield@clinicmx.test');
 const finance = member('finance@clinicmx.test');
+const manager = member('manager@clinicmx.test');
+const physioHsr = member('physio.hsr@clinicmx.test');
 const support = member('support.velyx@clinicmx.test');
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -554,6 +557,112 @@ describe('the slot engine', () => {
         .from(auditEvent)
         .where(and(eq(auditEvent.entity, 'appointment'), eq(auditEvent.entityId, third.id)));
       expect(audited.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  // SCH-09: the database counts reschedules asked by the patient and no shows, once per change;
+  // those who book read the counts, only a manager lifts them, and a blocked patient is still
+  // booked at the front desk.
+  it('counts reschedules asked by the patient and no shows, read by those who book', async () => {
+    await rolledBack(async (tx) => {
+      const session = await typeId(tx, 'session');
+      const physio = await testPhysio(tx, {
+        centreIds: [centreIds.hsrLayout],
+        createdBy: superAdmin.id,
+      });
+      const patientId = await testPatient(tx);
+      const book = (minutes: number) =>
+        bookAppointment(tx, {
+          centreId: centreIds.hsrLayout,
+          physioId: physio.id,
+          appointmentTypeId: session,
+          patientId,
+          channel: 'front_desk',
+          bookedBy: superAdmin.id,
+          holder: 'test:counter',
+          startsAt: on(minutes),
+          step: 15,
+          now: now(),
+        });
+      const change = (
+        appointmentId: string,
+        status: 'cancelled' | 'rescheduled',
+        reason: 'patient' | 'clinic',
+      ) =>
+        changeAppointment(tx, {
+          appointmentId,
+          status,
+          reason,
+          changedBy: superAdmin.id,
+          now: now(),
+        });
+      const counts = async () =>
+        (
+          await tx
+            .select({ reschedules: bookingCounter.reschedules, noShows: bookingCounter.noShows })
+            .from(bookingCounter)
+            .where(eq(bookingCounter.patientId, patientId))
+        )[0];
+
+      await change((await book(540)).id, 'rescheduled', 'clinic');
+      await change((await book(600)).id, 'cancelled', 'patient');
+      expect(await counts()).toBeUndefined();
+      await change((await book(660)).id, 'rescheduled', 'patient');
+      const missed = await book(720);
+      await tx.update(appointment).set({ status: 'no_show' }).where(eq(appointment.id, missed.id));
+      // Another change to the same row without a new status counts nothing more.
+      await tx.update(appointment).set({ updatedAt: now() }).where(eq(appointment.id, missed.id));
+      expect(await counts()).toEqual({ reschedules: 1, noShows: 1 });
+      await change((await book(540)).id, 'rescheduled', 'patient');
+      expect(await counts()).toEqual({ reschedules: 2, noShows: 1 });
+      // Blocked for self booking, still booked at the front desk.
+      expect((await book(600)).number).toMatch(/^MVH-\d{5}$/);
+
+      const [row] = await tx
+        .select({ id: bookingCounter.id })
+        .from(bookingCounter)
+        .where(eq(bookingCounter.patientId, patientId));
+      const audited = await tx
+        .select({ id: auditEvent.id })
+        .from(auditEvent)
+        .where(
+          and(eq(auditEvent.entity, 'booking_counter'), eq(auditEvent.entityId, row?.id ?? '')),
+        );
+      // The first count adds the row, the next two change it.
+      expect(audited.length).toBe(3);
+
+      const as = async (actor: StaffMember, work: (sp: Tx) => Promise<void>) => {
+        try {
+          await tx.transaction(async (sp) => {
+            await becomeStaff(sp, actor);
+            await work(sp);
+            throw new Rollback();
+          });
+        } catch (error) {
+          if (!(error instanceof Rollback)) throw error;
+        }
+      };
+      const lift = (sp: Tx, who: StaffMember) =>
+        liftBookingBlock(sp, { patientId, liftedBy: who.id, now: now() });
+      await as(deskHsr, async (sp) => {
+        expect(
+          await sp.select().from(bookingCounter).where(eq(bookingCounter.patientId, patientId)),
+        ).toHaveLength(1);
+        expect(await lift(sp, deskHsr)).toBe(false);
+      });
+      await as(physioHsr, async (sp) => {
+        expect(
+          await sp.select().from(bookingCounter).where(eq(bookingCounter.patientId, patientId)),
+        ).toHaveLength(0);
+      });
+      await as(manager, async (sp) => {
+        expect(await lift(sp, manager)).toBe(true);
+        const [lifted] = await sp
+          .select()
+          .from(bookingCounter)
+          .where(eq(bookingCounter.patientId, patientId));
+        expect(lifted).toMatchObject({ reschedules: 0, noShows: 0, liftedBy: manager.id });
+      });
     });
   });
 

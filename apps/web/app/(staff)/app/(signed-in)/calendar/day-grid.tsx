@@ -94,6 +94,11 @@ export function DayGrid({
 
         {day.columns.map((column, index) => {
           const free = new Set(column.freeCells.map((cell) => cell.getTime()));
+          // Cancelled and Rescheduled stay drawn on the left half, so their free time stays
+          // clickable on the right half (SCH-09 found it covered).
+          const freedSpans = column.appointments.filter(
+            (a) => a.status === 'cancelled' || a.status === 'rescheduled',
+          );
           return Array.from({ length: rows }, (_, row) => {
             const at = new Date(start + row * step * MINUTE);
             const cell = { startsAt: at, endsAt: new Date(at.getTime() + step * MINUTE) };
@@ -118,7 +123,9 @@ export function DayGrid({
                   scroll={false}
                   aria-label={`Free at ${timeOf(at)} with ${column.physioName}`}
                   data-testid="free-cell"
-                  className={`group flex items-center border-l border-line px-2 text-xs text-ink-muted hover:bg-surface-hover ${line}`}
+                  className={`group flex items-center border-l border-line px-2 text-xs text-ink-muted hover:bg-surface-hover ${line} ${
+                    freedSpans.some((a) => overlaps(cell, a)) ? 'z-[7] ml-[50%]' : ''
+                  }`}
                   style={place}
                 >
                   <span className="hidden group-hover:inline group-focus-visible:inline">
@@ -156,17 +163,20 @@ export function DayGrid({
           column.appointments.map((appointment) => {
             const status = shownStatus(appointment, now, lateMinutes);
             const freed = status === 'cancelled' || status === 'rescheduled';
-            // A freed block shares its time with whatever was booked there since: half each.
-            const shared = column.appointments.some(
-              (other) =>
-                other.id !== appointment.id &&
-                (other.status === 'cancelled' || other.status === 'rescheduled') !== freed &&
-                overlaps(other, appointment),
-            );
+            // A freed block keeps the left half; whatever was booked there since, or its free
+            // cells, take the right half.
+            const shared =
+              !freed &&
+              column.appointments.some(
+                (other) =>
+                  other.id !== appointment.id &&
+                  (other.status === 'cancelled' || other.status === 'rescheduled') &&
+                  overlaps(other, appointment),
+              );
             return (
               <div
                 key={appointment.id}
-                className={`z-[6] p-0.5 ${shared ? (freed ? 'mr-[50%]' : 'ml-[50%]') : ''}`}
+                className={`z-[6] p-0.5 ${freed ? 'mr-[50%]' : shared ? 'ml-[50%]' : ''}`}
                 style={{
                   gridColumn: index + 2,
                   gridRow: `${String(rowOf(appointment.startsAt))} / ${String(rowOf(appointment.endsAt))}`,

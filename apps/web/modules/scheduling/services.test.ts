@@ -10,8 +10,10 @@ import {
   cancelAppointment,
   findFreeSlots,
   holdSlot,
+  liftSelfBookingBlock,
   releaseSlot,
   rescheduleAppointment,
+  selfBookingStatus,
 } from './services';
 
 const fakeTx = { kind: 'transaction' };
@@ -22,6 +24,8 @@ const db = vi.hoisted(() => ({
   releaseHold: vi.fn(),
   appointmentRecord: vi.fn(),
   changeAppointment: vi.fn(),
+  bookingCounterOf: vi.fn(),
+  liftBookingBlock: vi.fn(),
   bookAppointment: vi.fn(),
   episodeRecord: vi.fn(),
   freeSlots: vi.fn(),
@@ -41,6 +45,8 @@ vi.mock('../access/staff-db', () => ({
 const settings: Record<string, number> = {
   'scheduling.slot_minutes': 15,
   'booking.slot_hold_minutes': 5,
+  'booking.self_booking_block_reschedules': 2,
+  'booking.self_booking_block_no_shows': 2,
 };
 vi.mock('../settings/settings', () => ({
   getSetting: vi.fn((key: string) => Promise.resolve(settings[key])),
@@ -394,5 +400,59 @@ describe('scheduling', () => {
       'Only a booked or confirmed appointment can be moved.',
     );
     expect(db.placeHold).not.toHaveBeenCalled();
+  });
+
+  // SCH-09: those who book see the block; only a Centre Manager or the Super Admin lifts it.
+  it('shows the block with its limits, reading the settings first', async () => {
+    db.bookingCounterOf.mockResolvedValue({
+      reschedules: 2,
+      noShows: 0,
+      liftedAt: null,
+      liftedByName: null,
+    });
+    const order: string[] = [];
+    vi.mocked(getSetting).mockImplementation((key) => {
+      order.push('setting');
+      return Promise.resolve(settings[key] as never);
+    });
+    db.withStaffAccess.mockImplementation(
+      (_db: Db, _context: unknown, work: (tx: unknown) => unknown) => {
+        order.push('transaction');
+        return work(fakeTx);
+      },
+    );
+    expect(await selfBookingStatus(member(), patientId)).toMatchObject({
+      blocked: true,
+      because: 'reschedules',
+      limits: { reschedules: 2, noShows: 2 },
+    });
+    expect(order).toEqual(['setting', 'setting', 'transaction']);
+    await expect(
+      selfBookingStatus(member({ role: 'finance', centreIds: [] }), patientId),
+    ).rejects.toThrow(NotAllowedError);
+  });
+
+  it('lifts the block for a Centre Manager or the Super Admin only', async () => {
+    db.liftBookingBlock.mockResolvedValue(true);
+    await liftSelfBookingBlock(context(member({ role: 'centre_manager' })), { patientId });
+    expect(db.liftBookingBlock).toHaveBeenCalledWith(
+      fakeTx,
+      expect.objectContaining({ patientId, liftedBy: deskId }),
+    );
+    for (const role of ['front_desk', 'physiotherapist', 'finance'] as const) {
+      await expect(
+        liftSelfBookingBlock(
+          context(member({ role, treatsPatients: role === 'physiotherapist' })),
+          {
+            patientId,
+          },
+        ),
+      ).rejects.toThrow(NotAllowedError);
+    }
+    db.liftBookingBlock.mockResolvedValueOnce(false);
+    await expect(
+      liftSelfBookingBlock(context(member({ role: 'super_admin', centreIds: [] })), { patientId }),
+    ).rejects.toThrow(SchedulingError);
+    expect(db.liftBookingBlock).toHaveBeenCalledTimes(2);
   });
 });

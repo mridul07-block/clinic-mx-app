@@ -56,8 +56,9 @@ Also decided while building SCH-05:
 - **Blocks** follow the design system:
   - the left strip is the status (the tone map in `packages/ui/src/status.ts`);
   - Checked in and In progress sit on their tint, and so do Completed and No show;
-  - Cancelled and Rescheduled stay in place, hatched, with the time struck through. A booking
-    made at the same time since shares the width with them;
+  - Cancelled and Rescheduled stay in place on the left half of the column, hatched, with the
+    time struck through. A booking made at the same time since, or the free cells there, take
+    the right half, so freed time can be clicked and booked (fixed in SCH-09);
   - the top line is the type, with its time when the column is wide (a container query), and
     "Treadmill n" for a machine booking;
   - then the patient and the status in words. Running late is worked out from the start and
@@ -171,6 +172,38 @@ How it holds together:
   - package reschedules and treadmill rules (SCH-10);
   - late cancellation charges (open decision 11).
 
+## Self booking block (SCH-09)
+
+PRD J1.8: after 2 reschedules or 2 verified no shows (`booking.self_booking_block_reschedules`,
+`booking.self_booking_block_no_shows`), the patient can no longer book themselves and is asked to
+call; the front desk can still book them.
+
+Decisions (user, 23 October 2026):
+
+- **Only reschedules asked by the patient count.** A move "by the clinic" never does.
+  Cancellations do not count either (the PRD names reschedules and no shows).
+- **A Centre Manager or the Super Admin lifts the block** ("Allow self booking again" on the
+  patient's page, `bookings.lift_self_booking_block`): both counts go back to zero, with who and
+  when. Otherwise the counts never expire.
+
+How it works:
+
+- **The database counts** (`booking_counter`, one row per patient): the trigger
+  `count_booking_change` on appointment adds a reschedule when the status becomes Rescheduled
+  with `change_reason = 'patient'`, and a no show when it becomes No show (set only when the front
+  desk confirms it, INT-11 and ALT-04). Every path counts the same way. The migration counted
+  what was there before.
+- **Reading:** those who book (Super Admin, Centre Manager, Front Desk) read the counts; only a
+  Centre Manager or the Super Admin updates them; nobody inserts or deletes except the trigger.
+  Audited.
+- **`selfBookingBlock`** (`packages/schemas/src/slots.ts`) decides, from the counts and the two
+  settings, whether the patient is blocked and why. The WhatsApp Flow (WA-04) uses it before
+  offering times.
+- **The front desk never checks it:** booking, adding and booking, and rescheduling all still work
+  for a blocked patient.
+- **The patient's page** shows "Can book on WhatsApp" or "Self booking blocked: 2 reschedules
+  asked by the patient", the counts against the limits, and the last lift.
+
 ## Live updates
 
 1. `CalendarView` (a client component) holds the day the server drew, and gives it to both the
@@ -215,10 +248,12 @@ When FND-09's relay arrives, the same component listens for changes instead of a
 | `packages/db/src/integration/slots.integration.test.ts` | `currentHold`: one's own live hold only, under row level security. SCH-08: freeing lets a move overlap its own time; a refused move leaves the old one Booked; the status guard (never changed again, a Completed one not cancelled, who asked required); one successor, the link fixed; audited |
 | `packages/schemas/src/slots.test.ts` | Only Booked or Confirmed changes; who asked is the patient or the clinic, always given |
 | `apps/web/e2e/reschedule.spec.ts` | 360 px and desktop: cancel by the patient (who asked is required; the time is free again); move to another day and physio (new number, "Moved from", "Rescheduled to", by the clinic); move to an overlapping time with the same physio; a physio cannot change appointments |
+| `apps/web/e2e/booking-block.spec.ts` | 360 px and desktop: two reschedules asked by the patient block self booking and the desk still books them; one asked by the clinic does not count; a Centre Manager lifts the block |
 | `apps/web/e2e/booking.spec.ts` | 360 px and desktop: book a patient found by mobile from a free slot ("Booked MVH-…", "Front desk, by …"); add a new caller and book; a mobile on file lists its patients; New booking by type and day; Cancel gives the slot back; a time taken meanwhile is refused in the engine's words; a physio cannot book |
 | `apps/web/e2e/calendar.spec.ts` | Desktop: the fee, a block and its drawer, a free cell and its drawer, Esc closes. 360 px: the same through the agenda (Everyone with the physio named, a physio chip with the fee, the bottom sheet across the screen's foot, a free start chip), no sideways scroll. Both: a booking made elsewhere appears without a reload; a physio sees their own column; Finance refused; the Super Admin sets a fee |
 
 **Negative checks (23 October 2026).** With the live day not applied, the "appears without a
 reload" test failed (SCH-05); with the agenda given the day as first drawn, it failed on the phone
 (SCH-06); with Cancel not releasing the hold, "Cancel booking gives the slot back" failed (SCH-07); without `freeing`, the overlapping move test failed, and without
-`appointment_status_guard`, the database guard test failed (SCH-08).
+`appointment_status_guard`, the database guard test failed (SCH-08); with every reschedule counted, "a reschedule asked by the clinic does not count"
+failed (SCH-09).

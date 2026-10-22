@@ -3,10 +3,12 @@ import {
   SlotRefusedError,
   appointmentRecord,
   bookAppointment,
+  bookingCounterOf,
   changeAppointment,
   currentHold,
   episodeRecord,
   freeSlots,
+  liftBookingBlock,
   patientRecord,
   placeHold,
   releaseHold,
@@ -21,9 +23,12 @@ import {
   cancelAppointmentSchema,
   freeSlotsQuerySchema,
   isChangeable,
+  liftSelfBookingBlockSchema,
   releaseSlotSchema,
   rescheduleAppointmentSchema,
+  selfBookingBlock,
   slotChoiceSchema,
+  type SelfBookingBlock,
 } from '@clinic-mx/schemas';
 import { assertCan, assertMay } from '../access/guard';
 import { staffService, type ServiceContext } from '../access/service';
@@ -255,3 +260,45 @@ export async function rescheduleAppointment(context: ServiceContext, rawInput: u
     },
   })(context, rawInput);
 }
+
+export interface SelfBookingStatus extends SelfBookingBlock {
+  limits: { reschedules: number; noShows: number };
+  liftedAt: Date | null;
+  liftedByName: string | null;
+}
+
+/**
+ * Whether a patient may still book themselves (SCH-09, PRD J1.8), for those who book: the counts,
+ * the limits and the last lift. The settings are read before the transaction (SET-03).
+ */
+export async function selfBookingStatus(
+  actor: StaffMember,
+  patientId: string,
+): Promise<SelfBookingStatus> {
+  assertMay(actor, 'bookings.manage');
+  const limits = {
+    reschedules: await getSetting('booking.self_booking_block_reschedules'),
+    noShows: await getSetting('booking.self_booking_block_no_shows'),
+  };
+  const counter = await asStaff(actor, (tx) => bookingCounterOf(tx, patientId));
+  return {
+    ...selfBookingBlock(counter, limits),
+    limits,
+    liftedAt: counter.liftedAt,
+    liftedByName: counter.liftedByName,
+  };
+}
+
+/**
+ * Lets a blocked patient book themselves again (SCH-09, user decision 23 October 2026: a Centre
+ * Manager or the Super Admin), setting both counts to zero, audited.
+ */
+export const liftSelfBookingBlock = staffService({
+  action: 'bookings.lift_self_booking_block',
+  input: liftSelfBookingBlockSchema,
+  run: async (tx, input, actor) => {
+    if (!(await liftBookingBlock(tx, { ...input, liftedBy: actor.id, now: new Date() }))) {
+      throw new SchedulingError('There is nothing to lift: no reschedules or no shows counted.');
+    }
+  },
+});

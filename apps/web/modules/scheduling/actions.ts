@@ -14,6 +14,7 @@ import {
   bookSlot,
   cancelAppointment,
   holdSlot,
+  liftSelfBookingBlock,
   releaseSlot,
   rescheduleAppointment,
 } from './services';
@@ -228,4 +229,18 @@ export async function rescheduleAppointmentAction(
       moved: true,
     }),
   );
+}
+
+/** "Allow self booking again" on the patient's page (SCH-09). */
+export async function liftSelfBookingBlockAction(
+  _state: BookingFormState,
+  form: FormData,
+): Promise<BookingFormState> {
+  const patientId = text(form, 'patientId');
+  try {
+    await liftSelfBookingBlock(await serviceContext(), { patientId });
+  } catch (error) {
+    return failure(error);
+  }
+  redirect(`/app/patients/${patientId}?done=self-booking`);
 }
