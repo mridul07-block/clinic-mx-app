@@ -1,5 +1,5 @@
 import { addDays, istDate } from '@clinic-mx/schemas';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { centreIdByCode, physioAtHsr, removeCalendarRows, testAppointment } from './calendar';
 import { testPatient } from './patients';
 import {
@@ -15,6 +15,10 @@ import {
 // every 3 seconds until the realtime relay; a free slot opens the drawer with the types that fit;
 // the header shows a consultant's own consultation fee. Each test has its own temporary physio
 // at HSR Layout, a week ahead, and removes their appointments and hours afterwards.
+//
+// SCH-06 done when: at 360 px the calendar is an agenda, one physio or everyone at a time, with
+// details in a bottom sheet. Decisions (user, 23 October 2026): a phone opens on Everyone by time;
+// free time shows in one physio's agenda. The phone project checks the agenda, the desktop the grid.
 
 const day = addDays(istDate(new Date()), 7);
 const made: string[] = [];
@@ -31,10 +35,32 @@ async function openCalendar(page: Page) {
 const column = (page: Page, name: string) =>
   page.getByTestId('physio-column').filter({ hasText: name });
 
-test('the front desk sees each physio’s fee, appointments and free slots', async ({ page }) => {
+const onPhone = (testInfo: TestInfo) => testInfo.project.name === 'phone';
+
+/** An appointment: a row of the agenda on a phone, a block of the grid on a desktop. */
+const appointmentAt = (page: Page, testInfo: TestInfo, patientName: string) =>
+  page
+    .getByTestId(onPhone(testInfo) ? 'agenda-row' : 'calendar-block')
+    .filter({ hasText: patientName });
+
+/** Where a physio's name, Consultant tag and fee show: their agenda on a phone, picked by its chip. */
+async function physioHeader(page: Page, testInfo: TestInfo, name: string) {
+  if (!onPhone(testInfo)) return column(page, name);
+  const chips = page.getByRole('navigation', { name: 'Physio' });
+  if (await chips.count()) await chips.getByRole('link', { name, exact: true }).click();
+  const agenda = page.getByTestId('agenda');
+  await expect(agenda.getByRole('heading', { name, exact: true })).toBeVisible();
+  return agenda;
+}
+
+test('the front desk sees each physio’s fee, appointments and free slots', async ({
+  page,
+}, testInfo) => {
   const physio = await temporaryWithCode('physiotherapist', ['HSR Layout']);
-  made.push(physio.id);
+  const colleague = await temporaryWithCode('physiotherapist', ['HSR Layout']);
+  made.push(physio.id, colleague.id);
   await physioAtHsr(physio.id, { consultant: true, feeKey: 'consultation' });
+  await physioAtHsr(colleague.id);
   const patient = await testPatient();
   const number = await testAppointment(physio.id, patient.id, day, 10 * 60);
   const desk = await temporaryDesk();
@@ -43,14 +69,35 @@ test('the front desk sees each physio’s fee, appointments and free slots', asy
   await page.getByRole('link', { name: 'Calendar' }).click();
   await expect(page.getByRole('heading', { name: 'Calendar', exact: true })).toBeVisible();
   await openCalendar(page);
-  await expect(column(page, physio.name)).toContainText('Consultant');
-  await expect(column(page, physio.name)).toContainText('Consultation ₹750');
+  const block = appointmentAt(page, testInfo, patient.name);
+  if (onPhone(testInfo)) {
+    // Everyone, by time: each row names its physio; nothing scrolls the page sideways.
+    await expect(page.getByRole('link', { name: 'Everyone', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(block).toContainText(physio.name);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      360,
+    );
+  }
+  const header = await physioHeader(page, testInfo, physio.name);
+  await expect(header).toContainText('Consultant');
+  await expect(header).toContainText('Consultation ₹750');
 
-  const block = page.getByTestId('calendar-block').filter({ hasText: patient.name });
   await expect(block).toContainText('Session');
   await expect(block).toContainText('Booked');
   await block.click();
   const drawer = page.getByTestId('calendar-drawer');
+  if (onPhone(testInfo)) {
+    // A sheet across the bottom of the screen.
+    await expect
+      .poll(async () => {
+        const box = await drawer.boundingBox();
+        return box && [Math.round(box.x), Math.round(box.width), Math.round(box.y + box.height)];
+      })
+      .toEqual([0, 360, 800]);
+  }
   await expect(drawer).toContainText(number);
   await expect(drawer).toContainText('10:00 to 10:45');
   await expect(drawer).toContainText(`${physio.name} at HSR Layout`);
@@ -79,14 +126,14 @@ test('the front desk sees each physio’s fee, appointments and free slots', asy
   await expect(drawer).toHaveCount(0);
 });
 
-test('a booking made elsewhere appears without a reload', async ({ page }) => {
+test('a booking made elsewhere appears without a reload', async ({ page }, testInfo) => {
   const physio = await temporaryWithCode('physiotherapist', ['HSR Layout']);
   made.push(physio.id);
   await physioAtHsr(physio.id);
   const desk = await temporaryDesk();
   await signIn(page, desk.email);
   await openCalendar(page);
-  await expect(column(page, physio.name)).toBeVisible();
+  if (!onPhone(testInfo)) await expect(column(page, physio.name)).toBeVisible();
   await expect(page.getByTestId('live-status')).toContainText('Live, updated');
   await page.evaluate(() => {
     (window as { notReloaded?: boolean }).notReloaded = true;
@@ -94,13 +141,11 @@ test('a booking made elsewhere appears without a reload', async ({ page }) => {
 
   const patient = await testPatient();
   await testAppointment(physio.id, patient.id, day, 11 * 60 + 30);
-  await expect(page.getByTestId('calendar-block').filter({ hasText: patient.name })).toBeVisible({
-    timeout: 10_000,
-  });
+  await expect(appointmentAt(page, testInfo, patient.name)).toBeVisible({ timeout: 10_000 });
   expect(await page.evaluate(() => (window as { notReloaded?: boolean }).notReloaded)).toBe(true);
 });
 
-test('a physio sees only their own column, without fees', async ({ page }) => {
+test('a physio sees only their own column, without fees', async ({ page }, testInfo) => {
   const physio = await temporaryWithCode('physiotherapist', ['HSR Layout']);
   const colleague = await temporaryWithCode('physiotherapist', ['HSR Layout']);
   made.push(physio.id, colleague.id);
@@ -109,7 +154,10 @@ test('a physio sees only their own column, without fees', async ({ page }) => {
   await signInWithCode(page, physio.email, physio.secret);
   await openCalendar(page);
   await expect(page.getByTestId('physio-column')).toHaveCount(1);
-  await expect(column(page, physio.name)).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Physio' })).toHaveCount(0);
+  const header = await physioHeader(page, testInfo, physio.name);
+  await expect(header).toContainText('Consultant');
+  await expect(header).not.toContainText('₹');
   await expect(page.getByTestId('physio-fee')).toHaveCount(0);
 });
 
@@ -121,7 +169,7 @@ test('Finance has no calendar', async ({ page }) => {
   await expect(page).toHaveURL(/\/app\/not-allowed/);
 });
 
-test('the Super Admin sets a consultant’s consultation fee', async ({ page }) => {
+test('the Super Admin sets a consultant’s consultation fee', async ({ page }, testInfo) => {
   const physio = await temporaryWithCode('physiotherapist', ['HSR Layout']);
   made.push(physio.id);
   await physioAtHsr(physio.id, { consultant: true });
@@ -134,5 +182,7 @@ test('the Super Admin sets a consultant’s consultation fee', async ({ page }) 
   await page.getByRole('button', { name: 'Save fee' }).click();
   await expect(page.getByText('Consultation fee saved.')).toBeVisible();
   await openCalendar(page);
-  await expect(column(page, physio.name)).toContainText('Senior consultation ₹1,000');
+  await expect(await physioHeader(page, testInfo, physio.name)).toContainText(
+    'Senior consultation ₹1,000',
+  );
 });

@@ -10,7 +10,8 @@ The calendar is the front desk's day at a centre, at `/app/calendar` ("Calendar"
 - appointment details in the drawer;
 - live updates.
 
-The phone agenda (SCH-06) and booking from the drawer (SCH-07) come next.
+On a phone it is an agenda, with details in a bottom sheet (SCH-06, below). Booking from the
+drawer comes with SCH-07.
 
 ## Decisions
 
@@ -74,9 +75,38 @@ Also decided while building SCH-05:
     - the channel and who booked it.
   - **Its actions** (check in, reschedule, cancel) come with their tickets.
 
+## The phone agenda (SCH-06)
+
+Below 768 px (the Frontend Specification's phone width) the calendar is an agenda instead of the
+grid (`agenda-list.tsx`, rows from `agendaRows` in `agenda.ts`). Both are drawn from the same live
+day and switched with CSS, so there is no width check in scripts.
+
+Decisions (user, 23 October 2026):
+
+- **It opens on Everyone:** every appointment at the centre in time order (then by physio), each
+  row naming its physio.
+- **Chips pick one physio** (`physio=` in the address, kept by the day links and Close). Their
+  agenda has their name, Consultant tag and fee, and adds their free time: each gap of free cells
+  ("Free 09:45 to 10:30") with a 44 px chip per start that opens the slot sheet. The Everyone list
+  shows appointments only, to stay short.
+- **A physio** has only their own column, so only their agenda, without chips. With one physio at
+  the centre that day, their agenda shows directly.
+
+Each row is at least 44 px: the start and end, the patient, the type (with the physio in Everyone
+and "Treadmill n"), the status tag, and the status strip on the left. Cancelled and Rescheduled
+stay hatched with the time struck. A "now" line sits before the first later row.
+
+**The bottom sheet.** On a phone the drawer is a sheet across the bottom: full width, up to 90% of
+the screen, rounded top corners, sliding up in 240 ms (`animate-sheet` in
+`packages/ui/src/styles/motion.css`), with the safe area respected. Close and Esc work as on the
+desktop. A footer is pinned at the bottom for the primary action (Frontend Specification section 4).
+Today only the slot sheet uses it, for its note; Book (SCH-07), check in, reschedule and cancel
+arrive with their tickets. There is no swipe to close.
+
 ## Live updates
 
-1. `CalendarView` (a client component) holds the day the server drew.
+1. `CalendarView` (a client component) holds the day the server drew, and gives it to both the
+   agenda and the grid.
 2. Every `live.refresh_seconds` it asks `/app/calendar/live?centre=&date=&since=<version>`.
 3. The route loads the day the same way the page does (under row level security) and returns its
    version. It returns the whole day only when the version differs.
@@ -108,11 +138,13 @@ When FND-09's relay arrives, the same component listens for changes instead of a
 
 | Test | What it covers |
 | --- | --- |
+| `apps/web/app/(staff)/app/(signed-in)/calendar/agenda.test.ts` | Everyone by time without free time; one physio's free cells merged into gaps; the now row; the physio in the address |
 | `packages/schemas/src/calendar.test.ts` | The fee input (a price item or none); a picked slot from the address |
 | `apps/web/modules/scheduling/calendar.test.ts` | The front desk at its centres with fees; a physio's own column without fees; Finance refused; the settings read before the transaction; each type's fit and refusal words |
 | `apps/web/modules/consultation-fees/services.test.ts` | A listed fee for a consultant, or none; other items, non-consultants and other roles refused |
 | `packages/db/src/integration/calendar.integration.test.ts` | Columns for rostered physios only; free cells without appointments here and at another centre, holds and leave; the fee; appointments with patients for the front desk; a physio's own column; the version changes with the day; the fee audited |
-| `apps/web/e2e/calendar.spec.ts` | 360 px and desktop: the fee, a block and its drawer, a free cell and its drawer, Esc closes; a booking made elsewhere appears without a reload; a physio sees their own column; Finance refused; the Super Admin sets a fee |
+| `apps/web/e2e/calendar.spec.ts` | Desktop: the fee, a block and its drawer, a free cell and its drawer, Esc closes. 360 px: the same through the agenda (Everyone with the physio named, a physio chip with the fee, the bottom sheet across the screen's foot, a free start chip), no sideways scroll. Both: a booking made elsewhere appears without a reload; a physio sees their own column; Finance refused; the Super Admin sets a fee |
 
-**Negative check (23 October 2026).** With the live day not applied, the "appears without a
-reload" test failed.
+**Negative checks (23 October 2026).** With the live day not applied, the "appears without a
+reload" test failed (SCH-05); with the agenda given the day as first drawn, it failed on the phone
+(SCH-06).

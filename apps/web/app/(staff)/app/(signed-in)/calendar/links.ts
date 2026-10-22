@@ -1,16 +1,19 @@
 import type { CalendarDay } from '@clinic-mx/db';
 
 /**
- * The calendar's address carries what it shows (SCH-05): the centre, the date, and an open
- * appointment or free slot, so links and the browser's back button work without scripts.
+ * The calendar's address carries what it shows (SCH-05): the centre, the date, the physio picked
+ * on a phone (SCH-06), and an open appointment or free slot, so links and the browser's back
+ * button work without scripts.
  */
 export function calendarHref(view: {
   centreId: string;
   date: string;
+  physioId?: string;
   appointmentId?: string;
   slot?: { physioId: string; startsAt: Date };
 }): string {
   const query = new URLSearchParams({ centre: view.centreId, date: view.date });
+  if (view.physioId) query.set('physio', view.physioId);
   if (view.appointmentId) query.set('appointment', view.appointmentId);
   if (view.slot) query.set('slot', `${view.slot.physioId}@${view.slot.startsAt.toISOString()}`);
   return `/app/calendar?${query.toString()}`;

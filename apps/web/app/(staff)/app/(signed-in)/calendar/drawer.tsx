@@ -11,31 +11,49 @@ import { DrawerKeys } from './drawer-keys';
 const linkClass = 'text-accent underline underline-offset-2';
 
 /**
- * The right drawer (design system: details open in a right drawer so the calendar stays visible;
- * 480 px on desktop, the full width on a phone). Close, or Esc, goes back to the plain day.
+ * The right drawer (design system: details open in a right drawer so the calendar stays visible,
+ * 480 px). On a phone it is a sheet that slides up from the bottom, with its actions pinned at the
+ * bottom (Frontend Specification section 4, SCH-06). Close, or Esc, goes back to the plain day.
  */
 function Drawer({
   label,
   closeHref,
+  footer,
   children,
 }: {
   label: string;
   closeHref: string;
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <aside
       aria-label={label}
       data-testid="calendar-drawer"
-      className="animate-drawer fixed inset-y-2 right-2 z-40 flex w-[calc(100%-1rem)] max-w-[30rem] flex-col gap-5 overflow-y-auto rounded-drawer border border-line bg-surface p-6 shadow-drawer"
+      data-state="open"
+      className="animate-sheet md:animate-drawer fixed inset-x-0 bottom-0 z-40 flex max-h-[90dvh] flex-col overflow-hidden rounded-t-drawer border border-line bg-surface shadow-float md:inset-x-auto md:inset-y-2 md:right-2 md:max-h-none md:w-[30rem] md:rounded-drawer md:shadow-drawer"
     >
       <DrawerKeys closeHref={closeHref} />
-      <div className="flex justify-end">
-        <Link href={closeHref} scroll={false} className={linkClass}>
+      <div className="flex justify-end px-6 pt-4">
+        <Link href={closeHref} scroll={false} className={`${linkClass} pointer-coarse:py-2.5`}>
           Close
         </Link>
       </div>
-      {children}
+      <div
+        className={`flex flex-1 flex-col gap-5 overflow-y-auto px-6 ${
+          footer ? 'pb-6' : 'pb-[max(1.5rem,env(safe-area-inset-bottom))]'
+        }`}
+      >
+        {children}
+      </div>
+      {footer ? (
+        <div
+          data-testid="drawer-footer"
+          className="border-t border-line bg-surface-subtle px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        >
+          {footer}
+        </div>
+      ) : null}
     </aside>
   );
 }
@@ -119,7 +137,13 @@ export function SlotDrawer({
   closeHref: string;
 }) {
   return (
-    <Drawer label="Free slot" closeHref={closeHref}>
+    <Drawer
+      label="Free slot"
+      closeHref={closeHref}
+      footer={
+        <p className="text-sm text-ink-muted">Booking a patient from the calendar comes next.</p>
+      }
+    >
       <div className="flex flex-col gap-1">
         <h2 className="text-title font-semibold text-ink">
           Free at {timeOf(startsAt)} with {physioName}
@@ -143,7 +167,6 @@ export function SlotDrawer({
           </li>
         ))}
       </ul>
-      <p className="text-sm text-ink-muted">Booking a patient from the calendar comes next.</p>
     </Drawer>
   );
 }

@@ -3,6 +3,7 @@
 import type { CalendarDay } from '@clinic-mx/db';
 import { useEffect, useRef, useState } from 'react';
 import { LIVE_HEADER } from '../../../../../lib/live';
+import { AgendaList } from './agenda-list';
 import { DayGrid } from './day-grid';
 import { reviveDay, type CalendarDayJson } from './links';
 
@@ -11,7 +12,8 @@ import { reviveDay, type CalendarDayJson } from './links';
  * `live.refresh_seconds` (user decision 22 October 2026: every 3 seconds until the realtime relay,
  * FND-09). Only a changed day is sent back. The check is never activity for the idle sign out.
  * The page gives it a new key for another day, centre or a changed day, so it starts afresh.
- * "Live, updated n s ago", or "Not updated for n s" in amber while checks fail.
+ * "Live, updated n s ago", or "Not updated for n s" in amber while checks fail. Phones get the
+ * agenda and wider screens the grid (SCH-06), both from the same live day.
  */
 export function CalendarView({
   initial,
@@ -22,6 +24,7 @@ export function CalendarView({
   step,
   lateMinutes,
   refreshSeconds,
+  physioId,
   selectedAppointment,
 }: {
   initial: CalendarDay;
@@ -32,6 +35,7 @@ export function CalendarView({
   step: number;
   lateMinutes: number;
   refreshSeconds: number;
+  physioId?: string;
   selectedAppointment?: string;
 }) {
   const [day, setDay] = useState(initial);
@@ -89,15 +93,29 @@ export function CalendarView({
           ? `Not updated for ${String(seconds)} s. Checking again.`
           : `Live, updated ${String(seconds)} s ago`}
       </p>
-      <DayGrid
-        day={day}
-        centreId={centreId}
-        date={date}
-        step={step}
-        now={now}
-        lateMinutes={lateMinutes}
-        selectedAppointment={selectedAppointment}
-      />
+      <div className="md:hidden">
+        <AgendaList
+          day={day}
+          centreId={centreId}
+          date={date}
+          physioId={physioId}
+          step={step}
+          now={now}
+          lateMinutes={lateMinutes}
+          selectedAppointment={selectedAppointment}
+        />
+      </div>
+      <div className="hidden md:block">
+        <DayGrid
+          day={day}
+          centreId={centreId}
+          date={date}
+          step={step}
+          now={now}
+          lateMinutes={lateMinutes}
+          selectedAppointment={selectedAppointment}
+        />
+      </div>
     </div>
   );
 }
