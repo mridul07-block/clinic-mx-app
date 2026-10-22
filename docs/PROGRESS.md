@@ -93,6 +93,11 @@ the code location.
   is whole days or part of a day, requested by the person and approved or declined (with a
   reason) by their Centre Manager or the Super Admin, never by themselves; only people who treat
   patients have rosters and leave.
+- 22 October 2026 (CI speed, with SCH-01): the end to end tests run as two jobs side by side
+  (phone at 360 px, desktop), each on its own local Supabase stack, starting with the other checks
+  instead of after them; same tests, a run takes about 5 minutes instead of 8. Every job must pass
+  before a merge, judged job by job: during a GitHub Actions incident a run reported success while
+  its end to end job sat queued and never ran.
 - 22 October 2026 (SCH-01): an OP number is the registering centre's code and a 5 digit number
   from that centre's sequence (`HSR-00042`), kept for life; the Super Admin sets each code when
   adding a centre (seed HSR, KOR, WFD) and it never changes; adding a patient on a mobile already
