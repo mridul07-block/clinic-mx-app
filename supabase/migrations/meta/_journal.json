@@ -190,6 +190,20 @@
       "when": 1792657317737,
       "tag": "20261022082157_appointment_type_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792662320847,
+      "tag": "20261022094520_rosters",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792662321918,
+      "tag": "20261022094521_roster_rules",
+      "breakpoints": true
     }
   ]
 }
