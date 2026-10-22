@@ -1,9 +1,11 @@
 import {
   addDays,
   isoWeekday,
+  istDate,
   istInstant,
   slotStarts,
   startOfIstDay,
+  type AppointmentChangeReason,
   type AppointmentStatus,
   type BookingChannel,
   type Interval,
@@ -28,6 +30,7 @@ export interface CalendarAppointment {
   patientId: string;
   patientName: string;
   opNumber: string;
+  appointmentTypeId: string;
   typeName: string;
   startsAt: Date;
   endsAt: Date;
@@ -36,6 +39,22 @@ export interface CalendarAppointment {
   bookedByName: string | null;
   machineUnit: number | null;
   episodeId: string | null;
+  /** Cancelled or rescheduled (SCH-08): who asked, who did it and when. */
+  changeReason: AppointmentChangeReason | null;
+  changedByName: string | null;
+  changedAt: Date | null;
+  /** The appointment a reschedule booked in its place, or the one it replaced (SCH-08). */
+  rescheduledTo: LinkedAppointment | null;
+  rescheduledFrom: LinkedAppointment | null;
+}
+
+/** Another appointment to link to: where and which day it is on the calendar. */
+export interface LinkedAppointment {
+  id: string;
+  number: string;
+  centreId: string;
+  /** IST calendar date. */
+  date: string;
 }
 
 export interface CalendarColumn {
@@ -72,6 +91,19 @@ export interface CalendarRequest {
 }
 
 const bookedBy = alias(staffUser, 'booked_by_staff');
+const changedBy = alias(staffUser, 'changed_by_staff');
+const replacedBy = alias(appointment, 'replaced_by');
+const replaced = alias(appointment, 'replaced');
+
+const linked = (row: {
+  id: string | null;
+  number: string | null;
+  centreId: string | null;
+  startsAt: Date | null;
+}): LinkedAppointment | null =>
+  row.id && row.number && row.centreId && row.startsAt
+    ? { id: row.id, number: row.number, centreId: row.centreId, date: istDate(row.startsAt) }
+    : null;
 
 /** The day at a centre, as the reader may see it. */
 export async function calendarDay(
@@ -103,6 +135,7 @@ export async function calendarDay(
             patientId: appointment.patientId,
             patientName: patient.name,
             opNumber: patient.opNumber,
+            appointmentTypeId: appointment.appointmentTypeId,
             typeName: appointmentType.name,
             startsAt: appointment.startsAt,
             endsAt: appointment.endsAt,
@@ -111,11 +144,25 @@ export async function calendarDay(
             bookedByName: bookedBy.name,
             machineUnit: appointment.machineUnit,
             episodeId: appointment.episodeId,
+            changeReason: appointment.changeReason,
+            changedByName: changedBy.name,
+            changedAt: appointment.changedAt,
+            toId: replacedBy.id,
+            toNumber: replacedBy.number,
+            toCentreId: replacedBy.centreId,
+            toStartsAt: replacedBy.startsAt,
+            fromId: replaced.id,
+            fromNumber: replaced.number,
+            fromCentreId: replaced.centreId,
+            fromStartsAt: replaced.startsAt,
           })
           .from(appointment)
           .innerJoin(patient, eq(patient.id, appointment.patientId))
           .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
           .leftJoin(bookedBy, eq(bookedBy.id, appointment.bookedBy))
+          .leftJoin(changedBy, eq(changedBy.id, appointment.changedBy))
+          .leftJoin(replacedBy, eq(replacedBy.rescheduledFromId, appointment.id))
+          .leftJoin(replaced, eq(replaced.id, appointment.rescheduledFromId))
           .where(
             and(
               eq(appointment.centreId, request.centreId),
@@ -150,7 +197,34 @@ export async function calendarDay(
         .map((b) => ({ startsAt: b.startsAt, endsAt: b.endsAt })),
       appointments: rows
         .filter((row) => row.physioId === person.id)
-        .map(({ physioId: _physio, ...row }) => row),
+        .map(
+          ({
+            physioId: _physio,
+            toId,
+            toNumber,
+            toCentreId,
+            toStartsAt,
+            fromId,
+            fromNumber,
+            fromCentreId,
+            fromStartsAt,
+            ...row
+          }) => ({
+            ...row,
+            rescheduledTo: linked({
+              id: toId,
+              number: toNumber,
+              centreId: toCentreId,
+              startsAt: toStartsAt,
+            }),
+            rescheduledFrom: linked({
+              id: fromId,
+              number: fromNumber,
+              centreId: fromCentreId,
+              startsAt: fromStartsAt,
+            }),
+          }),
+        ),
     });
   }
 

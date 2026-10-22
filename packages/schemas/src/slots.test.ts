@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { istInstant } from './ist';
 import {
+  cancelAppointmentSchema,
+  isChangeable,
+  rescheduleAppointmentSchema,
   appointmentStatuses,
   checkSlot,
   holdsSlot,
@@ -100,5 +103,31 @@ describe('holdsSlot', () => {
   it('frees the time only when cancelled or rescheduled', () => {
     const freed = appointmentStatuses.filter((status) => !holdsSlot(status));
     expect(freed).toEqual(['cancelled', 'rescheduled']);
+  });
+});
+
+// SCH-08: only Booked or Confirmed changes, and who asked is one of two, always given.
+describe('reschedule and cancel', () => {
+  const appointmentId = '00000000-0000-4000-8000-000000000801';
+  it('changes only booked or confirmed appointments', () => {
+    expect(appointmentStatuses.filter(isChangeable)).toEqual(['booked', 'confirmed']);
+  });
+
+  it('needs who asked: the patient or the clinic', () => {
+    expect(cancelAppointmentSchema.parse({ appointmentId, reason: 'patient' }).reason).toBe(
+      'patient',
+    );
+    const missing = cancelAppointmentSchema.safeParse({ appointmentId, reason: '' });
+    expect(missing.error?.issues[0]?.message).toBe('Choose who asked for the change.');
+    expect(cancelAppointmentSchema.safeParse({ appointmentId, reason: 'staff' }).success).toBe(
+      false,
+    );
+    const move = rescheduleAppointmentSchema.parse({
+      appointmentId,
+      physioId: appointmentId,
+      startsAt: '2026-11-03T05:00:00.000Z',
+      reason: 'clinic',
+    });
+    expect(move.startsAt).toEqual(new Date('2026-11-03T05:00:00.000Z'));
   });
 });

@@ -7,9 +7,11 @@ import {
   SchedulingError,
   addPatientAndBook,
   bookSlot,
+  cancelAppointment,
   findFreeSlots,
   holdSlot,
   releaseSlot,
+  rescheduleAppointment,
 } from './services';
 
 const fakeTx = { kind: 'transaction' };
@@ -18,6 +20,8 @@ const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
   currentHold: vi.fn(),
   releaseHold: vi.fn(),
+  appointmentRecord: vi.fn(),
+  changeAppointment: vi.fn(),
   bookAppointment: vi.fn(),
   episodeRecord: vi.fn(),
   freeSlots: vi.fn(),
@@ -261,5 +265,134 @@ describe('scheduling', () => {
       z.ZodError,
     );
     expect(patients.addPatient).not.toHaveBeenCalled();
+  });
+
+  // SCH-08: a Booked or Confirmed appointment is cancelled or moved, recording who asked; a move
+  // marks the old one and books the new one in the same transaction.
+  const appointmentId = '00000000-0000-4000-8000-000000000801';
+  const old = {
+    id: appointmentId,
+    number: 'MVH-00001',
+    patientId,
+    centreId: hsr,
+    physioId,
+    appointmentTypeId: typeId,
+    episodeId,
+    startsAt: new Date('2026-11-02T04:30:00.000Z'),
+    endsAt: new Date('2026-11-02T05:15:00.000Z'),
+    status: 'booked',
+    channel: 'whatsapp',
+    bookedBy: null,
+    machineUnit: null,
+    changeReason: null,
+    rescheduledFromId: null,
+  };
+
+  it('cancels with who asked and who did it, only while booked or confirmed', async () => {
+    db.appointmentRecord.mockResolvedValue(old);
+    db.changeAppointment.mockResolvedValueOnce({ id: appointmentId });
+    await cancelAppointment(context(), { appointmentId, reason: 'patient' });
+    expect(db.changeAppointment).toHaveBeenCalledWith(
+      fakeTx,
+      expect.objectContaining({
+        appointmentId,
+        status: 'cancelled',
+        reason: 'patient',
+        changedBy: deskId,
+      }),
+    );
+    db.changeAppointment.mockResolvedValueOnce(undefined);
+    await expect(cancelAppointment(context(), { appointmentId, reason: 'clinic' })).rejects.toThrow(
+      'Only a booked or confirmed appointment can be cancelled.',
+    );
+    await expect(cancelAppointment(context(), { appointmentId, reason: '' })).rejects.toThrow(
+      'Choose who asked for the change.',
+    );
+  });
+
+  it('moves an appointment: marks the old one, then books the same patient, type and episode', async () => {
+    db.appointmentRecord.mockResolvedValue(old);
+    db.changeAppointment.mockResolvedValue({ id: appointmentId });
+    db.bookAppointment.mockResolvedValue({ id: 'new', number: 'MVH-00002' });
+    const otherPhysio = '00000000-0000-4000-8000-000000000208';
+    const moved = await rescheduleAppointment(context(), {
+      appointmentId,
+      physioId: otherPhysio,
+      startsAt: '2026-11-03T05:00:00.000Z',
+      reason: 'clinic',
+    });
+    expect(moved).toEqual({ id: 'new', number: 'MVH-00002' });
+    expect(db.changeAppointment).toHaveBeenCalledWith(
+      fakeTx,
+      expect.objectContaining({ status: 'rescheduled', reason: 'clinic', changedBy: deskId }),
+    );
+    expect(db.bookAppointment).toHaveBeenCalledWith(
+      fakeTx,
+      expect.objectContaining({
+        centreId: hsr,
+        physioId: otherPhysio,
+        appointmentTypeId: typeId,
+        patientId,
+        episodeId,
+        channel: 'front_desk',
+        bookedBy: deskId,
+        rescheduledFromId: appointmentId,
+        holder: `staff:${deskId}`,
+      }),
+    );
+    // Both in one transaction, the old one first: a refused new start undoes the change.
+    expect(db.withStaffAccess).toHaveBeenCalledTimes(1);
+    expect(db.changeAppointment.mock.invocationCallOrder[0]).toBeLessThan(
+      db.bookAppointment.mock.invocationCallOrder[0] ?? 0,
+    );
+    db.bookAppointment.mockRejectedValueOnce(new db.SlotRefusedError('taken'));
+    await expect(
+      rescheduleAppointment(context(), {
+        appointmentId,
+        physioId,
+        startsAt: '2026-11-03T05:00:00.000Z',
+        reason: 'patient',
+      }),
+    ).rejects.toThrow(db.SlotRefusedError);
+  });
+
+  it('changes appointments only for the booking roles at their centres', async () => {
+    db.appointmentRecord.mockResolvedValue({ ...old, centreId: koramangala });
+    await expect(
+      cancelAppointment(context(), { appointmentId, reason: 'patient' }),
+    ).rejects.toThrow(NotAllowedError);
+    db.appointmentRecord.mockResolvedValue(old);
+    for (const actor of [
+      member({ role: 'physiotherapist', treatsPatients: true }),
+      member({ role: 'finance', centreIds: [] }),
+    ]) {
+      await expect(
+        cancelAppointment(context(actor), { appointmentId, reason: 'patient' }),
+      ).rejects.toThrow(NotAllowedError);
+    }
+    expect(db.changeAppointment).not.toHaveBeenCalled();
+  });
+
+  it('frees only a movable appointment of the same centre and type when picking a new time', async () => {
+    db.appointmentRecord.mockResolvedValue(old);
+    await findFreeSlots(member(), {
+      centreId: hsr,
+      date: '2026-11-02',
+      appointmentTypeId: typeId,
+      freeing: appointmentId,
+    });
+    expect(db.freeSlots).toHaveBeenCalledWith(
+      fakeTx,
+      expect.objectContaining({ freeing: appointmentId }),
+    );
+    db.appointmentRecord.mockResolvedValue({ ...old, status: 'checked_in' });
+    await expect(holdSlot(context(), { ...choice, freeing: appointmentId })).rejects.toThrow(
+      SchedulingError,
+    );
+    db.appointmentRecord.mockResolvedValue({ ...old, appointmentTypeId: episodeId });
+    await expect(holdSlot(context(), { ...choice, freeing: appointmentId })).rejects.toThrow(
+      'Only a booked or confirmed appointment can be moved.',
+    );
+    expect(db.placeHold).not.toHaveBeenCalled();
   });
 });

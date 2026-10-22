@@ -18,11 +18,21 @@ export function calendarHref(view: {
   newBooking?: { appointmentTypeId?: string; on?: string };
   /** The appointment was just booked. */
   booked?: boolean;
+  /** Changing the open appointment (SCH-08): cancel it, or move it (picking on a day, a physio). */
+  change?: 'cancel' | 'reschedule';
+  /** The reschedule picker's day and physio ("any" for all). */
+  pick?: { on?: string; physioId?: string };
+  /** The open appointment was just booked in place of another (SCH-08). */
+  moved?: boolean;
 }): string {
   const query = new URLSearchParams({ centre: view.centreId, date: view.date });
   if (view.physioId) query.set('physio', view.physioId);
   if (view.appointmentId) query.set('appointment', view.appointmentId);
   if (view.booked) query.set('booked', '1');
+  if (view.moved) query.set('moved', '1');
+  if (view.change) query.set('change', view.change);
+  if (view.pick?.on) query.set('on', view.pick.on);
+  if (view.pick?.physioId) query.set('with', view.pick.physioId);
   if (view.slot) query.set('slot', `${view.slot.physioId}@${view.slot.startsAt.toISOString()}`);
   if (view.book) {
     query.set('book', `${view.book.physioId}@${view.book.startsAt.toISOString()}`);

@@ -1,14 +1,24 @@
 import type { CalendarAppointment } from '@clinic-mx/db';
-import { bookingChannelLabels, formatIstDate, istDate } from '@clinic-mx/schemas';
+import {
+  appointmentChangeReasonLabels,
+  bookingChannelLabels,
+  formatIstDate,
+  istDate,
+} from '@clinic-mx/schemas';
 import { toneByAppointmentStatus } from '@clinic-mx/ui';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { primaryButtonClass } from '../../../../../components/forms';
+import {
+  dangerButtonClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from '../../../../../components/forms';
 import { Tag } from '../../../../../components/tag';
 import type { SlotOption } from '../../../../../modules/scheduling/calendar';
 import { HoldButton } from './booking-forms';
 import { shownStatusLabels, timeOf, type ShownStatus } from './calendar-block';
 import { DrawerKeys } from './drawer-keys';
+import { calendarHref } from './links';
 
 export const linkClass = 'text-accent underline underline-offset-2';
 
@@ -79,6 +89,8 @@ export function AppointmentDrawer({
   centreName,
   closeHref,
   booked = false,
+  moved = false,
+  change,
 }: {
   appointment: CalendarAppointment;
   status: ShownStatus;
@@ -87,10 +99,43 @@ export function AppointmentDrawer({
   closeHref: string;
   /** Just booked from the calendar (SCH-07). */
   booked?: boolean;
+  /** Just booked in place of another (SCH-08). */
+  moved?: boolean;
+  /** For someone who books, while it is Booked or Confirmed: where Reschedule and Cancel go. */
+  change?: { rescheduleHref: string; cancelHref: string };
 }) {
   const day = istDate(appointment.startsAt);
+  const linkTo = (other: NonNullable<CalendarAppointment['rescheduledTo']>) =>
+    calendarHref({ centreId: other.centreId, date: other.date, appointmentId: other.id });
   return (
-    <Drawer label="Appointment" closeHref={closeHref}>
+    <Drawer
+      label="Appointment"
+      closeHref={closeHref}
+      footer={
+        change ? (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link href={change.rescheduleHref} scroll={false} className={secondaryButtonClass}>
+              Reschedule
+            </Link>
+            <Link href={change.cancelHref} scroll={false} className={dangerButtonClass}>
+              Cancel appointment
+            </Link>
+          </div>
+        ) : undefined
+      }
+    >
+      {moved && appointment.rescheduledFrom ? (
+        <div
+          role="status"
+          data-testid="moved"
+          className="flex flex-col gap-1 rounded-panel border border-active-line bg-active-soft px-4 py-3"
+        >
+          <span className="font-semibold text-active">Rescheduled to {appointment.number}</span>
+          <span className="text-sm text-ink-secondary">
+            {appointment.rescheduledFrom.number} is now Rescheduled; its time is free.
+          </span>
+        </div>
+      ) : null}
       {booked ? (
         <div
           role="status"
@@ -131,6 +176,29 @@ export function AppointmentDrawer({
             ? `${bookingChannelLabels[appointment.channel]}, by ${appointment.bookedByName}`
             : bookingChannelLabels[appointment.channel]}
         </Detail>
+        {appointment.changeReason ? (
+          <Detail term={status === 'rescheduled' ? 'Rescheduled' : 'Cancelled'}>
+            {appointmentChangeReasonLabels[appointment.changeReason]}
+            {appointment.changedByName ? `, by ${appointment.changedByName}` : ''}
+            {appointment.changedAt
+              ? `, ${formatIstDate(istDate(appointment.changedAt))} ${timeOf(appointment.changedAt)}`
+              : ''}
+          </Detail>
+        ) : null}
+        {appointment.rescheduledTo ? (
+          <Detail term="Rescheduled to">
+            <Link href={linkTo(appointment.rescheduledTo)} className={linkClass}>
+              {appointment.rescheduledTo.number}
+            </Link>
+          </Detail>
+        ) : null}
+        {appointment.rescheduledFrom ? (
+          <Detail term="Moved from">
+            <Link href={linkTo(appointment.rescheduledFrom)} className={linkClass}>
+              {appointment.rescheduledFrom.number}
+            </Link>
+          </Detail>
+        ) : null}
         {appointment.episodeId ? (
           <Detail term="Episode">
             <Link href={`/app/patients/${appointment.patientId}`} className={linkClass}>

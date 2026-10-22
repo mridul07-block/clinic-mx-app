@@ -1,19 +1,26 @@
 'use client';
 
 import type { PatientMatch } from '@clinic-mx/db';
-import { formatIndianPhone } from '@clinic-mx/schemas';
+import {
+  appointmentChangeReasonLabels,
+  appointmentChangeReasons,
+  formatIndianPhone,
+} from '@clinic-mx/schemas';
 import { useActionState, useId } from 'react';
 import {
   FormMessage,
   TextField,
+  dangerButtonClass,
   primaryButtonClass,
   secondaryButtonClass,
 } from '../../../../../components/forms';
 import {
   addPatientAndBookAction,
   bookSlotAction,
+  cancelAppointmentAction,
   holdSlotAction,
   releaseSlotAction,
+  rescheduleAppointmentAction,
   type BookingFormState,
 } from '../../../../../modules/scheduling/actions';
 
@@ -52,6 +59,7 @@ export function HoldButton({
   label,
   name,
   className,
+  move,
 }: {
   choice: SlotChoiceFields;
   view?: string;
@@ -59,11 +67,19 @@ export function HoldButton({
   /** The accessible name when the label alone is not enough, as "Book Session at 10:30". */
   name?: string;
   className: string;
+  /** Holding a start to move this appointment to (SCH-08), shown on the calendar's day. */
+  move?: { appointmentId: string; date: string };
 }) {
   const [state, action, pending] = useActionState(holdSlotAction, initialState);
   return (
     <form action={action} className="contents">
       <ChoiceFields choice={choice} view={view} />
+      {move ? (
+        <>
+          <input type="hidden" name="freeing" value={move.appointmentId} />
+          <input type="hidden" name="date" value={move.date} />
+        </>
+      ) : null}
       <button type="submit" aria-label={name} disabled={pending} className={className}>
         {label}
       </button>
@@ -214,5 +230,96 @@ export function NewPatientBookForm({ choice, view }: { choice: SlotChoiceFields;
         </ul>
       ) : null}
     </div>
+  );
+}
+
+/** Who asked for a cancel or a move (SCH-08): one of two, required. */
+function ReasonField({ error }: { error?: string }) {
+  const id = useId();
+  return (
+    <fieldset
+      className="flex flex-col gap-2"
+      aria-invalid={error ? true : undefined}
+      aria-describedby={error ? `${id}-error` : undefined}
+    >
+      <legend className="mb-1 font-medium text-ink">Who asked?</legend>
+      {appointmentChangeReasons.map((reason) => (
+        <label
+          key={reason}
+          className="flex min-h-11 items-center gap-3 rounded-control border border-line-control px-3"
+        >
+          <input type="radio" name="reason" value={reason} className="size-4 accent-accent" />
+          {appointmentChangeReasonLabels[reason]}
+        </label>
+      ))}
+      {error ? (
+        <p id={`${id}-error`} className="text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
+    </fieldset>
+  );
+}
+
+/** The calendar's place, kept by the change forms. */
+interface ChangePlace {
+  appointmentId: string;
+  centreId: string;
+  date: string;
+  view?: string;
+}
+
+function PlaceFields({ place }: { place: ChangePlace }) {
+  return (
+    <>
+      <input type="hidden" name="appointmentId" value={place.appointmentId} />
+      <input type="hidden" name="centreId" value={place.centreId} />
+      <input type="hidden" name="date" value={place.date} />
+      {place.view ? <input type="hidden" name="view" value={place.view} /> : null}
+    </>
+  );
+}
+
+/** Cancel an appointment (SCH-08): who asked, then the one button; the form is the confirmation. */
+export function CancelAppointmentForm({ place }: { place: ChangePlace }) {
+  const [state, action, pending] = useActionState(cancelAppointmentAction, initialState);
+  return (
+    <form action={action} className="flex flex-col gap-4" noValidate>
+      <PlaceFields place={place} />
+      {state.error && !state.fieldErrors ? (
+        <FormMessage tone="danger">{state.error}</FormMessage>
+      ) : null}
+      <ReasonField error={state.fieldErrors?.reason} />
+      <button type="submit" disabled={pending} className={dangerButtonClass}>
+        Cancel appointment
+      </button>
+    </form>
+  );
+}
+
+/** Confirm a move to the held start (SCH-08): who asked, then Reschedule. */
+export function RescheduleForm({
+  place,
+  physioId,
+  startsAt,
+}: {
+  place: ChangePlace;
+  physioId: string;
+  startsAt: string;
+}) {
+  const [state, action, pending] = useActionState(rescheduleAppointmentAction, initialState);
+  return (
+    <form action={action} className="flex flex-col gap-4" noValidate>
+      <PlaceFields place={place} />
+      <input type="hidden" name="physioId" value={physioId} />
+      <input type="hidden" name="startsAt" value={startsAt} />
+      {state.error && !state.fieldErrors ? (
+        <FormMessage tone="danger">{state.error}</FormMessage>
+      ) : null}
+      <ReasonField error={state.fieldErrors?.reason} />
+      <button type="submit" disabled={pending} className={primaryButtonClass}>
+        Reschedule
+      </button>
+    </form>
   );
 }

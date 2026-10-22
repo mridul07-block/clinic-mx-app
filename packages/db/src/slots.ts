@@ -1,12 +1,15 @@
 import {
   addDays,
+  changeableStatuses,
   checkSlot,
+  holdsSlot,
   isoWeekday,
   istDate,
   istInstant,
   slotRefusalMessages,
   slotStarts,
   startOfIstDay,
+  type AppointmentChangeReason,
   type BookingChannel,
   type FreeSlot,
   type Interval,
@@ -86,6 +89,8 @@ interface PlanRequest {
   physioId?: string;
   /** The asker's own hold does not count as busy. */
   holder?: string;
+  /** Rescheduling this appointment (SCH-08): its own time does not count as busy. */
+  freeing?: string;
 }
 
 async function typeRow(db: DbOrTransaction, id: string): Promise<TypeRow | undefined> {
@@ -252,6 +257,8 @@ async function loadPlan(db: DbOrTransaction, request: PlanRequest): Promise<Plan
     }
   }
 
+  if (request.freeing) freeTime(await appointmentRecord(db, request.freeing), busy, machineUnits);
+
   return {
     type,
     physios,
@@ -261,6 +268,28 @@ async function loadPlan(db: DbOrTransaction, request: PlanRequest): Promise<Plan
     machineUnits,
     lengths,
   };
+}
+
+/**
+ * Takes an appointment being rescheduled out of the busy times (SCH-08), so it can move to a time
+ * that overlaps its own (10:00 to 10:30 with the same physio). Busy times carry no ids, so the one
+ * entry with its physio and times goes, and its treadmill unit's interval.
+ */
+function freeTime(
+  freeing: AppointmentEntry | undefined,
+  busy: Map<string, Busy[]>,
+  machineUnits: Interval[][] | undefined,
+): void {
+  if (!freeing || !holdsSlot(freeing.status)) return;
+  const same = (interval: Interval) =>
+    interval.startsAt.getTime() === freeing.startsAt.getTime() &&
+    interval.endsAt.getTime() === freeing.endsAt.getTime();
+  const physio = busy.get(freeing.physioId);
+  const index = physio?.findIndex((b) => b.kind === 'appointment' && same(b)) ?? -1;
+  if (index >= 0) physio?.splice(index, 1);
+  const unit = freeing.machineUnit ? machineUnits?.[freeing.machineUnit - 1] : undefined;
+  const unitIndex = unit?.findIndex(same) ?? -1;
+  if (unitIndex >= 0) unit?.splice(unitIndex, 1);
 }
 
 /** The rules' input for one physio on one date, or undefined when they have no hours then. */
@@ -297,6 +326,8 @@ export interface FreeSlotsRequest {
   date: string;
   physioId?: string;
   holder?: string;
+  /** Rescheduling this appointment (SCH-08): its own time counts as free. */
+  freeing?: string;
   /** `scheduling.slot_minutes`. */
   step: number;
   now: Date;
@@ -346,6 +377,8 @@ export interface SlotRequest {
   startsAt: Date;
   /** Who is choosing: `staff:<id>` at the front desk, a Flow session on WhatsApp. */
   holder: string;
+  /** Rescheduling this appointment (SCH-08): its own time counts as free. */
+  freeing?: string;
   step: number;
   now: Date;
 }
@@ -469,6 +502,8 @@ export interface BookingRequest extends SlotRequest {
   channel: BookingChannel;
   /** The staff member booking; none for a patient's own WhatsApp booking. */
   bookedBy?: string;
+  /** The appointment this one replaces (SCH-08), already marked Rescheduled. */
+  rescheduledFromId?: string;
 }
 
 /**
@@ -495,6 +530,7 @@ export async function bookAppointment(
         endsAt: slot.endsAt,
         channel: request.channel,
         bookedBy: request.bookedBy,
+        rescheduledFromId: request.rescheduledFromId,
         machine,
         machineUnit: slot.machineUnit,
       })
@@ -519,6 +555,8 @@ export interface AppointmentEntry {
   channel: BookingChannel;
   bookedBy: string | null;
   machineUnit: number | null;
+  changeReason: AppointmentChangeReason | null;
+  rescheduledFromId: string | null;
 }
 
 /** One appointment, or undefined when the reader cannot see it. */
@@ -541,8 +579,45 @@ export async function appointmentRecord(
       channel: appointment.channel,
       bookedBy: appointment.bookedBy,
       machineUnit: appointment.machineUnit,
+      changeReason: appointment.changeReason,
+      rescheduledFromId: appointment.rescheduledFromId,
     })
     .from(appointment)
     .where(eq(appointment.id, appointmentId));
+  return row;
+}
+
+/**
+ * Cancels or reschedules a Booked or Confirmed appointment (SCH-08), recording who asked and who
+ * did it. Inside the caller's transaction; the appointment, or undefined when it is not there or
+ * no longer changeable. A reschedule then books the new one in the same transaction, so the old
+ * time is never given up without it (PRD J1.7).
+ */
+export async function changeAppointment(
+  tx: DbOrTransaction,
+  change: {
+    appointmentId: string;
+    status: 'cancelled' | 'rescheduled';
+    reason: AppointmentChangeReason;
+    changedBy: string;
+    now: Date;
+  },
+): Promise<{ id: string } | undefined> {
+  const [row] = await tx
+    .update(appointment)
+    .set({
+      status: change.status,
+      changeReason: change.reason,
+      changedAt: change.now,
+      changedBy: change.changedBy,
+      updatedAt: change.now,
+    })
+    .where(
+      and(
+        eq(appointment.id, change.appointmentId),
+        inArray(appointment.status, [...changeableStatuses]),
+      ),
+    )
+    .returning({ id: appointment.id });
   return row;
 }

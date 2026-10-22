@@ -43,6 +43,29 @@ export function holdsSlot(status: AppointmentStatus): boolean {
   return !(freedStatuses as readonly AppointmentStatus[]).includes(status);
 }
 
+/**
+ * Reschedule and cancel (SCH-08): only a Booked or Confirmed appointment changes (user decision,
+ * 23 October 2026: any time until check in); who asked is recorded, for the counters (SCH-09).
+ */
+export const changeableStatuses = ['booked', 'confirmed'] as const satisfies AppointmentStatus[];
+
+export function isChangeable(status: AppointmentStatus): boolean {
+  return (changeableStatuses as readonly AppointmentStatus[]).includes(status);
+}
+
+export const appointmentChangeReasons = ['patient', 'clinic'] as const;
+
+export type AppointmentChangeReason = (typeof appointmentChangeReasons)[number];
+
+export const appointmentChangeReasonLabels = {
+  patient: 'By the patient',
+  clinic: 'By the clinic',
+} as const satisfies Record<AppointmentChangeReason, string>;
+
+const changeReasonSchema = z.enum(appointmentChangeReasons, {
+  error: 'Choose who asked for the change.',
+});
+
 /** PRD section 7: patients book on the WhatsApp Flow; the front desk books callers and walk ins. */
 export const bookingChannels = ['whatsapp', 'front_desk'] as const;
 
@@ -182,6 +205,8 @@ export const freeSlotsQuerySchema = z.object({
   date: z.iso.date(),
   appointmentTypeId: z.guid(),
   physioId: z.guid().optional(),
+  /** Rescheduling this appointment (SCH-08): its own time counts as free. */
+  freeing: z.guid().optional(),
 });
 
 export type FreeSlotsQuery = z.output<typeof freeSlotsQuerySchema>;
@@ -192,14 +217,33 @@ export const slotChoiceSchema = z.object({
   physioId: z.guid(),
   appointmentTypeId: z.guid(),
   startsAt: z.coerce.date(),
+  /** Rescheduling this appointment (SCH-08): its own time counts as free. */
+  freeing: z.guid().optional(),
 });
 
 export type SlotChoice = z.output<typeof slotChoiceSchema>;
 
 /** Booking a chosen start for a patient, optionally in an episode. */
-export const bookSlotSchema = slotChoiceSchema.extend({
+export const bookSlotSchema = slotChoiceSchema.omit({ freeing: true }).extend({
   patientId: z.guid(),
   episodeId: z.guid().optional(),
 });
 
 export type BookSlotInput = z.output<typeof bookSlotSchema>;
+
+/** Cancelling a Booked or Confirmed appointment, and who asked (SCH-08). */
+export const cancelAppointmentSchema = z.object({
+  appointmentId: z.guid(),
+  reason: changeReasonSchema,
+});
+
+/**
+ * Moving a Booked or Confirmed appointment to a new start, with any physio there (SCH-08): a new
+ * appointment of the same type for the same patient; the old one becomes Rescheduled.
+ */
+export const rescheduleAppointmentSchema = z.object({
+  appointmentId: z.guid(),
+  physioId: z.guid(),
+  startsAt: z.coerce.date(),
+  reason: changeReasonSchema,
+});

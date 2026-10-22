@@ -40,7 +40,7 @@ export type ConsultationFeeInput = z.output<typeof consultationFeeSchema>;
  * sheet"), registered at the booking's centre; the rest is filled in later. As when adding a
  * patient, a mobile already on file shows its patients first until staff confirm a new person.
  */
-export const bookNewPatientSchema = slotChoiceSchema.extend({
+export const bookNewPatientSchema = slotChoiceSchema.omit({ freeing: true }).extend({
   ...patientDetailsSchema.pick({ name: true, phone: true }).shape,
   confirmNewPerson: z.boolean().default(false),
 });

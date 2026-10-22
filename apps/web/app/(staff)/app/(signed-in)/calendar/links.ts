@@ -29,7 +29,11 @@ export function reviveDay(json: CalendarDayJson): CalendarDay {
       hours: column.hours.map(span),
       freeCells: column.freeCells.map((cell) => new Date(cell)),
       held: column.held.map(span),
-      appointments: column.appointments.map((a) => ({ ...a, ...span(a) })),
+      appointments: column.appointments.map((a) => ({
+        ...a,
+        ...span(a),
+        changedAt: a.changedAt ? new Date(a.changedAt) : null,
+      })),
     })),
   };
 }
