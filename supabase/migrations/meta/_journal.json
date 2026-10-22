@@ -302,6 +302,20 @@
       "when": 1792692853162,
       "tag": "20261022181413_calendar_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1792699872866,
+      "tag": "20261022201112_appointment_changes",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792699898408,
+      "tag": "20261022201138_appointment_change_rules",
+      "breakpoints": true
     }
   ]
 }

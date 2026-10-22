@@ -1,9 +1,16 @@
-import { appointmentTypeList, calendarVersion, centreList, searchPatients } from '@clinic-mx/db';
+import {
+  appointmentTypeList,
+  calendarVersion,
+  centreList,
+  searchPatients,
+  staffRecord,
+} from '@clinic-mx/db';
 import {
   addDays,
   calendarDateSchema,
   can,
   formatIstDate,
+  isChangeable,
   istDate,
   patientSearch,
 } from '@clinic-mx/schemas';
@@ -18,6 +25,7 @@ import { getSetting } from '../../../../../modules/settings/settings';
 import { shownStatus } from './calendar-block';
 import { CalendarView } from './calendar-view';
 import { BookingSheet, NewBookingSheet } from './booking-sheet';
+import { CancelSheet, RescheduleConfirm, ReschedulePicker } from './change-sheets';
 import { AppointmentDrawer, SlotDrawer } from './drawer';
 import { calendarHref, readSlot } from './links';
 
@@ -36,7 +44,8 @@ const weekday = (date: string) =>
 // a centre; a physio sees their own column. The address carries the centre, date and drawer.
 // Phones get the agenda, one physio or everyone at a time, with details in a bottom sheet (SCH-06).
 // The front desk books from a free slot or New booking: the start is held, then the patient is
-// found or added with a name and mobile (SCH-07).
+// found or added with a name and mobile (SCH-07). A Booked or Confirmed appointment is
+// rescheduled or cancelled from its sheet, recording who asked (SCH-08).
 export default async function CalendarPage({
   searchParams,
 }: {
@@ -52,6 +61,9 @@ export default async function CalendarPage({
     find?: string;
     new?: string;
     on?: string;
+    change?: string;
+    with?: string;
+    moved?: string;
   }>;
 }) {
   const staff = await requirePermission('calendar.view');
@@ -89,7 +101,11 @@ export default async function CalendarPage({
   const opened = day.columns.flatMap((column) =>
     column.appointments
       .filter((a) => a.id === params.appointment)
-      .map((appointment) => ({ appointment, physioName: column.physioName })),
+      .map((appointment) => ({
+        appointment,
+        physioId: column.physioId,
+        physioName: column.physioName,
+      })),
   )[0];
   const slot = readSlot(params.slot);
   const slotColumn = slot ? day.columns.find((c) => c.physioId === slot.physioId) : undefined;
@@ -103,7 +119,55 @@ export default async function CalendarPage({
     : [];
   const typeOf = (id: string | undefined) => types.find((type) => type.id === id);
 
-  const book = canBook ? readSlot(params.book) : undefined;
+  // Changing the open appointment (SCH-08): cancel, or move it (pick a start, then confirm).
+  const changing =
+    canBook && opened && isChangeable(opened.appointment.status) ? opened : undefined;
+  const change =
+    changing && (params.change === 'cancel' || params.change === 'reschedule')
+      ? params.change
+      : undefined;
+  const changePlace = changing
+    ? {
+        centreId: centre.id,
+        centreName: centre.name,
+        date,
+        view: physioId,
+        backHref: calendarHref({
+          centreId: centre.id,
+          date,
+          physioId,
+          appointmentId: changing.appointment.id,
+        }),
+      }
+    : undefined;
+  const moveTo = change === 'reschedule' ? readSlot(params.book) : undefined;
+  const moveHold = moveTo ? await heldSlot(staff) : undefined;
+  const moveHeldUntil =
+    moveTo &&
+    moveHold &&
+    moveHold.physioId === moveTo.physioId &&
+    moveHold.startsAt.getTime() === moveTo.startsAt.getTime()
+      ? moveHold.expiresAt
+      : undefined;
+  const moveToName = moveTo
+    ? (day.columns.find((c) => c.physioId === moveTo.physioId)?.physioName ??
+      (await asStaff(staff, (tx) => staffRecord(tx, moveTo.physioId)))?.name ??
+      '')
+    : '';
+  const pickOn = calendarDateSchema.safeParse(params.on).success ? (params.on ?? date) : date;
+  // The picker's physio: the appointment's own to begin with (the Reschedule link), or "any".
+  const pickWith = params.with ?? '';
+  const pickSlots =
+    change === 'reschedule' && !moveTo && changing
+      ? await findFreeSlots(staff, {
+          centreId: centre.id,
+          date: pickOn,
+          appointmentTypeId: changing.appointment.appointmentTypeId,
+          freeing: changing.appointment.id,
+        })
+      : undefined;
+
+  const book = canBook && !change ? readSlot(params.book) : undefined;
   const bookType = typeOf(params.type);
   const bookColumn = book ? day.columns.find((c) => c.physioId === book.physioId) : undefined;
   const bookChoice =
@@ -219,7 +283,7 @@ export default async function CalendarPage({
         />
       )}
 
-      {opened ? (
+      {opened && !change ? (
         <AppointmentDrawer
           appointment={opened.appointment}
           status={shownStatus(opened.appointment, renderedAt, lateMinutes)}
@@ -227,6 +291,60 @@ export default async function CalendarPage({
           centreName={centre.name}
           closeHref={closeHref}
           booked={params.booked === '1'}
+          moved={params.moved === '1'}
+          change={
+            changePlace
+              ? {
+                  rescheduleHref: calendarHref({
+                    centreId: centre.id,
+                    date,
+                    physioId,
+                    appointmentId: opened.appointment.id,
+                    change: 'reschedule',
+                    pick: { physioId: opened.physioId },
+                  }),
+                  cancelHref: calendarHref({
+                    centreId: centre.id,
+                    date,
+                    physioId,
+                    appointmentId: opened.appointment.id,
+                    change: 'cancel',
+                  }),
+                }
+              : undefined
+          }
+        />
+      ) : null}
+      {changing && changePlace && change === 'cancel' ? (
+        <CancelSheet
+          appointment={changing.appointment}
+          physioName={changing.physioName}
+          place={changePlace}
+        />
+      ) : null}
+      {changing && changePlace && pickSlots ? (
+        <ReschedulePicker
+          appointment={changing.appointment}
+          physioName={changing.physioName}
+          place={changePlace}
+          physios={pickSlots.map((p) => ({ id: p.physioId, name: p.physioName }))}
+          on={pickOn}
+          withPhysio={pickWith || 'any'}
+          slots={
+            pickWith && pickWith !== 'any'
+              ? pickSlots.filter((p) => p.physioId === pickWith)
+              : pickSlots
+          }
+        />
+      ) : null}
+      {changing && changePlace && moveTo ? (
+        <RescheduleConfirm
+          appointment={changing.appointment}
+          physioName={changing.physioName}
+          place={changePlace}
+          to={moveTo}
+          toPhysioName={moveToName}
+          heldUntil={moveHeldUntil}
         />
       ) : null}
       {slot && slotColumn && options ? (

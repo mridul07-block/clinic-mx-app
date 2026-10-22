@@ -11,6 +11,7 @@ import {
   SlotRefusedError,
   appointmentRecord,
   bookAppointment,
+  changeAppointment,
   currentHold,
   datesWithFreeSlots,
   freeSlots,
@@ -314,7 +315,7 @@ describe('the slot engine', () => {
           .returning({ id: appointment.id });
         await tx
           .update(appointment)
-          .set({ status })
+          .set({ status, changeReason: 'clinic', changedAt: new Date(), changedBy: superAdmin.id })
           .where(eq(appointment.id, freed?.id ?? ''));
         expect(await failure(tx, (sp) => sp.insert(appointment).values(row(from, from + 45)))).toBe(
           undefined,
@@ -437,6 +438,122 @@ describe('the slot engine', () => {
         sql`select schedule from cron.job where jobname = 'slot-hold-release'`,
       );
       expect(jobs.map((j) => j.schedule)).toEqual(['* * * * *']);
+    });
+  });
+
+  // SCH-08: only Booked or Confirmed is cancelled or rescheduled, with who asked; then it never
+  // changes. A move books a new appointment pointing at the old one, in the same transaction, and
+  // may overlap the old time with the same physio.
+  it('cancels and reschedules under the database guard, freeing the old time for the move', async () => {
+    await rolledBack(async (tx) => {
+      const session = await typeId(tx, 'session');
+      const physio = await testPhysio(tx, {
+        centreIds: [centreIds.hsrLayout],
+        createdBy: superAdmin.id,
+      });
+      const patientId = await testPatient(tx);
+      const base = {
+        centreId: centreIds.hsrLayout,
+        physioId: physio.id,
+        appointmentTypeId: session,
+        patientId,
+        channel: 'front_desk' as const,
+        bookedBy: superAdmin.id,
+        holder: 'test:move',
+        step: 15,
+        now: now(),
+      };
+      const first = await bookAppointment(tx, { ...base, startsAt: on(600) });
+      const change = (status: 'cancelled' | 'rescheduled', appointmentId: string) =>
+        changeAppointment(tx, {
+          appointmentId,
+          status,
+          reason: 'patient',
+          changedBy: superAdmin.id,
+          now: now(),
+        });
+
+      // Without freeing, 10:30 overlaps the 10:00 Session; with it, the move is held and booked.
+      const later = { ...base, holdMinutes: 5, startsAt: on(630) };
+      expect(await refusal(tx, (sp) => placeHold(sp, later))).toBe('taken');
+      await placeHold(tx, { ...later, freeing: first.id });
+      // A refused new start leaves the old appointment as it was.
+      expect(
+        await refusal(tx, async (sp) => {
+          await changeAppointment(sp, {
+            appointmentId: first.id,
+            status: 'rescheduled',
+            reason: 'clinic',
+            changedBy: superAdmin.id,
+            now: now(),
+          });
+          await bookAppointment(sp, { ...base, holder: 'test:other', startsAt: on(630) });
+        }),
+      ).toBe('taken');
+      const [still] = await tx.select().from(appointment).where(eq(appointment.id, first.id));
+      expect(still?.status).toBe('booked');
+
+      expect(await change('rescheduled', first.id)).toEqual({ id: first.id });
+      const moved = await bookAppointment(tx, {
+        ...base,
+        startsAt: on(630),
+        rescheduledFromId: first.id,
+      });
+      const [old] = await tx.select().from(appointment).where(eq(appointment.id, first.id));
+      expect(old).toMatchObject({
+        status: 'rescheduled',
+        changeReason: 'patient',
+        changedBy: superAdmin.id,
+      });
+      // Never changed again, never moved twice, the link fixed.
+      expect(await change('cancelled', first.id)).toBeUndefined();
+      expect(
+        await failure(tx, (sp) =>
+          sp.update(appointment).set({ status: 'booked' }).where(eq(appointment.id, first.id)),
+        ),
+      ).toBe('23514');
+      expect(
+        await failure(tx, (sp) =>
+          bookAppointment(sp, { ...base, startsAt: on(720), rescheduledFromId: first.id }),
+        ),
+      ).toBe('23505');
+      expect(
+        await failure(tx, (sp) =>
+          sp
+            .update(appointment)
+            .set({ rescheduledFromId: null })
+            .where(eq(appointment.id, moved.id)),
+        ),
+      ).toBe('23514');
+
+      // A completed appointment is not cancelled; a cancel always says who asked.
+      await tx.update(appointment).set({ status: 'completed' }).where(eq(appointment.id, moved.id));
+      expect(
+        await failure(tx, (sp) =>
+          sp
+            .update(appointment)
+            .set({
+              status: 'cancelled',
+              changeReason: 'clinic',
+              changedAt: now(),
+              changedBy: superAdmin.id,
+            })
+            .where(eq(appointment.id, moved.id)),
+        ),
+      ).toBe('23514');
+      const third = await bookAppointment(tx, { ...base, startsAt: on(690) });
+      expect(
+        await failure(tx, (sp) =>
+          sp.update(appointment).set({ status: 'cancelled' }).where(eq(appointment.id, third.id)),
+        ),
+      ).toBe('23514');
+      expect(await change('cancelled', third.id)).toEqual({ id: third.id });
+
+      const audited = await tx
+        .select({ id: auditEvent.id })
+        .from(auditEvent)
+        .where(and(eq(auditEvent.entity, 'appointment'), eq(auditEvent.entityId, third.id)));
+      expect(audited.length).toBeGreaterThanOrEqual(2);
     });
   });
 

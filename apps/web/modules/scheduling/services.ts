@@ -1,13 +1,16 @@
 import 'server-only';
 import {
   SlotRefusedError,
+  appointmentRecord,
   bookAppointment,
+  changeAppointment,
   currentHold,
   episodeRecord,
   freeSlots,
   patientRecord,
   placeHold,
   releaseHold,
+  type DbOrTransaction,
   type PatientMatch,
   type PhysioSlots,
   type StaffMember,
@@ -15,8 +18,11 @@ import {
 import {
   bookNewPatientSchema,
   bookSlotSchema,
+  cancelAppointmentSchema,
   freeSlotsQuerySchema,
+  isChangeable,
   releaseSlotSchema,
+  rescheduleAppointmentSchema,
   slotChoiceSchema,
 } from '@clinic-mx/schemas';
 import { assertCan, assertMay } from '../access/guard';
@@ -42,15 +48,37 @@ export class SchedulingError extends Error {
 /** A staff member's holds are theirs alone; a WhatsApp Flow session has its own (WA-04). */
 export const holderOf = (actor: StaffMember) => `staff:${actor.id}`;
 
+/**
+ * The appointment being rescheduled (SCH-08), when it may still move: Booked or Confirmed, at
+ * the centre being booked, of the type being booked. Otherwise a refusal to show.
+ */
+async function movable(
+  tx: DbOrTransaction,
+  freeing: string,
+  where: { centreId: string; appointmentTypeId?: string },
+) {
+  const old = await appointmentRecord(tx, freeing);
+  if (
+    !old ||
+    !isChangeable(old.status) ||
+    old.centreId !== where.centreId ||
+    (where.appointmentTypeId !== undefined && old.appointmentTypeId !== where.appointmentTypeId)
+  ) {
+    throw new SchedulingError('Only a booked or confirmed appointment can be moved.');
+  }
+  return old;
+}
+
 /** Free starts on a date at a centre the person books for, per physio who may take the type. */
 export async function findFreeSlots(actor: StaffMember, rawQuery: unknown): Promise<PhysioSlots[]> {
   assertMay(actor, 'bookings.manage');
   const query = freeSlotsQuerySchema.parse(rawQuery);
   assertCan(actor, 'bookings.manage', { centreId: query.centreId });
   const step = await getSetting('scheduling.slot_minutes');
-  return asStaff(actor, (tx) =>
-    freeSlots(tx, { ...query, holder: holderOf(actor), step, now: new Date() }),
-  );
+  return asStaff(actor, async (tx) => {
+    if (query.freeing) await movable(tx, query.freeing, query);
+    return freeSlots(tx, { ...query, holder: holderOf(actor), step, now: new Date() });
+  });
 }
 
 /** Holds a free start for `booking.slot_hold_minutes` while the person finishes the booking. */
@@ -61,8 +89,16 @@ export async function holdSlot(context: ServiceContext, rawInput: unknown) {
     action: 'bookings.manage',
     input: slotChoiceSchema,
     target: (input) => Promise.resolve({ centreId: input.centreId }),
-    run: (tx, input, actor) =>
-      placeHold(tx, { ...input, holder: holderOf(actor), holdMinutes, step, now: new Date() }),
+    run: async (tx, input, actor) => {
+      if (input.freeing) await movable(tx, input.freeing, input);
+      return placeHold(tx, {
+        ...input,
+        holder: holderOf(actor),
+        holdMinutes,
+        step,
+        now: new Date(),
+      });
+    },
   })(context, rawInput);
 }
 
@@ -144,4 +180,78 @@ export async function addPatientAndBook(
     }
     throw error;
   }
+}
+
+/** Where an appointment is, for the permission check: its centre, or none when not seen. */
+async function appointmentTarget(tx: DbOrTransaction, appointmentId: string) {
+  const found = await appointmentRecord(tx, appointmentId);
+  if (!found) throw new SchedulingError('That appointment was not found.');
+  return { centreId: found.centreId };
+}
+
+/**
+ * Cancels a Booked or Confirmed appointment (SCH-08), recording who asked (the patient or the
+ * clinic), who did it and when; its time is free again.
+ */
+export const cancelAppointment = staffService({
+  action: 'bookings.manage',
+  input: cancelAppointmentSchema,
+  target: (input, tx) => appointmentTarget(tx, input.appointmentId),
+  run: async (tx, input, actor) => {
+    const changed = await changeAppointment(tx, {
+      appointmentId: input.appointmentId,
+      status: 'cancelled',
+      reason: input.reason,
+      changedBy: actor.id,
+      now: new Date(),
+    });
+    if (!changed) {
+      throw new SchedulingError('Only a booked or confirmed appointment can be cancelled.');
+    }
+  },
+});
+
+/**
+ * Moves a Booked or Confirmed appointment to a new start, with any physio at the same centre
+ * (SCH-08, user decisions 23 October 2026). One transaction marks the old one Rescheduled (who
+ * asked, who did it, when) and books a new one of the same type for the same patient and
+ * episode, at the front desk; if the new start is refused, nothing changes (PRD J1.7: the old
+ * time is given up only for the new booking). The new appointment's id and number.
+ */
+export async function rescheduleAppointment(context: ServiceContext, rawInput: unknown) {
+  const step = await getSetting('scheduling.slot_minutes');
+  return staffService({
+    action: 'bookings.manage',
+    input: rescheduleAppointmentSchema,
+    target: (input, tx) => appointmentTarget(tx, input.appointmentId),
+    run: async (tx, input, actor) => {
+      const old = await appointmentRecord(tx, input.appointmentId);
+      const changed =
+        old &&
+        (await changeAppointment(tx, {
+          appointmentId: old.id,
+          status: 'rescheduled',
+          reason: input.reason,
+          changedBy: actor.id,
+          now: new Date(),
+        }));
+      if (!old || !changed) {
+        throw new SchedulingError('Only a booked or confirmed appointment can be moved.');
+      }
+      return bookAppointment(tx, {
+        centreId: old.centreId,
+        physioId: input.physioId,
+        appointmentTypeId: old.appointmentTypeId,
+        startsAt: input.startsAt,
+        holder: holderOf(actor),
+        patientId: old.patientId,
+        episodeId: old.episodeId ?? undefined,
+        channel: 'front_desk',
+        bookedBy: actor.id,
+        rescheduledFromId: old.id,
+        step,
+        now: new Date(),
+      });
+    },
+  })(context, rawInput);
 }

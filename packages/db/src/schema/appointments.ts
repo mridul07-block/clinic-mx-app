@@ -1,6 +1,21 @@
-import { appointmentStatuses, bookingChannels, machines } from '@clinic-mx/schemas';
+import {
+  appointmentChangeReasons,
+  appointmentStatuses,
+  bookingChannels,
+  machines,
+} from '@clinic-mx/schemas';
 import { sql } from 'drizzle-orm';
-import { check, index, integer, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  check,
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  type AnyPgColumn,
+} from 'drizzle-orm/pg-core';
 import { appointmentType } from './appointment-types';
 import { episode } from './episodes';
 import { centre, staffUser } from './identity';
@@ -20,6 +35,10 @@ const machineCheck = (column: unknown) =>
 
 export const appointmentStatus = pgEnum('appointment_status', appointmentStatuses);
 export const bookingChannel = pgEnum('booking_channel', bookingChannels);
+export const appointmentChangeReason = pgEnum(
+  'appointment_change_reason',
+  appointmentChangeReasons,
+);
 
 export const appointment = pgTable(
   'appointment',
@@ -50,6 +69,14 @@ export const appointment = pgTable(
     /** Which of the centre's units of the machine, 1 upwards. */
     machineUnit: integer('machine_unit'),
     confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+    /** Cancelled or rescheduled (SCH-08): who asked, and the staff member who did it, when. */
+    changeReason: appointmentChangeReason('change_reason'),
+    changedAt: timestamp('changed_at', { withTimezone: true }),
+    changedBy: uuid('changed_by').references(() => staffUser.id),
+    /** On the appointment a reschedule booked: the one it replaced (SCH-08). */
+    rescheduledFromId: uuid('rescheduled_from_id')
+      .unique()
+      .references((): AnyPgColumn => appointment.id),
     arrivedAt: timestamp('arrived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -64,6 +91,10 @@ export const appointment = pgTable(
       sql`${table.channel} <> 'front_desk' or ${table.bookedBy} is not null`,
     ),
     check('appointment_machine', machineCheck(table.machine)),
+    check(
+      'appointment_change',
+      sql`(${table.status} in ('cancelled', 'rescheduled')) = (${table.changeReason} is not null and ${table.changedAt} is not null and ${table.changedBy} is not null) and (${table.changeReason} is null) = (${table.changedAt} is null) and (${table.changeReason} is null) = (${table.changedBy} is null)`,
+    ),
     check(
       'appointment_machine_unit',
       sql`(${table.machine} is null) = (${table.machineUnit} is null) and (${table.machineUnit} is null or ${table.machineUnit} >= 1)`,

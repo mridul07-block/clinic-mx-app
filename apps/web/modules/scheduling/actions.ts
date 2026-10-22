@@ -8,7 +8,15 @@ import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { serviceContext } from '../access/staff-db';
 import { PatientError } from '../patients/services';
 import { calendarHref } from './links';
-import { SchedulingError, addPatientAndBook, bookSlot, holdSlot, releaseSlot } from './services';
+import {
+  SchedulingError,
+  addPatientAndBook,
+  bookSlot,
+  cancelAppointment,
+  holdSlot,
+  releaseSlot,
+  rescheduleAppointment,
+} from './services';
 
 /** What a booking form shows after a post (SCH-07). */
 export interface BookingFormState {
@@ -33,6 +41,9 @@ const choiceFrom = (form: FormData) => ({
   appointmentTypeId: text(form, 'appointmentTypeId'),
   startsAt: text(form, 'startsAt'),
 });
+
+/** Rescheduling this appointment (SCH-08), when the hold is for a move. */
+const freeingFrom = (form: FormData) => text(form, 'freeing') || undefined;
 
 /** The calendar day of a start, for where to go next; today when it cannot be read. */
 const dayOf = (startsAt: string) => {
@@ -73,10 +84,24 @@ export async function holdSlotAction(
   form: FormData,
 ): Promise<BookingFormState> {
   const choice = choiceFrom(form);
+  const freeing = freeingFrom(form);
   try {
-    await holdSlot(await serviceContext(), choice);
+    await holdSlot(await serviceContext(), { ...choice, freeing });
   } catch (error) {
     return failure(error);
+  }
+  if (freeing) {
+    // A move: back to the appointment being moved, on its own day, at the confirm step.
+    redirect(
+      calendarHref({
+        centreId: choice.centreId,
+        date: text(form, 'date'),
+        physioId: viewFrom(form),
+        appointmentId: freeing,
+        change: 'reschedule',
+        book: { ...choice, startsAt: new Date(choice.startsAt) },
+      }),
+    );
   }
   redirect(
     calendarHref({
@@ -150,4 +175,57 @@ export async function addPatientAndBookAction(
     return { ...failure(error), values };
   }
   redirect(bookedHref(form, appointmentId));
+}
+
+/** Cancels the open appointment, recording who asked (SCH-08); then shows it, cancelled. */
+export async function cancelAppointmentAction(
+  _state: BookingFormState,
+  form: FormData,
+): Promise<BookingFormState> {
+  const appointmentId = text(form, 'appointmentId');
+  try {
+    await cancelAppointment(await serviceContext(), {
+      appointmentId,
+      reason: text(form, 'reason'),
+    });
+  } catch (error) {
+    return failure(error);
+  }
+  redirect(
+    calendarHref({
+      centreId: text(form, 'centreId'),
+      date: text(form, 'date'),
+      physioId: viewFrom(form),
+      appointmentId,
+    }),
+  );
+}
+
+/** Moves the open appointment to the held start (SCH-08); then shows the new one. */
+export async function rescheduleAppointmentAction(
+  _state: BookingFormState,
+  form: FormData,
+): Promise<BookingFormState> {
+  const startsAt = text(form, 'startsAt');
+  let appointmentId: string;
+  try {
+    const moved = await rescheduleAppointment(await serviceContext(), {
+      appointmentId: text(form, 'appointmentId'),
+      physioId: text(form, 'physioId'),
+      startsAt,
+      reason: text(form, 'reason'),
+    });
+    appointmentId = moved.id;
+  } catch (error) {
+    return failure(error);
+  }
+  redirect(
+    calendarHref({
+      centreId: text(form, 'centreId'),
+      // Everyone on a phone: the new appointment may be with another physio.
+      date: dayOf(startsAt),
+      appointmentId,
+      moved: true,
+    }),
+  );
 }

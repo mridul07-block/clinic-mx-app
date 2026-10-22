@@ -135,6 +135,42 @@ Holding is a post (a server action), never a link: Next.js fetches links ahead, 
 slots. Every booking from here is `front_desk` with `booked_by` set, audited. The WhatsApp
 confirmation (J1.5) comes with the WhatsApp tickets; the sheet says so.
 
+## Reschedule and cancel (SCH-08)
+
+From an appointment's sheet, someone who books (Super Admin, Centre Manager, Front Desk) gets
+"Reschedule" and "Cancel appointment" in the pinned footer, while it is Booked or Confirmed.
+
+Decisions (user, 23 October 2026):
+
+- **Booked or Confirmed, any time until check in,** including a patient running late who phones
+  to move. Any other status cannot change.
+- **A move keeps the type.** The picker starts on the appointment's own day and physio, and any
+  day and physio at the centre can be chosen. It books a **new appointment number**; the old one
+  shows "Rescheduled to MVH-…", the new one "Moved from MVH-…".
+- **Who asked is "By the patient" or "By the clinic",** required, with who did it and when. No
+  free text. SCH-09 counts the patient's reschedules from this.
+
+How it holds together:
+
+- **One transaction** marks the old appointment Rescheduled and books the new one, so if the new
+  start is refused nothing changes (PRD J1.7: the old time is given up only for the new booking).
+- **The old appointment's own time counts as free while moving it** (`freeing` in the slot
+  engine), so 10:00 can move to 10:30 with the same physio. The busy times carry no ids, so the
+  one entry with its physio and times is taken out, and its treadmill unit's.
+- **In the database:**
+  - `change_reason`, `changed_at` and `changed_by` are set exactly when the status is Cancelled
+    or Rescheduled (`appointment_change`; `NOT VALID`, so rows from before SCH-08 stay as they
+    were);
+  - `appointment_status_guard` lets only Booked or Confirmed become Cancelled or Rescheduled, and
+    a Cancelled or Rescheduled appointment never changes again;
+  - the new appointment's `rescheduled_from_id` is unique and never changes (`appointment_fixed`).
+- **The cancel sheet is its own confirmation** (who asked, then Cancel appointment, or Keep it).
+- **Not here:**
+  - messages to the patient (WhatsApp tickets);
+  - the counters and self booking block (SCH-09);
+  - package reschedules and treadmill rules (SCH-10);
+  - late cancellation charges (open decision 11).
+
 ## Live updates
 
 1. `CalendarView` (a client component) holds the day the server drew, and gives it to both the
@@ -176,10 +212,13 @@ When FND-09's relay arrives, the same component listens for changes instead of a
 | `apps/web/modules/consultation-fees/services.test.ts` | A listed fee for a consultant, or none; other items, non-consultants and other roles refused |
 | `packages/db/src/integration/calendar.integration.test.ts` | Columns for rostered physios only; free cells without appointments here and at another centre, holds and leave; the fee; appointments with patients for the front desk; a physio's own column; the version changes with the day; the fee audited |
 | `apps/web/modules/scheduling/services.test.ts` | Cancel gives back one's own hold only; a new caller is added at the booking's centre and booked as the front desk; a mobile on file returns its patients first; a refused time keeps the added patient; a name and mobile are required |
-| `packages/db/src/integration/slots.integration.test.ts` | `currentHold`: one's own live hold only, under row level security |
+| `packages/db/src/integration/slots.integration.test.ts` | `currentHold`: one's own live hold only, under row level security. SCH-08: freeing lets a move overlap its own time; a refused move leaves the old one Booked; the status guard (never changed again, a Completed one not cancelled, who asked required); one successor, the link fixed; audited |
+| `packages/schemas/src/slots.test.ts` | Only Booked or Confirmed changes; who asked is the patient or the clinic, always given |
+| `apps/web/e2e/reschedule.spec.ts` | 360 px and desktop: cancel by the patient (who asked is required; the time is free again); move to another day and physio (new number, "Moved from", "Rescheduled to", by the clinic); move to an overlapping time with the same physio; a physio cannot change appointments |
 | `apps/web/e2e/booking.spec.ts` | 360 px and desktop: book a patient found by mobile from a free slot ("Booked MVH-…", "Front desk, by …"); add a new caller and book; a mobile on file lists its patients; New booking by type and day; Cancel gives the slot back; a time taken meanwhile is refused in the engine's words; a physio cannot book |
 | `apps/web/e2e/calendar.spec.ts` | Desktop: the fee, a block and its drawer, a free cell and its drawer, Esc closes. 360 px: the same through the agenda (Everyone with the physio named, a physio chip with the fee, the bottom sheet across the screen's foot, a free start chip), no sideways scroll. Both: a booking made elsewhere appears without a reload; a physio sees their own column; Finance refused; the Super Admin sets a fee |
 
 **Negative checks (23 October 2026).** With the live day not applied, the "appears without a
 reload" test failed (SCH-05); with the agenda given the day as first drawn, it failed on the phone
-(SCH-06); with Cancel not releasing the hold, "Cancel booking gives the slot back" failed (SCH-07).
+(SCH-06); with Cancel not releasing the hold, "Cancel booking gives the slot back" failed (SCH-07); without `freeing`, the overlapping move test failed, and without
+`appointment_status_guard`, the database guard test failed (SCH-08).
