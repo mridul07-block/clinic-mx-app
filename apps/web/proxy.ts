@@ -16,6 +16,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { appDb } from './lib/db';
 import { serverEnv } from './lib/env';
+import { requestAddress } from './lib/network';
 import {
   DEVICE_COOKIE,
   KIOSK_COOKIE,
@@ -204,7 +205,7 @@ async function logIfSupport(request: NextRequest, clinic: unknown) {
   if (!grant) return;
   await logSupportRequest(appDb(), {
     actor: staffActor(claims.data.staff_id),
-    ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || undefined,
+    ip: requestAddress(request.headers),
     grantId: grant.id,
     path: request.nextUrl.pathname,
     kind,

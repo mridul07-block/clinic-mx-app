@@ -1,13 +1,20 @@
 import { patientLinkDefinitions, type PatientLinkPurpose } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { clientIp } from '../../../../modules/auth/session';
 import { kioskBrowser } from '../../../../modules/kiosk/device';
 import {
   openPatientLink,
   patientLinkIdFromToken,
   type OpenedLink,
 } from '../../../../modules/patient-links/services';
+import {
+  count,
+  firstLimited,
+  limited,
+  networkKey,
+  take,
+} from '../../../../modules/rate-limits/limits';
 import { getSetting } from '../../../../modules/settings/settings';
 import { KioskShell } from './kiosk-shell';
 
@@ -20,6 +27,9 @@ import { KioskShell } from './kiosk-shell';
 // On the clinic tablet (IAM-10, a browser with the kiosk cookie) the page opens only the form the
 // front desk sent to that tablet; anything else goes back to the welcome screen. The kiosk shell
 // returns there after a submit or when idle.
+//
+// Rate limits (IAM-11): every open counts against the network's opens, and a link that is not
+// valid against its bad links. Over either, the page checks nothing and asks the patient to wait.
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
@@ -27,7 +37,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-function message(opened: OpenedLink): { title: string; body: string } {
+/** What the page found: the link's state, or that this network must wait (IAM-11). */
+type Shown = OpenedLink | { status: 'limited' };
+
+function message(opened: Shown): { title: string; body: string } {
   const titleOf = (purpose: PatientLinkPurpose) => patientLinkDefinitions[purpose].title;
   switch (opened.status) {
     case 'valid':
@@ -47,11 +60,16 @@ function message(opened: OpenedLink): { title: string; body: string } {
         title: 'We could not open this link',
         body: 'This link is not valid. Please ask the clinic for a new one.',
       };
+    case 'limited':
+      return {
+        title: 'Please wait a moment',
+        body: 'Too many tries. Please wait a few minutes and try again.',
+      };
   }
 }
 
 /** On the tablet a finished or unusable form hands the tablet back; no WhatsApp hint. */
-function kioskMessage(opened: OpenedLink): { title: string; body: string } {
+function kioskMessage(opened: Shown): { title: string; body: string } {
   switch (opened.status) {
     case 'valid':
       return message(opened);
@@ -68,6 +86,19 @@ function kioskMessage(opened: OpenedLink): { title: string; body: string } {
   }
 }
 
+/** Opens the link unless this network is over a limit; a link that is not valid is counted. */
+async function openLimited(token: string, ip: string | undefined): Promise<Shown> {
+  const network = networkKey(ip);
+  const over = await firstLimited([
+    limited('bad_links_per_network', network),
+    take('link_opens_per_network', network),
+  ]);
+  if (over.limited) return { status: 'limited' };
+  const opened = await openPatientLink(token, { ip });
+  if (opened.status === 'invalid') await count('bad_links_per_network', network);
+  return opened;
+}
+
 export default async function PatientPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const browser = await kioskBrowser();
@@ -78,8 +109,8 @@ export default async function PatientPage({ params }: { params: Promise<{ token:
     }
   }
   const kiosk = browser.status === 'active';
-  const ip = (await headers()).get('x-forwarded-for')?.split(',')[0]?.trim() || undefined;
-  const opened = await openPatientLink(token, { ip });
+  const ip = await clientIp();
+  const opened = await openLimited(token, ip);
   const { title, body } = kiosk ? kioskMessage(opened) : message(opened);
   const page = (
     <main data-voice="patient" className="min-h-dvh bg-surface px-4 py-6">

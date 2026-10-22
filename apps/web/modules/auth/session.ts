@@ -5,6 +5,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { appDb } from '../../lib/db';
+import { requestAddress } from '../../lib/network';
 import { AuthNotConfiguredError, supabaseServer } from '../../lib/supabase/server';
 import { safeNextPath } from './next-path';
 import { signInStage, stagePath, type SignInStage } from './two-step';
@@ -76,8 +77,7 @@ export async function requireStaff(): Promise<StaffMember> {
   return state.staff;
 }
 
-/** The client's address for the audit trail, as Vercel passes it. */
+/** The client's address for the audit trail and rate limits, as Vercel passes it (IAM-11). */
 export async function clientIp(): Promise<string | undefined> {
-  const forwarded = (await headers()).get('x-forwarded-for');
-  return forwarded?.split(',')[0]?.trim() || undefined;
+  return requestAddress(await headers());
 }

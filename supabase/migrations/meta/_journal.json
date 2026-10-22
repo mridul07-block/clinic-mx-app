@@ -141,6 +141,20 @@
       "when": 1792619039188,
       "tag": "20261021214359_kiosk_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792648767619,
+      "tag": "20261022055927_rate_limits",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792648768571,
+      "tag": "20261022055928_rate_limit_rules",
+      "breakpoints": true
     }
   ]
 }

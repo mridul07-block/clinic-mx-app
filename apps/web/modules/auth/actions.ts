@@ -17,6 +17,7 @@ import {
   authClient,
   authMessage,
   endSession,
+  isRefusal,
   checkCode,
   firstIssue,
   logAccess,
@@ -24,7 +25,17 @@ import {
   nextParam,
   type AuthFormState,
 } from './auth-support';
+import {
+  clear,
+  count,
+  firstLimited,
+  limited,
+  networkKey,
+  take,
+  tryAgainIn,
+} from '../rate-limits/limits';
 import { safeNextPath } from './next-path';
+import { clientIp } from './session';
 import { signInStage, stagePath } from './two-step';
 
 export type { AuthFormState } from './auth-support';
@@ -45,19 +56,39 @@ export async function signIn(_state: AuthFormState, form: FormData): Promise<Aut
   const parsed = signInSchema.safeParse({ email, password: form.get('password') });
   if (!parsed.success) return { error: firstIssue(parsed.error), email };
 
+  // IAM-11: failed sign ins are limited per email and per network before Supabase is asked, so
+  // guessing cannot use up the allowance Supabase gives our server for everyone.
+  const network = networkKey(await clientIp());
+  const over = await firstLimited([
+    limited('sign_in_per_email', parsed.data.email),
+    limited('sign_in_per_network', network),
+  ]);
+  if (over.limited) return { error: tryAgainIn(over), email };
+  const failed = () =>
+    Promise.all([
+      count('sign_in_per_email', parsed.data.email),
+      count('sign_in_per_network', network),
+    ]);
+
   const supabase = await authClient();
   if (!supabase) return { error: messages.unavailable, email };
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) return { error: authMessage(error, messages.signInFailed), email };
+  if (error) {
+    if (isRefusal(error)) await failed();
+    return { error: authMessage(error, messages.signInFailed), email };
+  }
 
   // A login whose staff member is deactivated or past their end date gets no session, nor does
   // a Velyx support login while support access is off (IAM-08).
   const staff = await staffForSignIn(appDb(), data.user.id);
   if (!staff) {
     await supabase.auth.signOut({ scope: 'local' });
+    await failed();
     const supportOff = await supportLoginWithoutGrant(appDb(), data.user.id);
     return { error: supportOff ? messages.supportOff : messages.signInFailed, email };
   }
+  // Decision 22 October 2026: only failures count, and getting in clears the email's count.
+  await clear('sign_in_per_email', parsed.data.email);
 
   // IAM-07: the device class for this sign in (G7, from the browser; unknown counts as desktop)
   // and its first activity.
@@ -83,6 +114,14 @@ export async function requestPasswordReset(
   const email = typedEmail(form);
   const parsed = passwordResetRequestSchema.safeParse({ email });
   if (!parsed.success) return { error: firstIssue(parsed.error), email };
+
+  // IAM-11: every request counts, per email and per network; the answer when over the limit is
+  // the same whether or not the email has an account.
+  const over = await firstLimited([
+    take('reset_email_per_email', parsed.data.email),
+    take('reset_email_per_network', networkKey(await clientIp())),
+  ]);
+  if (over.limited) return { error: tryAgainIn(over), email };
 
   const supabase = await authClient();
   if (!supabase) return { error: messages.unavailable, email };
@@ -151,12 +190,19 @@ export async function resetPassword(_state: AuthFormState, form: FormData): Prom
   }
 
   // With two step verification on, Supabase changes the password only after a code (IAM-02).
+  // Wrong codes are limited per login (IAM-11), as at sign in.
   if (code?.success) {
+    const over = await limited('two_step_per_person', staff.id);
+    if (over.limited) return { error: tryAgainIn(over), needCode: true };
     const { data: factors } = await supabase.auth.mfa.listFactors();
     const [factor] = factors?.totp ?? [];
     if (factor) {
       const { error } = await checkCode(supabase, factor.id, code.data.code);
-      if (error) return { error: authMessage(error, messages.wrongCode), needCode: true };
+      if (error) {
+        if (isRefusal(error)) await count('two_step_per_person', staff.id);
+        return { error: authMessage(error, messages.wrongCode), needCode: true };
+      }
+      await clear('two_step_per_person', staff.id);
     }
   }
 

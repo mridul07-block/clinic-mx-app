@@ -21,6 +21,8 @@ const priceItemKey = z.string().regex(/^[a-z][a-z0-9_]*$/);
 /** A time of day in IST, "HH:MM" on a 24 hour clock. */
 const timeOfDay = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const interval = z.strictObject({ count: z.int().positive(), unit: z.enum(['week', 'month']) });
+/** A rate limit (IAM-11): at most `count` in a window of `minutes`. */
+const limit = z.strictObject({ count: z.int().positive(), minutes: z.int().positive() });
 
 export const consultationFeeTimings = ['after_consultation', 'at_check_in'] as const;
 
@@ -166,6 +168,46 @@ export const settingDefinitions = {
     schema: z.int().positive(),
     source: 'User decision, 22 October 2026 (IAM-10)',
     description: 'Seconds the thank you screen stays on the clinic tablet after a submit.',
+  },
+  'limits.sign_in_per_email': {
+    schema: limit,
+    source: 'User decision, 22 October 2026 (IAM-11)',
+    description: 'Failed sign ins allowed for one email in the window.',
+  },
+  'limits.sign_in_per_network': {
+    schema: limit,
+    source: 'User decision, 22 October 2026 (IAM-11)',
+    description: 'Failed sign ins allowed from one network (IP address) in the window.',
+  },
+  'limits.reset_email_per_email': {
+    schema: limit,
+    source: 'User decision, 22 October 2026 (IAM-11)',
+    description: 'Password reset emails one email can ask for in the window.',
+  },
+  'limits.reset_email_per_network': {
+    schema: limit,
+    source: 'User decision, 22 October 2026 (IAM-11)',
+    description: 'Password reset emails one network can ask for in the window.',
+  },
+  'limits.two_step_per_person': {
+    schema: limit,
+    source: 'User decision, 22 October 2026 (IAM-11)',
+    description: 'Wrong two step codes allowed for one login in the window.',
+  },
+  'limits.bad_links_per_network': {
+    schema: limit,
+    source: 'User decision, 22 October 2026 (IAM-11)',
+    description: 'Patient links that are not valid one network can open in the window.',
+  },
+  'limits.link_opens_per_network': {
+    schema: limit,
+    source: 'User decision, 22 October 2026 (IAM-11)',
+    description: 'Patient links one network can open in the window.',
+  },
+  'limits.webhook_failures_per_network': {
+    schema: limit,
+    source: 'User decision, 22 October 2026 (IAM-11)',
+    description: 'Webhook calls with a wrong secret allowed from one network in the window.',
   },
   'reminders.day_before_time': {
     schema: timeOfDay,

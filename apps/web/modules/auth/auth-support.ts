@@ -43,6 +43,14 @@ export function authMessage(error: AuthError, refused: string): string {
   return messages.unavailable;
 }
 
+/**
+ * Supabase refused the details (a wrong password or code, or its own limit), as opposed to being
+ * unreachable. Refusals count against the rate limits (IAM-11); our own outages do not.
+ */
+export function isRefusal(error: AuthError): boolean {
+  return Boolean(error.status && error.status >= 400 && error.status < 500);
+}
+
 /** The request's Supabase client, or undefined when Auth is not configured. */
 export async function authClient() {
   try {

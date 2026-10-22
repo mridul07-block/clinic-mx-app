@@ -54,6 +54,7 @@ claim through the IAM-03 readers (`internal.jwt_staff_id`, `jwt_staff_role`, `jw
 | `setting` | Super Admin | Super Admin updates; the app reads values through the system reader |
 | `task` | For them, for their role, or all for the Super Admin | The same people update (close with a decision) |
 | `job` | None: server only | None |
+| `rate_limit` (IAM-11) | None: server only (`docs/runbooks/rate-limits.md`) | None |
 | `kiosk_device` (IAM-10) | Check in rights (Super Admin, Centre Manager, Front Desk) in centres they see | The same people insert (as themselves) and update; the tablet's own reset runs on the server as `system:kiosk.<id>` |
 
 No table has a delete policy except centre assignments. Staff are deactivated, never deleted.
