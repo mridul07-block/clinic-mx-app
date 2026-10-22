@@ -14,6 +14,10 @@ export interface CentreEntry {
   name: string;
   /** Starts every OP number the centre issues (SCH-01). */
   code: string;
+  /** Starts every appointment ID the centre issues (SCH-04). */
+  appointmentPrefix: string;
+  /** Zero Gravity Treadmills at the centre (SCH-04). */
+  treadmills: number;
   address: string | null;
   mapLink: string | null;
   phone: string | null;
@@ -25,6 +29,8 @@ const columns = {
   id: centre.id,
   name: centre.name,
   code: centre.code,
+  appointmentPrefix: centre.appointmentPrefix,
+  treadmills: centre.treadmills,
   address: centre.address,
   mapLink: centre.mapLink,
   phone: centre.phone,
@@ -56,11 +62,11 @@ export async function insertCentre(
   return row.id;
 }
 
-/** Changes a centre's details; false when it was not found. */
+/** Changes a centre's details and treadmill count; false when it was not found. */
 export async function updateCentre(
   db: DbOrTransaction,
   centreId: string,
-  details: CentreDetails,
+  details: CentreDetails & { treadmills?: number },
 ): Promise<boolean> {
   const updated = await db
     .update(centre)
@@ -124,5 +130,17 @@ export async function centreNameTaken(
 /** Whether a centre already has this code; codes never repeat, even on inactive centres. */
 export async function centreCodeTaken(db: DbOrTransaction, code: string): Promise<boolean> {
   const [row] = await db.select({ id: centre.id }).from(centre).where(eq(centre.code, code));
+  return Boolean(row);
+}
+
+/** Whether a centre already has this appointment prefix; prefixes never repeat either. */
+export async function appointmentPrefixTaken(
+  db: DbOrTransaction,
+  prefix: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: centre.id })
+    .from(centre)
+    .where(eq(centre.appointmentPrefix, prefix));
   return Boolean(row);
 }

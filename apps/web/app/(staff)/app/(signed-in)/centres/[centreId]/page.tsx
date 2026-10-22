@@ -49,7 +49,8 @@ export default async function CentrePage({
         <h1 className="text-title font-semibold">{centre.name}</h1>
         <p className="text-sm text-ink-secondary" data-testid="centre-code">
           Code <span className="font-mono text-ink">{centre.code}</span>, at the start of its OP
-          numbers. It never changes.
+          numbers, and prefix <span className="font-mono text-ink">{centre.appointmentPrefix}</span>
+          , at the start of its appointment IDs. They never change.
         </p>
         <span className="flex flex-wrap items-center gap-2">
           {centre.active ? <Tag tone="active">Active</Tag> : <Tag tone="neutral">Inactive</Tag>}
@@ -67,6 +68,8 @@ export default async function CentrePage({
             <dd>{centre.phone ? formatIndianPhone(centre.phone) : 'None yet'}</dd>
             <dt className="font-medium text-ink">Map link</dt>
             <dd className="break-all">{centre.mapLink ?? 'None yet'}</dd>
+            <dt className="font-medium text-ink">Zero Gravity Treadmills</dt>
+            <dd>{centre.treadmills}</dd>
           </dl>
         </>
       ) : (
@@ -79,6 +82,7 @@ export default async function CentrePage({
               phone: centre.phone ?? '',
               mapLink: centre.mapLink ?? '',
               colour: centre.colour,
+              treadmills: String(centre.treadmills),
             }}
             takenBy={takenBy}
             inactive={!centre.active}

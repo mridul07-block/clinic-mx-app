@@ -30,6 +30,8 @@ export interface CentreFormValues {
   phone: string;
   mapLink: string;
   colour: string;
+  /** Zero Gravity Treadmills, as typed. */
+  treadmills: string;
 }
 
 /**
@@ -83,6 +85,18 @@ export function CentreForm({
           error={state.fieldErrors?.code}
         />
       )}
+      {centre?.centreId ? null : (
+        <TextField
+          label="Appointment prefix"
+          name="appointmentPrefix"
+          autoComplete="off"
+          autoCapitalize="characters"
+          maxLength={4}
+          defaultValue={state.values?.appointmentPrefix ?? ''}
+          helper="2 to 4 letters, for example MVH. It starts every appointment ID the centre issues and cannot be changed later."
+          error={state.fieldErrors?.appointmentPrefix}
+        />
+      )}
       <TextAreaField
         label="Address"
         name="address"
@@ -110,6 +124,18 @@ export function CentreForm({
         defaultValue={value('mapLink')}
         helper="In Google Maps, open the centre, choose Share and copy the link."
         error={state.fieldErrors?.mapLink}
+      />
+      <TextField
+        label="Zero Gravity Treadmills"
+        name="treadmills"
+        type="number"
+        inputMode="numeric"
+        min={0}
+        max={20}
+        autoComplete="off"
+        defaultValue={value('treadmills') || '1'}
+        helper="How many the centre has. Each treadmill takes one booking at a time."
+        error={state.fieldErrors?.treadmills}
       />
       <fieldset
         className="flex flex-col gap-1"

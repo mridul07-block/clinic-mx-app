@@ -274,6 +274,20 @@
       "when": 1792686744012,
       "tag": "20261022163224_episode_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792690280600,
+      "tag": "20261022173120_appointments",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792690337407,
+      "tag": "20261022173217_appointment_rules",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import {
   boolean,
   check,
   index,
+  integer,
   pgEnum,
   pgTable,
   primaryKey,
@@ -35,6 +36,10 @@ export const centre = pgTable(
     name: text('name').notNull().unique(),
     /** SCH-01: the start of every OP number the centre issues, for example HSR; never changes. */
     code: text('code').notNull().unique(),
+    /** SCH-04 (decision G6): the start of every appointment ID, for example MVK; never changes. */
+    appointmentPrefix: text('appointment_prefix').notNull().unique(),
+    /** Zero Gravity Treadmills at the centre (decision G2: machines are resources). */
+    treadmills: integer('treadmills').notNull().default(1),
     address: text('address'),
     mapLink: text('map_link'),
     phone: text('phone'),
@@ -46,6 +51,8 @@ export const centre = pgTable(
   (table) => [
     check('centre_colour_hex', sql`${table.colour} ~ '^#[0-9A-F]{6}$'`),
     check('centre_code_letters', sql`${table.code} ~ '^[A-Z]{2,4}$'`),
+    check('centre_appointment_prefix_letters', sql`${table.appointmentPrefix} ~ '^[A-Z]{2,4}$'`),
+    check('centre_treadmills', sql`${table.treadmills} >= 0`),
     // SET-01: each chart colour belongs to one active centre at a time.
     uniqueIndex('centre_colour_active_key')
       .on(table.colour)

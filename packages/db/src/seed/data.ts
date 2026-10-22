@@ -16,12 +16,13 @@ export const centreIds = {
 // with the clinic. The Koramangala listing is named "Movementology Academy". No public
 // address was found for Whitefield. Phones and map links are added by the Super Admin.
 // Colours are the centre chart colours from the Frontend Specification. Codes start OP numbers
-// (SCH-01, user decision 22 October 2026).
+// (SCH-01, user decision 22 October 2026); prefixes start appointment IDs (SCH-04, decision G6).
 export const seedCentres = [
   {
     id: centreIds.hsrLayout,
     name: 'HSR Layout',
     code: 'HSR',
+    appointmentPrefix: 'MVH',
     address: 'Bhagyalaxmi Square, 17/N, 18th Main Rd, Sector 3, HSR Layout, Bengaluru 560102',
     colour: '#2F74BB',
   },
@@ -29,6 +30,7 @@ export const seedCentres = [
     id: centreIds.koramangala,
     name: 'Koramangala',
     code: 'KOR',
+    appointmentPrefix: 'MVK',
     address: '#89, 17th D Main, 6th Block, Koramangala, Bengaluru 560095',
     colour: '#7F5BB6',
   },
@@ -36,6 +38,7 @@ export const seedCentres = [
     id: centreIds.whitefield,
     name: 'Whitefield',
     code: 'WFD',
+    appointmentPrefix: 'MVW',
     address: null,
     colour: '#1C8580',
   },

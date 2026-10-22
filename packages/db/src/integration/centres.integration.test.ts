@@ -86,13 +86,23 @@ describe('centres', () => {
     await rolledBack(superAdmin, async (tx) => {
       expect(
         await failure(tx, (sp) =>
-          insertCentre(sp, { ...details('Indiranagar', teal), code: 'IND' }),
+          insertCentre(sp, {
+            ...details('Indiranagar', teal),
+            code: 'IND',
+            appointmentPrefix: 'MVI',
+            treadmills: 1,
+          }),
         ),
       ).toBe('23505');
       expect((await activeCentreWithColour(tx, teal))?.name).toBe('Whitefield');
       expect(await setCentreActive(tx, centreIds.whitefield, false)).toBe(true);
       expect(await setCentreActive(tx, centreIds.whitefield, false)).toBe(false);
-      const id = await insertCentre(tx, { ...details('Indiranagar', teal), code: 'IND' });
+      const id = await insertCentre(tx, {
+        ...details('Indiranagar', teal),
+        code: 'IND',
+        appointmentPrefix: 'MVI',
+        treadmills: 1,
+      });
       // Whitefield cannot come back while teal is taken.
       expect(await failure(tx, (sp) => setCentreActive(sp, centreIds.whitefield, true))).toBe(
         '23505',
@@ -142,7 +152,12 @@ describe('centres', () => {
       expect(row?.active).toBe(true);
       expect(
         await failure(tx, (sp) =>
-          insertCentre(sp, { ...details('Indiranagar', teal), code: 'IND' }),
+          insertCentre(sp, {
+            ...details('Indiranagar', teal),
+            code: 'IND',
+            appointmentPrefix: 'MVI',
+            treadmills: 1,
+          }),
         ),
       ).toBe('42501');
     });
@@ -161,12 +176,22 @@ describe('centres', () => {
       await setCentreActive(tx, centreIds.whitefield, false);
       expect(
         await failure(tx, (sp) =>
-          insertCentre(sp, { ...details('Indiranagar', teal), code: 'HSR' }),
+          insertCentre(sp, {
+            ...details('Indiranagar', teal),
+            code: 'HSR',
+            appointmentPrefix: 'MVI',
+            treadmills: 1,
+          }),
         ),
       ).toBe('23505');
       expect(
         await failure(tx, (sp) =>
-          insertCentre(sp, { ...details('Indiranagar', teal), code: 'h1' }),
+          insertCentre(sp, {
+            ...details('Indiranagar', teal),
+            code: 'h1',
+            appointmentPrefix: 'MVI',
+            treadmills: 1,
+          }),
         ),
       ).toBe('23514');
     });

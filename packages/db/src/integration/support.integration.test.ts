@@ -302,6 +302,7 @@ describe('read only, twice over', () => {
           tx.insert(centre).values({
             name: 'Support test centre',
             code: 'ST',
+            appointmentPrefix: 'ST',
             colour: seedCentres[0]?.colour ?? '',
           }),
         ),
