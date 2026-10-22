@@ -3,19 +3,23 @@ import { bookingChannelLabels, formatIstDate, istDate } from '@clinic-mx/schemas
 import { toneByAppointmentStatus } from '@clinic-mx/ui';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { primaryButtonClass } from '../../../../../components/forms';
 import { Tag } from '../../../../../components/tag';
 import type { SlotOption } from '../../../../../modules/scheduling/calendar';
+import { HoldButton } from './booking-forms';
 import { shownStatusLabels, timeOf, type ShownStatus } from './calendar-block';
 import { DrawerKeys } from './drawer-keys';
 
-const linkClass = 'text-accent underline underline-offset-2';
+export const linkClass = 'text-accent underline underline-offset-2';
+
+const bookClass = `${primaryButtonClass.replace('w-full', 'w-auto')} shrink-0`;
 
 /**
  * The right drawer (design system: details open in a right drawer so the calendar stays visible,
  * 480 px). On a phone it is a sheet that slides up from the bottom, with its actions pinned at the
  * bottom (Frontend Specification section 4, SCH-06). Close, or Esc, goes back to the plain day.
  */
-function Drawer({
+export function Drawer({
   label,
   closeHref,
   footer,
@@ -58,7 +62,7 @@ function Drawer({
   );
 }
 
-function Detail({ term, children }: { term: string; children: ReactNode }) {
+export function Detail({ term, children }: { term: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
       <dt className="text-sm text-ink-muted">{term}</dt>
@@ -74,16 +78,31 @@ export function AppointmentDrawer({
   physioName,
   centreName,
   closeHref,
+  booked = false,
 }: {
   appointment: CalendarAppointment;
   status: ShownStatus;
   physioName: string;
   centreName: string;
   closeHref: string;
+  /** Just booked from the calendar (SCH-07). */
+  booked?: boolean;
 }) {
   const day = istDate(appointment.startsAt);
   return (
     <Drawer label="Appointment" closeHref={closeHref}>
+      {booked ? (
+        <div
+          role="status"
+          data-testid="booked"
+          className="flex flex-col gap-1 rounded-panel border border-active-line bg-active-soft px-4 py-3"
+        >
+          <span className="font-semibold text-active">Booked {appointment.number}</span>
+          <span className="text-sm text-ink-secondary">
+            The WhatsApp confirmation starts with the WhatsApp integration.
+          </span>
+        </div>
+      ) : null}
       <div className="flex flex-col gap-2">
         <p className="font-mono text-sm text-ink-secondary">{appointment.number}</p>
         <h2 className="text-title font-semibold text-ink">{appointment.typeName}</h2>
@@ -124,24 +143,32 @@ export function AppointmentDrawer({
   );
 }
 
-/** A free start (SCH-05): which appointment types fit there. Booking it comes next (SCH-07). */
+/**
+ * A free start (SCH-05): which appointment types fit there. Someone who books gets "Book" on each
+ * that fits, which holds the start and opens the booking sheet (SCH-07).
+ */
 export function SlotDrawer({
   startsAt,
   physioName,
   options,
   closeHref,
+  book,
 }: {
   startsAt: Date;
   physioName: string;
   options: SlotOption[];
   closeHref: string;
+  /** For someone who books (SCH-07): where, for whom and the phone's picked physio. */
+  book?: { centreId: string; physioId: string; view?: string };
 }) {
   return (
     <Drawer
       label="Free slot"
       closeHref={closeHref}
       footer={
-        <p className="text-sm text-ink-muted">Booking a patient from the calendar comes next.</p>
+        book ? undefined : (
+          <p className="text-sm text-ink-muted">Only the front desk and managers book.</p>
+        )
       }
     >
       <div className="flex flex-col gap-1">
@@ -158,7 +185,23 @@ export function SlotDrawer({
               {option.refusal ? (
                 <Tag tone="neutral">Does not fit</Tag>
               ) : (
-                <Tag tone="active">Fits, {option.minutes} min</Tag>
+                <span className="flex items-center gap-2">
+                  <Tag tone="active">Fits, {option.minutes} min</Tag>
+                  {book ? (
+                    <HoldButton
+                      choice={{
+                        centreId: book.centreId,
+                        physioId: book.physioId,
+                        appointmentTypeId: option.appointmentTypeId,
+                        startsAt: startsAt.toISOString(),
+                      }}
+                      view={book.view}
+                      label="Book"
+                      name={`Book ${option.name} at ${timeOf(startsAt)}`}
+                      className={bookClass}
+                    />
+                  ) : null}
+                </span>
               )}
             </span>
             {option.refusal ? (

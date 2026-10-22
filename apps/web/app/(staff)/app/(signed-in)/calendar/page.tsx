@@ -1,14 +1,23 @@
-import { calendarVersion, centreList } from '@clinic-mx/db';
-import { addDays, calendarDateSchema, formatIstDate, istDate } from '@clinic-mx/schemas';
+import { appointmentTypeList, calendarVersion, centreList, searchPatients } from '@clinic-mx/db';
+import {
+  addDays,
+  calendarDateSchema,
+  can,
+  formatIstDate,
+  istDate,
+  patientSearch,
+} from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { FormMessage } from '../../../../../components/forms';
+import { FormMessage, primaryButtonClass } from '../../../../../components/forms';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../modules/access/staff-db';
 import { loadCalendar, slotOptions } from '../../../../../modules/scheduling/calendar';
+import { findFreeSlots, heldSlot } from '../../../../../modules/scheduling/services';
 import { getSetting } from '../../../../../modules/settings/settings';
 import { shownStatus } from './calendar-block';
 import { CalendarView } from './calendar-view';
+import { BookingSheet, NewBookingSheet } from './booking-sheet';
 import { AppointmentDrawer, SlotDrawer } from './drawer';
 import { calendarHref, readSlot } from './links';
 
@@ -26,6 +35,8 @@ const weekday = (date: string) =>
 // drawer, and live updates. The Super Admin, Centre Managers and the Front Desk see every physio at
 // a centre; a physio sees their own column. The address carries the centre, date and drawer.
 // Phones get the agenda, one physio or everyone at a time, with details in a bottom sheet (SCH-06).
+// The front desk books from a free slot or New booking: the start is held, then the patient is
+// found or added with a name and mobile (SCH-07).
 export default async function CalendarPage({
   searchParams,
 }: {
@@ -35,6 +46,12 @@ export default async function CalendarPage({
     physio?: string;
     appointment?: string;
     slot?: string;
+    booked?: string;
+    book?: string;
+    type?: string;
+    find?: string;
+    new?: string;
+    on?: string;
   }>;
 }) {
   const staff = await requirePermission('calendar.view');
@@ -79,6 +96,44 @@ export default async function CalendarPage({
   const options =
     slot && slotColumn ? await slotOptions(staff, { centreId: centre.id, ...slot }) : undefined;
 
+  // Booking (SCH-07): only for those who book; the services refuse anyone else as well.
+  const canBook = can(staff, 'bookings.manage') && !staff.support;
+  const types = canBook
+    ? (await asStaff(staff, (tx) => appointmentTypeList(tx))).filter((type) => type.active)
+    : [];
+  const typeOf = (id: string | undefined) => types.find((type) => type.id === id);
+
+  const book = canBook ? readSlot(params.book) : undefined;
+  const bookType = typeOf(params.type);
+  const bookColumn = book ? day.columns.find((c) => c.physioId === book.physioId) : undefined;
+  const bookChoice =
+    book && bookType && bookColumn
+      ? {
+          centreId: centre.id,
+          physioId: book.physioId,
+          appointmentTypeId: bookType.id,
+          startsAt: book.startsAt.toISOString(),
+        }
+      : undefined;
+  const hold = bookChoice ? await heldSlot(staff) : undefined;
+  const heldUntil =
+    hold &&
+    hold.physioId === bookChoice?.physioId &&
+    hold.appointmentTypeId === bookChoice.appointmentTypeId &&
+    hold.startsAt.toISOString() === bookChoice.startsAt
+      ? hold.expiresAt
+      : undefined;
+  const find = bookChoice ? (params.find ?? '') : '';
+  const search = patientSearch(find);
+  const results = search ? await asStaff(staff, (tx) => searchPatients(tx, search)) : undefined;
+
+  const newBooking = canBook && params.new === '1' && !bookChoice;
+  const on = calendarDateSchema.safeParse(params.on).success ? (params.on ?? date) : date;
+  const newType = newBooking ? typeOf(params.type) : undefined;
+  const newSlots = newType
+    ? await findFreeSlots(staff, { centreId: centre.id, date: on, appointmentTypeId: newType.id })
+    : undefined;
+
   const dayLabel = `${weekday(date)}, ${formatIstDate(date)}`;
   return (
     <main className="flex w-full flex-col gap-4 px-4 py-6">
@@ -92,27 +147,38 @@ export default async function CalendarPage({
             {centre.name} · {dayLabel}
           </p>
         </div>
-        <nav aria-label="Day" className="flex items-center gap-2">
-          <Link
-            href={calendarHref({ centreId: centre.id, date: addDays(date, -1), physioId })}
-            className={`${pillClass} border-line-control`}
-          >
-            Previous day
-          </Link>
-          <Link
-            href={calendarHref({ centreId: centre.id, date: today, physioId })}
-            aria-current={date === today ? 'date' : undefined}
-            className={`${pillClass} border-line-control`}
-          >
-            Today
-          </Link>
-          <Link
-            href={calendarHref({ centreId: centre.id, date: addDays(date, 1), physioId })}
-            className={`${pillClass} border-line-control`}
-          >
-            Next day
-          </Link>
-        </nav>
+        <div className="flex flex-wrap items-center gap-2">
+          {canBook ? (
+            <Link
+              href={calendarHref({ centreId: centre.id, date, physioId, newBooking: {} })}
+              scroll={false}
+              className={`${primaryButtonClass} sm:w-auto`}
+            >
+              New booking
+            </Link>
+          ) : null}
+          <nav aria-label="Day" className="flex items-center gap-2">
+            <Link
+              href={calendarHref({ centreId: centre.id, date: addDays(date, -1), physioId })}
+              className={`${pillClass} border-line-control`}
+            >
+              Previous day
+            </Link>
+            <Link
+              href={calendarHref({ centreId: centre.id, date: today, physioId })}
+              aria-current={date === today ? 'date' : undefined}
+              className={`${pillClass} border-line-control`}
+            >
+              Today
+            </Link>
+            <Link
+              href={calendarHref({ centreId: centre.id, date: addDays(date, 1), physioId })}
+              className={`${pillClass} border-line-control`}
+            >
+              Next day
+            </Link>
+          </nav>
+        </div>
       </div>
       {centres.length > 1 ? (
         <nav aria-label="Centre" className="flex flex-wrap gap-2">
@@ -160,6 +226,7 @@ export default async function CalendarPage({
           physioName={opened.physioName}
           centreName={centre.name}
           closeHref={closeHref}
+          booked={params.booked === '1'}
         />
       ) : null}
       {slot && slotColumn && options ? (
@@ -167,6 +234,35 @@ export default async function CalendarPage({
           startsAt={slot.startsAt}
           physioName={slotColumn.physioName}
           options={options}
+          closeHref={closeHref}
+          book={
+            canBook ? { centreId: centre.id, physioId: slot.physioId, view: physioId } : undefined
+          }
+        />
+      ) : null}
+      {bookChoice && bookType && bookColumn ? (
+        <BookingSheet
+          choice={bookChoice}
+          date={date}
+          view={physioId}
+          typeName={bookType.name}
+          physioName={bookColumn.physioName}
+          centreName={centre.name}
+          heldUntil={heldUntil}
+          find={find}
+          results={results}
+          closeHref={closeHref}
+        />
+      ) : null}
+      {newBooking ? (
+        <NewBookingSheet
+          centreId={centre.id}
+          date={date}
+          view={physioId}
+          types={types}
+          typeId={newType?.id}
+          on={on}
+          slots={newSlots}
           closeHref={closeHref}
         />
       ) : null}

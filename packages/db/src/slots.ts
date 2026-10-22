@@ -16,7 +16,7 @@ import {
   type SlotRefusal,
   type Weekly,
 } from '@clinic-mx/schemas';
-import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, lte, sql } from 'drizzle-orm';
 import { cutOut } from './rosters';
 import {
   appointment,
@@ -434,6 +434,28 @@ export async function placeHold(
   );
   if (!row) throw new Error('The hold was not recorded.');
   return { holdId: row.id, expiresAt };
+}
+
+/** The holder's hold, while it lasts (SCH-07: "Held for you until 10:35"). */
+export async function currentHold(
+  db: DbOrTransaction,
+  holder: string,
+  now: Date,
+): Promise<
+  | { physioId: string; appointmentTypeId: string; startsAt: Date; endsAt: Date; expiresAt: Date }
+  | undefined
+> {
+  const [row] = await db
+    .select({
+      physioId: slotHold.physioId,
+      appointmentTypeId: slotHold.appointmentTypeId,
+      startsAt: slotHold.startsAt,
+      endsAt: slotHold.endsAt,
+      expiresAt: slotHold.expiresAt,
+    })
+    .from(slotHold)
+    .where(and(eq(slotHold.holder, holder), gt(slotHold.expiresAt, now)));
+  return row;
 }
 
 /** Gives back the holder's hold, if any. */

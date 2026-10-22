@@ -11,6 +11,7 @@ import {
   SlotRefusedError,
   appointmentRecord,
   bookAppointment,
+  currentHold,
   datesWithFreeSlots,
   freeSlots,
   placeHold,
@@ -436,6 +437,39 @@ describe('the slot engine', () => {
         sql`select schedule from cron.job where jobname = 'slot-hold-release'`,
       );
       expect(jobs.map((j) => j.schedule)).toEqual(['* * * * *']);
+    });
+  });
+
+  // SCH-07: the booking sheet shows the person's own hold while it lasts.
+  it('reads one’s own live hold only', async () => {
+    await rolledBack(async (tx) => {
+      const session = await typeId(tx, 'session');
+      const physio = await testPhysio(tx, {
+        centreIds: [centreIds.hsrLayout, centreIds.whitefield],
+        createdBy: superAdmin.id,
+      });
+      const base = {
+        centreId: centreIds.hsrLayout,
+        physioId: physio.id,
+        appointmentTypeId: session,
+        holdMinutes: 5,
+        step: 15,
+        now: now(),
+      };
+      const mine = `staff:${deskHsr.id}`;
+      await placeHold(tx, { ...base, holder: mine, startsAt: on(540) });
+      await placeHold(tx, { ...base, holder: `staff:${deskWhitefield.id}`, startsAt: on(600) });
+      expect(await currentHold(tx, mine, base.now)).toMatchObject({
+        physioId: physio.id,
+        appointmentTypeId: session,
+        startsAt: on(540),
+      });
+      // Once it has run out it is not shown, though the release job has not run yet.
+      expect(await currentHold(tx, mine, new Date(base.now.getTime() + 5 * 60000))).toBeUndefined();
+
+      await becomeStaff(tx, deskHsr);
+      expect((await currentHold(tx, mine, base.now))?.startsAt).toEqual(on(540));
+      expect(await currentHold(tx, `staff:${deskWhitefield.id}`, base.now)).toBeUndefined();
     });
   });
 
