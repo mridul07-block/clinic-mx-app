@@ -105,15 +105,17 @@ export async function testAppointment(
 }
 
 /**
- * A Session at HSR Layout that started `minutesAgo` before now and was booked at the front desk
- * by the seed Super Admin (INT-11), written directly since the engine books only ahead; its number
- * and start.
+ * A Session at HSR Layout that started `minutesAgo` before now (negative: still to come) and was
+ * booked at the front desk by the seed Super Admin (INT-11), written directly since the engine
+ * books only ahead, `minutes` long and as given in `values` (a status and its times, INT-01); its
+ * id, number and start.
  */
 export async function startedAppointment(
   physioId: string,
   patientId: string,
   minutesAgo: number,
-): Promise<{ number: string; startsAt: Date }> {
+  options: { minutes?: number; values?: Partial<typeof appointment.$inferInsert> } = {},
+): Promise<{ id: string; number: string; startsAt: Date }> {
   const hsr = await centreIdByCode('HSR');
   const session = await idOf(
     db()
@@ -140,14 +142,15 @@ export async function startedAppointment(
         physioId,
         appointmentTypeId: session,
         startsAt,
-        endsAt: new Date(startsAt.getTime() + 45 * 60_000),
+        endsAt: new Date(startsAt.getTime() + (options.minutes ?? 45) * 60_000),
         channel: 'front_desk',
         bookedBy: admin,
+        ...options.values,
       })
-      .returning({ number: appointment.number }),
+      .returning({ id: appointment.id, number: appointment.number }),
   );
   if (!row) throw new Error('The appointment was not recorded.');
-  return { number: row.number, startsAt };
+  return { id: row.id, number: row.number, startsAt };
 }
 
 /** Removes the appointments, holds and hours of the given physios. */

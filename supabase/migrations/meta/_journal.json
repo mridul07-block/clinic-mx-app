@@ -344,6 +344,20 @@
       "when": 1792703682032,
       "tag": "20261022211442_no_show_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1792705935103,
+      "tag": "20261022215215_check_in",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1792705936292,
+      "tag": "20261022215216_check_in_rules",
+      "breakpoints": true
     }
   ]
 }

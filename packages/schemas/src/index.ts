@@ -332,3 +332,16 @@ export {
   type CalendarQuery,
   type ConsultationFeeInput,
 } from './calendar';
+export {
+  canCheckIn,
+  checkInSchema,
+  inTodayFilter,
+  todayFilterLabels,
+  todayFilters,
+  todayGroup,
+  todayGroupLabels,
+  todayGroups,
+  undoCheckInSchema,
+  type TodayFilter,
+  type TodayGroup,
+} from './today';

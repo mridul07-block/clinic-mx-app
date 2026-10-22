@@ -17,6 +17,11 @@ export default async function StaffHome() {
         </p>
       </div>
       <nav className="flex flex-col items-start">
+        {accessScope(staff, 'check_in.manage') ? (
+          <Link href="/app/today" className={linkClass}>
+            Today
+          </Link>
+        ) : null}
         {accessScope(staff, 'calendar.view') ? (
           <Link href="/app/calendar" className={linkClass}>
             Calendar

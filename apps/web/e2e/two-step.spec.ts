@@ -110,8 +110,10 @@ test('a role that requires it cannot skip setup', async ({ page }) => {
 
 test('Front Desk signs in with the password alone', async ({ page }) => {
   await signInWithPassword(page, testStaff.desk.email);
-  await expect(page).toHaveURL(/\/app$/);
+  // The Front Desk lands on Today (INT-01); Account is on Home.
+  await expect(page).toHaveURL(/\/app\/today$/);
   await expect(page.getByText(`Signed in as ${testStaff.desk.name}, Front Desk`)).toBeVisible();
+  await page.getByRole('link', { name: 'Home' }).click();
   await page.getByRole('link', { name: 'Account' }).click();
   await expect(page.getByText('Off. Turn it on')).toBeVisible();
 });

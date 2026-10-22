@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { publicStaffPath, safeNextPath } from './next-path';
+import { homePath, publicStaffPath, safeNextPath } from './next-path';
 
 describe('safeNextPath', () => {
   it('returns to the staff page that was asked for', () => {
@@ -41,5 +41,18 @@ describe('publicStaffPath', () => {
     expect(publicStaffPath.test('/app')).toBe(false);
     expect(publicStaffPath.test('/app/sign-in-as-admin')).toBe(false);
     expect(publicStaffPath.test('/app/patients')).toBe(false);
+  });
+});
+
+// INT-01: the Front Desk lands on Today; the others on the staff app home for now.
+describe('homePath', () => {
+  it('lands the Front Desk on Today, and anyone asking for a page there', () => {
+    expect(homePath('front_desk')).toBe('/app/today');
+    expect(homePath('centre_manager')).toBe('/app');
+    expect(safeNextPath(null, homePath('front_desk'))).toBe('/app/today');
+    expect(safeNextPath('https://elsewhere.example', homePath('front_desk'))).toBe('/app/today');
+    expect(safeNextPath('/app/calendar', homePath('front_desk'))).toBe('/app/calendar');
+    // The sign in form sends the staff app home when nothing was asked for.
+    expect(safeNextPath('/app', homePath('front_desk'))).toBe('/app/today');
   });
 });

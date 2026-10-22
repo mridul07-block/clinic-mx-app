@@ -257,10 +257,15 @@ export async function calendarDay(
   return { span, columns };
 }
 
-/** A short fingerprint of the day as the reader sees it; it changes whenever the view would. */
-export function calendarVersion(day: CalendarDay): string {
-  const text = JSON.stringify(day);
+/** A short fingerprint of what a live screen shows; it changes whenever the view would. */
+export function contentVersion(value: unknown): string {
+  const text = JSON.stringify(value);
   let hash = 5381;
   for (let i = 0; i < text.length; i++) hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0;
   return (hash >>> 0).toString(36);
+}
+
+/** The calendar day's fingerprint (SCH-05). */
+export function calendarVersion(day: CalendarDay): string {
+  return contentVersion(day);
 }

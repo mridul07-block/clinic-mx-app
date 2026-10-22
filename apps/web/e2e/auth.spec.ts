@@ -225,7 +225,9 @@ test.describe('Front Desk account changes', () => {
   test('Front Desk can turn two step verification on from the account page', async ({ page }) => {
     const { email } = account();
     await signIn(page, email);
-    await expect(page).toHaveURL(/\/app$/);
+    // The Front Desk lands on Today (INT-01); Account is on Home.
+    await expect(page).toHaveURL(/\/app\/today$/);
+    await page.getByRole('link', { name: 'Home' }).click();
     await page.getByRole('link', { name: 'Account' }).click();
     await page.getByRole('link', { name: 'Turn on two step verification' }).click();
     await expect(page.getByText('Each time you sign in you will also enter a code')).toBeVisible();
@@ -281,10 +283,11 @@ test.describe('Front Desk account changes', () => {
     await expect(page.getByText('Password changed. Sign in with your new password.')).toBeVisible();
 
     await signIn(page, email, newPassword);
-    await expect(page).toHaveURL(/\/app$/);
+    await expect(page).toHaveURL(/\/app\/today$/);
     expectNoSupabaseCalls(urls);
 
     // Used once: the same link is refused afterwards.
+    await page.getByRole('link', { name: 'Home' }).click();
     await page.getByRole('button', { name: 'Sign out' }).click();
     await page.goto(link);
     await page.getByLabel('New password').fill(`${newPassword}-again`);
