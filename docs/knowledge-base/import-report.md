@@ -444,6 +444,49 @@ Matched by keywords from the vocabulary in `packages/schemas/src/knowledge.ts`.
 
 **Bone stress, cartilage and meniscus:** Tissue → `subregion` · Site / Condition → `name` · Risk Class → `risk_class` · Sport & Load Pattern → `activity` · Athlete Profile → `athlete_profile` · Hallmark Presentation → `symptoms` · One Question That Best Discriminates → `question` · Key Examination Findings → `examination_findings` · Confirmatory Imaging → `tests_imaging` · Grading / Classification → `classification` · LOAD & BIOMECHANICAL DRIVER → `biomechanical_cause` · Non-Mechanical Contributors → `non_mechanical_contributors` · MANAGEMENT EMPHASIS → `management_emphasis` · Weight-Bearing / Protection Status → `weight_bearing` · Loading Progression & Dose → `loading_stage` · BIOMECHANICAL & TECHNIQUE CORRECTIONS → `corrections` · TRAINING-LOAD PRESCRIPTION → `training_load` · Adjuncts / Advanced Options → `advanced_options` · Re-test Markers & Outcomes → `retest_markers` · Timeline to Return to Sport → `timeline` · Referral / Surgical Trigger → `referral_trigger` · Consequence if Missed → `consequence_if_missed` · Evidence Anchor → `evidence_anchor`
 
+## Red flag rules (SET-10)
+
+20 rules from `packages/db/src/knowledge/red-flag-rules.json` (SHA-256 cdf948ec2b0e); 20 await clinical sign-off. Drafted from the Red Flag Screening Framework; the health form submit runs them over the screening answers (`docs/runbooks/red-flags.md`). Thresholds are settings: `screening.weight_loss_kg`, `screening.weight_loss_months`, `screening.morning_stiffness_minutes`.
+
+| Rule | Where | Triage | Raised when | Action | Source | Signed off |
+| --- | --- | --- | --- | --- | --- | --- |
+| Possible DVT or pulmonary embolism (`everywhere.dvt_pe`) | Everywhere | Immediate emergency | “Do you have calf pain, breathlessness, or chest pain?” is yes | Stop physiotherapy. Refer to A&E now for DVT or PE assessment (Doppler, Wells score, D-dimer; CT pulmonary angiography for PE). | Framework §11 (DVT and PE) and §14 (immediate emergency: DVT / PE symptoms) | Awaiting clinical sign-off |
+| Possible cauda equina syndrome (`everywhere.cauda_equina`) | Everywhere | Immediate emergency | Any of: “Any recent bowel or bladder changes?” is yes; “Any numbness in the groin or saddle region?” is yes | Stop physiotherapy. Refer to A&E now for emergency MRI; do not discharge or delay. | Framework §4A (cauda equina: bladder or bowel dysfunction, saddle anaesthesia) and §14 | Awaiting clinical sign-off |
+| Possible septic arthritis (`everywhere.septic_joint`) | Everywhere | Immediate emergency | All of: “Any unexplained swelling, redness, or heat in a joint?” is yes; “Do you have fever, chills, or night sweats?” is yes | Stop physiotherapy. Refer to A&E now for joint aspiration. | Framework §3 (fever with musculoskeletal pain), §6, §9 and §14 (septic arthritis suspicion) | Awaiting clinical sign-off |
+| Fever with musculoskeletal pain (`everywhere.fever`) | Everywhere | Immediate emergency | “Do you have fever, chills, or night sweats?” is yes | Possible septic arthritis or infection: emergency referral before any physiotherapy. | Framework §3 (fever + MSK pain: emergency referral) | Awaiting clinical sign-off |
+| Possible cauda equina syndrome (back) (`back.cauda_equina`) | Back | Immediate emergency | Any of: “Any difficulty starting to pass urine, or leaking urine you cannot control?” is yes; “Any loss of control of your bowels?” is yes; “Any numbness around your bottom or between your legs?” is yes; “Any weakness in both legs that is getting worse?” is yes | Stop physiotherapy. Refer to A&E now for emergency MRI; neurosurgical review within hours. | Framework §4A (NICE CKS revised criteria) and §4D | Awaiting clinical sign-off |
+| Possible cervical arterial dysfunction (`neck.arterial_dysfunction`) | Neck | Immediate emergency | Any of: “Do you get new or different dizziness, or sudden falls?” is yes; “Do you have double vision?” is yes; “Any difficulty speaking or swallowing?” is yes | Defer all manual therapy. Same-day medical referral (vascular or neurological) under the IFOMPT cervical framework. | Framework §4B (5Ds and 3Ns, IFOMPT 2023) and §14 (cervical arterial dysfunction) | Awaiting clinical sign-off |
+| Possible cervical myelopathy (`neck.myelopathy`) | Neck | Urgent medical referral | “Any tingling or weakness in both arms, or trouble with walking or balance?” is yes | Urgent neurological referral and MRI before treatment. | Framework §4B (bilateral arm symptoms with gait disturbance) | Awaiting clinical sign-off |
+| History of cancer with new pain (`everywhere.cancer_history`) | Everywhere | Urgent medical referral | “Do you have a history of cancer?” is yes | Treat new pain as possible metastasis until cleared: same-day oncology referral before physiotherapy. | Framework §3, §13 (history of cancer + new or changing pain) and §19 (cancer survivors) | Awaiting clinical sign-off |
+| Unexplained weight loss over the threshold (`everywhere.weight_loss`) | Everywhere | Urgent medical referral | All of: “Have you had unexplained weight loss recently?” is yes; “About how many kilograms have you lost?” is at least the setting screening.weight_loss_kg; “Over about how many months?” is at most the setting screening.weight_loss_months | Possible malignancy: urgent physician referral. | Framework §3 and §13 (unexplained weight loss over 5 kg in 6 months); decision #5 | Awaiting clinical sign-off |
+| Unexplained weight loss (`everywhere.weight_loss_some`) | Everywhere | Monitor with caution | “Have you had unexplained weight loss recently?” is yes | Ask about the amount and period; re-screen for malignancy features at each visit. | Framework §1 and §3 | Awaiting clinical sign-off |
+| Malignancy risk cluster (`everywhere.malignancy_cluster`) | Everywhere | Urgent imaging | All of: Age is at least 50; and any of: “Do you have a history of cancer?” is yes; “Have you had unexplained weight loss recently?” is yes | Urgent imaging before loading treatment (multi red flag cluster). | Framework §3 and §13 (age over 50 with a risk factor: urgent imaging) | Awaiting clinical sign-off |
+| Severe or non-mechanical night pain (`everywhere.night_pain`) | Everywhere | Urgent medical referral | “Is your pain severe at night or unrelated to movement?” is yes | Possible tumour or infection: medical referral and imaging work-up. | Framework §3 (night pain unrelieved by rest) and §14 (severe unexplained night pain) | Awaiting clinical sign-off |
+| Progressive neurological weakness (`everywhere.progressive_weakness`) | Everywhere | Urgent medical referral | “Any progressive neurological weakness?” is yes | Same-day specialist review; full neurological examination before treatment. | Framework §14 (rapid progressive weakness) | Awaiting clinical sign-off |
+| Rapidly worsening symptoms (`everywhere.rapidly_worsening`) | Everywhere | Urgent medical referral | “Are symptoms rapidly worsening?” is yes | Stop routine rehabilitation and refer for medical review. | Framework §20 (severe, progressive or deteriorating: stop and refer) | Awaiting clinical sign-off |
+| Dizziness, blackouts or balance problems (`everywhere.dizziness`) | Everywhere | Urgent medical referral | “Do you have dizziness, blackouts, or balance problems?” is yes | Medical review before treatment; for neck presentations apply the cervical vascular screen. | Framework §1 and §4B | Awaiting clinical sign-off |
+| Severe fatigue or unexplained weakness (`everywhere.fatigue`) | Everywhere | Specialist referral | “Do you have severe fatigue or unexplained weakness?” is yes | Rheumatology, haematology or oncology screening with bloods. | Framework §3 (severe fatigue + inflammatory pattern) and §13 (unexplained fatigue) | Awaiting clinical sign-off |
+| Prolonged morning stiffness (`everywhere.morning_stiffness`) | Everywhere | Specialist referral | “If you are stiff in the morning, about how many minutes does it last? (0 if not stiff)” is at least the setting screening.morning_stiffness_minutes | Possible inflammatory arthritis: rheumatology referral with ESR, CRP, RF and anti-CCP. | Framework §12 (morning stiffness over 60 minutes); decision #6 | Awaiting clinical sign-off |
+| Immunocompromised, diabetic or on long-term steroids (`everywhere.immunosuppression`) | Everywhere | Monitor with caution | “Are you immunocompromised, diabetic, or on long-term steroids?” is yes | Lower referral threshold and re-screen more often (infection and fracture risk). | Framework §19 (high-risk populations) | Awaiting clinical sign-off |
+| Recent infection, surgery or hospitalisation (`everywhere.recent_infection_surgery`) | Everywhere | Monitor with caution | “Have you recently had an infection, surgery, or hospitalization?” is yes | DVT and infection vigilance: Wells score and vascular check at every assessment. | Framework §11 and §19 (post-surgical patients) | Awaiting clinical sign-off |
+| Recent trauma or accident (`everywhere.recent_trauma`) | Everywhere | Monitor with caution | “Any recent trauma or accident?” is yes | Screen for fracture before loading (Ottawa rules where they apply). | Framework §1, §9, §10 and §16 | Awaiting clinical sign-off |
+
+### Red flag presentations from the workbooks
+
+Each Red Flags sheet, word for word: reference for the clinician screening checklist and the tier choice in consultation; never run automatically.
+
+| Workbook | Presentations | Screening notes |
+| --- | --- | --- |
+| Shoulder | 12 | 4 |
+| Elbow | 12 | 4 |
+| Forearm and wrist | 12 | 5 |
+| Hip and groin | 12 | 4 |
+| Knee | 8 | 3 |
+| Foot and ankle | 12 | 5 |
+| Cervical spine | 12 | 5 |
+| Lumbar spine and SIJ | 12 | 6 |
+| Bone stress, cartilage and meniscus | 8 | 0 |
+
 ## Condition IDs
 
 0 new IDs assigned in this run; every ID in the file matched a row.

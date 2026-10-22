@@ -135,6 +135,10 @@ jobs:
       - name: Seed with staff logins
         run: pnpm db:seed
 
+      # SET-10: the clinical screens read the latest knowledge base version (Red flags).
+      - name: Import the knowledge base
+        run: pnpm kb:import --apply
+
       # Playwright builds the app and runs `next start` (playwright.config.ts webServer).
       - name: End to end tests
         run: pnpm test:e2e

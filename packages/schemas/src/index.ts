@@ -157,6 +157,37 @@ export {
   type RedFlagTier,
   type SexPredominance,
 } from './knowledge';
+export {
+  alertDisplay,
+  alertDisplays,
+  conditionText,
+  evaluateRedFlags,
+  questionsFor,
+  redFlagConditionSchema,
+  redFlagRuleSchema,
+  redFlagRulesSchema,
+  redFlagTriageLabels,
+  redFlagTriages,
+  screeningQuestionKeys,
+  screeningQuestions,
+  screeningRegionLabels,
+  screeningRegions,
+  screeningThresholdKeys,
+  triggerText,
+  type AlertDisplay,
+  type RaisedRedFlag,
+  type RedFlagCondition,
+  type RedFlagResult,
+  type RedFlagRule,
+  type RedFlagTriage,
+  type ScreeningAnswers,
+  type ScreeningContext,
+  type ScreeningQuestion,
+  type ScreeningQuestionKey,
+  type ScreeningRegion,
+  type ScreeningThresholdKey,
+  type ScreeningThresholds,
+} from './red-flags';
 export { keyFromName } from './keys';
 export { MAX_PAISE, formatRupees, rupeesSchema, rupeesText } from './money';
 export {

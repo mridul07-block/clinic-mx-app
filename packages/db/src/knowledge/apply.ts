@@ -1,18 +1,26 @@
 import { desc } from 'drizzle-orm';
 import { setAuditContext, systemActor } from '../audit';
-import { kbCondition, kbConditionListing, kbVersion, type KnowledgeSource } from '../schema';
+import {
+  kbCondition,
+  kbConditionListing,
+  kbRedFlagPresentation,
+  kbRedFlagRule,
+  kbVersion,
+  type KnowledgeSource,
+} from '../schema';
 import type { DbOrTransaction } from '../versioned';
 import type { BuiltKnowledge } from './build';
+import type { RedFlags } from './red-flags';
 import type { ImportReport } from './report';
 
 /** The audit actor every import writes as. */
 export const KB_IMPORT_ACTOR = systemActor('kb-import');
 
-/** The latest version was imported from these very files. */
+/** The latest version was imported from these very files (workbooks and rules). */
 export class AlreadyImportedError extends Error {
   override name = 'AlreadyImportedError';
   constructor(readonly number: number) {
-    super(`These workbooks are already imported as knowledge base version ${number}.`);
+    super(`These workbooks and rules are already imported as knowledge base version ${number}.`);
   }
 }
 
@@ -21,17 +29,22 @@ const sameSource = (a: KnowledgeSource, b: KnowledgeSource) =>
 
 /**
  * Records the built knowledge base as the next version, a draft, inside the caller's transaction
- * and audited as `system:kb-import`. Refuses when the latest version came from the same files.
+ * and audited as `system:kb-import`: conditions, listings, red flag rules and presentations.
+ * Refuses when the latest version came from the same files (the workbooks and the rules file).
  * Returns the new version's number and id.
  */
 export async function applyKnowledge(
   tx: DbOrTransaction,
   built: BuiltKnowledge,
   report: ImportReport,
+  redFlags: RedFlags,
 ): Promise<{ id: string; number: number }> {
   await setAuditContext(tx, { actor: KB_IMPORT_ACTOR });
   const source: KnowledgeSource = {
-    files: report.files.map((f) => ({ name: f.fileName, sha256: f.sha256 })),
+    files: [
+      ...report.files.map((f) => ({ name: f.fileName, sha256: f.sha256 })),
+      redFlags.rulesFile,
+    ],
   };
   const [latest] = await tx
     .select({ number: kbVersion.number, source: kbVersion.source })
@@ -59,6 +72,25 @@ export async function applyKnowledge(
     built.listings.map(({ agePlain: _agePlain, ...listing }) => ({
       ...listing,
       kbVersionId: version.id,
+    })),
+  );
+  await tx.insert(kbRedFlagRule).values(
+    redFlags.rules.map(({ key, ...rule }) => ({
+      ...rule,
+      ruleKey: key,
+      kbVersionId: version.id,
+    })),
+  );
+  await tx.insert(kbRedFlagPresentation).values(
+    redFlags.presentations.map((row) => ({
+      kbVersionId: version.id,
+      region: row.region,
+      rowNumber: row.rowNumber,
+      kind: row.kind,
+      presentation: row.presentation,
+      features: row.kind === 'presentation' ? row.features : null,
+      action: row.kind === 'presentation' ? row.action : null,
+      why: row.kind === 'presentation' ? row.why : null,
     })),
   );
   return { id: version.id, number };

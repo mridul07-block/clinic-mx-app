@@ -5,6 +5,9 @@ import { SettingsError, createSettingsReader, parseSettings } from './settings';
 // Test values only; the real ones are in the settings migration.
 const stored: Settings = {
   'scheduling.slot_minutes': 15,
+  'screening.weight_loss_kg': 5,
+  'screening.weight_loss_months': 6,
+  'screening.morning_stiffness_minutes': 60,
   'booking.self_booking_block_reschedules': 2,
   'booking.self_booking_block_no_shows': 2,
   'packages.reschedules_per_10_sessions': 1,

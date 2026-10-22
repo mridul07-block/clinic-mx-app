@@ -3,10 +3,14 @@ import {
   knowledgeVersionStatuses,
   onsets,
   redFlagTiers,
+  redFlagTriages,
+  screeningRegions,
   sexPredominances,
+  type RedFlagRule,
 } from '@clinic-mx/schemas';
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   foreignKey,
   index,
@@ -143,6 +147,72 @@ export const kbConditionListing = pgTable(
     check(
       'kb_condition_listing_age',
       sql`${table.ageMin} is null or ${table.ageMax} is null or ${table.ageMin} <= ${table.ageMax}`,
+    ),
+  ],
+).enableRLS();
+
+/** The framework's triage categories (SET-10). */
+export const redFlagTriage = pgEnum('red_flag_triage', redFlagTriages);
+export const screeningRegion = pgEnum('screening_region', screeningRegions);
+export const kbRedFlagRowKind = pgEnum('kb_red_flag_row_kind', ['presentation', 'screening_note']);
+
+/**
+ * A red flag rule in a version (SET-10, TAD `kb_red_flag_rule`): run over the health form's
+ * screening answers when it is submitted. Imported from the committed rules file.
+ */
+export const kbRedFlagRule = pgTable(
+  'kb_red_flag_rule',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    /** Stable across versions, for example `back.cauda_equina`. */
+    ruleKey: text('rule_key').notNull(),
+    name: text('name').notNull(),
+    /** Where it applies; empty for everywhere. */
+    regions: screeningRegion('regions')
+      .array()
+      .notNull()
+      .default(sql`'{}'::screening_region[]`),
+    trigger: jsonb('trigger').$type<RedFlagRule['trigger']>().notNull(),
+    triage: redFlagTriage('triage').notNull(),
+    action: text('action').notNull(),
+    source: text('source').notNull(),
+    /** False until the client's clinical lead signs the rule off. */
+    signedOff: boolean('signed_off').notNull(),
+  },
+  (table) => [
+    unique('kb_red_flag_rule_version_key').on(table.kbVersionId, table.ruleKey),
+    check('kb_red_flag_rule_key', sql`${table.ruleKey} ~ '^[a-z][a-z0-9_.]*$'`),
+  ],
+).enableRLS();
+
+/**
+ * A row of a workbook's Red Flags sheet (SET-10): a presentation with its features, action and why
+ * it cannot wait, or a screening note. Reference for clinicians; never run automatically.
+ */
+export const kbRedFlagPresentation = pgTable(
+  'kb_red_flag_presentation',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    region: kbRegion('region').notNull(),
+    rowNumber: integer('row_number').notNull(),
+    kind: kbRedFlagRowKind('kind').notNull(),
+    /** The presentation, or the note's text. */
+    presentation: text('presentation').notNull(),
+    features: text('features'),
+    action: text('action'),
+    why: text('why'),
+  },
+  (table) => [
+    unique('kb_red_flag_presentation_row_key').on(table.kbVersionId, table.region, table.rowNumber),
+    check(
+      'kb_red_flag_presentation_kind',
+      sql`${table.kind} = 'screening_note' or (${table.features} is not null and ${table.action} is not null)`,
     ),
   ],
 ).enableRLS();
