@@ -10,7 +10,7 @@ import { CentreError, addCentre, editCentre, setCentreActiveService } from './se
 /** What a centre form shows after a post (SET-01). */
 export interface CentreFormState {
   error?: string;
-  /** Messages by field: name, address, phone, mapLink, colour. */
+  /** Messages by field: name, code, address, phone, mapLink, colour. */
   fieldErrors?: Record<string, string>;
   /** What was typed, given back with an error so the form keeps it. */
   values?: Record<string, string>;
@@ -52,7 +52,7 @@ export async function addCentreAction(
   _state: CentreFormState,
   form: FormData,
 ): Promise<CentreFormState> {
-  const values = detailsFrom(form);
+  const values = { ...detailsFrom(form), code: text(form, 'code') };
   let centreId: string;
   try {
     centreId = await addCentre(await serviceContext(), values);

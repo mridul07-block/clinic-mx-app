@@ -4,6 +4,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { withStaffAccess } from '../access';
 import {
   activeCentreWithColour,
+  centreCodeTaken,
   centreNameTaken,
   insertCentre,
   setCentreActive,
@@ -83,13 +84,15 @@ const details = (name: string, colour: string) => ({
 describe('centres', () => {
   it('give each colour to one active centre; deactivating frees it', async () => {
     await rolledBack(superAdmin, async (tx) => {
-      expect(await failure(tx, (sp) => insertCentre(sp, details('Indiranagar', teal)))).toBe(
-        '23505',
-      );
+      expect(
+        await failure(tx, (sp) =>
+          insertCentre(sp, { ...details('Indiranagar', teal), code: 'IND' }),
+        ),
+      ).toBe('23505');
       expect((await activeCentreWithColour(tx, teal))?.name).toBe('Whitefield');
       expect(await setCentreActive(tx, centreIds.whitefield, false)).toBe(true);
       expect(await setCentreActive(tx, centreIds.whitefield, false)).toBe(false);
-      const id = await insertCentre(tx, details('Indiranagar', teal));
+      const id = await insertCentre(tx, { ...details('Indiranagar', teal), code: 'IND' });
       // Whitefield cannot come back while teal is taken.
       expect(await failure(tx, (sp) => setCentreActive(sp, centreIds.whitefield, true))).toBe(
         '23505',
@@ -137,9 +140,35 @@ describe('centres', () => {
         .from(centre)
         .where(eq(centre.id, centreIds.hsrLayout));
       expect(row?.active).toBe(true);
-      expect(await failure(tx, (sp) => insertCentre(sp, details('Indiranagar', teal)))).toBe(
-        '42501',
-      );
+      expect(
+        await failure(tx, (sp) =>
+          insertCentre(sp, { ...details('Indiranagar', teal), code: 'IND' }),
+        ),
+      ).toBe('42501');
+    });
+  });
+
+  it('keep their code: it starts every OP number they issued (SCH-01)', async () => {
+    await rolledBack(superAdmin, async (tx) => {
+      expect(await centreCodeTaken(tx, 'HSR')).toBe(true);
+      expect(await centreCodeTaken(tx, 'ZZZZ')).toBe(false);
+      expect(
+        await failure(tx, (sp) =>
+          sp.update(centre).set({ code: 'HSX' }).where(eq(centre.id, centreIds.hsrLayout)),
+        ),
+      ).toBe('23514');
+      // Codes never repeat, and are 2 to 4 capital letters (teal freed so only the code fails).
+      await setCentreActive(tx, centreIds.whitefield, false);
+      expect(
+        await failure(tx, (sp) =>
+          insertCentre(sp, { ...details('Indiranagar', teal), code: 'HSR' }),
+        ),
+      ).toBe('23505');
+      expect(
+        await failure(tx, (sp) =>
+          insertCentre(sp, { ...details('Indiranagar', teal), code: 'h1' }),
+        ),
+      ).toBe('23514');
     });
   });
 });

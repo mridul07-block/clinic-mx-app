@@ -1,6 +1,7 @@
 import 'server-only';
 import {
   activeCentreWithColour,
+  centreCodeTaken,
   centreList,
   centreNameTaken,
   centreRecord,
@@ -12,8 +13,8 @@ import {
   centreActiveSchema,
   centreColourName,
   centreColours,
-  centreDetailsSchema,
   centreUpdateSchema,
+  newCentreSchema,
   type CentreDetails,
 } from '@clinic-mx/schemas';
 import { staffService, type ServiceTransaction } from '../access/service';
@@ -45,10 +46,10 @@ async function checkDetails(tx: ServiceTransaction, details: CentreDetails, cent
   }
 }
 
-/** Adds a centre, active from now. */
+/** Adds a centre, active from now, with a code no centre has used (it starts OP numbers). */
 export const addCentre = staffService({
   action: 'centres.manage',
-  input: centreDetailsSchema,
+  input: newCentreSchema,
   run: async (tx, details) => {
     const centres = await centreList(tx);
     const used = new Set(centres.filter((c) => c.active).map((c) => c.colour));
@@ -56,6 +57,9 @@ export const addCentre = staffService({
       throw new CentreError(allColoursInUse);
     }
     await checkDetails(tx, details);
+    if (await centreCodeTaken(tx, details.code)) {
+      throw new CentreError(`Another centre has the code ${details.code}. Choose another code.`);
+    }
     return insertCentre(tx, details);
   },
 });

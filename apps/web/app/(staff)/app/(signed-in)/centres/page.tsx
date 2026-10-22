@@ -54,6 +54,7 @@ export default async function CentresPage() {
             >
               <span className="flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-ink">{centre.name}</span>
+                <span className="font-mono text-sm text-ink-secondary">{centre.code}</span>
                 {centre.active ? (
                   <Tag tone="active">Active</Tag>
                 ) : (

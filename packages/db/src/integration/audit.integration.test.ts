@@ -9,6 +9,11 @@ import { centreIds, seedCentres, seedStaff } from '../seed/data';
 const [firstCentre] = seedCentres;
 if (!firstCentre) throw new Error('seed has no centres');
 const testColour = firstCentre.colour;
+// Centre codes never repeat (SCH-01); four random letters keep test centres apart.
+const testCode = () =>
+  Array.from(crypto.getRandomValues(new Uint8Array(4)), (byte) =>
+    String.fromCharCode(65 + (byte % 26)),
+  ).join('');
 
 // FND-11 done when: every write stores actor, before and after; clinical record views logged.
 // Runs against the CI database only.
@@ -32,7 +37,13 @@ describe('audited writes', () => {
   it('record the actor, the row before and after, for insert, update and delete', async () => {
     const id = crypto.randomUUID();
     await withActor(db, { actor, ip: '203.0.113.7' }, (tx) =>
-      tx.insert(centre).values({ id, name: `Audit test ${id}`, colour: testColour, active: false }),
+      tx.insert(centre).values({
+        id,
+        name: `Audit test ${id}`,
+        code: testCode(),
+        colour: testColour,
+        active: false,
+      }),
     );
     await withActor(db, actor, (tx) =>
       tx.update(centre).set({ phone: '+91 80000 00000' }).where(eq(centre.id, id)),
@@ -54,9 +65,12 @@ describe('audited writes', () => {
 
   it('refuse a write that names no actor', async () => {
     await expect(
-      db
-        .insert(centre)
-        .values({ name: `No actor ${crypto.randomUUID()}`, colour: testColour, active: false }),
+      db.insert(centre).values({
+        name: `No actor ${crypto.randomUUID()}`,
+        code: testCode(),
+        colour: testColour,
+        active: false,
+      }),
     ).rejects.toThrow();
     await expect(
       db.update(centre).set({ phone: 'x' }).where(eq(centre.id, centreIds.hsrLayout)),
@@ -66,9 +80,13 @@ describe('audited writes', () => {
   it('roll back with the write: no event for a change that did not happen', async () => {
     const id = crypto.randomUUID();
     await withActor(db, actor, async (tx) => {
-      await tx
-        .insert(centre)
-        .values({ id, name: `Rolled back ${id}`, colour: testColour, active: false });
+      await tx.insert(centre).values({
+        id,
+        name: `Rolled back ${id}`,
+        code: testCode(),
+        colour: testColour,
+        active: false,
+      });
       throw new Error('the change failed');
     }).catch(() => undefined);
     expect(await eventsFor(id)).toEqual([]);
@@ -155,7 +173,8 @@ describe('the audit trail', () => {
     // job: queue bookkeeping (every status change would bury the real events).
     // rate_limit: a counter per attempt (IAM-11); the attempts themselves are the events.
     // audit_event: the trail itself.
-    const exempt = ['audit_event', 'job', 'rate_limit'];
+    // centre_sequence: the last number issued (SCH-01); the patient row it numbers is the event.
+    const exempt = ['audit_event', 'centre_sequence', 'job', 'rate_limit'];
     const rows = await db.execute<{ table: string }>(sql`
       select c.relname as table
       from pg_class c join pg_namespace n on n.oid = c.relnamespace

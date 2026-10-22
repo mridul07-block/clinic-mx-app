@@ -3,6 +3,8 @@
 SET-01, PRD M16, TAD section 3. Each centre has:
 
 - a name;
+- a code (SCH-01), 2 to 4 capital letters that start every OP number it issues, for example
+  `HSR-00042`;
 - an address;
 - a Google Maps link;
 - a front desk phone;
@@ -16,6 +18,7 @@ Later tickets use these details:
 | Map link | My plan's Map button; WhatsApp messages |
 | Phone | Letterheads and receipts; the front desk number in WhatsApp when a phone cannot open Flows (PRD J1.10) |
 | Colour | Marks the centre when charts compare centres |
+| Code | Starts the OP numbers of the patients the centre registers (`docs/runbooks/patients.md`) |
 
 ## Decisions (user, 22 October 2026)
 
@@ -58,6 +61,7 @@ Later tickets use these details:
 | Detail | Rule |
 | --- | --- |
 | Name | 1 to 60 characters; unique, ignoring case |
+| Code | 2 to 4 letters, saved in capitals; unique, even against inactive centres. Set when the centre is added and never changed (OP numbers carry it): the edit page shows it read only and a database trigger refuses a change. The seed and the SCH-01 migration give HSR Layout `HSR`, Koramangala `KOR` and Whitefield `WFD`. |
 | Address | 1 to 300 characters |
 | Phone | Any Indian number as typed (`98450 12345`, `+91 98450 12345`, `080 4123 4567`). It is stored as E.164 (`+919845012345`) and shown as `+91 98450 12345` or, for Bengaluru landlines, `+91 80 4123 4567`. `indianPhoneSchema` is shared for patients later. |
 | Map link | https Google Maps only: `maps.app.goo.gl`, `goo.gl/maps`, `google.com/maps` and `maps.google.com`. Patients open it, so no other site is accepted. |

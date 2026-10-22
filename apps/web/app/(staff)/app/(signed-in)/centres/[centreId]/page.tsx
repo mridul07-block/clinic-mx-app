@@ -47,6 +47,10 @@ export default async function CentrePage({
           Centres
         </Link>
         <h1 className="text-title font-semibold">{centre.name}</h1>
+        <p className="text-sm text-ink-secondary" data-testid="centre-code">
+          Code <span className="font-mono text-ink">{centre.code}</span>, at the start of its OP
+          numbers. It never changes.
+        </p>
         <span className="flex flex-wrap items-center gap-2">
           {centre.active ? <Tag tone="active">Active</Tag> : <Tag tone="neutral">Inactive</Tag>}
           <CentreSwatch colour={centre.colour} />

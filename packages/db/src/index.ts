@@ -128,6 +128,7 @@ export {
 } from './rate-limits';
 export {
   activeCentreWithColour,
+  centreCodeTaken,
   centreList,
   centreNameTaken,
   centreRecord,
@@ -136,6 +137,16 @@ export {
   updateCentre,
   type CentreEntry,
 } from './centres';
+export {
+  PATIENT_SEARCH_LIMIT,
+  insertPatient,
+  patientRecord,
+  patientsOnPhone,
+  searchPatients,
+  updatePatient,
+  type PatientEntry,
+  type PatientMatch,
+} from './patients';
 export {
   discountPresetList,
   discountPresetNameTaken,

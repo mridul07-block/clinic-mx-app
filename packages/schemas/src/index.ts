@@ -107,6 +107,7 @@ export {
 } from './patient-links';
 export {
   centreActiveSchema,
+  centreCodeSchema,
   centreColourIndex,
   centreColourName,
   centreColours,
@@ -115,9 +116,24 @@ export {
   formatIndianPhone,
   indianPhoneSchema,
   mapLinkSchema,
+  newCentreSchema,
   type CentreColour,
   type CentreDetails,
+  type NewCentreDetails,
 } from './centres';
+export {
+  dateOfBirthSchema,
+  newPatientSchema,
+  patientDetailsSchema,
+  patientSearch,
+  patientSexLabels,
+  patientSexes,
+  patientUpdateSchema,
+  type NewPatient,
+  type PatientDetails,
+  type PatientSearch,
+  type PatientSex,
+} from './patients';
 export {
   MAX_APPOINTMENT_MINUTES,
   appointmentMinutesSchema,

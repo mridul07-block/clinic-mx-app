@@ -71,6 +71,18 @@ export function CentreForm({
         defaultValue={value('name')}
         error={state.fieldErrors?.name}
       />
+      {centre?.centreId ? null : (
+        <TextField
+          label="Code"
+          name="code"
+          autoComplete="off"
+          autoCapitalize="characters"
+          maxLength={4}
+          defaultValue={state.values?.code ?? ''}
+          helper="2 to 4 letters, for example HSR. It starts every OP number the centre issues and cannot be changed later."
+          error={state.fieldErrors?.code}
+        />
+      )}
       <TextAreaField
         label="Address"
         name="address"

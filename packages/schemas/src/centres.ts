@@ -104,7 +104,22 @@ export const centreDetailsSchema = z.object({
 
 export type CentreDetails = z.output<typeof centreDetailsSchema>;
 
-/** Editing a centre: which one, and its details. */
+/**
+ * A centre's short code, the start of every OP number it issues (SCH-01, user decision 22 October
+ * 2026): 2 to 4 capital letters, for example HSR. Fixed once the centre is added.
+ */
+export const centreCodeSchema = z
+  .string()
+  .trim()
+  .transform((typed) => typed.toUpperCase())
+  .pipe(z.string().regex(/^[A-Z]{2,4}$/, { error: 'Enter 2 to 4 letters, for example HSR.' }));
+
+/** Adding a centre: its details and its code. */
+export const newCentreSchema = centreDetailsSchema.extend({ code: centreCodeSchema });
+
+export type NewCentreDetails = z.output<typeof newCentreSchema>;
+
+/** Editing a centre: which one, and its details (the code never changes). */
 export const centreUpdateSchema = centreDetailsSchema.extend({ centreId: z.guid() });
 
 /** Deactivating or reactivating a centre. */

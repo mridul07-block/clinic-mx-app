@@ -86,10 +86,15 @@ jobs:
           fi
 
   # IAM-01: the app signs in against the local Supabase stack; the seed gives the test staff
-  # logins with a password made for this run.
+  # logins with a password made for this run. The phone (360 px) and desktop projects run as two
+  # jobs side by side, each on its own stack, and start with the other checks rather than after
+  # them: the same tests in about half the time. Every job must pass before a merge.
   e2e:
-    name: End to end (360 px phone and desktop)
-    needs: checks
+    name: End to end (${{ matrix.project }})
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [phone, desktop]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -141,13 +146,13 @@ jobs:
 
       # Playwright builds the app and runs `next start` (playwright.config.ts webServer).
       - name: End to end tests
-        run: pnpm test:e2e
+        run: pnpm test:e2e --project=${{ matrix.project }}
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.project }}
           path: apps/web/playwright-report/
           retention-days: 7
 

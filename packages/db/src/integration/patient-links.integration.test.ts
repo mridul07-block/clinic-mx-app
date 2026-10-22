@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { withStaffAccess } from '../access';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
+import { fakePatientId } from './fake-patients';
 import type { StaffMember } from '../identity';
 import {
   completePatientLinkRow,
@@ -17,7 +18,7 @@ import { seedStaff } from '../seed/data';
 
 // IAM-09: patient links in the database. The subject rules hold, every change is audited, and a
 // patient page under row level security sees only its own link. CI database only. Links made
-// here stay; patient ids are generated for each run.
+// here stay, for generated patients.
 const url = process.env.DIRECT_DATABASE_URL;
 if (!url) throw new Error('DIRECT_DATABASE_URL is not set.');
 const { db, close } = createDb(url, { max: 1 });
@@ -25,16 +26,18 @@ afterAll(close);
 const whatsapp = systemActor('whatsapp');
 
 const inAnHour = () => new Date(Date.now() + 3_600_000);
-const issue = (values: Partial<Parameters<typeof insertPatientLink>[1]> = {}) =>
-  withActor(db, whatsapp, (tx) =>
+const issue = async (values: Partial<Parameters<typeof insertPatientLink>[1]> = {}) => {
+  const patientId = values.patientId ?? (await fakePatientId(db));
+  return withActor(db, whatsapp, (tx) =>
     insertPatientLink(tx, {
-      patientId: crypto.randomUUID(),
+      patientId,
       purpose: 'my_plan',
       episodeId: crypto.randomUUID(),
       expiresAt: inAnHour(),
       ...values,
     }),
   );
+};
 const access = async (id: string): Promise<PatientLinkAccess> => {
   const row = await findPatientLink(db, id);
   if (!row) throw new Error('link not found');
@@ -75,7 +78,7 @@ describe('patient links', () => {
   });
 
   it('are audited when issued and when stopped', async () => {
-    const patientId = crypto.randomUUID();
+    const patientId = await fakePatientId(db);
     const older = await issue({ patientId });
     const newer = await issue({ patientId });
     expect(await withActor(db, whatsapp, (tx) => revokeMyPlanLinks(tx, patientId, newer.id))).toBe(
