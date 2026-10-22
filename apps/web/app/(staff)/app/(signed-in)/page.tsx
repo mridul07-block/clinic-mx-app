@@ -22,6 +22,11 @@ export default async function StaffHome() {
             Centres
           </Link>
         ) : null}
+        {accessScope(staff, 'settings.manage') ? (
+          <Link href="/app/appointment-types" className={linkClass}>
+            Appointment types
+          </Link>
+        ) : null}
         {accessScope(staff, 'prices.view') ? (
           <Link href="/app/prices" className={linkClass}>
             Prices

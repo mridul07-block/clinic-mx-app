@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { isSettingKey, parseSetting, settingDefinitions, settingKeys } from './settings';
+import {
+  isSettingKey,
+  parseSetting,
+  recordRules,
+  settingDefinitions,
+  settingKeys,
+} from './settings';
 
 // FND-14 done when: every rule in PRD section 7 is read from settings.
 const prd = readFileSync(
@@ -25,10 +31,14 @@ function prdSectionSevenRules(): [string, string][] {
     });
 }
 
-const prdSources = Object.values(settingDefinitions)
-  .map((definition) => definition.source)
-  .filter((source) => source.startsWith('PRD section 7: '))
-  .map((source) => source.slice('PRD section 7: '.length));
+const prdSources = [
+  ...Object.values(settingDefinitions)
+    .map((definition) => definition.source)
+    .filter((source) => source.startsWith('PRD section 7: '))
+    .map((source) => source.slice('PRD section 7: '.length)),
+  // Rules whose values live on records the Super Admin keeps (appointment types, SET-03).
+  ...Object.keys(recordRules),
+];
 
 describe('the settings registry', () => {
   it('covers every rule PRD section 7 marks as a Setting', () => {
@@ -61,10 +71,7 @@ describe('the settings registry', () => {
 describe('setting values', () => {
   it('accept well formed values', () => {
     expect(parseSetting('day.running_late_minutes', 15)).toBe(15);
-    expect(parseSetting('scheduling.session_minutes', { shortest: 45, longest: 60 })).toEqual({
-      shortest: 45,
-      longest: 60,
-    });
+    expect(parseSetting('scheduling.slot_minutes', 15)).toBe(15);
     expect(parseSetting('reminders.day_before_time', '18:00')).toBe('18:00');
     expect(
       parseSetting('engagement.follow_ups_after_discharge', [{ count: 2, unit: 'week' }]),
@@ -75,9 +82,7 @@ describe('setting values', () => {
     expect(() => parseSetting('day.running_late_minutes', 0)).toThrow();
     expect(() => parseSetting('day.running_late_minutes', 1.5)).toThrow();
     expect(() => parseSetting('day.running_late_minutes', '15')).toThrow();
-    expect(() =>
-      parseSetting('scheduling.session_minutes', { shortest: 60, longest: 45 }),
-    ).toThrow();
+    expect(() => parseSetting('scheduling.slot_minutes', 0)).toThrow();
     expect(() => parseSetting('reminders.day_before_time', '24:00')).toThrow();
     expect(() => parseSetting('billing.consultation_fee_timing', 'at_booking')).toThrow();
     expect(() => parseSetting('engagement.follow_ups_after_discharge', [])).toThrow();

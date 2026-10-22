@@ -4,8 +4,7 @@ import { SettingsError, createSettingsReader, parseSettings } from './settings';
 
 // Test values only; the real ones are in the settings migration.
 const stored: Settings = {
-  'scheduling.consultation_minutes': 45,
-  'scheduling.session_minutes': { shortest: 45, longest: 60 },
+  'scheduling.slot_minutes': 15,
   'booking.self_booking_block_reschedules': 2,
   'booking.self_booking_block_no_shows': 2,
   'packages.reschedules_per_10_sessions': 1,
@@ -80,7 +79,7 @@ describe('the settings reader', () => {
   it('reads a value', async () => {
     const { reader } = readerWith();
     expect(await reader.get('day.no_show_allowed_minutes')).toBe(25);
-    expect(await reader.get('scheduling.session_minutes')).toEqual({ shortest: 45, longest: 60 });
+    expect(await reader.get('scheduling.slot_minutes')).toBe(15);
   });
 
   it('loads once for reads within the cache time, including reads that arrive together', async () => {

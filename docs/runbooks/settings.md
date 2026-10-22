@@ -38,6 +38,13 @@ a fixed rule), and a database test fails if a key has no valid row after migrati
 Keys are global. Values per centre, per physio or per appointment type belong on those records
 (SET-01, SET-03), with the global setting as the default where the PRD gives one.
 
+Two PRD section 7 Setting rows live on records instead of keys (SET-03): "Consultation length" and
+"Session length" are the lengths of the Consultation and Session appointment types, and a physio's
+own lengths (`docs/runbooks/appointment-types.md`). The Super Admin still changes them without a
+release. `recordRules` in `packages/schemas/src/settings.ts` lists them, so the PRD test counts
+them as covered. The global `scheduling.consultation_minutes` and `scheduling.session_minutes`
+were retired by migration `20261022082157_appointment_type_rules.sql`.
+
 ## Changing a setting
 
 `updateSetting(db, actor, key, value)` validates the value, stores who changed it and is audited

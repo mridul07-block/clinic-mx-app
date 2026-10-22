@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { keyFromName } from './keys';
 import { rupeesSchema } from './money';
 
 /**
@@ -33,13 +34,7 @@ export type PriceItemDetails = z.output<typeof priceItemDetailsSchema>;
  * added and never changed after.
  */
 export function priceItemKey(label: string): string {
-  const key = label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 60)
-    .replace(/_+$/, '');
-  return /^[a-z]/.test(key) ? key : `item_${key}`;
+  return keyFromName(label);
 }
 
 export const priceItemUpdateSchema = priceItemDetailsSchema.extend({ priceItemId: z.guid() });

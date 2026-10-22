@@ -93,6 +93,21 @@ export {
   type CentreColour,
   type CentreDetails,
 } from './centres';
+export {
+  MAX_APPOINTMENT_MINUTES,
+  appointmentMinutesSchema,
+  appointmentTypeActiveSchema,
+  appointmentTypeDetailsSchema,
+  appointmentTypeKey,
+  appointmentTypeUpdateSchema,
+  fitsSlots,
+  formatMinutes,
+  physioLengthsSchema,
+  slotMessage,
+  type AppointmentTypeDetails,
+  type PhysioLengths,
+} from './appointment-types';
+export { keyFromName } from './keys';
 export { MAX_PAISE, formatRupees, rupeesSchema, rupeesText } from './money';
 export {
   discountKinds,
