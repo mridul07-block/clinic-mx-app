@@ -2,6 +2,7 @@ import type { Db, StaffMember } from '@clinic-mx/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
+import { getSetting } from '../settings/settings';
 import {
   AppointmentTypeError,
   addAppointmentType,
@@ -167,5 +168,39 @@ describe('appointment types', () => {
       }),
     ).rejects.toThrow('Use steps of 15 minutes');
     expect(db.setPhysioLengths).not.toHaveBeenCalled();
+  });
+
+  it('read the slot length before the transaction opens', async () => {
+    // The app has one database connection per server instance: a settings load inside the
+    // transaction would wait for that connection for ever (found on staging, SET-03).
+    const order: string[] = [];
+    vi.mocked(getSetting).mockImplementation(() => {
+      order.push('setting');
+      return Promise.resolve(15);
+    });
+    db.withStaffAccess.mockImplementation(
+      (_db: Db, _context: unknown, work: (tx: unknown) => unknown) => {
+        order.push('transaction');
+        return work(fakeTx);
+      },
+    );
+    await addAppointmentType(context(), { name: 'Home visit', minutes: '60' });
+    await editAppointmentType(context(), {
+      appointmentTypeId: review,
+      name: 'Review',
+      minutes: '30',
+    });
+    await setPhysioLengthsService(context(), {
+      staffUserId: physioId,
+      lengths: [{ appointmentTypeId: session, minutes: '60' }],
+    });
+    expect(order).toEqual([
+      'setting',
+      'transaction',
+      'setting',
+      'transaction',
+      'setting',
+      'transaction',
+    ]);
   });
 });
