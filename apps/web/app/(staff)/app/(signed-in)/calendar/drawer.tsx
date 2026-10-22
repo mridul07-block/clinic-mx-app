@@ -3,6 +3,7 @@ import {
   appointmentChangeReasonLabels,
   bookingChannelLabels,
   formatIstDate,
+  formatIstDateTime,
   istDate,
 } from '@clinic-mx/schemas';
 import { toneByAppointmentStatus } from '@clinic-mx/ui';
@@ -15,7 +16,7 @@ import {
 } from '../../../../../components/forms';
 import { Tag } from '../../../../../components/tag';
 import type { SlotOption } from '../../../../../modules/scheduling/calendar';
-import { HoldButton } from './booking-forms';
+import { HoldButton, UndoNoShowButton, type ChangePlace } from './booking-forms';
 import { shownStatusLabels, timeOf, type ShownStatus } from './calendar-block';
 import { DrawerKeys } from './drawer-keys';
 import { calendarHref } from './links';
@@ -81,6 +82,18 @@ export function Detail({ term, children }: { term: string; children: ReactNode }
   );
 }
 
+/**
+ * No show actions for those who check in (INT-11): Mark no show from the setting's minutes after
+ * the start (a note says when until then), or Undo no show on the appointment's own day.
+ */
+export interface NoShowActions {
+  place: ChangePlace;
+  /** Booked or Confirmed: when a no show may be marked, and the confirm sheet once it may. */
+  mark?: { allowedFrom: Date; href?: string };
+  /** A no show on its own day. */
+  undo?: boolean;
+}
+
 /** An appointment's details (SCH-05); its actions come with check in, reschedule and cancel. */
 export function AppointmentDrawer({
   appointment,
@@ -91,6 +104,7 @@ export function AppointmentDrawer({
   booked = false,
   moved = false,
   change,
+  noShow,
 }: {
   appointment: CalendarAppointment;
   status: ShownStatus;
@@ -103,6 +117,7 @@ export function AppointmentDrawer({
   moved?: boolean;
   /** For someone who books, while it is Booked or Confirmed: where Reschedule and Cancel go. */
   change?: { rescheduleHref: string; cancelHref: string };
+  noShow?: NoShowActions;
 }) {
   const day = istDate(appointment.startsAt);
   const linkTo = (other: NonNullable<CalendarAppointment['rescheduledTo']>) =>
@@ -112,14 +127,28 @@ export function AppointmentDrawer({
       label="Appointment"
       closeHref={closeHref}
       footer={
-        change ? (
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Link href={change.rescheduleHref} scroll={false} className={secondaryButtonClass}>
-              Reschedule
-            </Link>
-            <Link href={change.cancelHref} scroll={false} className={dangerButtonClass}>
-              Cancel appointment
-            </Link>
+        change || noShow?.mark || noShow?.undo ? (
+          <div className="flex flex-col gap-2">
+            {change ? (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Link href={change.rescheduleHref} scroll={false} className={secondaryButtonClass}>
+                  Reschedule
+                </Link>
+                <Link href={change.cancelHref} scroll={false} className={dangerButtonClass}>
+                  Cancel appointment
+                </Link>
+              </div>
+            ) : null}
+            {noShow?.mark?.href ? (
+              <Link href={noShow.mark.href} scroll={false} className={secondaryButtonClass}>
+                Mark no show
+              </Link>
+            ) : noShow?.mark ? (
+              <p data-testid="no-show-from" className="text-sm text-ink-muted">
+                No show can be marked from {timeOf(noShow.mark.allowedFrom)}.
+              </p>
+            ) : null}
+            {noShow?.undo ? <UndoNoShowButton place={noShow.place} /> : null}
           </div>
         ) : undefined
       }
@@ -183,6 +212,13 @@ export function AppointmentDrawer({
             {appointment.changedAt
               ? `, ${formatIstDate(istDate(appointment.changedAt))} ${timeOf(appointment.changedAt)}`
               : ''}
+          </Detail>
+        ) : null}
+        {appointment.noShowAt ? (
+          <Detail term="No show">
+            Marked
+            {appointment.noShowByName ? ` by ${appointment.noShowByName}` : ''},{' '}
+            {formatIstDateTime(appointment.noShowAt)}
           </Detail>
         ) : null}
         {appointment.rescheduledTo ? (

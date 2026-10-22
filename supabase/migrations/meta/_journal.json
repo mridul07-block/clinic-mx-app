@@ -330,6 +330,20 @@
       "when": 1792701878013,
       "tag": "20261022204438_booking_counter_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1792703668002,
+      "tag": "20261022211427_no_show",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1792703682032,
+      "tag": "20261022211442_no_show_rules",
+      "breakpoints": true
     }
   ]
 }

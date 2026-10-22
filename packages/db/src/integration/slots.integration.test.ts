@@ -16,7 +16,9 @@ import {
   currentHold,
   datesWithFreeSlots,
   freeSlots,
+  markNoShow,
   placeHold,
+  undoNoShow,
 } from '../slots';
 import { becomeStaff, on, testDate, testPatient, testPhysio, typeId } from './fake-schedule';
 
@@ -96,6 +98,36 @@ async function refusal(tx: Tx, work: (sp: Tx) => Promise<unknown>): Promise<stri
 }
 
 const now = () => new Date();
+
+/**
+ * An appointment that has already started (INT-11), written directly since the engine books only
+ * ahead: a minute long, `minutesAgo` before now (a few, to stay on today's IST date), or
+ * `daysAgo` days before that.
+ */
+async function pastAppointment(
+  tx: Tx,
+  at: { physioId: string; patientId: string; typeId: string; minutesAgo: number; daysAgo?: number },
+) {
+  const startsAt = new Date(
+    now().getTime() - (at.minutesAgo + (at.daysAgo ?? 0) * 24 * 60) * 60000,
+  );
+  const [row] = await tx
+    .insert(appointment)
+    .values({
+      number: '',
+      patientId: at.patientId,
+      centreId: centreIds.hsrLayout,
+      physioId: at.physioId,
+      appointmentTypeId: at.typeId,
+      startsAt,
+      endsAt: new Date(startsAt.getTime() + 60000),
+      channel: 'front_desk',
+      bookedBy: superAdmin.id,
+    })
+    .returning({ id: appointment.id });
+  if (!row) throw new Error('The appointment was not recorded.');
+  return row;
+}
 const minutesOf = (instants: Date[]) =>
   instants.map((instant) => (instant.getTime() - on(0).getTime()) / 60000);
 
@@ -608,8 +640,13 @@ describe('the slot engine', () => {
       await change((await book(600)).id, 'cancelled', 'patient');
       expect(await counts()).toBeUndefined();
       await change((await book(660)).id, 'rescheduled', 'patient');
-      const missed = await book(720);
-      await tx.update(appointment).set({ status: 'no_show' }).where(eq(appointment.id, missed.id));
+      const missed = await pastAppointment(tx, {
+        physioId: physio.id,
+        patientId,
+        typeId: session,
+        minutesAgo: 2,
+      });
+      await markNoShow(tx, { appointmentId: missed.id, by: superAdmin.id, now: now() });
       // Another change to the same row without a new status counts nothing more.
       await tx.update(appointment).set({ updatedAt: now() }).where(eq(appointment.id, missed.id));
       expect(await counts()).toEqual({ reschedules: 1, noShows: 1 });
@@ -663,6 +700,118 @@ describe('the slot engine', () => {
           .where(eq(bookingCounter.patientId, patientId));
         expect(lifted).toMatchObject({ reschedules: 0, noShows: 0, liftedBy: manager.id });
       });
+    });
+  });
+
+  // INT-11: only a Booked or Confirmed appointment whose start has passed becomes a no show, with
+  // who marked it; an undo goes back to Booked or Confirmed on its own day and takes the count back
+  // down, never below zero.
+  it('marks and undoes no shows, counting them and guarding the changes', async () => {
+    await rolledBack(async (tx) => {
+      const session = await typeId(tx, 'session');
+      const physio = await testPhysio(tx, {
+        centreIds: [centreIds.hsrLayout],
+        createdBy: superAdmin.id,
+      });
+      const patientId = await testPatient(tx);
+      const at = { physioId: physio.id, patientId, typeId: session };
+      const noShows = async () =>
+        (
+          await tx
+            .select({ noShows: bookingCounter.noShows })
+            .from(bookingCounter)
+            .where(eq(bookingCounter.patientId, patientId))
+        )[0]?.noShows;
+      const statusOf = async (id: string) => (await appointmentRecord(tx, id))?.status;
+      const mark = (sp: Tx, appointmentId: string) =>
+        markNoShow(sp, { appointmentId, by: deskHsr.id, now: now() });
+
+      const missed = await pastAppointment(tx, { ...at, minutesAgo: 2 });
+      expect(await mark(tx, missed.id)).toEqual({ id: missed.id });
+      const [marked] = await tx
+        .select({ noShowAt: appointment.noShowAt, noShowBy: appointment.noShowBy })
+        .from(appointment)
+        .where(eq(appointment.id, missed.id));
+      expect(marked?.noShowBy).toBe(deskHsr.id);
+      expect(marked?.noShowAt).toBeInstanceOf(Date);
+      expect(await noShows()).toBe(1);
+      // Marking twice changes nothing.
+      expect(await mark(tx, missed.id)).toBeUndefined();
+      expect(await noShows()).toBe(1);
+
+      expect(await undoNoShow(tx, { appointmentId: missed.id, now: now() })).toEqual({
+        id: missed.id,
+      });
+      expect(await statusOf(missed.id)).toBe('booked');
+      expect(await noShows()).toBe(0);
+      const audited = await tx
+        .select({ action: auditEvent.action })
+        .from(auditEvent)
+        .where(and(eq(auditEvent.entity, 'appointment'), eq(auditEvent.entityId, missed.id)));
+      // Added, marked, undone.
+      expect(audited.length).toBe(3);
+
+      // A confirmed one goes back to Confirmed; a lift in between keeps the count at zero.
+      const confirmed = await pastAppointment(tx, { ...at, minutesAgo: 4 });
+      await tx
+        .update(appointment)
+        .set({ status: 'confirmed', confirmedAt: now() })
+        .where(eq(appointment.id, confirmed.id));
+      await mark(tx, confirmed.id);
+      expect(await noShows()).toBe(1);
+      await liftBookingBlock(tx, { patientId, liftedBy: manager.id, now: now() });
+      await undoNoShow(tx, { appointmentId: confirmed.id, now: now() });
+      expect(await statusOf(confirmed.id)).toBe('confirmed');
+      expect(await noShows()).toBe(0);
+
+      // Refused: before the start, from Checked in, without who marked it, an undo to anything
+      // but Booked or Confirmed, and an undo on another day.
+      const later = await bookAppointment(tx, {
+        centreId: centreIds.hsrLayout,
+        physioId: physio.id,
+        appointmentTypeId: session,
+        patientId,
+        channel: 'front_desk',
+        bookedBy: superAdmin.id,
+        holder: 'test:no-show',
+        startsAt: on(600),
+        step: 15,
+        now: now(),
+      });
+      expect(await failure(tx, (sp) => mark(sp, later.id))).toBe('23514');
+      const arrived = await pastAppointment(tx, { ...at, minutesAgo: 6 });
+      await tx
+        .update(appointment)
+        .set({ status: 'checked_in', arrivedAt: now() })
+        .where(eq(appointment.id, arrived.id));
+      expect(
+        await failure(tx, (sp) =>
+          sp
+            .update(appointment)
+            .set({ status: 'no_show', noShowAt: now(), noShowBy: deskHsr.id })
+            .where(eq(appointment.id, arrived.id)),
+        ),
+      ).toBe('23514');
+      const bare = await pastAppointment(tx, { ...at, minutesAgo: 8 });
+      expect(
+        await failure(tx, (sp) =>
+          sp.update(appointment).set({ status: 'no_show' }).where(eq(appointment.id, bare.id)),
+        ),
+      ).toBe('23514');
+      await mark(tx, bare.id);
+      expect(
+        await failure(tx, (sp) =>
+          sp
+            .update(appointment)
+            .set({ status: 'completed', noShowAt: null, noShowBy: null })
+            .where(eq(appointment.id, bare.id)),
+        ),
+      ).toBe('23514');
+      const yesterday = await pastAppointment(tx, { ...at, minutesAgo: 2, daysAgo: 1 });
+      await mark(tx, yesterday.id);
+      expect(
+        await failure(tx, (sp) => undoNoShow(sp, { appointmentId: yesterday.id, now: now() })),
+      ).toBe('23514');
     });
   });
 

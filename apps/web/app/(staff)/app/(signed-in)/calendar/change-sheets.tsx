@@ -6,6 +6,7 @@ import {
   CancelAppointmentForm,
   CancelBookingButton,
   HoldButton,
+  MarkNoShowForm,
   RescheduleForm,
 } from './booking-forms';
 import { timeOf } from './calendar-block';
@@ -63,6 +64,48 @@ export function CancelSheet({
       />
       <Link href={place.backHref} scroll={false} className={secondaryButtonClass}>
         Keep it
+      </Link>
+    </Drawer>
+  );
+}
+
+/**
+ * Mark a no show (INT-11, user decision 23 October 2026: a confirm sheet, like Cancel). It counts
+ * towards the self booking block; one marked by mistake is undone on the same day.
+ */
+export function NoShowSheet({
+  appointment,
+  physioName,
+  place,
+}: {
+  appointment: CalendarAppointment;
+  physioName: string;
+  place: ChangeView;
+}) {
+  return (
+    <Drawer label="Mark no show" closeHref={place.backHref}>
+      <div className="flex flex-col gap-1">
+        <p className="font-mono text-sm text-ink-secondary">{appointment.number}</p>
+        <h2 className="text-title font-semibold text-ink">
+          Mark {appointment.number} as a no show?
+        </h2>
+        <p className="text-ink-secondary">
+          {appointment.patientName}, {appointment.typeName}, {when(appointment, physioName)}
+        </p>
+      </div>
+      <p className="text-ink-secondary">
+        It counts toward the self booking block. If the patient arrives after all, undo it today.
+      </p>
+      <MarkNoShowForm
+        place={{
+          appointmentId: appointment.id,
+          centreId: place.centreId,
+          date: place.date,
+          view: place.view,
+        }}
+      />
+      <Link href={place.backHref} scroll={false} className={secondaryButtonClass}>
+        Back
       </Link>
     </Drawer>
   );

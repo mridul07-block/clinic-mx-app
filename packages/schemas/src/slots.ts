@@ -96,6 +96,26 @@ export function selfBookingBlock(
 /** Letting a blocked patient book themselves again (SCH-09): both counts back to zero. */
 export const liftSelfBookingBlockSchema = z.object({ patientId: z.guid() });
 
+/**
+ * PRD J2.9 (INT-11): the front desk can mark a Booked or Confirmed appointment a no show from
+ * `day.no_show_allowed_minutes` after its start.
+ */
+export function noShowAllowedFrom(startsAt: Date, allowedMinutes: number): Date {
+  return new Date(startsAt.getTime() + allowedMinutes * 60_000);
+}
+
+/**
+ * A no show marked by mistake is undone on the appointment's own day, in IST (user decision,
+ * 23 October 2026); it goes back to Booked or Confirmed and the count goes back down.
+ */
+export function canUndoNoShow(startsAt: Date, now: Date): boolean {
+  return istDate(startsAt) === istDate(now);
+}
+
+export const markNoShowSchema = z.object({ appointmentId: z.guid() });
+
+export const undoNoShowSchema = z.object({ appointmentId: z.guid() });
+
 /** PRD section 7: patients book on the WhatsApp Flow; the front desk books callers and walk ins. */
 export const bookingChannels = ['whatsapp', 'front_desk'] as const;
 

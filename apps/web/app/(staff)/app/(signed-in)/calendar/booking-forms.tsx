@@ -19,8 +19,10 @@ import {
   bookSlotAction,
   cancelAppointmentAction,
   holdSlotAction,
+  markNoShowAction,
   releaseSlotAction,
   rescheduleAppointmentAction,
+  undoNoShowAction,
   type BookingFormState,
 } from '../../../../../modules/scheduling/actions';
 
@@ -262,7 +264,7 @@ function ReasonField({ error }: { error?: string }) {
 }
 
 /** The calendar's place, kept by the change forms. */
-interface ChangePlace {
+export interface ChangePlace {
   appointmentId: string;
   centreId: string;
   date: string;
@@ -319,6 +321,34 @@ export function RescheduleForm({
       <ReasonField error={state.fieldErrors?.reason} />
       <button type="submit" disabled={pending} className={primaryButtonClass}>
         Reschedule
+      </button>
+    </form>
+  );
+}
+
+/** Mark a no show (INT-11): the sheet is the confirmation; the one button marks it. */
+export function MarkNoShowForm({ place }: { place: ChangePlace }) {
+  const [state, action, pending] = useActionState(markNoShowAction, initialState);
+  return (
+    <form action={action} className="flex flex-col gap-4" noValidate>
+      <PlaceFields place={place} />
+      {state.error ? <FormMessage tone="danger">{state.error}</FormMessage> : null}
+      <button type="submit" disabled={pending} className={dangerButtonClass}>
+        Mark no show
+      </button>
+    </form>
+  );
+}
+
+/** Undo a no show marked by mistake (INT-11): back to Booked or Confirmed, on its day only. */
+export function UndoNoShowButton({ place }: { place: ChangePlace }) {
+  const [state, action, pending] = useActionState(undoNoShowAction, initialState);
+  return (
+    <form action={action} className="flex flex-col gap-2" noValidate>
+      <PlaceFields place={place} />
+      {state.error ? <FormMessage tone="danger">{state.error}</FormMessage> : null}
+      <button type="submit" disabled={pending} className={secondaryButtonClass}>
+        Undo no show
       </button>
     </form>
   );

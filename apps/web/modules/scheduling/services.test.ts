@@ -1,5 +1,5 @@
 import type { Db, StaffMember } from '@clinic-mx/db';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { getSetting } from '../settings/settings';
@@ -11,9 +11,11 @@ import {
   findFreeSlots,
   holdSlot,
   liftSelfBookingBlock,
+  markNoShow,
   releaseSlot,
   rescheduleAppointment,
   selfBookingStatus,
+  undoNoShow,
 } from './services';
 
 const fakeTx = { kind: 'transaction' };
@@ -26,6 +28,8 @@ const db = vi.hoisted(() => ({
   changeAppointment: vi.fn(),
   bookingCounterOf: vi.fn(),
   liftBookingBlock: vi.fn(),
+  markNoShow: vi.fn(),
+  undoNoShow: vi.fn(),
   bookAppointment: vi.fn(),
   episodeRecord: vi.fn(),
   freeSlots: vi.fn(),
@@ -47,6 +51,7 @@ const settings: Record<string, number> = {
   'booking.slot_hold_minutes': 5,
   'booking.self_booking_block_reschedules': 2,
   'booking.self_booking_block_no_shows': 2,
+  'day.no_show_allowed_minutes': 25,
 };
 vi.mock('../settings/settings', () => ({
   getSetting: vi.fn((key: string) => Promise.resolve(settings[key])),
@@ -454,5 +459,76 @@ describe('scheduling', () => {
       liftSelfBookingBlock(context(member({ role: 'super_admin', centreIds: [] })), { patientId }),
     ).rejects.toThrow(SchedulingError);
     expect(db.liftBookingBlock).toHaveBeenCalledTimes(2);
+  });
+
+  // INT-11 (PRD J2.9): the front desk marks a no show from 25 minutes after the start (10:00 IST
+  // here), and undoes one marked by mistake on the same day only.
+  describe('no shows', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('marks a no show from the setting after the start, reading it first', async () => {
+      db.appointmentRecord.mockResolvedValue(old);
+      db.markNoShow.mockResolvedValue({ id: appointmentId });
+      vi.useFakeTimers({ now: new Date('2026-11-02T04:54:59.000Z'), toFake: ['Date'] });
+      await expect(markNoShow(context(), { appointmentId })).rejects.toThrow(
+        'A no show can be marked from 2 Nov 2026, 10:25 IST.',
+      );
+      expect(db.markNoShow).not.toHaveBeenCalled();
+      vi.setSystemTime(new Date('2026-11-02T04:55:00.000Z'));
+      await markNoShow(context(), { appointmentId });
+      expect(db.markNoShow).toHaveBeenCalledWith(fakeTx, {
+        appointmentId,
+        by: deskId,
+        now: new Date('2026-11-02T04:55:00.000Z'),
+      });
+      expect(getSetting).toHaveBeenCalledWith('day.no_show_allowed_minutes');
+    });
+
+    it('marks only a booked or confirmed appointment, for those who check in', async () => {
+      vi.useFakeTimers({ now: new Date('2026-11-02T06:00:00.000Z'), toFake: ['Date'] });
+      db.appointmentRecord.mockResolvedValue({ ...old, status: 'checked_in' });
+      await expect(markNoShow(context(), { appointmentId })).rejects.toThrow(
+        'Only a booked or confirmed appointment can be marked a no show.',
+      );
+      db.appointmentRecord.mockResolvedValue(old);
+      for (const actor of [
+        member({ role: 'physiotherapist', treatsPatients: true }),
+        member({ role: 'finance', centreIds: [] }),
+        member({ centreIds: [koramangala] }),
+      ]) {
+        await expect(markNoShow(context(actor), { appointmentId })).rejects.toThrow(
+          NotAllowedError,
+        );
+      }
+      expect(db.markNoShow).not.toHaveBeenCalled();
+    });
+
+    it('undoes a no show on its own day only', async () => {
+      db.appointmentRecord.mockResolvedValue({ ...old, status: 'no_show' });
+      db.undoNoShow.mockResolvedValue({ id: appointmentId });
+      // 23:59 IST on the day.
+      vi.useFakeTimers({ now: new Date('2026-11-02T18:29:00.000Z'), toFake: ['Date'] });
+      await undoNoShow(context(), { appointmentId });
+      expect(db.undoNoShow).toHaveBeenCalledWith(
+        fakeTx,
+        expect.objectContaining({ appointmentId }),
+      );
+      vi.setSystemTime(new Date('2026-11-02T18:30:00.000Z'));
+      await expect(undoNoShow(context(), { appointmentId })).rejects.toThrow(
+        'A no show can only be undone on its own day.',
+      );
+      db.appointmentRecord.mockResolvedValue(old);
+      await expect(undoNoShow(context(), { appointmentId })).rejects.toThrow(
+        'This appointment is not a no show.',
+      );
+      await expect(
+        undoNoShow(context(member({ role: 'physiotherapist', treatsPatients: true })), {
+          appointmentId,
+        }),
+      ).rejects.toThrow(NotAllowedError);
+      expect(db.undoNoShow).toHaveBeenCalledTimes(1);
+    });
   });
 });

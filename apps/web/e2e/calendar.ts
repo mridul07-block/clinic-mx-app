@@ -104,6 +104,52 @@ export async function testAppointment(
   return booked.number;
 }
 
+/**
+ * A Session at HSR Layout that started `minutesAgo` before now and was booked at the front desk
+ * by the seed Super Admin (INT-11), written directly since the engine books only ahead; its number
+ * and start.
+ */
+export async function startedAppointment(
+  physioId: string,
+  patientId: string,
+  minutesAgo: number,
+): Promise<{ number: string; startsAt: Date }> {
+  const hsr = await centreIdByCode('HSR');
+  const session = await idOf(
+    db()
+      .select({ id: appointmentType.id })
+      .from(appointmentType)
+      .where(eq(appointmentType.key, 'session')),
+    'Session',
+  );
+  const admin = await idOf(
+    db()
+      .select({ id: staffUser.id })
+      .from(staffUser)
+      .where(eq(staffUser.email, 'super.admin@clinicmx.test')),
+    'the seed Super Admin',
+  );
+  const startsAt = new Date(Date.now() - minutesAgo * 60_000);
+  const [row] = await withActor(db(), systemActor('tests'), (tx) =>
+    tx
+      .insert(appointment)
+      .values({
+        number: '',
+        patientId,
+        centreId: hsr,
+        physioId,
+        appointmentTypeId: session,
+        startsAt,
+        endsAt: new Date(startsAt.getTime() + 45 * 60_000),
+        channel: 'front_desk',
+        bookedBy: admin,
+      })
+      .returning({ number: appointment.number }),
+  );
+  if (!row) throw new Error('The appointment was not recorded.');
+  return { number: row.number, startsAt };
+}
+
 /** Removes the appointments, holds and hours of the given physios. */
 export async function removeCalendarRows(physioIds: string[]): Promise<void> {
   await withActor(db(), systemActor('tests'), async (tx) => {

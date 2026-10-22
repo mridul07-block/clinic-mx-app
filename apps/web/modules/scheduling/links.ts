@@ -18,8 +18,11 @@ export function calendarHref(view: {
   newBooking?: { appointmentTypeId?: string; on?: string };
   /** The appointment was just booked. */
   booked?: boolean;
-  /** Changing the open appointment (SCH-08): cancel it, or move it (picking on a day, a physio). */
-  change?: 'cancel' | 'reschedule';
+  /**
+   * Changing the open appointment (SCH-08): cancel it, or move it (picking on a day, a physio);
+   * or mark it a no show (INT-11).
+   */
+  change?: 'cancel' | 'reschedule' | 'no_show';
   /** The reschedule picker's day and physio ("any" for all). */
   pick?: { on?: string; physioId?: string };
   /** The open appointment was just booked in place of another (SCH-08). */

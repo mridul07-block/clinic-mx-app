@@ -78,6 +78,9 @@ export const appointment = pgTable(
       .unique()
       .references((): AnyPgColumn => appointment.id),
     arrivedAt: timestamp('arrived_at', { withTimezone: true }),
+    /** Marked a no show (INT-11): when, and the staff member who did it; cleared by an undo. */
+    noShowAt: timestamp('no_show_at', { withTimezone: true }),
+    noShowBy: uuid('no_show_by').references(() => staffUser.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -94,6 +97,10 @@ export const appointment = pgTable(
     check(
       'appointment_change',
       sql`(${table.status} in ('cancelled', 'rescheduled')) = (${table.changeReason} is not null and ${table.changedAt} is not null and ${table.changedBy} is not null) and (${table.changeReason} is null) = (${table.changedAt} is null) and (${table.changeReason} is null) = (${table.changedBy} is null)`,
+    ),
+    check(
+      'appointment_no_show',
+      sql`(${table.status} = 'no_show') = (${table.noShowAt} is not null) and (${table.noShowAt} is null) = (${table.noShowBy} is null)`,
     ),
     check(
       'appointment_machine_unit',
