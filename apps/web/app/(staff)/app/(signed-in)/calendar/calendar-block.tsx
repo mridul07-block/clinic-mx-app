@@ -23,7 +23,7 @@ export function shownStatus(
     : appointment.status;
 }
 
-const stripClass: Record<Tone, string> = {
+export const stripClass: Record<Tone, string> = {
   outline: 'bg-line-strong',
   neutral: 'bg-ink-muted',
   info: 'bg-info',

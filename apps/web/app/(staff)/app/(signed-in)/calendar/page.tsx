@@ -25,10 +25,17 @@ const weekday = (date: string) =>
 // consultant's fee in the header, free slots that open the drawer, appointment details in the
 // drawer, and live updates. The Super Admin, Centre Managers and the Front Desk see every physio at
 // a centre; a physio sees their own column. The address carries the centre, date and drawer.
+// Phones get the agenda, one physio or everyone at a time, with details in a bottom sheet (SCH-06).
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ centre?: string; date?: string; appointment?: string; slot?: string }>;
+  searchParams: Promise<{
+    centre?: string;
+    date?: string;
+    physio?: string;
+    appointment?: string;
+    slot?: string;
+  }>;
 }) {
   const staff = await requirePermission('calendar.view');
   const params = await searchParams;
@@ -56,7 +63,11 @@ export default async function CalendarPage({
   const day = await loadCalendar(staff, { centreId: centre.id, date });
   const renderedAt = new Date().getTime();
   const version = calendarVersion(day);
-  const closeHref = calendarHref({ centreId: centre.id, date });
+  // The physio picked on a phone; only one of the day's columns, so a physio stays on their own.
+  const physioId = day.columns.some((c) => c.physioId === params.physio)
+    ? params.physio
+    : undefined;
+  const closeHref = calendarHref({ centreId: centre.id, date, physioId });
 
   const opened = day.columns.flatMap((column) =>
     column.appointments
@@ -83,20 +94,20 @@ export default async function CalendarPage({
         </div>
         <nav aria-label="Day" className="flex items-center gap-2">
           <Link
-            href={calendarHref({ centreId: centre.id, date: addDays(date, -1) })}
+            href={calendarHref({ centreId: centre.id, date: addDays(date, -1), physioId })}
             className={`${pillClass} border-line-control`}
           >
             Previous day
           </Link>
           <Link
-            href={calendarHref({ centreId: centre.id, date: today })}
+            href={calendarHref({ centreId: centre.id, date: today, physioId })}
             aria-current={date === today ? 'date' : undefined}
             className={`${pillClass} border-line-control`}
           >
             Today
           </Link>
           <Link
-            href={calendarHref({ centreId: centre.id, date: addDays(date, 1) })}
+            href={calendarHref({ centreId: centre.id, date: addDays(date, 1), physioId })}
             className={`${pillClass} border-line-control`}
           >
             Next day
@@ -137,6 +148,7 @@ export default async function CalendarPage({
           step={step}
           lateMinutes={lateMinutes}
           refreshSeconds={refreshSeconds}
+          physioId={physioId}
           selectedAppointment={opened?.appointment.id}
         />
       )}

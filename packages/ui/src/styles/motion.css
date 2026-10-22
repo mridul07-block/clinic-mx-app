@@ -2,7 +2,8 @@
  * Clinic Mx motion (design system v2 section 5): change, never decoration.
  * Import after tailwindcss, without layer(). Keyframes live here rather than in
  * theme.css, whose @theme reference block drops them.
- * - Drawers slide in from the right and toasts from the left (240 ms).
+ * - Drawers slide in from the right, sheets up from the bottom on phones, and toasts from
+ *   the left (240 ms).
  * - Bars rise from the baseline and lines draw in when a chart first shows, staggered
  *   12 ms a bar, each in 240 ms, so a 13 week chart is drawn in under half a second.
  * - When live data changes, bars and points glide to their new place in 240 ms.
@@ -25,6 +26,13 @@
 @keyframes cmx-drawer-out {
   to {
     transform: translateX(calc(100% + 1rem));
+  }
+}
+
+/* On a phone the drawer is a sheet rising from the bottom edge. */
+@keyframes cmx-sheet-in {
+  from {
+    transform: translateY(100%);
   }
 }
 
@@ -55,6 +63,12 @@
   }
   &[data-state='closed'] {
     animation: cmx-drawer-out var(--duration-motion) ease-in;
+  }
+}
+
+@utility animate-sheet {
+  &[data-state='open'] {
+    animation: cmx-sheet-in var(--duration-motion) var(--ease-standard);
   }
 }
 
