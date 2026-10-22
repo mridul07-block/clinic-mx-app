@@ -67,6 +67,12 @@ export const settingDefinitions = {
       'PRD section 10 decision 6 (placeholder: 60 minutes, from the Red Flag Screening Framework §12)',
     description: 'Morning stiffness lasting at least this many minutes raises a red flag (SET-10).',
   },
+  'patients.adult_age_years': {
+    schema: z.int().positive(),
+    source: 'PRD J2.7: under 18 opens a guardian section',
+    description:
+      'Patients younger than this many years need a guardian, who signs and attends (SCH-02).',
+  },
   'booking.self_booking_block_reschedules': {
     schema: z.int().positive(),
     source: 'PRD section 7: Self booking block',

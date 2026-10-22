@@ -1,7 +1,23 @@
 import 'server-only';
-import { insertPatient, patientsOnPhone, updatePatient, type PatientMatch } from '@clinic-mx/db';
-import { newPatientSchema, patientUpdateSchema } from '@clinic-mx/schemas';
-import { staffService } from '../access/service';
+import {
+  guardianRecord,
+  insertGuardian,
+  insertPatient,
+  patientRecord,
+  patientsOnPhone,
+  removeGuardian,
+  updateGuardian,
+  updatePatient,
+  type PatientMatch,
+} from '@clinic-mx/db';
+import {
+  guardianRemoveSchema,
+  guardianUpdateSchema,
+  newGuardianSchema,
+  newPatientSchema,
+  patientUpdateSchema,
+} from '@clinic-mx/schemas';
+import { staffService, type ServiceTransaction } from '../access/service';
 
 /**
  * Patients (SCH-01, PRD M1): keyed by person, so a family shares one mobile. The Super Admin,
@@ -43,6 +59,51 @@ export const editPatient = staffService({
   run: async (tx, { patientId, ...details }) => {
     if (!(await updatePatient(tx, patientId, details))) {
       throw new PatientError('That patient was not found.');
+    }
+  },
+});
+
+/**
+ * Guardians (SCH-02, PRD J2.7): several per patient, kept by those who edit patients. A guardian
+ * is removed, never deleted (consent records point to who signed); a removed one cannot change.
+ */
+export const addGuardian = staffService({
+  action: 'patients.edit_contact',
+  input: newGuardianSchema,
+  run: async (tx, { patientId, ...details }) => {
+    if (!(await patientRecord(tx, patientId))) {
+      throw new PatientError('That patient was not found.');
+    }
+    return insertGuardian(tx, patientId, details);
+  },
+});
+
+/** Why a guardian could not change: removed already, or not there at all. */
+async function guardianRefusal(tx: ServiceTransaction, guardianId: string): Promise<PatientError> {
+  const found = await guardianRecord(tx, guardianId);
+  return new PatientError(
+    found
+      ? 'That guardian was removed, so their details cannot change.'
+      : 'That guardian was not found.',
+  );
+}
+
+export const editGuardian = staffService({
+  action: 'patients.edit_contact',
+  input: guardianUpdateSchema,
+  run: async (tx, { guardianId, ...details }) => {
+    if (!(await updateGuardian(tx, guardianId, details))) {
+      throw await guardianRefusal(tx, guardianId);
+    }
+  },
+});
+
+export const removeGuardianService = staffService({
+  action: 'patients.edit_contact',
+  input: guardianRemoveSchema,
+  run: async (tx, { guardianId }) => {
+    if (!(await removeGuardian(tx, guardianId))) {
+      throw await guardianRefusal(tx, guardianId);
     }
   },
 });

@@ -6,7 +6,14 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { serviceContext } from '../access/staff-db';
-import { PatientError, addPatient, editPatient } from './services';
+import {
+  PatientError,
+  addGuardian,
+  addPatient,
+  editGuardian,
+  editPatient,
+  removeGuardianService,
+} from './services';
 
 /** What a patient form shows after a post (SCH-01). */
 export interface PatientFormState {
@@ -87,4 +94,66 @@ export async function editPatientAction(
   }
   revalidatePath(LIST);
   redirect(`${LIST}/${patientId}?done=saved`);
+}
+
+/** What a guardian form shows after a post (SCH-02). */
+export interface GuardianFormState {
+  error?: string;
+  /** Messages by field: name, relationship, phone. */
+  fieldErrors?: Record<string, string>;
+  values?: Record<string, string>;
+}
+
+const guardianFrom = (form: FormData) => ({
+  name: text(form, 'name'),
+  relationship: text(form, 'relationship'),
+  phone: text(form, 'phone'),
+});
+
+/** The patient's page, where guardians are kept; only a well formed id goes in the address. */
+const patientPage = (patientId: string, done: string) =>
+  `${LIST}/${z.guid().safeParse(patientId).success ? patientId : ''}?done=${done}`;
+
+export async function addGuardianAction(
+  _state: GuardianFormState,
+  form: FormData,
+): Promise<GuardianFormState> {
+  const values = guardianFrom(form);
+  const patientId = text(form, 'patientId');
+  try {
+    await addGuardian(await serviceContext(), { patientId, ...values });
+  } catch (error) {
+    return { ...failure(error), values };
+  }
+  revalidatePath(LIST);
+  redirect(patientPage(patientId, 'guardian-added'));
+}
+
+export async function editGuardianAction(
+  _state: GuardianFormState,
+  form: FormData,
+): Promise<GuardianFormState> {
+  const values = guardianFrom(form);
+  const patientId = text(form, 'patientId');
+  try {
+    await editGuardian(await serviceContext(), { guardianId: text(form, 'guardianId'), ...values });
+  } catch (error) {
+    return { ...failure(error), values };
+  }
+  revalidatePath(LIST);
+  redirect(patientPage(patientId, 'guardian-saved'));
+}
+
+export async function removeGuardianAction(
+  _state: GuardianFormState,
+  form: FormData,
+): Promise<GuardianFormState> {
+  const patientId = text(form, 'patientId');
+  try {
+    await removeGuardianService(await serviceContext(), { guardianId: text(form, 'guardianId') });
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath(LIST);
+  redirect(patientPage(patientId, 'guardian-removed'));
 }

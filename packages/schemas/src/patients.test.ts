@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { centreCodeSchema, centreColours, newCentreSchema } from './centres';
 import { addDays, istDate } from './ist';
-import { newPatientSchema, patientDetailsSchema, patientSearch } from './patients';
+import {
+  ageOn,
+  guardianDetailsSchema,
+  needsGuardian,
+  newPatientSchema,
+  patientDetailsSchema,
+  patientSearch,
+} from './patients';
 
 // SCH-01: patients keyed by person; a new patient needs a name and a mobile only.
 const centreId = '00000000-0000-4000-8000-000000000101';
@@ -106,5 +113,38 @@ describe('centre codes', () => {
     };
     expect(newCentreSchema.safeParse(details).success).toBe(false);
     expect(newCentreSchema.parse({ ...details, code: 'tst' }).code).toBe('TST');
+  });
+});
+
+// SCH-02: guardians for patients under the adult age.
+describe('guardians', () => {
+  it('need a name, a relationship from the list and a mobile', () => {
+    expect(
+      guardianDetailsSchema.parse({
+        name: ' Test Mother ',
+        relationship: 'mother',
+        phone: '99000 00001',
+      }),
+    ).toEqual({ name: 'Test Mother', relationship: 'mother', phone: '+919900000001' });
+    const result = guardianDetailsSchema.safeParse({ name: '', relationship: 'aunt', phone: '1' });
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(
+      expect.arrayContaining(['name', 'relationship', 'phone']),
+    );
+  });
+
+  it('count whole years of age, on the IST calendar date', () => {
+    expect(ageOn('2010-06-15', '2026-06-15')).toBe(16);
+    expect(ageOn('2010-06-15', '2026-06-14')).toBe(15);
+    expect(ageOn('2008-10-23', '2026-10-22')).toBe(17);
+    expect(ageOn('2008-10-22', '2026-10-22')).toBe(18);
+    // Born on 29 February: a year older from 1 March in other years.
+    expect(ageOn('2012-02-29', '2026-02-28')).toBe(13);
+    expect(ageOn('2012-02-29', '2026-03-01')).toBe(14);
+  });
+
+  it('are needed below the adult age, and not when the age is unknown', () => {
+    expect(needsGuardian(17, 18)).toBe(true);
+    expect(needsGuardian(18, 18)).toBe(false);
+    expect(needsGuardian(null, 18)).toBe(false);
   });
 });

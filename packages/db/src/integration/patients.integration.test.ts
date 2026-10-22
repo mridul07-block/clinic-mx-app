@@ -5,13 +5,18 @@ import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
 import type { StaffMember } from '../identity';
 import {
+  guardianRecord,
+  guardiansOf,
+  insertGuardian,
   insertPatient,
   patientRecord,
   patientsOnPhone,
+  removeGuardian,
   searchPatients,
+  updateGuardian,
   updatePatient,
 } from '../patients';
-import { auditEvent, patient } from '../schema';
+import { auditEvent, guardian, patient, setting } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import { fakePatientDetails, fakePatientId } from './fake-patients';
 
@@ -210,5 +215,77 @@ describe('patients', () => {
       after: { sex: 'other', name: details.name },
     });
     expect((await patientRecord(db, id))?.sex).toBe('other');
+  });
+});
+
+// SCH-02: guardians, several per patient; removed, never deleted; kept by those who edit patients.
+describe('guardians', () => {
+  const mother = { name: 'Test Mother', relationship: 'mother' as const, phone: '+919900000011' };
+  const father = { name: 'Test Father', relationship: 'father' as const, phone: '+919900000012' };
+
+  it('are several per patient; a removed one is kept but no longer listed', async () => {
+    const patientId = await fakePatientId(db);
+    await rolledBack(deskHsr, async (tx) => {
+      const a = await insertGuardian(tx, patientId, mother);
+      await insertGuardian(tx, patientId, father);
+      expect((await guardiansOf(tx, patientId)).map((g) => g.name)).toEqual([
+        'Test Father',
+        'Test Mother',
+      ]);
+      expect(await updateGuardian(tx, a, { ...mother, phone: '+919900000013' })).toBe(true);
+      expect(await removeGuardian(tx, a)).toBe(true);
+      expect(await removeGuardian(tx, a)).toBe(false);
+      expect(await updateGuardian(tx, a, mother)).toBe(false);
+      expect((await guardiansOf(tx, patientId)).map((g) => g.name)).toEqual(['Test Father']);
+      expect((await guardianRecord(tx, a))?.removedAt).toBeInstanceOf(Date);
+      const deleted = await tx
+        .delete(guardian)
+        .where(eq(guardian.id, a))
+        .returning({ id: guardian.id });
+      expect(deleted).toEqual([]);
+    });
+  });
+
+  it('are read by every role and kept only by those who edit patients', async () => {
+    const patientId = await fakePatientId(db);
+    const guardianId = await withActor(db, systemActor('tests'), (tx) =>
+      insertGuardian(tx, patientId, mother),
+    );
+    for (const reader of [superAdmin, manager, deskHsr, physio, finance, support]) {
+      await rolledBack(reader, async (tx) => {
+        expect(
+          (await guardiansOf(tx, patientId)).map((g) => g.id),
+          reader.email,
+        ).toEqual([guardianId]);
+      });
+    }
+    for (const writer of [physio, finance]) {
+      await rolledBack(writer, async (tx) => {
+        expect(await failure(tx, (sp) => insertGuardian(sp, patientId, father)), writer.email).toBe(
+          '42501',
+        );
+        expect(await removeGuardian(tx, guardianId), writer.email).toBe(false);
+      });
+    }
+    await rolledBack(support, async (tx) => {
+      expect(await failure(tx, (sp) => insertGuardian(sp, patientId, father))).toBeDefined();
+    });
+  });
+
+  it('are audited, and the adult age is a setting of 18', async () => {
+    const patientId = await fakePatientId(db);
+    const id = await withStaffAccess(db, { actor: manager }, (tx) =>
+      insertGuardian(tx, patientId, father),
+    );
+    const [event] = await db
+      .select({ actor: auditEvent.actor, action: auditEvent.action })
+      .from(auditEvent)
+      .where(and(eq(auditEvent.entity, 'guardian'), eq(auditEvent.entityId, id)));
+    expect(event).toEqual({ actor: `staff:${manager.id}`, action: 'insert' });
+    const [row] = await db
+      .select({ value: setting.value })
+      .from(setting)
+      .where(eq(setting.key, 'patients.adult_age_years'));
+    expect(row?.value).toBe(18);
   });
 });
