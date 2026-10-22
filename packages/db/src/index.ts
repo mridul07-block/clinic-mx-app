@@ -226,3 +226,10 @@ export {
   type KnowledgeRedFlagRule,
   type KnowledgeVersion,
 } from './knowledge';
+export {
+  episodeRecord,
+  episodesOf,
+  insertEpisode,
+  updateEpisodeState,
+  type EpisodeEntry,
+} from './episodes';

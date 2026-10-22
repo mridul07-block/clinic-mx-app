@@ -13,3 +13,4 @@ export * from './prices';
 export * from './appointment-types';
 export * from './rosters';
 export * from './knowledge';
+export * from './episodes';

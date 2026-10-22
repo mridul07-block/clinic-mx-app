@@ -65,6 +65,7 @@ claim through the IAM-03 readers (`internal.jwt_staff_id`, `jwt_staff_role`, `jw
 | `kb_version`, `kb_condition`, `kb_condition_listing` (SET-05), `kb_red_flag_rule`, `kb_red_flag_presentation` (SET-10) | Knowledge base readers (Super Admin, Centre Manager, Physiotherapist; `internal.jwt_views_knowledge`) | Nobody signed in: versions are imported by the owner (`pnpm kb:import --apply`, audited `system:kb-import`); approval comes with SET-06 (`docs/runbooks/knowledge-base.md`) |
 | `patient` (SCH-01) | Every signed in staff member, in every centre (records are shared, PRD J7.6) | Super Admin, Centre Manager and Front Desk (`internal.jwt_edits_patients`) insert at a centre they see, and update; nobody deletes. Triggers set the OP number and keep it and the registering centre fixed (`docs/runbooks/patients.md`) |
 | `guardian` (SCH-02) | Every signed in staff member | The same roles as `patient` insert and update (remove sets `removed_at`); nobody deletes, since consent records point to the guardian who signed |
+| `episode` (SCH-03) | Every signed in staff member | Super Admin, Centre Manager and Front Desk insert at a centre they see; any signed in staff member updates (each service checks its event's permission); the `episode_transition_guard` trigger allows only the status machine's moves; nobody deletes (`docs/runbooks/episodes.md`) |
 | `centre_sequence` (SCH-01) | None: server only; advanced by `internal.next_centre_number` | None |
 
 No table has a delete policy except centre assignments, a package type's covered items and a physio's

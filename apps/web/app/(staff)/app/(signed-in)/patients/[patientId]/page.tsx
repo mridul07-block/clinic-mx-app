@@ -1,14 +1,19 @@
-import { guardiansOf, patientRecord, patientsOnPhone } from '@clinic-mx/db';
+import { episodesOf, guardiansOf, patientRecord, patientsOnPhone } from '@clinic-mx/db';
 import {
   accessScope,
   ageOn,
+  dischargeReasonLabels,
+  episodeStatusLabels,
   formatIndianPhone,
   formatIstDate,
   guardianRelationshipLabels,
   istDate,
   needsGuardian,
   patientSexLabels,
+  screeningRegionLabels,
+  type EpisodeStatus,
 } from '@clinic-mx/schemas';
+import type { Tone } from '@clinic-mx/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -22,6 +27,19 @@ import { GuardianForm, RemoveGuardianForm } from '../guardian-forms';
 import { PatientForm } from '../patient-form';
 
 export const metadata: Metadata = { title: 'Patient · Clinic Mx' };
+
+// SCH-03: one tone per episode status (design system v2: a word always; amber only for "needs
+// attention"; danger stays for the emergency banner).
+const episodeTone = {
+  intake_pending: 'outline',
+  awaiting_consultation: 'info',
+  on_hold: 'waiting',
+  plan_proposed: 'info',
+  active: 'active',
+  under_review: 'waiting',
+  discharged: 'done',
+  lost_to_follow_up: 'neutral',
+} as const satisfies Record<EpisodeStatus, Tone>;
 
 const notices: Record<string, string> = {
   added: 'Patient added.',
@@ -54,10 +72,11 @@ export default async function PatientPage({
       patient,
       family: await patientsOnPhone(tx, patient.phone, patientId),
       guardians: await guardiansOf(tx, patientId),
+      episodes: await episodesOf(tx, patientId),
     };
   });
   if (!found) notFound();
-  const { patient, family, guardians } = found;
+  const { patient, family, guardians, episodes } = found;
   const age = patient.dateOfBirth ? ageOn(patient.dateOfBirth, istDate(new Date())) : null;
   const minor = needsGuardian(age, adultAge);
   const showGuardians = minor || age === null || guardians.length > 0;
@@ -117,6 +136,49 @@ export default async function PatientPage({
           <dd>{patient.occupation ?? 'Not given'}</dd>
         </dl>
       )}
+
+      <section aria-labelledby="episodes" className="flex flex-col gap-3">
+        <h2 id="episodes" className="font-semibold text-ink">
+          Episodes
+        </h2>
+        {episodes.length === 0 ? (
+          <p className="text-ink-muted">No episodes yet. Booking a consultation opens one.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {episodes.map((episode) => (
+              <li
+                key={episode.id}
+                data-testid="episode"
+                className="flex flex-col gap-1.5 rounded-panel border border-line bg-surface p-4"
+              >
+                <span className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium text-ink">
+                    {episode.bodyRegion
+                      ? screeningRegionLabels[episode.bodyRegion]
+                      : 'Region not recorded yet'}
+                  </span>
+                  <Tag tone={episodeTone[episode.status]}>
+                    {episodeStatusLabels[episode.status]}
+                  </Tag>
+                </span>
+                <span className="text-sm text-ink-secondary">
+                  {episode.centreName ?? 'Another centre'} · opened{' '}
+                  {formatIstDate(istDate(episode.openedAt))}
+                  {episode.closedAt
+                    ? ` · closed ${formatIstDate(istDate(episode.closedAt))}`
+                    : null}
+                </span>
+                {episode.dischargeReason ? (
+                  <span className="text-sm text-ink-secondary">
+                    {dischargeReasonLabels[episode.dischargeReason]}
+                    {episode.dischargeNote ? `: ${episode.dischargeNote}` : null}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {showGuardians ? (
         <section aria-labelledby="guardians" className="flex flex-col gap-3">

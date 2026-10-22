@@ -1,12 +1,14 @@
 import {
   centre,
   createDb,
+  insertEpisode,
   insertGuardian,
   insertPatient,
+  updateEpisodeState,
   systemActor,
   withActor,
 } from '@clinic-mx/db';
-import type { GuardianRelationship } from '@clinic-mx/schemas';
+import type { DischargeReason, EpisodeStatus, GuardianRelationship } from '@clinic-mx/schemas';
 import { eq } from 'drizzle-orm';
 
 // Patients for end to end tests (SCH-01), made from the test runner. Generated details only
@@ -69,4 +71,43 @@ export async function testGuardian(
 export function bornYearsAgo(years: number): string {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
   return `${Number(today.slice(0, 4)) - years}${today.slice(4)}`;
+}
+
+/**
+ * Opens an episode at HSR Layout for a patient (SCH-03) and walks it through the machine's own
+ * order to `status`: Intake pending, Awaiting consultation, Plan proposed, Active, then
+ * Discharged with `reason` when asked.
+ */
+export async function testEpisode(
+  patientId: string,
+  status: Extract<
+    EpisodeStatus,
+    'intake_pending' | 'awaiting_consultation' | 'plan_proposed' | 'active' | 'discharged'
+  >,
+  reason: DischargeReason = 'goals_achieved',
+): Promise<string> {
+  const path: EpisodeStatus[] = [
+    'intake_pending',
+    'awaiting_consultation',
+    'plan_proposed',
+    'active',
+    'discharged',
+  ];
+  return withActor(db(), systemActor('tests'), async (tx) => {
+    const [hsr] = await tx.select({ id: centre.id }).from(centre).where(eq(centre.code, 'HSR'));
+    if (!hsr) throw new Error('The seed centres are missing.');
+    const id = await insertEpisode(tx, { patientId, centreId: hsr.id, bodyRegion: 'knee' });
+    for (let step = 1; step <= path.indexOf(status); step++) {
+      const from = path[step - 1] as EpisodeStatus;
+      const to = path[step] as EpisodeStatus;
+      await updateEpisodeState(
+        tx,
+        id,
+        from,
+        { status: to, pausedFrom: null },
+        to === 'discharged' ? { reason } : undefined,
+      );
+    }
+    return id;
+  });
 }
