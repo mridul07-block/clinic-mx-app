@@ -18,6 +18,7 @@
     "test:e2e": "pnpm --filter web test:e2e",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "verify": "pnpm run \"/^(format:check|lint|typecheck|test|check:design)$/\"",
     "supabase": "supabase",
     "db:start": "supabase start -x studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor",
     "db:stop": "supabase stop",

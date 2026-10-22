@@ -119,8 +119,32 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Chromium is kept in the Actions cache per Playwright version. Only a miss installs it with
+      # its system packages (apt); the runner image already has what a cached Chromium needs, and a
+      # missing library would fail every test, never pass one silently.
+      - name: Find the Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('./apps/web/package.json').devDependencies['@playwright/test']")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Chromium
+        id: chromium
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
       - name: Install Chromium
+        if: steps.chromium.outputs.cache-hit != 'true'
         run: pnpm --filter web exec playwright install --with-deps chromium
+
+      # The Next.js build cache (Next.js CI build caching guide): the latest one for these
+      # dependencies, so the app builds incrementally.
+      - name: Restore the Next.js build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/web/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Start local Supabase
         run: pnpm db:start

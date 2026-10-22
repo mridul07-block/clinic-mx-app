@@ -98,6 +98,13 @@ the code location.
   instead of after them; same tests, a run takes about 5 minutes instead of 8. Every job must pass
   before a merge, judged job by job: during a GitHub Actions incident a run reported success while
   its end to end job sat queued and never ran.
+- 22 October 2026 (CI speed, follow up): CI keeps Chromium and the Next.js build cache in the
+  Actions cache (a Chromium `apt` install once stalled for 11 minutes; a warm build takes seconds).
+  Caching the Supabase Docker images was tried and dropped: restoring and loading them took about
+  2.5 minutes, longer than pulling them. Locally, `pnpm verify` runs format, lint,
+  typecheck, unit tests and the design check side by side, and only the end to end specs for the
+  area changed run before a push; CI runs the full suite on both viewports and gates the merge
+  (`docs/runbooks/checks.md`).
 - 22 October 2026 (SCH-01): an OP number is the registering centre's code and a 5 digit number
   from that centre's sequence (`HSR-00042`), kept for life; the Super Admin sets each code when
   adding a centre (seed HSR, KOR, WFD) and it never changes; adding a patient on a mobile already
