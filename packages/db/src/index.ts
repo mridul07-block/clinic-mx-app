@@ -118,3 +118,11 @@ export {
   type NewKioskDevice,
   type PatientLinkState,
 } from './kiosk';
+export {
+  clearRateLimit,
+  pruneRateLimits,
+  rateLimitHits,
+  rateLimitKeyHash,
+  recordRateLimitHit,
+  type RateLimitWindow,
+} from './rate-limits';

@@ -149,8 +149,9 @@ describe('the audit trail', () => {
 
   it('covers every table in public, except the exempt ones', async () => {
     // job: queue bookkeeping (every status change would bury the real events).
+    // rate_limit: a counter per attempt (IAM-11); the attempts themselves are the events.
     // audit_event: the trail itself.
-    const exempt = ['audit_event', 'job'];
+    const exempt = ['audit_event', 'job', 'rate_limit'];
     const rows = await db.execute<{ table: string }>(sql`
       select c.relname as table
       from pg_class c join pg_namespace n on n.oid = c.relnamespace

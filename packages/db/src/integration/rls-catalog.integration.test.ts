@@ -11,7 +11,8 @@ afterAll(close);
 
 // Tables only server work touches, with no policy for any person.
 // job: the queue; jobs run on the server, never as a staff member.
-const serverOnly = ['job'];
+// rate_limit: counters the server keeps for sign in, patient links and webhooks (IAM-11).
+const serverOnly = ['job', 'rate_limit'];
 
 const names = async (query: ReturnType<typeof sql>) =>
   (await db.execute<{ name: string }>(query)).map((r) => r.name);

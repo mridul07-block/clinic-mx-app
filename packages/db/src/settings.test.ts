@@ -30,6 +30,14 @@ const stored: Settings = {
   'links.my_plan_days': 30,
   'kiosk.idle_seconds': 120,
   'kiosk.thank_you_seconds': 10,
+  'limits.sign_in_per_email': { count: 5, minutes: 15 },
+  'limits.sign_in_per_network': { count: 30, minutes: 15 },
+  'limits.reset_email_per_email': { count: 3, minutes: 60 },
+  'limits.reset_email_per_network': { count: 20, minutes: 60 },
+  'limits.two_step_per_person': { count: 5, minutes: 15 },
+  'limits.bad_links_per_network': { count: 20, minutes: 10 },
+  'limits.link_opens_per_network': { count: 120, minutes: 1 },
+  'limits.webhook_failures_per_network': { count: 10, minutes: 1 },
   'reminders.day_before_time': '18:00',
 };
 

@@ -7,10 +7,12 @@ import {
   authMessage,
   checkCode,
   firstIssue,
+  isRefusal,
   logAccess,
   messages,
   type AuthFormState,
 } from './auth-support';
+import { clear, count, limited, tryAgainIn } from '../rate-limits/limits';
 import { safeNextPath } from './next-path';
 import { signInState } from './session';
 
@@ -29,13 +31,20 @@ export async function verifyTwoStep(_state: AuthFormState, form: FormData): Prom
   if (state.stage === 'complete') redirect(safeNextPath(form.get('next')));
   if (state.stage === 'setup') redirect('/app/two-step/setup');
 
+  // IAM-11: wrong codes are limited per login.
+  const over = await limited('two_step_per_person', state.staff.id);
+  if (over.limited) return { error: tryAgainIn(over) };
   const supabase = await authClient();
   if (!supabase) return { error: messages.unavailable };
   const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
   const [factor] = factors?.totp ?? [];
   if (listError || !factor) return { error: messages.unavailable };
   const { error } = await checkCode(supabase, factor.id, parsed.data.code);
-  if (error) return { error: authMessage(error, messages.wrongCode) };
+  if (error) {
+    if (isRefusal(error)) await count('two_step_per_person', state.staff.id);
+    return { error: authMessage(error, messages.wrongCode) };
+  }
+  await clear('two_step_per_person', state.staff.id);
   await logAccess(state.staff, 'sign_in');
   redirect(safeNextPath(form.get('next')));
 }
@@ -59,10 +68,16 @@ export async function finishTwoStepSetup(
   if (!state) redirect('/app/sign-in');
   if (state.twoStepOn) redirect(state.stage === 'verify' ? '/app/two-step' : '/app/account');
 
+  const over = await limited('two_step_per_person', state.staff.id);
+  if (over.limited) return { error: tryAgainIn(over) };
   const supabase = await authClient();
   if (!supabase) return { error: messages.unavailable };
   const { error } = await checkCode(supabase, parsed.data.factorId, parsed.data.code);
-  if (error) return { error: authMessage(error, messages.wrongCode) };
+  if (error) {
+    if (isRefusal(error)) await count('two_step_per_person', state.staff.id);
+    return { error: authMessage(error, messages.wrongCode) };
+  }
+  await clear('two_step_per_person', state.staff.id);
 
   await logAccess(state.staff, 'two_step_on');
   if (state.stage === 'setup') {
