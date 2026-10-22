@@ -308,10 +308,13 @@ export {
   type SlotRefusal,
 } from './slots';
 export {
+  bookNewPatientSchema,
   bookingChannelLabels,
   calendarQuerySchema,
   consultationFeeSchema,
+  releaseSlotSchema,
   slotOptionsQuerySchema,
+  type BookNewPatientInput,
   type CalendarQuery,
   type ConsultationFeeInput,
 } from './calendar';

@@ -240,6 +240,7 @@ export {
   SlotRefusedError,
   appointmentRecord,
   bookAppointment,
+  currentHold,
   datesWithFreeSlots,
   freeSlots,
   placeHold,

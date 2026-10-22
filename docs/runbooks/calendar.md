@@ -10,8 +10,8 @@ The calendar is the front desk's day at a centre, at `/app/calendar` ("Calendar"
 - appointment details in the drawer;
 - live updates.
 
-On a phone it is an agenda, with details in a bottom sheet (SCH-06, below). Booking from the
-drawer comes with SCH-07.
+On a phone it is an agenda, with details in a bottom sheet (SCH-06, below). The front desk books
+from it (SCH-07, below).
 
 ## Decisions
 
@@ -103,6 +103,38 @@ desktop. A footer is pinned at the bottom for the primary action (Frontend Speci
 Today only the slot sheet uses it, for its note; Book (SCH-07), check in, reschedule and cancel
 arrive with their tickets. There is no swipe to close.
 
+## Booking at the front desk (SCH-07)
+
+PRD J1.5: the front desk books callers and walk ins on the same slot engine as WhatsApp, and every
+booking records its channel and who made it. Only `bookings.manage` books (Super Admin, Centre
+Managers, Front Desk); physios and support logins see no Book buttons, and the services refuse
+them too.
+
+Decisions (user, 23 October 2026):
+
+- **Two ways in.** A free slot's sheet has "Book" on each type that fits. "New booking" (the
+  calendar's primary action) picks the type and day, then shows each physio's free starts
+  (`findFreeSlots`).
+- **The start is held when the type is picked,** for `booking.slot_hold_minutes` (5). Others see
+  "Being booked". The booking sheet says "Held for you until 10:35" (`currentHold`), or that the
+  hold ran out (Book still works if the time is free: the engine rechecks).
+- **After Book, the sheet shows the new appointment** with "Booked MVH-00012".
+
+The booking sheet (`booking-sheet.tsx`, `booking-forms.tsx`, `modules/scheduling/actions.ts`):
+
+1. **The held start:** the type, day and time, physio and centre.
+2. **Find the patient** by mobile or name (`find=` in the address, as on the Patients page). Each
+   result has Book.
+3. **New patient:** a name and mobile only, registered at the calendar's centre, which issues the OP
+   number. A mobile already on file lists its patients first, each with Book, or "Add <name> as a
+   new person and book" (the SCH-01 rule). When the time is taken after the patient was added,
+   the patient stays and the message says so.
+4. **Cancel booking** (pinned at the bottom) gives the hold back. Close or Esc leave it to run out.
+
+Holding is a post (a server action), never a link: Next.js fetches links ahead, which would hold
+slots. Every booking from here is `front_desk` with `booked_by` set, audited. The WhatsApp
+confirmation (J1.5) comes with the WhatsApp tickets; the sheet says so.
+
 ## Live updates
 
 1. `CalendarView` (a client component) holds the day the server drew, and gives it to both the
@@ -143,8 +175,11 @@ When FND-09's relay arrives, the same component listens for changes instead of a
 | `apps/web/modules/scheduling/calendar.test.ts` | The front desk at its centres with fees; a physio's own column without fees; Finance refused; the settings read before the transaction; each type's fit and refusal words |
 | `apps/web/modules/consultation-fees/services.test.ts` | A listed fee for a consultant, or none; other items, non-consultants and other roles refused |
 | `packages/db/src/integration/calendar.integration.test.ts` | Columns for rostered physios only; free cells without appointments here and at another centre, holds and leave; the fee; appointments with patients for the front desk; a physio's own column; the version changes with the day; the fee audited |
+| `apps/web/modules/scheduling/services.test.ts` | Cancel gives back one's own hold only; a new caller is added at the booking's centre and booked as the front desk; a mobile on file returns its patients first; a refused time keeps the added patient; a name and mobile are required |
+| `packages/db/src/integration/slots.integration.test.ts` | `currentHold`: one's own live hold only, under row level security |
+| `apps/web/e2e/booking.spec.ts` | 360 px and desktop: book a patient found by mobile from a free slot ("Booked MVH-…", "Front desk, by …"); add a new caller and book; a mobile on file lists its patients; New booking by type and day; Cancel gives the slot back; a time taken meanwhile is refused in the engine's words; a physio cannot book |
 | `apps/web/e2e/calendar.spec.ts` | Desktop: the fee, a block and its drawer, a free cell and its drawer, Esc closes. 360 px: the same through the agenda (Everyone with the physio named, a physio chip with the fee, the bottom sheet across the screen's foot, a free start chip), no sideways scroll. Both: a booking made elsewhere appears without a reload; a physio sees their own column; Finance refused; the Super Admin sets a fee |
 
 **Negative checks (23 October 2026).** With the live day not applied, the "appears without a
 reload" test failed (SCH-05); with the agenda given the day as first drawn, it failed on the phone
-(SCH-06).
+(SCH-06); with Cancel not releasing the hold, "Cancel booking gives the slot back" failed (SCH-07).

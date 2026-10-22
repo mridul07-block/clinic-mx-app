@@ -111,3 +111,22 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
     await tx.delete(roster).where(inArray(roster.staffUserId, physioIds));
   });
 }
+
+/** How many holds the given physios have, live or not (SCH-07: Cancel gives the hold back). */
+export async function holdCount(physioIds: string[]): Promise<number> {
+  const rows = await db()
+    .select({ id: slotHold.id })
+    .from(slotHold)
+    .where(inArray(slotHold.physioId, physioIds));
+  return rows.length;
+}
+
+/** Lets the given physios' holds run out now, as if the minutes had passed. */
+export async function expireHolds(physioIds: string[]): Promise<void> {
+  await withActor(db(), systemActor('tests'), (tx) =>
+    tx
+      .update(slotHold)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(inArray(slotHold.physioId, physioIds)),
+  );
+}

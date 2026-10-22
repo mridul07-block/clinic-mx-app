@@ -1,17 +1,28 @@
 import 'server-only';
 import {
+  SlotRefusedError,
   bookAppointment,
+  currentHold,
   episodeRecord,
   freeSlots,
   patientRecord,
   placeHold,
+  releaseHold,
+  type PatientMatch,
   type PhysioSlots,
   type StaffMember,
 } from '@clinic-mx/db';
-import { bookSlotSchema, freeSlotsQuerySchema, slotChoiceSchema } from '@clinic-mx/schemas';
+import {
+  bookNewPatientSchema,
+  bookSlotSchema,
+  freeSlotsQuerySchema,
+  releaseSlotSchema,
+  slotChoiceSchema,
+} from '@clinic-mx/schemas';
 import { assertCan, assertMay } from '../access/guard';
 import { staffService, type ServiceContext } from '../access/service';
 import { asStaff } from '../access/staff-db';
+import { addPatient } from '../patients/services';
 import { getSetting } from '../settings/settings';
 
 /**
@@ -85,4 +96,52 @@ export async function bookSlot(context: ServiceContext, rawInput: unknown) {
       });
     },
   })(context, rawInput);
+}
+
+/** The person's own hold while it lasts, for the booking sheet (SCH-07). */
+export function heldSlot(actor: StaffMember) {
+  assertMay(actor, 'bookings.manage');
+  return asStaff(actor, (tx) => currentHold(tx, holderOf(actor), new Date()));
+}
+
+/** Gives back the person's hold (Cancel on the booking sheet, SCH-07). */
+export const releaseSlot = staffService({
+  action: 'bookings.manage',
+  input: releaseSlotSchema,
+  target: (input) => Promise.resolve({ centreId: input.centreId }),
+  run: (tx, _input, actor) => releaseHold(tx, holderOf(actor)),
+});
+
+export type BookNewPatientResult =
+  | { status: 'booked'; id: string; number: string }
+  /** The mobile is on file: nothing was added or booked; staff book one of these or confirm. */
+  | { status: 'matches'; matches: PatientMatch[] };
+
+/**
+ * A caller or walk in who is new (SCH-07): adds them with a name and mobile at the booking's
+ * centre (the centre issues the OP number), then books the held start for them. Two audited
+ * writes; when the slot is refused after the patient was added, the patient stays and the message
+ * says so.
+ */
+export async function addPatientAndBook(
+  context: ServiceContext,
+  rawInput: unknown,
+): Promise<BookNewPatientResult> {
+  const { name, phone, confirmNewPerson, ...slot } = bookNewPatientSchema.parse(rawInput);
+  const added = await addPatient(context, {
+    name,
+    phone,
+    registeredCentreId: slot.centreId,
+    confirmNewPerson,
+  });
+  if (added.status === 'matches') return added;
+  try {
+    const booked = await bookSlot(context, { ...slot, patientId: added.id });
+    return { status: 'booked', ...booked };
+  } catch (error) {
+    if (error instanceof SlotRefusedError || error instanceof SchedulingError) {
+      throw new SchedulingError(`Added ${name} (${added.opNumber}). ${error.message}`);
+    }
+    throw error;
+  }
 }

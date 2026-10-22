@@ -3,11 +3,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { getSetting } from '../settings/settings';
-import { SchedulingError, bookSlot, findFreeSlots, holdSlot } from './services';
+import {
+  SchedulingError,
+  addPatientAndBook,
+  bookSlot,
+  findFreeSlots,
+  holdSlot,
+  releaseSlot,
+} from './services';
 
 const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
+  SlotRefusedError: class SlotRefusedError extends Error {},
   withStaffAccess: vi.fn(),
+  currentHold: vi.fn(),
+  releaseHold: vi.fn(),
   bookAppointment: vi.fn(),
   episodeRecord: vi.fn(),
   freeSlots: vi.fn(),
@@ -15,6 +25,8 @@ const db = vi.hoisted(() => ({
   placeHold: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
+const patients = vi.hoisted(() => ({ addPatient: vi.fn() }));
+vi.mock('../patients/services', () => patients);
 // Page reads run as the person under row level security, like a transaction here.
 vi.mock('../access/staff-db', () => ({
   asStaff: (_actor: unknown, work: (tx: unknown) => unknown): unknown =>
@@ -60,7 +72,8 @@ const choice = {
 // centres it works in; the engine rechecks inside the transaction.
 describe('scheduling', () => {
   beforeEach(() => {
-    for (const fn of Object.values(db)) fn.mockReset();
+    for (const fn of Object.values(db)) if ('mockReset' in fn) fn.mockReset();
+    patients.addPatient.mockReset();
     db.withStaffAccess.mockImplementation(
       (_db: Db, _context: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
     );
@@ -183,5 +196,70 @@ describe('scheduling', () => {
       'setting',
       'transaction',
     ]);
+  });
+
+  // SCH-07: Cancel gives back the person's own hold; a new caller is added with a name and mobile
+  // and booked, or the patients already on the mobile come back first.
+  it('gives back only the person’s own hold, at a centre they book for', async () => {
+    await releaseSlot(context(), { centreId: hsr });
+    expect(db.releaseHold).toHaveBeenCalledWith(fakeTx, `staff:${deskId}`);
+    await expect(releaseSlot(context(), { centreId: koramangala })).rejects.toThrow(
+      NotAllowedError,
+    );
+    await expect(
+      releaseSlot(context(member({ role: 'finance', centreIds: [] })), { centreId: hsr }),
+    ).rejects.toThrow(NotAllowedError);
+    expect(db.releaseHold).toHaveBeenCalledTimes(1);
+  });
+
+  const caller = { ...choice, name: 'Test Caller', phone: '98450 12345' };
+
+  it('adds a new caller at the booking’s centre, then books them', async () => {
+    patients.addPatient.mockResolvedValue({ status: 'added', id: patientId, opNumber: 'HSR-1' });
+    const result = await addPatientAndBook(context(), caller);
+    expect(patients.addPatient).toHaveBeenCalledWith(expect.anything(), {
+      name: 'Test Caller',
+      phone: '+919845012345',
+      registeredCentreId: hsr,
+      confirmNewPerson: false,
+    });
+    expect(db.bookAppointment).toHaveBeenCalledWith(
+      fakeTx,
+      expect.objectContaining({ patientId, channel: 'front_desk', bookedBy: deskId }),
+    );
+    expect(result).toEqual({ status: 'booked', id: 'appointment', number: 'MVH-00001' });
+  });
+
+  it('shows the patients on a mobile first, and keeps an added patient when the slot is gone', async () => {
+    const matches = [
+      { id: patientId, name: 'Test Patient', phone: '+919845012345', opNumber: 'HSR-1' },
+    ];
+    patients.addPatient.mockResolvedValueOnce({ status: 'matches', matches });
+    expect(await addPatientAndBook(context(), caller)).toEqual({ status: 'matches', matches });
+    expect(db.bookAppointment).not.toHaveBeenCalled();
+
+    patients.addPatient.mockResolvedValueOnce({
+      status: 'added',
+      id: patientId,
+      opNumber: 'HSR-2',
+    });
+    db.bookAppointment.mockRejectedValueOnce(
+      new db.SlotRefusedError('This slot was just booked. Pick another time.'),
+    );
+    const refused = addPatientAndBook(context(), { ...caller, confirmNewPerson: true });
+    await expect(refused).rejects.toThrow(SchedulingError);
+    await expect(refused).rejects.toThrow(
+      'Added Test Caller (HSR-2). This slot was just booked. Pick another time.',
+    );
+  });
+
+  it('wants a name and a mobile for a new caller', async () => {
+    await expect(addPatientAndBook(context(), { ...caller, name: ' ' })).rejects.toThrow(
+      z.ZodError,
+    );
+    await expect(addPatientAndBook(context(), { ...caller, phone: '123' })).rejects.toThrow(
+      z.ZodError,
+    );
+    expect(patients.addPatient).not.toHaveBeenCalled();
   });
 });
