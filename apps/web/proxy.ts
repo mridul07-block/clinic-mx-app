@@ -25,6 +25,7 @@ import {
   readLastSeen,
   sessionCookieOptions,
 } from './lib/session-cookies';
+import { LIVE_HEADER } from './lib/live';
 import { authCookieOptions } from './lib/supabase/cookies';
 import { publicStaffPath } from './modules/auth/next-path';
 import { getSetting } from './modules/settings/settings';
@@ -43,6 +44,7 @@ const LAST_SEEN_REFRESH_MS = 60_000;
  */
 function isActivity(request: NextRequest): boolean {
   if (request.nextUrl.pathname === SESSION_PATH) return request.method === 'POST';
+  if (request.headers.has(LIVE_HEADER)) return false;
   if (request.method !== 'GET' || request.headers.has('next-action')) return false;
   return !isPrefetch(request);
 }
@@ -73,7 +75,7 @@ function visibleSearch(url: URL): string {
  * server action. Not the session check or activity ping, and not a prefetch nobody asked for.
  */
 function supportRequestKind(request: NextRequest): 'page' | 'action' | null {
-  if (request.nextUrl.pathname === SESSION_PATH) return null;
+  if (request.nextUrl.pathname === SESSION_PATH || request.headers.has(LIVE_HEADER)) return null;
   if (request.headers.has('next-action')) return 'action';
   if (request.method === 'GET' && !isPrefetch(request)) return 'page';
   return null;

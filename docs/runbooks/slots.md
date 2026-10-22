@@ -90,7 +90,7 @@ A refusal is a `SlotRefusedError` whose message is shown as it is:
 | `taken` | This slot was just booked. Pick another time. |
 | `past` | That time has passed. Pick a later time. |
 | `off_grid` | Pick a start time on the calendar grid. |
-| `outside_hours` | The physio does not work at this centre then. Pick another time. |
+| `outside_hours` | The physio is not working at this centre for all of that time. Pick another time. |
 | `no_machine` | No Zero Gravity Treadmill is free then. Pick another time. |
 | `not_offered` | That physio does not take appointments at this centre. |
 | `needs_consultant` | This appointment is booked with a consultant. Pick a consultant physio. |
@@ -133,7 +133,8 @@ Holds have the same two. A refusal (23P01) becomes `taken`.
   and not discharged.
 
 They read the settings before the transaction opens (SET-03). WA-04 will call the engine in
-`packages/db` as the system, with a Flow session as the holder.
+`packages/db` as the system, with a Flow session as the holder. The calendar (SCH-05,
+`docs/runbooks/calendar.md`) draws its free cells and slot drawer from the same engine.
 
 ## Checking it
 

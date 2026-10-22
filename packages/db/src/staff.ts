@@ -1,6 +1,6 @@
 import { endOfIstDay, type StaffDetails } from '@clinic-mx/schemas';
-import { and, asc, desc, eq, notInArray, sql } from 'drizzle-orm';
-import { centre, staffUser, staffUserCentre } from './schema';
+import { and, asc, desc, eq, inArray, notInArray, sql } from 'drizzle-orm';
+import { centre, priceItem, staffUser, staffUserCentre } from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /**
@@ -57,6 +57,8 @@ export interface StaffRecord {
   authUserId: string | null;
   velyxSupport: boolean;
   centreIds: string[];
+  /** A consultant's consultation fee, a price item (decision G4, SCH-05). */
+  consultationPriceItemId: string | null;
 }
 
 /** One staff member with their assigned centres, if the caller sees them. */
@@ -76,6 +78,7 @@ export async function staffRecord(
       accessEndsAt: staffUser.accessEndsAt,
       authUserId: staffUser.authUserId,
       velyxSupport: staffUser.velyxSupport,
+      consultationPriceItemId: staffUser.consultationPriceItemId,
       centreIds: sql<string[]>`array(
         select a.centre_id::text from public.staff_user_centre a
         where a.staff_user_id = "staff_user"."id"
@@ -203,4 +206,35 @@ export async function endStaffSessions(db: DbOrTransaction, staffUserId: string)
     sql`select internal.end_staff_sessions(${staffUserId}::uuid) as ended`,
   );
   return rows[0]?.ended ?? 0;
+}
+
+/** The price items a consultation fee may be, by the keys of `billing.consultation_price_items`. */
+export function consultationFeeOptions(
+  db: DbOrTransaction,
+  keys: string[],
+): Promise<{ id: string; key: string; label: string; amountPaise: number }[]> {
+  return db
+    .select({
+      id: priceItem.id,
+      key: priceItem.key,
+      label: priceItem.label,
+      amountPaise: priceItem.amountPaise,
+    })
+    .from(priceItem)
+    .where(and(inArray(priceItem.key, keys), eq(priceItem.active, true)))
+    .orderBy(asc(priceItem.amountPaise));
+}
+
+/** Sets or clears a staff member's consultation fee; false when they were not found. */
+export async function setConsultationFee(
+  db: DbOrTransaction,
+  staffUserId: string,
+  priceItemId: string | null,
+): Promise<boolean> {
+  const changed = await db
+    .update(staffUser)
+    .set({ consultationPriceItemId: priceItemId, updatedAt: sql`now()` })
+    .where(eq(staffUser.id, staffUserId))
+    .returning({ id: staffUser.id });
+  return changed.length > 0;
 }

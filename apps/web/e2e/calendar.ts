@@ -1,0 +1,113 @@
+import {
+  appointment,
+  appointmentType,
+  bookAppointment,
+  centre,
+  createDb,
+  priceItem,
+  roster,
+  slotHold,
+  staffUser,
+  systemActor,
+  withActor,
+} from '@clinic-mx/db';
+import { istDate, istInstant } from '@clinic-mx/schemas';
+import { eq, inArray } from 'drizzle-orm';
+
+// The calendar for end to end tests (SCH-05). Each test uses its own temporary physio, so tests
+// running side by side never share a column; afterwards their appointments, holds and hours are
+// removed (the audit keeps them). Generated patients only (rule 12).
+
+let database: ReturnType<typeof createDb> | undefined;
+const db = () => {
+  const url = process.env.DIRECT_DATABASE_URL;
+  if (!url) throw new Error('DIRECT_DATABASE_URL is not set.');
+  database ??= createDb(url, { max: 1, idleTimeoutSeconds: 1 });
+  return database.db;
+};
+
+async function idOf<T extends { id: unknown }>(rows: Promise<T[]>, what: string) {
+  const [row] = await rows;
+  if (!row) throw new Error(`${what} is missing`);
+  return row.id as string;
+}
+
+export const centreIdByCode = (code: string) =>
+  idOf(db().select({ id: centre.id }).from(centre).where(eq(centre.code, code)), code);
+
+/**
+ * Gives a physio hours every day at HSR Layout, 09:00 to 13:00, from today; as a consultant, with
+ * a consultation fee (a price item key) when given.
+ */
+export async function physioAtHsr(
+  physioId: string,
+  options: { consultant?: boolean; feeKey?: string } = {},
+): Promise<void> {
+  const hsr = await centreIdByCode('HSR');
+  const admin = await idOf(
+    db()
+      .select({ id: staffUser.id })
+      .from(staffUser)
+      .where(eq(staffUser.email, 'super.admin@clinicmx.test')),
+    'the seed Super Admin',
+  );
+  const fee = options.feeKey
+    ? await idOf(
+        db().select({ id: priceItem.id }).from(priceItem).where(eq(priceItem.key, options.feeKey)),
+        options.feeKey,
+      )
+    : null;
+  await withActor(db(), systemActor('tests'), async (tx) => {
+    await tx
+      .update(staffUser)
+      .set({ consultant: options.consultant ?? false, consultationPriceItemId: fee })
+      .where(eq(staffUser.id, physioId));
+    await tx.insert(roster).values({
+      staffUserId: physioId,
+      centreId: hsr,
+      effectiveFrom: istDate(new Date()),
+      weekly: Array.from({ length: 7 }, () => [{ starts: 9 * 60, ends: 13 * 60 }]),
+      createdBy: admin,
+    });
+  });
+}
+
+/** Books a Session for a patient with a physio at HSR Layout, on WhatsApp; its number. */
+export async function testAppointment(
+  physioId: string,
+  patientId: string,
+  date: string,
+  minutes: number,
+): Promise<string> {
+  const hsr = await centreIdByCode('HSR');
+  const session = await idOf(
+    db()
+      .select({ id: appointmentType.id })
+      .from(appointmentType)
+      .where(eq(appointmentType.key, 'session')),
+    'Session',
+  );
+  const booked = await withActor(db(), systemActor('tests'), (tx) =>
+    bookAppointment(tx, {
+      centreId: hsr,
+      physioId,
+      appointmentTypeId: session,
+      startsAt: istInstant(date, minutes),
+      holder: `test:${crypto.randomUUID()}`,
+      patientId,
+      channel: 'whatsapp',
+      step: 15,
+      now: new Date(),
+    }),
+  );
+  return booked.number;
+}
+
+/** Removes the appointments, holds and hours of the given physios. */
+export async function removeCalendarRows(physioIds: string[]): Promise<void> {
+  await withActor(db(), systemActor('tests'), async (tx) => {
+    await tx.delete(appointment).where(inArray(appointment.physioId, physioIds));
+    await tx.delete(slotHold).where(inArray(slotHold.physioId, physioIds));
+    await tx.delete(roster).where(inArray(roster.staffUserId, physioIds));
+  });
+}

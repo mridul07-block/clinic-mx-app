@@ -72,6 +72,7 @@ const record = (values: Partial<StaffRecord> = {}): StaffRecord => ({
   authUserId: 'auth-new',
   velyxSupport: false,
   centreIds: [hsr],
+  consultationPriceItemId: null,
   ...values,
 });
 

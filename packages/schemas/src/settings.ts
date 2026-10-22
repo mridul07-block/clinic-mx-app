@@ -54,6 +54,19 @@ export const settingDefinitions = {
     description:
       'How long a picked slot is held for the person booking it before others can take it.',
   },
+  'live.refresh_seconds': {
+    schema: z.int().positive(),
+    source:
+      'User decision 22 October 2026 (SCH-05): live screens check for changes every 3 seconds until the realtime relay (FND-09)',
+    description: 'How often live screens, such as the calendar, check for changes, in seconds.',
+  },
+  'billing.consultation_price_items': {
+    schema: z.array(priceItemKey).min(1),
+    source:
+      'Decision G4 (kickoff review, 21 October 2026): a consultation price per consultant, by their level (the PRD section 7 price master)',
+    description:
+      'The price items a consultant’s consultation fee can be, for example Consultation and Senior consultation.',
+  },
   'screening.weight_loss_kg': {
     schema: z.int().positive(),
     source:

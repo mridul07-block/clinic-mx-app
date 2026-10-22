@@ -11,6 +11,7 @@ import {
   type FreeSlot,
   type Interval,
   type Machine,
+  type SlotCheck,
   type SlotQuery,
   type SlotRefusal,
   type Weekly,
@@ -58,13 +59,7 @@ interface TypeRow {
   machine: Machine | null;
 }
 
-interface PhysioRow {
-  id: string;
-  name: string;
-  consultant: boolean;
-}
-
-interface Busy extends Interval {
+export interface Busy extends Interval {
   physioId: string;
   kind: 'appointment' | 'hold' | 'leave';
 }
@@ -73,10 +68,10 @@ interface Busy extends Interval {
 interface Plan {
   type: TypeRow;
   /** People with hours at the centre who may take the type. */
-  physios: PhysioRow[];
+  physios: PersonRow[];
   /** People with hours at the centre whom the type refuses (not consultants). */
   refused: Set<string>;
-  versions: { staffUserId: string; effectiveFrom: string; weekly: Weekly }[];
+  versions: RosterRow[];
   busy: Map<string, Busy[]>;
   machineUnits: Interval[][] | undefined;
   lengths: Map<string, number>;
@@ -107,12 +102,28 @@ async function typeRow(db: DbOrTransaction, id: string): Promise<TypeRow | undef
   return row;
 }
 
-async function loadPlan(db: DbOrTransaction, request: PlanRequest): Promise<Plan | undefined> {
-  const type = await typeRow(db, request.appointmentTypeId);
-  if (!type) return undefined;
+export interface PersonRow {
+  id: string;
+  name: string;
+  consultant: boolean;
+}
+
+export interface RosterRow {
+  staffUserId: string;
+  effectiveFrom: string;
+  weekly: Weekly;
+}
+
+/**
+ * The people with hours at a centre between two IST dates (active, treating, not support), by
+ * name, with their roster versions there and their busy times over the span.
+ */
+export async function loadPeople(
+  db: DbOrTransaction,
+  request: { centreId: string; from: string; to: string; physioId?: string; holder?: string },
+): Promise<{ people: PersonRow[]; versions: RosterRow[]; busy: Map<string, Busy[]> }> {
   const from = startOfIstDay(request.from);
   const to = startOfIstDay(addDays(request.to, 1));
-
   const versions = await db
     .select({
       staffUserId: roster.staffUserId,
@@ -144,12 +155,8 @@ async function loadPlan(db: DbOrTransaction, request: PlanRequest): Promise<Plan
             ),
           )
           .orderBy(asc(staffUser.name));
-  const physios = people.filter((p) => !type.needsConsultant || p.consultant);
-  const refused = new Set(people.filter((p) => !physios.includes(p)).map((p) => p.id));
-  const ids = physios.map((p) => p.id);
-
+  const ids = people.map((p) => p.id);
   const busy = new Map<string, Busy[]>(ids.map((id) => [id, []]));
-  const lengths = new Map<string, number>();
   if (ids.length > 0) {
     const rows = await db.execute<{
       physio_id: string;
@@ -167,6 +174,48 @@ async function loadPlan(db: DbOrTransaction, request: PlanRequest): Promise<Plan
         endsAt: new Date(row.ends_at),
       });
     }
+  }
+  return {
+    people,
+    versions: versions.filter((v) => ids.includes(v.staffUserId)),
+    busy,
+  };
+}
+
+/** A person's working windows on a date at the centre, with approved leave cut out. */
+export function windowsOn(
+  versions: RosterRow[],
+  busy: Busy[],
+  physioId: string,
+  date: string,
+): Interval[] | undefined {
+  const version = versions
+    .filter((v) => v.staffUserId === physioId && v.effectiveFrom <= date)
+    .at(-1);
+  const blocks = version?.weekly[isoWeekday(date) - 1] ?? [];
+  if (blocks.length === 0) return undefined;
+  return cutOut(
+    blocks.map((block) => ({
+      startsAt: istInstant(date, block.starts),
+      endsAt: istInstant(date, block.ends),
+    })),
+    busy.filter((b) => b.kind === 'leave'),
+  );
+}
+
+async function loadPlan(db: DbOrTransaction, request: PlanRequest): Promise<Plan | undefined> {
+  const type = await typeRow(db, request.appointmentTypeId);
+  if (!type) return undefined;
+  const from = startOfIstDay(request.from);
+  const to = startOfIstDay(addDays(request.to, 1));
+  const { people, versions, busy: everyone } = await loadPeople(db, request);
+  const physios = people.filter((p) => !type.needsConsultant || p.consultant);
+  const refused = new Set(people.filter((p) => !physios.includes(p)).map((p) => p.id));
+  const ids = physios.map((p) => p.id);
+
+  const busy = new Map<string, Busy[]>(ids.map((id) => [id, everyone.get(id) ?? []]));
+  const lengths = new Map<string, number>();
+  if (ids.length > 0) {
     const own = await db
       .select({
         staffUserId: physioAppointmentLength.staffUserId,
@@ -222,19 +271,9 @@ function queryFor(
   step: number,
   now: Date,
 ): SlotQuery | undefined {
-  const version = plan.versions
-    .filter((v) => v.staffUserId === physioId && v.effectiveFrom <= date)
-    .at(-1);
-  const blocks = version?.weekly[isoWeekday(date) - 1] ?? [];
-  if (blocks.length === 0) return undefined;
   const busy = plan.busy.get(physioId) ?? [];
-  const windows = cutOut(
-    blocks.map((block) => ({
-      startsAt: istInstant(date, block.starts),
-      endsAt: istInstant(date, block.ends),
-    })),
-    busy.filter((b) => b.kind === 'leave'),
-  );
+  const windows = windowsOn(plan.versions, busy, physioId, date);
+  if (!windows) return undefined;
   return {
     windows,
     busy: busy.filter((b) => b.kind !== 'leave'),
@@ -329,18 +368,29 @@ async function lockAndCheck(
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
   }
   await tx.execute(sql`select internal.release_expired_slot_holds()`);
-  const date = istDate(request.startsAt);
-  const plan = await loadPlan(tx, { ...request, from: date, to: date });
-  if (!plan) throw new SlotRefusedError('type_inactive');
-  if (plan.refused.has(request.physioId)) throw new SlotRefusedError('needs_consultant');
-  if (!plan.physios.some((p) => p.id === request.physioId)) {
-    throw new SlotRefusedError('not_offered');
-  }
-  const query = queryFor(plan, request.physioId, date, request.step, request.now);
-  if (!query) throw new SlotRefusedError('outside_hours');
-  const result = checkSlot(query, request.startsAt);
+  const result = await slotFit(tx, request);
   if (!result.ok) throw new SlotRefusedError(result.refusal);
   return { slot: result.slot, machine: type.machine };
+}
+
+/**
+ * Whether a start is free for one physio and type, by the engine's rules, without holding
+ * anything: the slot, or the reason it is refused (the calendar's free slot drawer).
+ */
+export async function slotFit(
+  db: DbOrTransaction,
+  request: Omit<SlotRequest, 'holder'> & { holder?: string },
+): Promise<SlotCheck> {
+  const date = istDate(request.startsAt);
+  const plan = await loadPlan(db, { ...request, from: date, to: date });
+  if (!plan?.type.active) return { ok: false, refusal: 'type_inactive' };
+  if (plan.refused.has(request.physioId)) return { ok: false, refusal: 'needs_consultant' };
+  if (!plan.physios.some((p) => p.id === request.physioId)) {
+    return { ok: false, refusal: 'not_offered' };
+  }
+  const query = queryFor(plan, request.physioId, date, request.step, request.now);
+  if (!query) return { ok: false, refusal: 'outside_hours' };
+  return checkSlot(query, request.startsAt);
 }
 
 /** An overlap the exclusion constraints caught (23P01) is a taken slot. */
