@@ -8,3 +8,4 @@ export * from './support';
 export * from './patient-links';
 export * from './kiosk';
 export * from './rate-limits';
+export * from './prices';

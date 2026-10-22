@@ -57,7 +57,14 @@ claim through the IAM-03 readers (`internal.jwt_staff_id`, `jwt_staff_role`, `jw
 | `rate_limit` (IAM-11) | None: server only (`docs/runbooks/rate-limits.md`) | None |
 | `kiosk_device` (IAM-10) | Check in rights (Super Admin, Centre Manager, Front Desk) in centres they see | The same people insert (as themselves) and update; the tablet's own reset runs on the server as `system:kiosk.<id>` |
 
-No table has a delete policy except centre assignments. Staff are deactivated, never deleted.
+| `price_item`, `package_type`, `discount_preset` (SET-02) | Prices readers (Super Admin, Centre Manager, Front Desk, Finance; `internal.jwt_views_prices`) | Finance and Super Admin insert and update (`internal.jwt_manages_prices`) |
+| `package_type_item` (SET-02) | Prices readers | Finance and Super Admin insert and delete (a type's covered items are replaced) |
+
+No table has a delete policy except centre assignments and a package type's covered items. Staff,
+centres and prices are deactivated, never deleted.
+
+List prices are not patient money: Centre Managers read them by decision C3. The money rule
+below (step 2) covers bills, payments and balances (`docs/runbooks/prices.md`).
 
 Sending a form to a tablet needs the link's state, but staff have no policy on `patient_link`.
 `internal.patient_link_state(link_id)` (SECURITY DEFINER) gives someone with check in rights only

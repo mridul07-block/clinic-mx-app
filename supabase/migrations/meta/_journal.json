@@ -162,6 +162,20 @@
       "when": 1792651765913,
       "tag": "20261022064925_centre_colour_active",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792654785571,
+      "tag": "20261022073945_prices",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792654802088,
+      "tag": "20261022074002_price_rules",
+      "breakpoints": true
     }
   ]
 }

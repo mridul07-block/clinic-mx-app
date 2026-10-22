@@ -357,10 +357,27 @@ export async function sessionCount(email: string): Promise<number> {
  * no other test signs in as them at the same time. `support` makes it a Velyx support login
  * (IAM-08). The row stays afterwards: staff are never deleted.
  */
-export async function temporarySuperAdmin({ support }: { support: boolean }) {
+export function temporarySuperAdmin({ support }: { support: boolean }) {
+  return temporaryWithCode(support ? 'support' : 'super_admin');
+}
+
+/**
+ * A new login of one role with the seed password and an authenticator app, made for one test
+ * (SET-02 signs in as Finance and a physiotherapist). The row stays afterwards: staff are never
+ * deleted. A physiotherapist always treats patients (G5).
+ */
+export async function temporaryWithCode(
+  role: 'super_admin' | 'support' | 'finance' | 'physiotherapist',
+) {
   const suffix = crypto.randomUUID().slice(0, 8);
-  const email = `temporary.${support ? 'support' : 'admin'}.${suffix}@clinicmx.test`;
-  const name = `Test Temporary ${support ? 'Support' : 'Admin'} ${suffix}`;
+  const label = {
+    super_admin: 'admin',
+    support: 'support',
+    finance: 'finance',
+    physiotherapist: 'physio',
+  }[role];
+  const email = `temporary.${label}.${suffix}@clinicmx.test`;
+  const name = `Test Temporary ${label[0]?.toUpperCase() ?? ''}${label.slice(1)} ${suffix}`;
   const { data, error } = await adminClient().auth.admin.createUser({
     email,
     password: seedPassword(),
@@ -370,7 +387,14 @@ export async function temporarySuperAdmin({ support }: { support: boolean }) {
   const id = await withActor(testDb(), systemActor('tests'), async (tx) => {
     const [row] = await tx
       .insert(staffUser)
-      .values({ email, name, role: 'super_admin', velyxSupport: support, authUserId: data.user.id })
+      .values({
+        email,
+        name,
+        role: role === 'support' ? 'super_admin' : role,
+        velyxSupport: role === 'support',
+        treatsPatients: role === 'physiotherapist',
+        authUserId: data.user.id,
+      })
       .returning({ id: staffUser.id });
     if (!row) throw new Error('temporary staff row not added');
     return row.id;
