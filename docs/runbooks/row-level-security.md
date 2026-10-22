@@ -61,6 +61,8 @@ claim through the IAM-03 readers (`internal.jwt_staff_id`, `jwt_staff_role`, `jw
 | `package_type_item` (SET-02) | Prices readers | Finance and Super Admin insert and delete (a type's covered items are replaced) |
 | `appointment_type` (SET-03) | Every signed in staff member | Super Admin inserts and updates |
 | `physio_appointment_length` (SET-03) | Every signed in staff member | Super Admin inserts, updates and deletes (clearing a length back to the type's) |
+| `roster` (SET-04) | Their own; anyone who sees the centre; the person's managers (`internal.jwt_manages_staff`) | Centre Manager and Super Admin insert and update in centres they see, as themselves |
+| `staff_leave` (SET-04) | The person and their managers | The person inserts their own request and only cancels it; a manager inserts and updates others' leave, never their own (`docs/runbooks/rosters-and-leave.md`) |
 
 No table has a delete policy except centre assignments, a package type's covered items and a physio's
 own appointment lengths. Staff,

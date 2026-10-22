@@ -51,3 +51,31 @@ export function formatIstDateTime(instant: Date): string {
     parts.find((p) => p.type === type)?.value ?? '';
   return `${part('day')} ${part('month')} ${part('year')}, ${part('hour')}:${part('minute')} IST`;
 }
+
+/** The instant a calendar day in IST starts: its midnight IST, in UTC. */
+export function startOfIstDay(date: string): Date {
+  return new Date(endOfIstDay(date).getTime() - 24 * 60 * 60 * 1000);
+}
+
+/** The instant of a wall clock time in IST on a calendar day, `minutes` after its midnight. */
+export function istInstant(date: string, minutes: number): Date {
+  return new Date(startOfIstDay(date).getTime() + minutes * 60 * 1000);
+}
+
+/** The ISO weekday of a calendar date: Monday 1 to Sunday 7. */
+export function isoWeekday(date: string): number {
+  const day = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return day === 0 ? 7 : day;
+}
+
+/** A calendar date `days` after another (or before, when negative). */
+export function addDays(date: string, days: number): string {
+  const [year = 0, month = 1, day = 1] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+/** Minutes after midnight as a 24 hour time, for example 570 as "09:30". */
+export function timeText(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  return `${String(hours).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}

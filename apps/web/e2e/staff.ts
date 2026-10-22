@@ -367,7 +367,9 @@ export function temporarySuperAdmin({ support }: { support: boolean }) {
  * deleted. A physiotherapist always treats patients (G5).
  */
 export async function temporaryWithCode(
-  role: 'super_admin' | 'support' | 'finance' | 'physiotherapist',
+  role: 'super_admin' | 'support' | 'finance' | 'physiotherapist' | 'centre_manager',
+  /** Centres to assign, by name (SET-04 signs in a Centre Manager and a physio at HSR Layout). */
+  centreNames: string[] = [],
 ) {
   const suffix = crypto.randomUUID().slice(0, 8);
   const label = {
@@ -375,6 +377,7 @@ export async function temporaryWithCode(
     support: 'support',
     finance: 'finance',
     physiotherapist: 'physio',
+    centre_manager: 'manager',
   }[role];
   const email = `temporary.${label}.${suffix}@clinicmx.test`;
   const name = `Test Temporary ${label[0]?.toUpperCase() ?? ''}${label.slice(1)} ${suffix}`;
@@ -384,6 +387,7 @@ export async function temporaryWithCode(
     email_confirm: true,
   });
   if (error) throw error;
+  const centres = await Promise.all(centreNames.map((centreName) => centreId(centreName)));
   const id = await withActor(testDb(), systemActor('tests'), async (tx) => {
     const [row] = await tx
       .insert(staffUser)
@@ -397,6 +401,9 @@ export async function temporaryWithCode(
       })
       .returning({ id: staffUser.id });
     if (!row) throw new Error('temporary staff row not added');
+    for (const centre of centres) {
+      await tx.insert(staffUserCentre).values({ staffUserId: row.id, centreId: centre });
+    }
     return row.id;
   });
   return { id, email, name, secret: await addAuthenticator(email) };
