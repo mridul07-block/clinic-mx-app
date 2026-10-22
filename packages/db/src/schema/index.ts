@@ -11,3 +11,4 @@ export * from './rate-limits';
 export * from './prices';
 export * from './appointment-types';
 export * from './rosters';
+export * from './knowledge';

@@ -195,3 +195,13 @@ export {
   type TeamMember,
   type Window,
 } from './rosters';
+// The knowledge base readers. The importer (`src/knowledge/`, `pnpm kb:import`) is a script and is
+// not exported, so its workbook reader never reaches the web app.
+export {
+  knowledgeConditions,
+  knowledgeListings,
+  latestKnowledgeVersion,
+  type KnowledgeCondition,
+  type KnowledgeListing,
+  type KnowledgeVersion,
+} from './knowledge';

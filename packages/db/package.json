@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
     "db:seed": "tsx src/seed/run.ts",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "kb:import": "tsx src/knowledge/run.ts"
   },
   "dependencies": {
     "@clinic-mx/schemas": "workspace:*",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "drizzle-kit": "0.31.11",
+    "exceljs": "4.4.0",
     "tsx": "4.23.15"
   }
 }

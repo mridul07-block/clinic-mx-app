@@ -132,6 +132,31 @@ export {
   type AppointmentTypeDetails,
   type PhysioLengths,
 } from './appointment-types';
+export {
+  activityTagVocabulary,
+  activityTags,
+  conditionIdPattern,
+  knowledgeRegionKeys,
+  knowledgeRegions,
+  knowledgeVersionStatuses,
+  onsets,
+  readAge,
+  readOnset,
+  readSex,
+  redFlagTier,
+  redFlagTierLabels,
+  redFlagTiers,
+  sexPredominances,
+  subregionName,
+  synonymsOf,
+  tagsIn,
+  type ActivityTag,
+  type AgeReading,
+  type KnowledgeRegion,
+  type Onset,
+  type RedFlagTier,
+  type SexPredominance,
+} from './knowledge';
 export { keyFromName } from './keys';
 export { MAX_PAISE, formatRupees, rupeesSchema, rupeesText } from './money';
 export {
