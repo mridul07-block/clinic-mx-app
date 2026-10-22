@@ -32,7 +32,7 @@ describe('audited writes', () => {
   it('record the actor, the row before and after, for insert, update and delete', async () => {
     const id = crypto.randomUUID();
     await withActor(db, { actor, ip: '203.0.113.7' }, (tx) =>
-      tx.insert(centre).values({ id, name: `Audit test ${id}`, colour: testColour }),
+      tx.insert(centre).values({ id, name: `Audit test ${id}`, colour: testColour, active: false }),
     );
     await withActor(db, actor, (tx) =>
       tx.update(centre).set({ phone: '+91 80000 00000' }).where(eq(centre.id, id)),
@@ -54,7 +54,9 @@ describe('audited writes', () => {
 
   it('refuse a write that names no actor', async () => {
     await expect(
-      db.insert(centre).values({ name: `No actor ${crypto.randomUUID()}`, colour: testColour }),
+      db
+        .insert(centre)
+        .values({ name: `No actor ${crypto.randomUUID()}`, colour: testColour, active: false }),
     ).rejects.toThrow();
     await expect(
       db.update(centre).set({ phone: 'x' }).where(eq(centre.id, centreIds.hsrLayout)),
@@ -64,7 +66,9 @@ describe('audited writes', () => {
   it('roll back with the write: no event for a change that did not happen', async () => {
     const id = crypto.randomUUID();
     await withActor(db, actor, async (tx) => {
-      await tx.insert(centre).values({ id, name: `Rolled back ${id}`, colour: testColour });
+      await tx
+        .insert(centre)
+        .values({ id, name: `Rolled back ${id}`, colour: testColour, active: false });
       throw new Error('the change failed');
     }).catch(() => undefined);
     expect(await eventsFor(id)).toEqual([]);

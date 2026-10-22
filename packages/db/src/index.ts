@@ -126,3 +126,13 @@ export {
   recordRateLimitHit,
   type RateLimitWindow,
 } from './rate-limits';
+export {
+  activeCentreWithColour,
+  centreList,
+  centreNameTaken,
+  centreRecord,
+  insertCentre,
+  setCentreActive,
+  updateCentre,
+  type CentreEntry,
+} from './centres';

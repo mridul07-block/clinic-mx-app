@@ -23,10 +23,12 @@ export default async function KioskTabletsPage({
 }) {
   const staff = await requirePermission('check_in.manage');
   const { done } = await searchParams;
-  const [devices, centres] = await asStaff(staff, (tx) =>
+  const [devices, allCentres] = await asStaff(staff, (tx) =>
     Promise.all([kioskDevices(tx), centreOptions(tx)]),
   );
   const readOnly = staff.support;
+  // Tablets are set up in active centres only (SET-01).
+  const centres = allCentres.filter((centre) => centre.active);
   const working = devices.filter((device) => !device.stoppedAt);
   const stopped = devices.filter((device) => device.stoppedAt);
 

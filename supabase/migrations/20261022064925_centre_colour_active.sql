@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "centre_colour_active_key" ON "centre" USING btree ("colour") WHERE "centre"."active";

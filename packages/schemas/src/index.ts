@@ -81,6 +81,19 @@ export {
   type PatientLinkSubject,
 } from './patient-links';
 export {
+  centreActiveSchema,
+  centreColourIndex,
+  centreColourName,
+  centreColours,
+  centreDetailsSchema,
+  centreUpdateSchema,
+  formatIndianPhone,
+  indianPhoneSchema,
+  mapLinkSchema,
+  type CentreColour,
+  type CentreDetails,
+} from './centres';
+export {
   KIOSK_DEFAULT_NAME,
   kioskPurposes,
   kioskStateSchema,
