@@ -10,11 +10,12 @@ import {
 import { toneByAppointmentStatus } from '@clinic-mx/ui';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { primaryButtonClass, secondaryButtonClass } from '../../../../../components/forms';
 import { Tag } from '../../../../../components/tag';
 import { LIVE_HEADER } from '../../../../../lib/live';
+import { todayHref } from '../../../../../modules/front-desk/links';
 import { calendarHref } from '../../../../../modules/scheduling/links';
 import { shownStatus, shownStatusLabels, stripClass, timeOf } from '../calendar/calendar-block';
-import { CheckInButton, UndoCheckInButton } from './check-in-buttons';
 
 const matches = (appointment: TodayAppointment, filter: TodayFilter | undefined) =>
   inTodayFilter(appointment.status, filter);
@@ -34,6 +35,9 @@ const revive = (a: TodayJson): TodayAppointment => ({
   confirmedAt: a.confirmedAt ? new Date(a.confirmedAt) : null,
   arrivedAt: a.arrivedAt ? new Date(a.arrivedAt) : null,
 });
+
+/** A row's action: as wide as its words, not the row. */
+const fit = (buttonClass: string) => `${buttonClass.replace('w-full', 'w-auto')} shrink-0`;
 
 const minutesSince = (from: Date, now: number) =>
   Math.max(0, Math.floor((now - from.getTime()) / 60_000));
@@ -180,12 +184,8 @@ export function TodayBoard({
               status === 'running_late'
                 ? `${String(minutesSince(appointment.startsAt, now))} min late`
                 : undefined;
-            const place = {
-              appointmentId: appointment.id,
-              centreId,
-              show: filter,
-              patientName: appointment.patientName,
-            };
+            // The row's action opens the check in drawer (INT-02) for this appointment.
+            const drawerHref = todayHref({ centreId, show: filter, appointmentId: appointment.id });
             // On a phone the tag and waiting time sit under the name, the action beside them.
             return (
               <li
@@ -222,9 +222,23 @@ export function TodayBoard({
                 </span>
                 <span className="col-start-3 row-span-2 row-start-1 justify-self-end md:col-start-4 md:row-span-1">
                   {appointment.status === 'booked' || appointment.status === 'confirmed' ? (
-                    <CheckInButton place={place} />
+                    <Link
+                      href={drawerHref}
+                      scroll={false}
+                      aria-label={`Check in ${appointment.patientName}`}
+                      className={fit(primaryButtonClass)}
+                    >
+                      Check in
+                    </Link>
                   ) : appointment.status === 'checked_in' ? (
-                    <UndoCheckInButton place={place} />
+                    <Link
+                      href={drawerHref}
+                      scroll={false}
+                      aria-label={`Form and reports for ${appointment.patientName}`}
+                      className={fit(secondaryButtonClass)}
+                    >
+                      Form and reports
+                    </Link>
                   ) : null}
                 </span>
               </li>

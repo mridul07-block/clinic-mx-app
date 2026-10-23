@@ -7,10 +7,13 @@ import { EmergencyBanner } from '../../../../../components/emergency-banner';
 import { FormMessage, primaryButtonClass } from '../../../../../components/forms';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../modules/access/staff-db';
-import { todayHref } from '../../../../../modules/front-desk/links';
+import { loadCheckIn } from '../../../../../modules/front-desk/check-in';
+import { ownOrigin } from '../../../../../lib/own-origin';
+import { todayHref, type CheckInDone } from '../../../../../modules/front-desk/links';
 import { loadToday } from '../../../../../modules/front-desk/today';
 import { calendarHref } from '../../../../../modules/scheduling/links';
 import { getSetting } from '../../../../../modules/settings/settings';
+import { CheckInDrawer } from './check-in-drawer';
 import { TodayBoard } from './today-board';
 
 export const metadata: Metadata = { title: 'Today · Clinic Mx' };
@@ -25,7 +28,13 @@ const linkClass = 'text-sm text-ink-secondary underline underline-offset-2';
 export default async function TodayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ centre?: string; show?: string }>;
+  searchParams: Promise<{
+    centre?: string;
+    show?: string;
+    appointment?: string;
+    qr?: string;
+    done?: string;
+  }>;
 }) {
   const staff = await requirePermission('check_in.manage');
   const params = await searchParams;
@@ -47,14 +56,22 @@ export default async function TodayPage({
     );
   }
 
-  const [lateMinutes, refreshSeconds] = [
+  const [lateMinutes, refreshSeconds, maxReportMegabytes] = [
     await getSetting('day.running_late_minutes'),
     await getSetting('live.refresh_seconds'),
+    await getSetting('reports.max_file_mb'),
   ];
   const date = istDate(new Date());
   const today = await loadToday(staff, { centreId: centre.id, date });
   const renderedAt = new Date().getTime();
   const show = todayFilters.find<TodayFilter>((f): f is TodayFilter => f === params.show);
+  // The check in drawer (INT-02): the appointment named in the address, if this person sees it.
+  const opened =
+    params.appointment && /^[0-9a-f-]{36}$/i.test(params.appointment)
+      ? await loadCheckIn(staff, params.appointment)
+      : undefined;
+  const doneOptions: CheckInDone[] = ['checked-in', 'undone', 'tablet', 'reports'];
+  const done = doneOptions.find((d) => d === params.done);
   // The emergency banner's place: open emergency alerts at the centre come with red flag alerts
   // (INT-10); until then there are none to show.
   const emergencies: EmergencyAlert[] = [];
@@ -119,6 +136,17 @@ export default async function TodayPage({
           refreshSeconds={refreshSeconds}
           show={show}
         />
+        {opened ? (
+          <CheckInDrawer
+            view={opened}
+            place={{ appointmentId: opened.appointment.id, centreId: centre.id, show }}
+            origin={await ownOrigin()}
+            showQr={params.qr === '1'}
+            done={done}
+            closeHref={todayHref({ centreId: centre.id, show })}
+            maxReportMegabytes={maxReportMegabytes}
+          />
+        ) : null}
       </main>
     </>
   );

@@ -61,6 +61,54 @@ export function canCheckIn(startsAt: Date, now: Date): boolean {
   return istDate(startsAt) === istDate(now);
 }
 
-export const checkInSchema = z.object({ appointmentId: z.guid() });
+/** Check in (INT-02): the desk ticks that it has checked who the patient is (user decision). */
+export const checkInSchema = z.object({
+  appointmentId: z.guid(),
+  identityChecked: z.literal(true, { error: 'Tick that you have checked who this is.' }),
+});
 
 export const undoCheckInSchema = z.object({ appointmentId: z.guid() });
+
+/**
+ * The health form is for a first visit for a problem: an appointment with no episode yet (user
+ * decision, 23 October 2026); submitting it creates the episode (INT-10).
+ */
+export function needsHealthForm(appointment: { episodeId: string | null }): boolean {
+  return appointment.episodeId === null;
+}
+
+export const healthFormStates = ['not_sent', 'waiting', 'submitted', 'expired'] as const;
+
+export type HealthFormState = (typeof healthFormStates)[number];
+
+export const healthFormStateLabels = {
+  not_sent: 'Not sent',
+  waiting: 'Waiting for the patient',
+  submitted: 'Submitted',
+  expired: 'Link expired',
+} as const satisfies Record<HealthFormState, string>;
+
+/** Where an appointment's health form stands, from its latest link (none: not sent). */
+export function healthFormState(
+  link: { expiresAt: Date; revokedAt: Date | null; completedAt: Date | null } | undefined,
+  now: Date,
+): HealthFormState {
+  if (!link) return 'not_sent';
+  if (link.completedAt) return 'submitted';
+  if (link.revokedAt || link.expiresAt <= now) return 'expired';
+  return 'waiting';
+}
+
+/** What a report can be (TAD: photos and scans): photos are shrunk to JPEG on the phone first. */
+export const reportContentTypes = ['image/jpeg', 'image/png', 'application/pdf'] as const;
+
+export type ReportContentType = (typeof reportContentTypes)[number];
+
+export const reportExtensions = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'application/pdf': 'pdf',
+} as const satisfies Record<ReportContentType, string>;
+
+/** The most a hosted function takes in one request is 4.5 MB, so a file is at most 4 MB. */
+export const reportMaxMegabytesCeiling = 4;

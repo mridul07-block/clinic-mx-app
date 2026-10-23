@@ -123,6 +123,11 @@ export const settingDefinitions = {
     source: 'PRD section 7: No show allowed from',
     description: 'Minutes after the start time from which an appointment can be marked a no show.',
   },
+  'reports.max_file_mb': {
+    schema: z.int().positive().max(4),
+    source: 'TAD section 9: reports bucket; at most 4 MB, the hosted request limit (INT-02)',
+    description: 'Largest report photo or scan the front desk can add, in megabytes.',
+  },
   'billing.consultation_fee_timing': {
     schema: z.enum(consultationFeeTimings),
     source: 'PRD section 7: Consultation fee timing',

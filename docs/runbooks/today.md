@@ -31,8 +31,9 @@ User, 23 October 2026:
 - **Status tags and waiting time:** "Here n min" in blue from the arrival time; Running late in
   amber with "n min late" (`day.running_late_minutes`, the calendar's own rule); No show in red;
   Completed in grey. A coloured strip on the left repeats the status.
-- **Actions:** Check in on To arrive rows; Undo check in on Here now rows. A no show is marked on
-  the appointment in the calendar (INT-11).
+- **Actions:** Check in on To arrive rows and Form and reports on Here now rows, both opening the
+  check in drawer (INT-02, below); Undo check in is in the drawer. A no show is marked on the
+  appointment in the calendar (INT-11).
 - **On a phone** each row is a card: the tag and waiting time sit under the name, the action
   beside them. On desktop it is one line per appointment.
 - **Live:** the board asks `/app/today/live` every `live.refresh_seconds` with its version; only a
@@ -43,6 +44,55 @@ User, 23 October 2026:
   "Clinician review needed before … leaves.", one action) is in
   `apps/web/components/emergency-banner.tsx`, shown by the test harness page
   `/app/test-harness/emergency-banner`.
+
+## Check in drawer (INT-02)
+
+Frontend Specification ("Check in drawer"), PRD J2.1 and J2.2, TAD section 9.
+
+Decisions (user, 23 October 2026):
+
+- **Drawer first, identity ticked.** "Check in" on a To arrive row opens the drawer
+  (`/app/today?appointment=<id>`). It shows who this is: OP number, age (or "Date of birth not
+  recorded"), "Mobile ending 4321", and for a patient under `patients.adult_age_years` the
+  guardians and "A guardian must attend". The desk ticks "I have checked who this is (name and
+  date of birth)", then Check in. The appointment records who checked the patient in
+  (`checked_in_by`) and when; Undo check in, in the drawer, clears both.
+- **The health form is for a first visit for a problem:** an appointment with no episode yet
+  (submitting the form creates the episode, INT-10). A visit in an open episode says "No health
+  form for this visit: it is part of an open episode."
+- **Reports:** the desk adds photos or PDFs and sees the list (kind, size, who, when). Opening them,
+  for physios with the Treats patients tick through a 5 minute link, comes with the consultation
+  screens (CLN). Deleting a report added by mistake is not built yet.
+
+What the drawer does once the patient is checked in:
+
+- **Form status:** Not sent, Waiting for the patient, Submitted or Link expired, from the
+  appointment's latest health form link.
+- **Show QR** (`showHealthForm`): reuses the link still waiting, or issues one
+  (`issuePatientLink`, `links.health_form_hours`), and shows it as a QR drawn on our server
+  (`qrcode`, an SVG data URL) for `<our address>/p/<token>`, never supabase.co, with "Works
+  until". "Show a new QR" once one has expired.
+- **Open on tablet** (`openFormOnTablet`): the same link goes to a working kiosk tablet at the
+  appointment's centre (`sendLinkToKiosk`, IAM-10); with several, the desk picks one; with none,
+  "Set one up" goes to Kiosk tablets.
+- **Add reports** (`addReports`): photos are redrawn on the device at most 1600 px as JPEG
+  before they are sent; PDFs go as they are. Each file is at most `reports.max_file_mb` (4, the
+  most a hosted request carries), checked on the device and again on the server, which also checks
+  the file's first bytes. The server stores it in the private `reports` bucket at
+  `<patient id>/<report id>.<jpg|png|pdf>` with the service role, then records a `patient_report`
+  row in the audited transaction; if anything fails, the files stored so far are removed.
+
+Database and access:
+
+- `appointment.checked_in_by`; the check `appointment_arrived` (`NOT VALID`): Checked in needs an
+  arrival time and who, set and cleared together.
+- `patient_report`: added only by someone with check in rights, as themselves; read by them; no
+  changes or deletes; audited. The appointment link is set to null if an appointment is removed.
+- `patient_link`: someone with check in rights reads and issues the health form link of an
+  appointment they can see (`patient_link_checkin_read`, `patient_link_checkin_issue`); no other
+  link, and tokens are never stored.
+- The `reports` bucket is private; only our server reaches it. Locally and in CI, `pnpm db:start`
+  now runs Supabase's storage service.
 
 ## Rules
 
@@ -59,7 +109,7 @@ User, 23 October 2026:
 ## Not yet
 
 - Notifying the physio on check in (PRD J2.1) comes with notifications.
-- The Check in drawer (INT-02), the appointment linked QR (INT-03) and walk ins (INT-12).
+- The health form pages (INT-03 to INT-05) and walk ins (INT-12).
 - Landing screens for the other roles come with their tickets.
 
 ## Checking it
@@ -70,7 +120,10 @@ User, 23 October 2026:
 | `apps/web/modules/front-desk/services.test.ts` | Check in for those who check in at the centre; Booked or Confirmed only; the day; undo on the day; the board refused to Physio, Finance and another centre |
 | `apps/web/modules/auth/next-path.test.ts` | The Front Desk lands on Today; a page asked for still wins |
 | `packages/db/src/integration/slots.integration.test.ts` | Check in and undo with the arrival time; back to Confirmed; refused on another day, from No show, without an arrival time, and an undo another day; audited; the board leaves out Cancelled and is read by the front desk |
+| `apps/web/e2e/check-in.spec.ts` | 360 px and desktop: Check in opens the drawer, the identity tick comes first, undo; Show QR opens the health form on another phone; Open on tablet opens it on a kiosk tablet; reports added and listed, a text file and a file over 4 MB refused; a visit in an open episode has no health form |
+| `apps/web/modules/front-desk/services.test.ts` (INT-02) | The tick; reuse or issue the link; no form in an open episode; the tablet's centre; report types, sizes and first bytes; files removed when recording fails |
 | `apps/web/e2e/today.spec.ts` | 360 px and desktop: the desk lands on Today; tags, "n min late", "Here n min"; chips filter; check in and undo; a booking made elsewhere appears; Physio and Finance refused; the emergency banner full width and red |
 
-**Negative check (23 October 2026).** With the same day rule taken out of the guard, checking in an
-appointment on another day was no longer refused and the database test failed.
+**Negative checks (23 October 2026).** With the same day rule taken out of the guard, checking in
+an appointment on another day was no longer refused and the database test failed (INT-01). With
+`patient_link_checkin_issue` dropped, the database test and "Show QR" failed (INT-02).

@@ -23,6 +23,8 @@ import {
   undoNoShow,
 } from '../slots';
 import { todayBoard } from '../today';
+import { checkInView, healthFormLink, insertPatientReport, patientReports } from '../check-in';
+import { insertPatientLink } from '../patient-links';
 import { becomeStaff, on, testDate, testPatient, testPhysio, typeId } from './fake-schedule';
 
 // SCH-04: the slot engine in the database. Free starts leave out the physio's appointments at
@@ -785,7 +787,7 @@ describe('the slot engine', () => {
       const arrived = await pastAppointment(tx, { ...at, minutesAgo: 6 });
       await tx
         .update(appointment)
-        .set({ status: 'checked_in', arrivedAt: now() })
+        .set({ status: 'checked_in', arrivedAt: now(), checkedInBy: deskHsr.id })
         .where(eq(appointment.id, arrived.id));
       expect(
         await failure(tx, (sp) =>
@@ -839,13 +841,17 @@ describe('the slot engine', () => {
         )[0];
 
       const arriving = await pastAppointment(tx, { ...at, minutesAgo: 2 });
-      expect(await checkIn(tx, { appointmentId: arriving.id, now: now() })).toEqual({
-        id: arriving.id,
-      });
+      expect(await checkIn(tx, { appointmentId: arriving.id, by: deskHsr.id, now: now() })).toEqual(
+        {
+          id: arriving.id,
+        },
+      );
       expect(await read(arriving.id)).toMatchObject({ status: 'checked_in' });
       expect((await read(arriving.id))?.arrivedAt).toBeInstanceOf(Date);
       // Checking in twice changes nothing.
-      expect(await checkIn(tx, { appointmentId: arriving.id, now: now() })).toBeUndefined();
+      expect(
+        await checkIn(tx, { appointmentId: arriving.id, by: deskHsr.id, now: now() }),
+      ).toBeUndefined();
       expect(await undoCheckIn(tx, { appointmentId: arriving.id, now: now() })).toEqual({
         id: arriving.id,
       });
@@ -862,7 +868,7 @@ describe('the slot engine', () => {
         .update(appointment)
         .set({ status: 'confirmed', confirmedAt: now() })
         .where(eq(appointment.id, confirmed.id));
-      await checkIn(tx, { appointmentId: confirmed.id, now: now() });
+      await checkIn(tx, { appointmentId: confirmed.id, by: deskHsr.id, now: now() });
       await undoCheckIn(tx, { appointmentId: confirmed.id, now: now() });
       expect((await read(confirmed.id))?.status).toBe('confirmed');
 
@@ -879,16 +885,24 @@ describe('the slot engine', () => {
         step: 15,
         now: now(),
       });
-      expect(await failure(tx, (sp) => checkIn(sp, { appointmentId: ahead.id, now: now() }))).toBe(
-        '23514',
-      );
+      expect(
+        await failure(tx, (sp) =>
+          checkIn(sp, { appointmentId: ahead.id, by: deskHsr.id, now: now() }),
+        ),
+      ).toBe('23514');
       const missed = await pastAppointment(tx, { ...at, minutesAgo: 6 });
       await markNoShow(tx, { appointmentId: missed.id, by: deskHsr.id, now: now() });
       expect(
         await failure(tx, (sp) =>
           sp
             .update(appointment)
-            .set({ status: 'checked_in', arrivedAt: now(), noShowAt: null, noShowBy: null })
+            .set({
+              status: 'checked_in',
+              arrivedAt: now(),
+              checkedInBy: deskHsr.id,
+              noShowAt: null,
+              noShowBy: null,
+            })
             .where(eq(appointment.id, missed.id)),
         ),
       ).toBe('23514');
@@ -914,6 +928,7 @@ describe('the slot engine', () => {
           bookedBy: superAdmin.id,
           status: 'checked_in',
           arrivedAt: startedYesterday,
+          checkedInBy: deskHsr.id,
         })
         .returning({ id: appointment.id });
       expect(
@@ -946,6 +961,134 @@ describe('the slot engine', () => {
           physioName: physio.name,
           typeName: 'Session',
         });
+      });
+    });
+  });
+
+  // INT-02: check in records who did it; those who check in issue and read the health form link
+  // of an appointment they can see, and no other link; they add report rows as themselves.
+  it('records who checked in, and lets the desk issue form links and add reports', async () => {
+    await rolledBack(async (tx) => {
+      const session = await typeId(tx, 'session');
+      const physio = await testPhysio(tx, {
+        centreIds: [centreIds.hsrLayout],
+        createdBy: superAdmin.id,
+      });
+      const patientId = await testPatient(tx);
+      const visit = await pastAppointment(tx, {
+        physioId: physio.id,
+        patientId,
+        typeId: session,
+        minutesAgo: 2,
+      });
+      await checkIn(tx, { appointmentId: visit.id, by: deskHsr.id, now: now() });
+      expect(await checkInView(tx, visit.id)).toMatchObject({
+        status: 'checked_in',
+        checkedInByName: deskHsr.name,
+        episodeId: null,
+      });
+      // Arrived without who checked the patient in: refused.
+      const other = await pastAppointment(tx, {
+        physioId: physio.id,
+        patientId,
+        typeId: session,
+        minutesAgo: 4,
+      });
+      expect(
+        await failure(tx, (sp) =>
+          sp
+            .update(appointment)
+            .set({ status: 'checked_in', arrivedAt: now() })
+            .where(eq(appointment.id, other.id)),
+        ),
+      ).toBe('23514');
+
+      const expiresAt = new Date(now().getTime() + 60 * 60000);
+      const as = async (actor: StaffMember, work: (sp: Tx) => Promise<void>) => {
+        try {
+          await tx.transaction(async (sp) => {
+            await becomeStaff(sp, actor);
+            await work(sp);
+            throw new Rollback();
+          });
+        } catch (error) {
+          if (!(error instanceof Rollback)) throw error;
+        }
+      };
+      await as(deskHsr, async (sp) => {
+        const link = await insertPatientLink(sp, {
+          patientId,
+          purpose: 'health_form',
+          appointmentId: visit.id,
+          expiresAt,
+        });
+        expect((await healthFormLink(sp, visit.id))?.id).toBe(link.id);
+        // Not another kind of link, even for the same appointment.
+        expect(
+          await failure(sp, (inner) =>
+            insertPatientLink(inner, {
+              patientId,
+              purpose: 'consent',
+              appointmentId: visit.id,
+              expiresAt,
+            }),
+          ),
+        ).toBe('42501');
+        await insertPatientReport(sp, {
+          id: crypto.randomUUID(),
+          patientId,
+          appointmentId: visit.id,
+          filePath: `${patientId}/${crypto.randomUUID()}.jpg`,
+          contentType: 'image/jpeg',
+          sizeBytes: 1234,
+          uploadedBy: deskHsr.id,
+        });
+        expect(await patientReports(sp, patientId)).toEqual([
+          expect.objectContaining({ uploadedByName: deskHsr.name, sizeBytes: 1234 }),
+        ]);
+        // Only as themselves.
+        expect(
+          await failure(sp, (inner) =>
+            insertPatientReport(inner, {
+              id: crypto.randomUUID(),
+              patientId,
+              appointmentId: visit.id,
+              filePath: `${patientId}/${crypto.randomUUID()}.jpg`,
+              contentType: 'image/jpeg',
+              sizeBytes: 1,
+              uploadedBy: superAdmin.id,
+            }),
+          ),
+        ).toBe('42501');
+      });
+      // Another centre's front desk cannot see the appointment, so cannot issue its link.
+      await as(deskWhitefield, async (sp) => {
+        expect(
+          await failure(sp, (inner) =>
+            insertPatientLink(inner, {
+              patientId,
+              purpose: 'health_form',
+              appointmentId: visit.id,
+              expiresAt,
+            }),
+          ),
+        ).toBe('42501');
+      });
+      // A physio adds no reports.
+      await as(physioHsr, async (sp) => {
+        expect(
+          await failure(sp, (inner) =>
+            insertPatientReport(inner, {
+              id: crypto.randomUUID(),
+              patientId,
+              appointmentId: visit.id,
+              filePath: `${patientId}/${crypto.randomUUID()}.jpg`,
+              contentType: 'image/jpeg',
+              sizeBytes: 1,
+              uploadedBy: physioHsr.id,
+            }),
+          ),
+        ).toBe('42501');
       });
     });
   });

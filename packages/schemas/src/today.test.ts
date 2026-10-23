@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { istInstant } from './ist';
 import { appointmentStatuses } from './slots';
-import { canCheckIn, inTodayFilter, todayGroup } from './today';
+import {
+  canCheckIn,
+  checkInSchema,
+  healthFormState,
+  inTodayFilter,
+  needsHealthForm,
+  todayGroup,
+} from './today';
 
 // INT-01: the Today board's chips, and checking in on the appointment's own IST day.
 describe('today board', () => {
@@ -37,5 +44,30 @@ describe('today board', () => {
     expect(canCheckIn(start, istInstant('2026-11-02', 24 * 60 - 1))).toBe(true);
     expect(canCheckIn(start, istInstant('2026-11-03', 0))).toBe(false);
     expect(canCheckIn(start, istInstant('2026-11-01', 24 * 60 - 1))).toBe(false);
+  });
+
+  // INT-02: the identity tick, the health form for a first visit, and where it stands.
+  it('checks in only with the identity ticked', () => {
+    const appointmentId = '00000000-0000-4000-8000-000000000801';
+    expect(checkInSchema.safeParse({ appointmentId }).error?.issues[0]?.message).toBe(
+      'Tick that you have checked who this is.',
+    );
+    expect(checkInSchema.safeParse({ appointmentId, identityChecked: true }).success).toBe(true);
+  });
+
+  it('gives a health form to a first visit only, and reads its link', () => {
+    expect(needsHealthForm({ episodeId: null })).toBe(true);
+    expect(needsHealthForm({ episodeId: 'episode' })).toBe(false);
+    const now = new Date('2026-11-02T05:00:00.000Z');
+    const link = {
+      expiresAt: new Date('2026-11-02T06:00:00.000Z'),
+      revokedAt: null,
+      completedAt: null,
+    };
+    expect(healthFormState(undefined, now)).toBe('not_sent');
+    expect(healthFormState(link, now)).toBe('waiting');
+    expect(healthFormState({ ...link, completedAt: now }, now)).toBe('submitted');
+    expect(healthFormState({ ...link, expiresAt: now }, now)).toBe('expired');
+    expect(healthFormState({ ...link, revokedAt: now }, now)).toBe('expired');
   });
 });

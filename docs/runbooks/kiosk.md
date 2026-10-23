@@ -87,6 +87,10 @@ To use the tablet as a normal browser again:
 A `staffService` on `check_in.manage`, for the tablet's centre. INT-02 calls it with
 `{kioskId, linkId}`.
 
+The check in drawer (INT-02) sends the health form with `openFormOnTablet`
+(`apps/web/modules/front-desk/services.ts`), which also checks the tablet is at the
+appointment's centre and calls `sendLinkToKiosk` in the same transaction.
+
 It refuses, in plain words:
 
 - a stopped tablet;
