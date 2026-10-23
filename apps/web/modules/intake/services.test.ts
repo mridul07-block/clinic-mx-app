@@ -39,7 +39,7 @@ const link = {
 const visit = { appointmentId, status: 'checked_in', dateOfBirth: '1990-01-01' };
 const guardianId = '00000000-0000-4000-8000-000000000a01';
 const store = { put: vi.fn(), remove: vi.fn() };
-const reportFiles = { put: vi.fn(), remove: vi.fn() };
+const reportFiles = { put: vi.fn(), remove: vi.fn(), get: vi.fn() };
 /** A form on version 2 with Part A consent accepted and signed. */
 const consented = {
   id: 'response',

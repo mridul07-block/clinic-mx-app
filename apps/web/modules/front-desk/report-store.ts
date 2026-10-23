@@ -9,6 +9,8 @@ import { supabaseAdmin } from '../../lib/supabase/admin';
 export interface ReportStore {
   put(path: string, bytes: Uint8Array, contentType: string): Promise<void>;
   remove(paths: string[]): Promise<void>;
+  /** The file's bytes (ALT-08), once the service has checked the person may open it. */
+  get(path: string): Promise<Uint8Array>;
 }
 
 export function reportStore(): ReportStore {
@@ -21,6 +23,11 @@ export function reportStore(): ReportStore {
     async remove(paths) {
       if (paths.length === 0) return;
       await bucket().remove(paths);
+    },
+    async get(path) {
+      const { data, error } = await bucket().download(path);
+      if (error) throw new Error(`The report could not be read: ${error.message}`);
+      return new Uint8Array(await data.arrayBuffer());
     },
   };
 }

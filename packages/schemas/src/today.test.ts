@@ -9,6 +9,8 @@ import {
   healthFormState,
   inTodayFilter,
   needsHealthForm,
+  reportAddedBy,
+  reportSizeText,
   todayGroup,
   walkInNewPatientSchema,
   walkInSchema,
@@ -116,5 +118,17 @@ describe('walk in', () => {
     expect(walkInNewPatientSchema.safeParse({ ...person, identityChecked: true }).success).toBe(
       true,
     );
+  });
+});
+
+// ALT-08: how report lists name a report's size and who added it.
+describe('report wording', () => {
+  it('names the size and who added it, "staff" when the name is not readable', () => {
+    expect(reportSizeText(820 * 1024)).toBe('820 KB');
+    expect(reportSizeText(1.44 * 1024 * 1024)).toBe('1.4 MB');
+    expect(reportSizeText(10)).toBe('1 KB');
+    expect(reportAddedBy({ addedByPatient: true, uploadedByName: null })).toBe('the patient');
+    expect(reportAddedBy({ addedByPatient: false, uploadedByName: 'Test Desk' })).toBe('Test Desk');
+    expect(reportAddedBy({ addedByPatient: false, uploadedByName: null })).toBe('staff');
   });
 });

@@ -156,5 +156,28 @@ export const reportExtensions = {
   'application/pdf': 'pdf',
 } as const satisfies Record<ReportContentType, string>;
 
+/** How a report is named in lists: a photo or a PDF scan. */
+export const reportKindLabels = {
+  'image/jpeg': 'Photo',
+  'image/png': 'Photo',
+  'application/pdf': 'PDF',
+} as const satisfies Record<ReportContentType, string>;
+
+/** A report's size as people read it: "820 KB", "1.4 MB". */
+export function reportSizeText(bytes: number): string {
+  return bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${String(Math.max(1, Math.round(bytes / 1024)))} KB`;
+}
+
+/** Who added a report, as lists say it: the patient, the staff member, or "staff" when unknown. */
+export function reportAddedBy(report: {
+  addedByPatient: boolean;
+  uploadedByName: string | null;
+}): string {
+  if (report.addedByPatient) return 'the patient';
+  return report.uploadedByName ?? 'staff';
+}
+
 /** The most a hosted function takes in one request is 4.5 MB, so a file is at most 4 MB. */
 export const reportMaxMegabytesCeiling = 4;

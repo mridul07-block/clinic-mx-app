@@ -2,6 +2,9 @@ import {
   formatIstDateTime,
   guardianRelationshipLabels,
   healthFormStateLabels,
+  reportAddedBy,
+  reportKindLabels,
+  reportSizeText,
   type HealthFormState,
 } from '@clinic-mx/schemas';
 import type { Tone } from '@clinic-mx/ui';
@@ -37,17 +40,6 @@ const doneMessages: Record<CheckInDone, string> = {
   tablet: 'Sent to the tablet. It opens the form within a few seconds.',
   reports: 'Reports added.',
 };
-
-const reportKinds = {
-  'image/jpeg': 'Photo',
-  'image/png': 'Photo',
-  'application/pdf': 'PDF',
-} as const;
-
-const sizeOf = (bytes: number) =>
-  bytes >= 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    : `${String(Math.max(1, Math.round(bytes / 1024)))} KB`;
 
 /** The health form link as a QR the patient scans with their phone camera (PRD J2.2). */
 async function qrImage(url: string): Promise<string> {
@@ -225,17 +217,18 @@ export async function CheckInDrawer({
             {view.reports.map((report) => (
               <li key={report.id} className="flex flex-col py-2 text-sm">
                 <span className="text-ink">
-                  {reportKinds[report.contentType]}, {sizeOf(report.sizeBytes)}
+                  {reportKindLabels[report.contentType]}, {reportSizeText(report.sizeBytes)}
                 </span>
                 <span className="text-ink-secondary">
-                  Added by {report.uploadedByName ?? 'the patient'},{' '}
-                  {formatIstDateTime(report.createdAt)}
+                  Added by {reportAddedBy(report)}, {formatIstDateTime(report.createdAt)}
                 </span>
               </li>
             ))}
           </ul>
         )}
-        <p className="text-sm text-ink-muted">Only physios who treat patients can open reports.</p>
+        <p className="text-sm text-ink-muted">
+          Only clinicians open reports, from the patient record.
+        </p>
         <ReportUpload place={place} maxMegabytes={maxReportMegabytes} />
       </section>
     </Drawer>
