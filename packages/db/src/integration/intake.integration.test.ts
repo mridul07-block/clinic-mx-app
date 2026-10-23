@@ -21,7 +21,6 @@ import {
   unreadNotificationCount,
 } from '../clinical';
 import { insertEpisode } from '../episodes';
-import { latestKnowledgeVersion } from '../knowledge';
 import {
   healthFormVisit,
   ownIntakeResponse,
@@ -804,7 +803,12 @@ describe('the submit pipeline under row level security', () => {
   it('shows alerts and precautions to staff who treat patients at the centre only', async () => {
     await rolledBack(async (tx) => {
       const { physio, patientId, mine } = await visits(tx);
-      const version = await latestKnowledgeVersion(tx);
+      // A draft version of its own: the CI database has no imported knowledge base here.
+      const [version] = await tx.execute<{ id: string }>(
+        sql`insert into kb_version (number, source, report, created_by)
+          select coalesce(max(number), 0) + 1, '{}'::jsonb, '{}'::jsonb, 'tests' from kb_version
+          returning id`,
+      );
       if (!version) throw new Error('no knowledge base version');
       const episodeId = await insertEpisode(tx, {
         patientId,
