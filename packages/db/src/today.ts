@@ -6,6 +6,7 @@ import {
 } from '@clinic-mx/schemas';
 import { and, asc, eq, gte, lt, notInArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
+import { partAConsentDeclined } from './consent';
 import { appointment, appointmentType, patient, staffUser } from './schema';
 import type { DbOrTransaction } from './versioned';
 
@@ -24,6 +25,8 @@ export interface TodayAppointment {
   physioId: string;
   physioName: string;
   typeName: string;
+  /** A Part A consent declined (INT-06): reception speaks to the patient. */
+  consentDeclined: boolean;
 }
 
 const physio = alias(staffUser, 'today_physio');
@@ -52,6 +55,7 @@ export async function todayBoard(
       physioId: appointment.physioId,
       physioName: physio.name,
       typeName: appointmentType.name,
+      consentDeclined: partAConsentDeclined(appointment.id),
     })
     .from(appointment)
     .innerJoin(patient, eq(patient.id, appointment.patientId))

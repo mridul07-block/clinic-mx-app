@@ -10,6 +10,8 @@ const db = vi.hoisted(() => ({
   healthFormVisit: vi.fn(),
   ownIntakeResponse: vi.fn(),
   saveIntakeResponse: vi.fn(),
+  insertConsentRecords: vi.fn(),
+  ownConsentDecisions: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
 vi.mock('../../lib/db', () => ({ appDb: () => ({ kind: 'appDb' }) }));
@@ -26,6 +28,22 @@ const link = {
   expiresAt: new Date('2030-01-01T00:00:00Z'),
 };
 const visit = { appointmentId, status: 'checked_in' };
+const store = { put: vi.fn(), remove: vi.fn() };
+/** A form on version 2 with Part A consent accepted and signed. */
+const consented = {
+  id: 'response',
+  formVersion: 'hf-2',
+  answers: {},
+  doneScreens: ['consent'],
+  submittedAt: null,
+};
+const save = (screen: string, posted: Record<string, string | string[]>) =>
+  saveHealthFormScreen('token', screen, posted, undefined, store);
+const agree = { 'part_a.screening': 'agree', 'part_a.contact': 'agree' };
+const png = `data:image/png;base64,${Buffer.concat([
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  Buffer.alloc(24),
+]).toString('base64')}`;
 const noToBack = Object.fromEntries(
   [
     'weight_loss',
@@ -52,7 +70,9 @@ const noToBack = Object.fromEntries(
 
 describe('saving a health form screen', () => {
   beforeEach(() => {
-    for (const fn of [...Object.values(db), ...Object.values(links)]) fn.mockReset();
+    for (const fn of [...Object.values(db), ...Object.values(links), ...Object.values(store)]) {
+      fn.mockReset();
+    }
     db.withPatientAccess.mockImplementation(
       (_db: unknown, _context: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
     );
@@ -61,9 +81,9 @@ describe('saving a health form screen', () => {
     db.saveIntakeResponse.mockResolvedValue({ id: 'response' });
   });
 
-  it('starts the form on the current version and opens the next screen', async () => {
-    db.ownIntakeResponse.mockResolvedValue(undefined);
-    expect(await saveHealthFormScreen('token', 'problem', { region: 'back' })).toEqual({
+  it('saves a screen after consent and opens the next one', async () => {
+    db.ownIntakeResponse.mockResolvedValue(consented);
+    expect(await save('problem', { region: 'back' })).toEqual({
       status: 'saved',
       next: 'warning_signs',
     });
@@ -76,15 +96,15 @@ describe('saving a health form screen', () => {
       appointmentId,
       patientId: link.patientId,
       patientLinkId: link.id,
-      formVersion: 'hf-1',
+      formVersion: 'hf-2',
       answers: { region: 'back' },
-      doneScreens: ['problem'],
+      doneScreens: ['consent', 'problem'],
     });
   });
 
   it('asks for every shown answer and saves nothing until then', async () => {
-    db.ownIntakeResponse.mockResolvedValue(undefined);
-    expect(await saveHealthFormScreen('token', 'problem', {})).toEqual({
+    db.ownIntakeResponse.mockResolvedValue(consented);
+    expect(await save('problem', {})).toEqual({
       status: 'invalid',
       errors: { region: 'Answer this question.' },
     });
@@ -103,7 +123,7 @@ describe('saving a health form screen', () => {
       doneScreens: ['problem', 'warning_signs'],
       submittedAt: null,
     });
-    expect(await saveHealthFormScreen('token', 'problem', { region: 'knee' })).toEqual({
+    expect(await save('problem', { region: 'knee' })).toEqual({
       status: 'saved',
       next: 'warning_signs',
     });
@@ -113,35 +133,115 @@ describe('saving a health form screen', () => {
     expect(saved.answers.fever_sweats).toBe(false);
   });
 
-  it('opens no screen before the ones it follows', async () => {
+  it('opens nothing before Part A consent, and no screen before the ones it follows', async () => {
     db.ownIntakeResponse.mockResolvedValue(undefined);
-    expect(await saveHealthFormScreen('token', 'warning_signs', noToBack)).toEqual({
+    expect(await save('problem', { region: 'back' })).toEqual({
+      status: 'elsewhere',
+      resume: 'consent',
+    });
+    db.ownIntakeResponse.mockResolvedValue(consented);
+    expect(await save('warning_signs', noToBack)).toEqual({
       status: 'elsewhere',
       resume: 'problem',
     });
-    expect(await saveHealthFormScreen('token', 'no_such_screen', {})).toEqual({
-      status: 'elsewhere',
-      resume: 'problem',
-    });
+    expect(await save('no_such_screen', {})).toEqual({ status: 'elsewhere', resume: 'problem' });
     expect(db.saveIntakeResponse).not.toHaveBeenCalled();
   });
 
   it('saves nothing for a visit not on, or a link that is not a working health form link', async () => {
     db.healthFormVisit.mockResolvedValue({ ...visit, status: 'booked' });
-    expect(await saveHealthFormScreen('token', 'problem', { region: 'back' })).toEqual({
+    expect(await save('problem', { region: 'back' })).toEqual({
       status: 'closed',
     });
     links.verifyPatientLink.mockResolvedValue({ status: 'expired', purpose: 'health_form' });
-    expect(await saveHealthFormScreen('token', 'problem', { region: 'back' })).toEqual({
+    expect(await save('problem', { region: 'back' })).toEqual({
       status: 'link',
     });
     links.verifyPatientLink.mockResolvedValue({
       status: 'valid',
       link: { ...link, purpose: 'consent' },
     });
-    expect(await saveHealthFormScreen('token', 'problem', { region: 'back' })).toEqual({
+    expect(await save('problem', { region: 'back' })).toEqual({
       status: 'link',
     });
     expect(db.saveIntakeResponse).not.toHaveBeenCalled();
+  });
+
+  // INT-06: Part A consent.
+  describe('Part A consent', () => {
+    beforeEach(() => {
+      db.ownIntakeResponse.mockResolvedValue(undefined);
+    });
+
+    it('records a decline, unsigned, and blocks the form', async () => {
+      expect(
+        await save('consent', { 'part_a.screening': 'agree', 'part_a.contact': 'decline' }),
+      ).toEqual({ status: 'declined' });
+      expect(db.insertConsentRecords).toHaveBeenCalledWith(fakeTx, [
+        {
+          patientId: link.patientId,
+          appointmentId,
+          patientLinkId: link.id,
+          stage: 'A',
+          signer: 'patient',
+          statementKey: 'part_a.contact',
+          statementVersion: 1,
+          accepted: false,
+        },
+      ]);
+      expect(store.put).not.toHaveBeenCalled();
+      expect(db.saveIntakeResponse).not.toHaveBeenCalled();
+    });
+
+    it('stores a drawn signature, records both statements and opens the questions', async () => {
+      expect(await save('consent', { ...agree, signature: png })).toEqual({
+        status: 'saved',
+        next: 'problem',
+      });
+      const [path, bytes, type] = store.put.mock.calls[0] as [string, Uint8Array, string];
+      expect(path.startsWith(`${link.patientId}/`) && path.endsWith('.png')).toBe(true);
+      expect(bytes[0]).toBe(0x89);
+      expect(type).toBe('image/png');
+      const rows = db.insertConsentRecords.mock.calls[0]?.[1] as Record<string, unknown>[];
+      expect(
+        rows.map((r) => [r.statementKey, r.accepted, r.signatureKind, r.signatureFile]),
+      ).toEqual([
+        ['part_a.screening', true, 'drawn', path],
+        ['part_a.contact', true, 'drawn', path],
+      ]);
+      expect(db.saveIntakeResponse).toHaveBeenCalledWith(
+        fakeTx,
+        expect.objectContaining({ formVersion: 'hf-2', doneScreens: ['consent'] }),
+      );
+      expect(store.remove).not.toHaveBeenCalled();
+    });
+
+    it('takes a typed name when the pad cannot run', async () => {
+      await save('consent', { ...agree, typedName: 'Test Patient' });
+      const rows = db.insertConsentRecords.mock.calls[0]?.[1] as Record<string, unknown>[];
+      expect(rows.map((r) => [r.signatureKind, r.typedName, r.signatureFile])).toEqual([
+        ['typed', 'Test Patient', null],
+        ['typed', 'Test Patient', null],
+      ]);
+      expect(store.put).not.toHaveBeenCalled();
+    });
+
+    it('asks for a signature, and removes a stored one when recording does not happen', async () => {
+      expect(await save('consent', agree)).toEqual({
+        status: 'invalid',
+        errors: { signature: 'Please sign in the box.' },
+      });
+      expect(await save('consent', { ...agree, signature: 'data:image/png;base64,QUJD' })).toEqual({
+        status: 'invalid',
+        errors: { signature: 'Please sign in the box.' },
+      });
+      // The visit closes between the check and the record: the stored signature goes.
+      db.healthFormVisit
+        .mockResolvedValueOnce(visit)
+        .mockResolvedValueOnce({ ...visit, status: 'booked' });
+      expect(await save('consent', { ...agree, signature: png })).toEqual({ status: 'closed' });
+      expect(store.remove).toHaveBeenCalledWith([store.put.mock.calls[0]?.[0]]);
+      expect(db.insertConsentRecords).not.toHaveBeenCalled();
+    });
   });
 });

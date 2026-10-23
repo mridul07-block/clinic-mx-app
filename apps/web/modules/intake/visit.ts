@@ -1,11 +1,17 @@
 import 'server-only';
-import { healthFormVisit, ownIntakeResponse, type PatientLinkAccess } from '@clinic-mx/db';
+import {
+  healthFormVisit,
+  ownConsentDecisions,
+  ownIntakeResponse,
+  type PatientLinkAccess,
+} from '@clinic-mx/db';
 import {
   currentHealthFormVersion,
   firstName,
   formatIstDateTime,
   healthFormOpen,
   healthForms,
+  latestConsent,
   resumeAt,
   type HealthFormAnswer,
   type HealthFormDefinition,
@@ -32,6 +38,8 @@ export type HealthFormWelcome =
       resume: string;
       /** A screen has been saved: Continue rather than Start. */
       started: boolean;
+      /** A Part A statement's latest decision is a decline (INT-06): the form waits. */
+      consentDeclined: boolean;
     }
   | { open: false };
 
@@ -47,9 +55,13 @@ export async function loadHealthFormVisit(
   link: PatientLinkAccess,
   ip?: string,
 ): Promise<HealthFormWelcome> {
-  const { visit, saved } = await asPatient(
+  const { visit, saved, decisions } = await asPatient(
     link,
-    async (tx) => ({ visit: await healthFormVisit(tx), saved: await ownIntakeResponse(tx) }),
+    async (tx) => ({
+      visit: await healthFormVisit(tx),
+      saved: await ownIntakeResponse(tx),
+      decisions: await ownConsentDecisions(tx),
+    }),
     ip,
   );
   if (!visit || !healthFormOpen(visit.status)) return { open: false };
@@ -66,6 +78,7 @@ export async function loadHealthFormVisit(
     answers,
     doneScreens,
     resume: resumeAt(form, answers, doneScreens),
-    started: saved !== undefined,
+    started: saved !== undefined || decisions.length > 0,
+    consentDeclined: latestConsent(decisions).declined,
   };
 }

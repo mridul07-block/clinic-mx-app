@@ -279,6 +279,12 @@ export {
   type PatientReportEntry,
 } from './check-in';
 export {
+  insertConsentRecords,
+  ownConsentDecisions,
+  partAConsentDeclined,
+  type ConsentDecisionRow,
+} from './consent';
+export {
   healthFormVisit,
   ownIntakeResponse,
   saveIntakeResponse,

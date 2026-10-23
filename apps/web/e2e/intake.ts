@@ -1,12 +1,14 @@
 import {
   appointment,
   auditEvent,
+  consentRecord,
   createDb,
   intakeResponse,
   systemActor,
   withActor,
 } from '@clinic-mx/db';
-import { and, eq } from 'drizzle-orm';
+import { expect, type Page } from '@playwright/test';
+import { and, asc, eq, sql } from 'drizzle-orm';
 
 // The health form in the database for end to end tests (INT-04): what a visit's form saved and
 // who the audit says saved it; and a check in undone, as the desk's Undo does. Generated
@@ -47,4 +49,64 @@ export async function undoCheckInOf(appointmentId: string): Promise<void> {
       .set({ status: 'booked', arrivedAt: null, checkedInBy: null })
       .where(eq(appointment.id, appointmentId)),
   );
+}
+
+/** A visit's Part A consent records, oldest first (INT-06). */
+export function consentOf(appointmentId: string) {
+  return db()
+    .select({
+      statementKey: consentRecord.statementKey,
+      accepted: consentRecord.accepted,
+      signatureKind: consentRecord.signatureKind,
+      signatureFile: consentRecord.signatureFile,
+      typedName: consentRecord.typedName,
+    })
+    .from(consentRecord)
+    .where(eq(consentRecord.appointmentId, appointmentId))
+    .orderBy(asc(consentRecord.createdAt), asc(consentRecord.statementKey));
+}
+
+/** A Part A statement's card on the consent screen, by part of its text. */
+export const consentCard = (page: Page, text: string) => page.getByRole('group', { name: text });
+
+/** Draws a stroke on the signature pad, as a finger would. */
+export async function drawSignature(page: Page): Promise<void> {
+  const pad = page.getByTestId('signature-pad');
+  // Clear of the actions pinned at the bottom.
+  await pad.evaluate((el) => {
+    el.scrollIntoView({ block: 'center' });
+  });
+  const box = await pad.boundingBox();
+  if (!box) throw new Error('no signature pad');
+  await page.mouse.move(box.x + 20, box.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 120, box.y + 90, { steps: 6 });
+  await page.mouse.move(box.x + 220, box.y + 30, { steps: 6 });
+  await page.mouse.up();
+}
+
+/**
+ * On the consent screen: agrees to both Part A statements and signs, drawn when scripts run,
+ * typed otherwise; then the questions open.
+ */
+export async function signConsent(page: Page): Promise<void> {
+  await expect(page).toHaveURL(/\?screen=consent/);
+  for (const card of await page
+    .getByRole('group')
+    .filter({ has: page.getByText('I agree', { exact: true }) })
+    .all()) {
+    await card.getByText('I agree', { exact: true }).click();
+  }
+  if (await page.getByTestId('signature-pad').isVisible()) await drawSignature(page);
+  else await page.getByLabel('Type your full name to sign').fill('Test Patient');
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page).toHaveURL(/\?screen=problem$/);
+}
+
+/** Whether a drawn signature is in the private `signatures` bucket. */
+export async function signatureStored(path: string): Promise<boolean> {
+  const [row] = await db().execute<{ stored: boolean }>(
+    sql`select exists (select 1 from storage.objects where bucket_id = 'signatures' and name = ${path}) as stored`,
+  );
+  return row?.stored ?? false;
 }

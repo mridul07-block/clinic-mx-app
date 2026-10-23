@@ -1,6 +1,7 @@
 import {
   HEALTH_FORM_END,
   canOpen,
+  consentStatements,
   patientLinkDefinitions,
   previousScreen,
   screenLayout,
@@ -29,6 +30,7 @@ import {
   take,
 } from '../../../../modules/rate-limits/limits';
 import { getSetting } from '../../../../modules/settings/settings';
+import { ConsentScreenForm } from './consent-form';
 import { HealthFormScreenForm } from './health-form';
 import { KioskShell } from './kiosk-shell';
 import { patientPrimaryClass, patientSecondaryClass } from './patient-ui';
@@ -149,6 +151,7 @@ function healthFormScreen(
   token: string,
   welcome: Extract<HealthFormWelcome, { open: true }>,
   key: string | undefined,
+  changing: boolean,
 ): ReactNode {
   if (!key) return null;
   const { form, answers, doneScreens, resume } = welcome;
@@ -176,6 +179,60 @@ function healthFormScreen(
   const screen = visibleScreens(form, answers).find((s) => s.key === key);
   if (!screen) redirect(`${here}?screen=${resume}`);
   const { step, of } = stepOf(form, answers, key);
+  const stepper = (
+    <div className="flex flex-col gap-2">
+      <p className="text-ink-secondary" data-testid="health-form-step">
+        Step {step} of {of}
+      </p>
+      <div className="h-1 rounded-full bg-line" aria-hidden="true">
+        <div
+          className="h-1 rounded-full bg-brand"
+          style={{ width: `${String(Math.round((step / of) * 100))}%` }}
+        />
+      </div>
+    </div>
+  );
+  if (screen.consent) {
+    // Part A consent (INT-06): after a decline the form waits for reception, unless the patient
+    // chooses to change their answer.
+    if (welcome.consentDeclined && !changing) {
+      return (
+        <>
+          {stepper}
+          <h1 className="text-xl font-semibold text-ink">{screen.title}</h1>
+          <p className="text-lg text-ink" data-testid="consent-declined">
+            Please speak to reception.
+          </p>
+          <div className="fixed inset-x-0 bottom-0 border-t border-line bg-surface px-4 py-3">
+            <div className="mx-auto flex w-full max-w-signin">
+              <Link
+                href={`${here}?screen=${screen.key}&change=1`}
+                className={`${patientSecondaryClass} flex-1`}
+              >
+                Change my answer
+              </Link>
+            </div>
+          </div>
+        </>
+      );
+    }
+    return (
+      <>
+        {stepper}
+        <h1 className="text-xl font-semibold text-ink">{screen.title}</h1>
+        <ConsentScreenForm
+          token={token}
+          screenKey={screen.key}
+          cards={screen.consent.statements.map((statementKey) => ({
+            key: statementKey,
+            version: consentStatements[statementKey].version,
+            text: consentStatements[statementKey].text,
+          }))}
+          backHref={backHref}
+        />
+      </>
+    );
+  }
   const saved = Object.fromEntries(
     screen.fields.flatMap((field) => {
       const answer = answers[field.key];
@@ -184,17 +241,7 @@ function healthFormScreen(
   );
   return (
     <>
-      <div className="flex flex-col gap-2">
-        <p className="text-ink-secondary" data-testid="health-form-step">
-          Step {step} of {of}
-        </p>
-        <div className="h-1 rounded-full bg-line" aria-hidden="true">
-          <div
-            className="h-1 rounded-full bg-brand"
-            style={{ width: `${String(Math.round((step / of) * 100))}%` }}
-          />
-        </div>
-      </div>
+      {stepper}
       <h1 className="text-xl font-semibold text-ink">{screen.title}</h1>
       <HealthFormScreenForm
         token={token}
@@ -212,10 +259,10 @@ export default async function PatientPage({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ screen?: string }>;
+  searchParams: Promise<{ screen?: string; change?: string }>;
 }) {
   const { token } = await params;
-  const { screen: screenKey } = await searchParams;
+  const { screen: screenKey, change } = await searchParams;
   const browser = await kioskBrowser();
   if (browser.status !== 'none') {
     const linkId = patientLinkIdFromToken(token);
@@ -233,7 +280,9 @@ export default async function PatientPage({
     if (!welcome.open) opened = { status: 'closed', purpose: 'health_form' };
   }
   const { title, body } = kiosk ? kioskMessage(opened) : message(opened);
-  const formScreen = welcome?.open ? healthFormScreen(token, welcome, screenKey) : null;
+  const formScreen = welcome?.open
+    ? healthFormScreen(token, welcome, screenKey, change === '1')
+    : null;
   const page = (
     <main data-voice="patient" className="min-h-dvh bg-surface px-4 py-6">
       <div className="mx-auto flex w-full max-w-signin flex-col gap-3">

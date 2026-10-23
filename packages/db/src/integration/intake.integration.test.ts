@@ -2,9 +2,18 @@ import { eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { patientActor, setAuditContext, systemActor, withActor } from '../audit';
 import { createDb } from '../client';
+import { insertConsentRecords, ownConsentDecisions, partAConsentDeclined } from '../consent';
 import { healthFormVisit, ownIntakeResponse, saveIntakeResponse } from '../intake';
 import { insertPatientLink } from '../patient-links';
-import { appointment, auditEvent, centre, intakeResponse, patient, staffUser } from '../schema';
+import {
+  appointment,
+  auditEvent,
+  centre,
+  consentRecord,
+  intakeResponse,
+  patient,
+  staffUser,
+} from '../schema';
 import { centreIds, seedStaff } from '../seed/data';
 import { bookAppointment } from '../slots';
 import type { StaffMember } from '../identity';
@@ -312,6 +321,183 @@ describe('the health form under row level security', () => {
       };
       await becomeStaff(tx, actor);
       expect(await tx.select({ id: intakeResponse.id }).from(intakeResponse)).toEqual([]);
+    });
+  });
+});
+
+/** A seed staff member as the access helpers take them. */
+function seedMember(email: string): StaffMember {
+  const row = seedStaff.find((s) => s.email === email);
+  if (!row?.id) throw new Error(`no seed ${email}`);
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    treatsPatients: row.treatsPatients ?? false,
+    consultant: false,
+    centreIds: [centreIds.hsrLayout],
+    support: false,
+  };
+}
+
+/** A Part A record for the link's visit, as the consent screen adds it. */
+const partA = (
+  link: { id: string },
+  appointmentId: string,
+  patientId: string,
+  values: Partial<typeof consentRecord.$inferInsert> = {},
+): typeof consentRecord.$inferInsert => ({
+  patientId,
+  appointmentId,
+  patientLinkId: link.id,
+  stage: 'A',
+  signer: 'patient',
+  statementKey: 'part_a.contact',
+  statementVersion: 1,
+  accepted: false,
+  ...values,
+});
+
+// INT-06: Part A consent records are added by the patient for their own visit while it is on,
+// never changed, and read by those who check in, so reception sees a decline.
+describe('Part A consent under row level security', () => {
+  it('is added by its patient while the visit is on, and read back', async () => {
+    await rolledBack(async (tx) => {
+      const { physio, patientId } = await visits(tx);
+      const visit = await checkedIn(tx, physio.id, patientId, 800);
+      const link = await insertPatientLink(tx, {
+        patientId,
+        purpose: 'health_form',
+        appointmentId: visit,
+        expiresAt: new Date(Date.now() + 3_600_000),
+      });
+      await becomePatient(tx, { id: link.id, patientId, purpose: 'health_form' });
+      await insertConsentRecords(tx, [partA(link, visit, patientId)]);
+      await insertConsentRecords(tx, [
+        partA(link, visit, patientId, {
+          statementKey: 'part_a.screening',
+          accepted: true,
+          signatureKind: 'typed',
+          typedName: 'Test Patient',
+        }),
+      ]);
+      expect((await ownConsentDecisions(tx)).map((d) => [d.statementKey, d.accepted])).toEqual([
+        ['part_a.contact', false],
+        ['part_a.screening', true],
+      ]);
+      const [mine] = await tx.select({ id: consentRecord.id }).from(consentRecord).limit(1);
+      expect(
+        await failure(tx, (sp) =>
+          sp
+            .update(consentRecord)
+            .set({ accepted: true })
+            .where(eq(consentRecord.id, mine?.id ?? '')),
+        ),
+      ).toBe('42501');
+      expect(
+        await failure(tx, (sp) =>
+          sp.delete(consentRecord).where(eq(consentRecord.id, mine?.id ?? '')),
+        ),
+      ).toBe('42501');
+      await tx.execute(sql`reset role`);
+      const actors = await tx
+        .select({ actor: auditEvent.actor })
+        .from(auditEvent)
+        .where(eq(auditEvent.entity, 'consent_record'));
+      expect(new Set(actors.map((a) => a.actor))).toContain(`patient:${patientId}`);
+    });
+  });
+
+  it('is refused for another visit, Part B, a guardian, a visit not on, and unsigned acceptance', async () => {
+    await rolledBack(async (tx) => {
+      const { physio, patientId, mine, theirs } = await visits(tx);
+      const visit = await checkedIn(tx, physio.id, patientId, 800);
+      const issue = (appointmentId: string) =>
+        insertPatientLink(tx, {
+          patientId,
+          purpose: 'health_form',
+          appointmentId,
+          expiresAt: new Date(Date.now() + 3_600_000),
+        });
+      const onVisit = await issue(visit);
+      const onBooked = await issue(mine.id);
+      // The check holds for everyone: an acceptance is signed, a decline is not.
+      expect(
+        await failure(tx, (sp) =>
+          insertConsentRecords(sp, [partA(onVisit, visit, patientId, { accepted: true })]),
+        ),
+      ).toBe('23514');
+      expect(
+        await failure(tx, (sp) =>
+          insertConsentRecords(sp, [
+            partA(onVisit, visit, patientId, { signatureKind: 'typed', typedName: 'X Y' }),
+          ]),
+        ),
+      ).toBe('23514');
+
+      await tx.execute(sql`savepoint as_patient`);
+      await becomePatient(tx, { id: onVisit.id, patientId, purpose: 'health_form' });
+      for (const values of [
+        { appointmentId: theirs.id },
+        { stage: 'B' as const },
+        { signer: 'guardian' as const },
+      ]) {
+        expect(
+          await failure(tx, (sp) =>
+            insertConsentRecords(sp, [{ ...partA(onVisit, visit, patientId), ...values }]),
+          ),
+        ).toBe('42501');
+      }
+      await tx.execute(sql`rollback to savepoint as_patient`);
+
+      await becomePatient(tx, { id: onBooked.id, patientId, purpose: 'health_form' });
+      expect(
+        await failure(tx, (sp) => insertConsentRecords(sp, [partA(onBooked, mine.id, patientId)])),
+      ).toBe('42501');
+    });
+  });
+
+  it('is read by those who check in, so reception sees a decline; a physio reads none', async () => {
+    await rolledBack(async (tx) => {
+      const { physio, patientId } = await visits(tx);
+      const visit = await checkedIn(tx, physio.id, patientId, 800);
+      const link = await insertPatientLink(tx, {
+        patientId,
+        purpose: 'health_form',
+        appointmentId: visit,
+        expiresAt: new Date(Date.now() + 3_600_000),
+      });
+      await insertConsentRecords(tx, [partA(link, visit, patientId)]);
+      const declined = async () =>
+        (
+          await tx
+            .select({ declined: partAConsentDeclined(visit) })
+            .from(appointment)
+            .limit(1)
+        )[0]?.declined;
+
+      await tx.execute(sql`savepoint as_desk`);
+      await becomeStaff(tx, seedMember('desk.hsr@clinicmx.test'));
+      expect(await tx.select({ id: consentRecord.id }).from(consentRecord)).toHaveLength(1);
+      expect(await declined()).toBe(true);
+      await tx.execute(sql`rollback to savepoint as_desk`);
+
+      // Changed their mind: a newer acceptance counts.
+      await tx.execute(sql`savepoint later`);
+      await tx.insert(consentRecord).values(
+        partA(link, visit, patientId, {
+          accepted: true,
+          signatureKind: 'typed',
+          typedName: 'Test Patient',
+          createdAt: new Date(Date.now() + 60_000),
+        }),
+      );
+      expect(await declined()).toBe(false);
+      await tx.execute(sql`rollback to savepoint later`);
+
+      await becomeStaff(tx, seedMember('physio.hsr@clinicmx.test'));
+      expect(await tx.select({ id: consentRecord.id }).from(consentRecord)).toEqual([]);
     });
   });
 });

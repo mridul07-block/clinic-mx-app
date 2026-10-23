@@ -9,6 +9,7 @@ import {
   patientReport,
   staffUser,
 } from './schema';
+import { partAConsentDeclined } from './consent';
 import type { DbOrTransaction } from './versioned';
 
 /** What the check in drawer shows about an appointment (INT-02). */
@@ -30,6 +31,8 @@ export interface CheckInView {
   dateOfBirth: string | null;
   /** The mobile's last four digits only: enough to check, without the whole number on screen. */
   phoneEnding: string;
+  /** A Part A consent declined (INT-06). */
+  consentDeclined: boolean;
 }
 
 const physio = alias(staffUser, 'check_in_physio');
@@ -58,6 +61,7 @@ export async function checkInView(
       opNumber: patient.opNumber,
       dateOfBirth: patient.dateOfBirth,
       phone: patient.phone,
+      consentDeclined: partAConsentDeclined(appointment.id),
     })
     .from(appointment)
     .innerJoin(patient, eq(patient.id, appointment.patientId))

@@ -122,6 +122,10 @@ How it works:
 - `addPatientAndWalkIn` adds the patient first, as Add and book does (`addPatientThenBook`).
 - The sheets show walk-in mode only to someone who both books and checks in, and only for today.
 
+- **Consent declined (INT-06).** A patient who declines a Part A statement shows "Consent
+  declined" on their Today row and as the drawer's form status. Speak to them; if they change
+  their mind they choose **Change my answer** on the form.
+
 ## Rules
 
 - **The service** (`checkIn`, `undoCheckIn` in `apps/web/modules/front-desk/services.ts`):

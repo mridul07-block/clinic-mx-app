@@ -243,6 +243,27 @@ export {
   type ParsedScreen,
   type PostedScreen,
 } from './health-form';
+export {
+  CHOOSE_ONE,
+  SIGN_HERE,
+  TYPE_NAME,
+  consentSigners,
+  consentStages,
+  consentStatements,
+  latestConsent,
+  parseConsent,
+  partAStatements,
+  signatureKinds,
+  signatureMaxBytes,
+  type ConsentDecision,
+  type ConsentSignature,
+  type ConsentSigner,
+  type ConsentStage,
+  type ConsentStatement,
+  type ConsentStatementKey,
+  type ParsedConsent,
+  type SignatureKind,
+} from './consent';
 export { keyFromName } from './keys';
 export { MAX_PAISE, formatRupees, rupeesSchema, rupeesText } from './money';
 export {

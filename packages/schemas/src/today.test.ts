@@ -73,6 +73,8 @@ describe('today board', () => {
     expect(healthFormState({ ...link, completedAt: now }, now)).toBe('submitted');
     expect(healthFormState({ ...link, expiresAt: now }, now)).toBe('expired');
     expect(healthFormState({ ...link, revokedAt: now }, now)).toBe('expired');
+    expect(healthFormState(link, now, true)).toBe('declined');
+    expect(healthFormState({ ...link, completedAt: now }, now, true)).toBe('submitted');
   });
 });
 
