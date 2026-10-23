@@ -1,0 +1,107 @@
+# FND-13: the independent backup of staging (TAD sections 8 and 10, docs/runbooks/backups.md).
+# Nightly at 2:00 AM IST, and a weekly portability export on Sunday at 3:00 AM IST. Each run dumps
+# the database (roles, schema, data, cron schedules) and every stored file, proves the copy
+# restores into a fresh Supabase stack with every row and file, then encrypts it to the offline
+# key's public half and keeps it as a private artifact: nightly 30 days, weekly 90. GitHub never
+# holds the key that reads it. A failed scheduled run emails the repository owner.
+# Actions are pinned to commit SHAs (version in the comment).
+name: Backup
+
+on:
+  schedule:
+    - cron: '30 20 * * *' # nightly, 2:00 AM IST
+    - cron: '30 21 * * 6' # weekly, Sunday 3:00 AM IST
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: Which copy to take
+        type: choice
+        options: [nightly, weekly]
+        default: nightly
+
+permissions:
+  contents: read
+
+# One backup at a time, and never cancel one halfway.
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Back up staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # Session pooler (port 5432, IPv4); repository secrets shared with migrate-staging.yml.
+      BACKUP_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      BACKUP_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      BACKUP_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      # The public key only (a repository variable); the private key stays offline.
+      BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+      BACKUP_ENVIRONMENT: staging
+      BACKUP_KIND: ${{ github.event.schedule == '30 21 * * 6' && 'weekly' || inputs.kind || 'nightly' }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Install Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check the secrets are set
+        run: |
+          for name in BACKUP_DATABASE_URL BACKUP_SUPABASE_URL BACKUP_SUPABASE_SERVICE_ROLE_KEY BACKUP_AGE_RECIPIENT; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not set (docs/runbooks/backups.md)."
+              exit 1
+            fi
+          done
+
+      # A Supabase project with no migrations (ports 553xx): restores are proven in it, and its
+      # pg_dump 17 writes the weekly archive.
+      - name: Start the restore stack
+        run: pnpm backup:stack
+
+      - name: Name the copy
+        id: copy
+        run: echo "name=$BACKUP_KIND-$(TZ=Asia/Kolkata date +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Take the backup
+        run: pnpm backup take "$RUNNER_TEMP/backup"
+
+      - name: Prove it restores
+        run: pnpm backup verify-restore "$RUNNER_TEMP/backup"
+
+      - name: Encrypt it
+        env:
+          NAME: ${{ steps.copy.outputs.name }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          cp "$RUNNER_TEMP/backup/manifest.json" "$RUNNER_TEMP/out/$NAME.manifest.json"
+          pnpm backup seal "$RUNNER_TEMP/backup" "$RUNNER_TEMP/out/$NAME.tar.gz.age"
+          ls -l "$RUNNER_TEMP/out"
+
+      - name: Keep the copy
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.copy.outputs.name }}
+          path: ${{ runner.temp }}/out
+          if-no-files-found: error
+          retention-days: ${{ env.BACKUP_KIND == 'weekly' && 90 || 30 }}
+          # Already compressed and encrypted.
+          compression-level: 0
+
+      - name: Stop the restore stack
+        if: always()
+        run: pnpm exec supabase stop --workdir packages/db/src/backup/stack --no-backup

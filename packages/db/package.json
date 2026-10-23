@@ -11,11 +11,13 @@
     "db:generate": "drizzle-kit generate",
     "db:seed": "tsx src/seed/run.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "kb:import": "tsx src/knowledge/run.ts"
+    "kb:import": "tsx src/knowledge/run.ts",
+    "backup": "tsx src/backup/run.ts"
   },
   "dependencies": {
     "@clinic-mx/schemas": "workspace:*",
     "@supabase/supabase-js": "2.117.2",
+    "age-encryption": "0.3.1",
     "drizzle-orm": "0.45.4",
     "postgres": "3.4.9",
     "zod": "4.6.7"

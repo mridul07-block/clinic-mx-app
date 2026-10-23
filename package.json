@@ -25,7 +25,9 @@
     "db:status": "supabase status",
     "db:generate": "pnpm --filter @clinic-mx/db db:generate",
     "db:seed": "pnpm --filter @clinic-mx/db db:seed",
-    "kb:import": "pnpm --filter @clinic-mx/db kb:import"
+    "kb:import": "pnpm --filter @clinic-mx/db kb:import",
+    "backup": "pnpm --filter @clinic-mx/db backup",
+    "backup:stack": "supabase start --workdir packages/db/src/backup/stack -x studio,imgproxy,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor"
   },
   "devDependencies": {
     "@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
