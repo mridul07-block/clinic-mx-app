@@ -25,7 +25,7 @@ done; until then FND-02, FND-03 and FND-12 are only complete for the free plans.
    - AI gateway: a monthly budget alert to the on call inbox, when the AI tickets add the gateway.
    - Better Stack: checks every minute (a paid plan), as TAD section 10 asks.
    - A separate Sentry environment (`production`) is set by Vercel; run the drill on production.
-5. **Backups**: confirm Supabase daily backups plus the independent nightly copy (FND-13), then run
-   and record a restore test.
+5. **Backups** (`backups.md`): confirm Supabase daily backups on Pro; add the production secrets and
+   a production job to `backup.yml`; run it, then run and record a restore test from its copy.
 6. **Domain**: production hostname on the clinic domain through Cloudflare (FND-05).
 7. Update `environments.md` and the FND-02, FND-03 and FND-12 rows in `docs/PROGRESS.md`.

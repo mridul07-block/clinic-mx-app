@@ -145,6 +145,12 @@ export default defineConfig(
     },
   },
   {
+    // Backups (FND-13): an operator's command line tool. Every path it reads or writes is one the
+    // operator or the backup workflow passes in, or a folder under it; none comes from a request.
+    files: ['packages/db/src/backup/**'],
+    rules: { 'security/detect-non-literal-fs-filename': 'off' },
+  },
+  {
     rules: {
       eqeqeq: ['error', 'always'],
       // Every disable comment must say why (rule 14).
