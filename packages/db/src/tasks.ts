@@ -11,6 +11,15 @@ import type { DbOrTransaction } from './versioned';
  * written decision, as themselves (docs/runbooks/tasks.md).
  */
 
+/**
+ * What a confirmed no show raises (ALT-04), made by the database trigger `no_show_follow_up`
+ * (docs/runbooks/no-shows.md): a call task for the front desk, a clinical review task for the
+ * physio after missed appointments in a row, and the WhatsApp message job.
+ */
+export const NO_SHOW_CALL_TASK = 'call.no_show';
+export const NO_SHOW_REVIEW_TASK = 'review.no_shows';
+export const NO_SHOW_MESSAGE_JOB = 'whatsapp.no_show';
+
 const taker = alias(staffUser, 'task_taker');
 const closer = alias(staffUser, 'task_closer');
 

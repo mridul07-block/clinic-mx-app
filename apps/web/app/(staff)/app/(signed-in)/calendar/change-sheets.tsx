@@ -94,7 +94,8 @@ export function NoShowSheet({
         </p>
       </div>
       <p className="text-ink-secondary">
-        It counts toward the self booking block. If the patient arrives after all, undo it today.
+        It counts toward the self booking block, and the front desk gets a call task. If the patient
+        arrives after all, undo it today.
       </p>
       <MarkNoShowForm
         place={{

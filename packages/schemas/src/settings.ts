@@ -158,6 +158,12 @@ export const settingDefinitions = {
     source: 'PRD section 7: Reassessment',
     description: 'Weeks into the plan of the review with the consultant.',
   },
+  'clinical.no_show_review_after': {
+    schema: z.int().positive().max(10),
+    source: 'PRD J5.12: two missed in a row add a clinical review task (ALT-04)',
+    description:
+      'No shows in a row (since the last attended appointment) that give the physio a clinical review task.',
+  },
   'billing.unpaid_sessions_flag_above': {
     schema: count,
     source: 'PRD section 7: Unpaid balance flag',

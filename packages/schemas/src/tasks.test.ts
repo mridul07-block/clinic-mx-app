@@ -27,6 +27,8 @@ describe('task inputs', () => {
 
   it('names known kinds and falls back for new ones', () => {
     expect(taskKindLabel('job.failed')).toBe('Background job failed');
+    expect(taskKindLabel('call.no_show')).toBe('Call after a no show');
+    expect(taskKindLabel('review.no_shows')).toBe('Clinical review: missed appointments');
     expect(taskKindLabel('something.new')).toBe('Task');
   });
 });

@@ -53,6 +53,10 @@ export const task = pgTable(
       .on(table.assigneeStaffUserId)
       .where(sql`${table.status} = 'open'`),
     index('task_closed_at_idx').on(table.closedAt),
+    // An undone no show closes the open tasks it raised (ALT-04).
+    index('task_open_appointment_idx')
+      .on(sql`(${table.details} ->> 'appointmentId')`)
+      .where(sql`${table.status} = 'open'`),
     check(
       'task_has_assignee',
       sql`${table.assigneeRole} is not null or ${table.assigneeStaffUserId} is not null`,

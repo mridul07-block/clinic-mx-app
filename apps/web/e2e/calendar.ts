@@ -5,15 +5,17 @@ import {
   centre,
   changeAppointment,
   createDb,
+  job,
   priceItem,
   roster,
   slotHold,
   staffUser,
   systemActor,
+  task,
   withActor,
 } from '@clinic-mx/db';
 import { istDate, istInstant, type Block } from '@clinic-mx/schemas';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 
 // The calendar for end to end tests (SCH-05). Each test uses its own temporary physio, so tests
 // running side by side never share a column; afterwards their appointments, holds and hours are
@@ -169,6 +171,10 @@ export function appointmentsOf(patientId: string) {
 /** Removes the appointments, holds and hours of the given physios. */
 export async function removeCalendarRows(physioIds: string[]): Promise<void> {
   await withActor(db(), systemActor('tests'), async (tx) => {
+    // What their no shows raised (ALT-04): the tasks and the queued messages.
+    const theirs = sql`(select id::text from appointment where physio_id in ${physioIds})`;
+    await tx.delete(task).where(sql`${task.details} ->> 'appointmentId' in ${theirs}`);
+    await tx.delete(job).where(sql`${job.payload} ->> 'appointmentId' in ${theirs}`);
     await tx.delete(appointment).where(inArray(appointment.physioId, physioIds));
     await tx.delete(slotHold).where(inArray(slotHold.physioId, physioIds));
     await tx.delete(roster).where(inArray(roster.staffUserId, physioIds));
