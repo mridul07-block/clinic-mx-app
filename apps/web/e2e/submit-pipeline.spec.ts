@@ -1,7 +1,7 @@
 import { istDate } from '@clinic-mx/schemas';
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { centreIdByCode, removeCalendarRows, startedAppointment } from './calendar';
-import { aboutYou, pipelineOf, removePipelineJobs, signConsent } from './intake';
+import { otherBrowser, pipelineOf, removePipelineRows, saddle, submitBackForm } from './intake';
 import { testLink } from './patient-links';
 import { testPatient } from './patients';
 import { signInWithCode, temporaryDesk, signIn, temporaryWithCode } from './staff';
@@ -15,7 +15,7 @@ import { signInWithCode, temporaryDesk, signIn, temporaryWithCode } from './staf
 const made: string[] = [];
 const visits: string[] = [];
 test.afterEach(async () => {
-  await removePipelineJobs(visits.splice(0));
+  await removePipelineRows(visits.splice(0));
   if (made.length) await removeCalendarRows(made.splice(0));
 });
 
@@ -37,66 +37,12 @@ async function visitLink() {
   return { physio, patient, visit, path: link.path };
 }
 
-/** Another browser like this project's: the patient's phone, or the desk. */
-async function phone(browser: Browser): Promise<Page> {
-  const { viewport, isMobile, hasTouch, userAgent, deviceScaleFactor, baseURL } =
-    test.info().project.use;
-  const context = await browser.newContext({
-    viewport,
-    isMobile,
-    hasTouch,
-    userAgent,
-    deviceScaleFactor,
-    baseURL,
-  });
-  return context.newPage();
-}
-
-const question = (page: Page, text: string) => page.getByRole('group', { name: text });
-const next = (page: Page) => page.getByRole('button', { name: 'Next' }).click();
-const at = (page: Page, screen: string) =>
-  expect.poll(() => new URL(page.url()).searchParams.get('screen')).toBe(screen);
-const saddle = 'Any numbness around your bottom or between your legs?';
-
-/** Fills a back form: No to every warning sign but `yes`, then the Health check, then submits. */
-async function submitBackForm(page: Page, path: string, yes: string[], conditions: string[]) {
-  await page.goto(path);
-  await page.getByRole('link', { name: 'Start' }).click();
-  await signConsent(page);
-  await aboutYou(page, 'Male');
-  await question(page, 'Body region').getByText('Back', { exact: true }).click();
-  await next(page);
-  await at(page, 'warning_signs');
-  for (const group of await page.getByRole('group').all()) {
-    const no = group.getByText('No', { exact: true });
-    if ((await no.count()) > 0 && (await no.isVisible())) await no.click();
-  }
-  for (const text of yes) await question(page, text).getByText('Yes', { exact: true }).click();
-  const minutes = page.getByLabel(/how many minutes does it last/);
-  if ((await minutes.count()) > 0) await minutes.fill('0');
-  await next(page);
-  await at(page, 'health_check');
-  for (const text of conditions) {
-    await question(page, 'Tick any that apply').getByText(text, { exact: true }).click();
-  }
-  await next(page);
-  await at(page, 'activity');
-  await next(page);
-  await at(page, 'history');
-  await next(page);
-  await at(page, 'end');
-  await page.getByRole('button', { name: 'Submit' }).click();
-  await expect(page.getByTestId('patient-link-status')).toHaveText(
-    'Thank you. Your answers are with your physiotherapist.',
-  );
-}
-
 test('a red flag yes: the episode, the emergency alert, precautions, the AI job, and the physio told', async ({
   page,
   browser,
 }) => {
   const { physio, patient, visit, path } = await visitLink();
-  const patientPage = await phone(browser);
+  const patientPage = await otherBrowser(browser);
   await submitBackForm(
     patientPage,
     path,
@@ -152,7 +98,7 @@ test('a red flag yes: the episode, the emergency alert, precautions, the AI job,
 
   // The desk still sees the visit's form, now Submitted.
   const desk = await temporaryDesk();
-  const deskPage = await phone(browser);
+  const deskPage = await otherBrowser(browser);
   await signIn(deskPage, desk.email);
   await deskPage.goto(`/app/today?centre=${await centreIdByCode('HSR')}&appointment=${visit.id}`);
   await expect(deskPage.getByRole('complementary', { name: 'Check in' })).toContainText(
@@ -163,7 +109,7 @@ test('a red flag yes: the episode, the emergency alert, precautions, the AI job,
 
 test('all clear: an episode, no alerts or precautions, one notification', async ({ browser }) => {
   const { physio, visit, path } = await visitLink();
-  const patientPage = await phone(browser);
+  const patientPage = await otherBrowser(browser);
   await submitBackForm(patientPage, path, [], ['None of these']);
   await patientPage.context().close();
   expect(await pipelineOf(visit.id)).toMatchObject({

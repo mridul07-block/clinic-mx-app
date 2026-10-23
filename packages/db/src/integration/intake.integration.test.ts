@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { patientActor, setAuditContext, systemActor, withActor } from '../audit';
 import { createDb } from '../client';
@@ -20,7 +20,8 @@ import {
   myNotifications,
   unreadNotificationCount,
 } from '../clinical';
-import { insertEpisode } from '../episodes';
+import { episodeRecord, insertEpisode } from '../episodes';
+import { moveRedFlagAlert, openEmergencies, openRedFlagAlerts } from '../red-flag-alerts';
 import {
   healthFormVisit,
   ownIntakeResponse,
@@ -868,7 +869,7 @@ describe('the submit pipeline under row level security', () => {
           centreIds: [centreIds.koramangala],
         }),
       ).toEqual({ alerts: 0, precautions: 0 });
-      // Nobody on staff writes them.
+      // No skipping the lifecycle (ALT-01): raised cannot close before a review.
       await becomeStaff(tx, physio);
       expect(
         await failure(tx, (sp) =>
@@ -877,7 +878,7 @@ describe('the submit pipeline under row level security', () => {
             .set({ status: 'closed' })
             .where(eq(redFlagAlert.episodeId, episodeId)),
         ),
-      ).toBeUndefined();
+      ).toBe('23514');
       await tx.execute(sql`reset role`);
       const [still] = await tx
         .select({ status: redFlagAlert.status })
@@ -936,6 +937,195 @@ describe('the submit pipeline under row level security', () => {
         .from(notification)
         .where(eq(notification.staffUserId, other.id));
       expect(left?.readAt).toBeNull();
+    });
+  });
+});
+
+/** An emergency alert raised on a new episode for the first visit, on a draft version of its own. */
+async function raisedEmergency(tx: Tx) {
+  const fixture = await visits(tx);
+  const [version] = await tx.execute<{ id: string }>(
+    sql`insert into kb_version (number, source, report, created_by)
+      select coalesce(max(number), 0) + 1, '{}'::jsonb, '{}'::jsonb, 'tests' from kb_version
+      returning id`,
+  );
+  if (!version) throw new Error('no knowledge base version');
+  const episodeId = await insertEpisode(tx, {
+    patientId: fixture.patientId,
+    centreId: centreIds.hsrLayout,
+    bodyRegion: 'back',
+  });
+  await insertRedFlagAlerts(tx, [
+    {
+      episodeId,
+      appointmentId: fixture.mine.id,
+      kbVersionId: version.id,
+      ruleKey: 'back.cauda_equina',
+      name: 'Cauda equina',
+      triage: 'immediate_emergency',
+      display: 'emergency',
+      action: 'Emergency department now.',
+      signedOff: false,
+    },
+  ]);
+  const [alert] = await tx
+    .select({ id: redFlagAlert.id })
+    .from(redFlagAlert)
+    .where(eq(redFlagAlert.episodeId, episodeId));
+  if (!alert) throw new Error('no alert');
+  return { ...fixture, episodeId, alertId: alert.id };
+}
+
+// ALT-01: alerts are read by clinicians and by the Super Admin and Centre Managers without the tick;
+// the banner function tells anyone at the centre but Finance only that a patient needs a clinician;
+// only clinicians move an alert, by the lifecycle's moves, as themselves.
+describe('red flag alerts after they are raised', () => {
+  const manager = () => ({ ...seedMember('manager@clinicmx.test'), treatsPatients: false });
+  const desk = () => seedMember('desk.hsr@clinicmx.test');
+  const finance = () => ({ ...seedMember('finance@clinicmx.test'), centreIds: [] });
+  const support = () => ({
+    ...seedMember('support.velyx@clinicmx.test'),
+    treatsPatients: false,
+    support: true,
+  });
+  const deskElsewhere = () => ({
+    ...seedMember('desk.koramangala@clinicmx.test'),
+    centreIds: [centreIds.koramangala],
+  });
+
+  it('is read by clinicians and managers; the banner tells the desk only who', async () => {
+    await rolledBack(async (tx) => {
+      const { physio, alertId, episodeId, mine, patientId } = await raisedEmergency(tx);
+      const look = async (actor: StaffMember) => {
+        await tx.execute(sql`savepoint looking`);
+        await becomeStaff(tx, actor);
+        const seen = {
+          alerts: (await openRedFlagAlerts(tx)).filter((a) => a.id === alertId).length,
+          banners: (await openEmergencies(tx)).filter((e) => e.alertId === alertId).length,
+        };
+        await tx.execute(sql`rollback to savepoint looking`);
+        return seen;
+      };
+      expect(await look(physio)).toEqual({ alerts: 1, banners: 1 });
+      expect(await look(manager())).toEqual({ alerts: 1, banners: 1 });
+      expect(await look(desk())).toEqual({ alerts: 0, banners: 1 });
+      for (const actor of [finance(), support(), deskElsewhere()]) {
+        expect(await look(actor), actor.email).toEqual({ alerts: 0, banners: 0 });
+      }
+      // The desk's banner row: who and which visit, no rule.
+      await becomeStaff(tx, desk());
+      const rows = await tx.execute(sql`select * from internal.open_emergencies()`);
+      expect(rows.find((r) => r.alert_id === alertId)).toEqual({
+        alert_id: alertId,
+        episode_id: episodeId,
+        appointment_id: mine.id,
+        patient_id: patientId,
+        centre_id: centreIds.hsrLayout,
+        raised_at: expect.anything() as unknown,
+      });
+    });
+  });
+
+  it('is reviewed, referred and closed by a clinician, stamped and audited', async () => {
+    await rolledBack(async (tx) => {
+      const { physio, alertId } = await raisedEmergency(tx);
+      await becomeStaff(tx, physio);
+      expect(
+        await moveRedFlagAlert(tx, alertId, 'raised', {
+          status: 'reviewed',
+          reviewedBy: physio.id,
+        }),
+      ).toBe(true);
+      expect((await openEmergencies(tx)).filter((e) => e.alertId === alertId)).toEqual([]);
+      expect(
+        await moveRedFlagAlert(tx, alertId, 'reviewed', {
+          status: 'referred',
+          referredBy: physio.id,
+          referredTo: 'Emergency department',
+        }),
+      ).toBe(true);
+      expect(
+        await moveRedFlagAlert(tx, alertId, 'referred', {
+          status: 'closed',
+          closedBy: physio.id,
+          decision: 'Sent to the emergency department.',
+        }),
+      ).toBe(true);
+      await tx.execute(sql`reset role`);
+      const [done] = await tx.select().from(redFlagAlert).where(eq(redFlagAlert.id, alertId));
+      expect(done).toMatchObject({
+        status: 'closed',
+        reviewedBy: physio.id,
+        referredBy: physio.id,
+        referredTo: 'Emergency department',
+        closedBy: physio.id,
+        decision: 'Sent to the emergency department.',
+      });
+      expect(done?.reviewedAt).toBeInstanceOf(Date);
+      expect(done?.referredAt).toBeInstanceOf(Date);
+      expect(done?.closedAt).toBeInstanceOf(Date);
+      const audits = await tx
+        .select({ action: auditEvent.action, actor: auditEvent.actor })
+        .from(auditEvent)
+        .where(and(eq(auditEvent.entity, 'red_flag_alert'), eq(auditEvent.entityId, alertId)));
+      expect(audits.filter((a) => a.action === 'update')).toEqual([
+        { action: 'update', actor: `staff:${physio.id}` },
+        { action: 'update', actor: `staff:${physio.id}` },
+        { action: 'update', actor: `staff:${physio.id}` },
+      ]);
+    });
+  });
+
+  it('refuses skipped moves, another name, empty reasons, rule changes and closed alerts', async () => {
+    await rolledBack(async (tx) => {
+      const { physio, alertId } = await raisedEmergency(tx);
+      const other = seedMember('physio.hsr@clinicmx.test');
+      await becomeStaff(tx, physio);
+      const set = (values: Partial<typeof redFlagAlert.$inferInsert>) =>
+        failure(tx, (sp) =>
+          sp.update(redFlagAlert).set(values).where(eq(redFlagAlert.id, alertId)),
+        );
+      expect(await set({ status: 'closed', closedBy: physio.id, decision: 'x' })).toBe('23514');
+      expect(await set({ status: 'reviewed', reviewedBy: other.id })).toBe('23514');
+      expect(await set({ name: 'Something milder' })).toBe('42501');
+      expect(await set({ triage: 'monitor_with_caution' })).toBe('42501');
+      expect(await set({ status: 'reviewed', reviewedBy: physio.id })).toBeUndefined();
+      expect(await set({ status: 'referred', referredBy: physio.id, referredTo: '  ' })).toBe(
+        '23514',
+      );
+      expect(await set({ status: 'closed', closedBy: physio.id, decision: '' })).toBe('23514');
+      expect(
+        await set({ status: 'closed', closedBy: physio.id, decision: 'Seen; safe.' }),
+      ).toBeUndefined();
+      expect(await set({ decision: 'Changed my mind.' })).toBe('23514');
+    });
+  });
+
+  it('is moved by no one but a clinician at the centre', async () => {
+    await rolledBack(async (tx) => {
+      const { alertId, episodeId } = await raisedEmergency(tx);
+      const elsewhere = {
+        ...seedMember('physio.koramangala@clinicmx.test'),
+        centreIds: [centreIds.koramangala],
+      };
+      for (const actor of [manager(), desk(), support(), elsewhere]) {
+        await tx.execute(sql`savepoint trying`);
+        await becomeStaff(tx, actor);
+        expect(
+          await moveRedFlagAlert(tx, alertId, 'raised', {
+            status: 'reviewed',
+            reviewedBy: actor.id,
+          }),
+          actor.email,
+        ).toBe(false);
+        await tx.execute(sql`rollback to savepoint trying`);
+      }
+      const [still] = await tx
+        .select({ status: redFlagAlert.status })
+        .from(redFlagAlert)
+        .where(eq(redFlagAlert.id, alertId));
+      expect(still?.status).toBe('raised');
+      expect((await episodeRecord(tx, episodeId))?.status).toBe('intake_pending');
     });
   });
 });

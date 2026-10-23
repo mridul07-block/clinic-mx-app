@@ -456,6 +456,20 @@
       "when": 1792767017432,
       "tag": "20261023145017_submit_pipeline_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1792773511464,
+      "tag": "20261023163831_red_flag_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1792773512462,
+      "tag": "20261023163832_red_flag_lifecycle_rules",
+      "breakpoints": true
     }
   ]
 }

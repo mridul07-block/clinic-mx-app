@@ -3,7 +3,7 @@ import { EmergencyBanner } from '../../../../../../components/emergency-banner';
 import { testHarnessEnabled } from '../../../../../../lib/drafts/test-harness-store';
 
 // Emergency banner test harness (end to end tests only; 404 unless CLINIC_MX_TEST_HARNESS=1): the
-// banner the Today board shows once red flag alerts exist (INT-10), with a generated name.
+// banner every staff page shows for an open emergency (ALT-01), with a generated name.
 export const dynamic = 'force-dynamic';
 
 export default function EmergencyBannerHarnessPage() {

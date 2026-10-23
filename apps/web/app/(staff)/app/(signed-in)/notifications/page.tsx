@@ -71,6 +71,14 @@ export default async function NotificationsPage() {
                   ))}
                 </ul>
               ) : null}
+              {entry.kind === 'red_flag_emergency' ? (
+                <Link
+                  href="/app/alerts"
+                  className="self-start text-accent underline underline-offset-2 pointer-coarse:py-3"
+                >
+                  Open the alerts
+                </Link>
+              ) : null}
               <p className="text-sm text-ink-secondary">{formatIstDateTime(entry.createdAt)}</p>
               {entry.appointmentId && entry.centreId && entry.startsAt ? (
                 <Link

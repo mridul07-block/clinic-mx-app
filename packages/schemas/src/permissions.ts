@@ -78,6 +78,8 @@ export const permissionMap = {
   // Red flag alerts: Front Desk sees the "Clinician review needed" banner only.
   'red_flags.view': row(yes, yes, no, yes, no),
   'red_flags.view_banner': row(yes, yes, yes, yes, no),
+  // User decision 23 October 2026 (ALT-01): only clinicians review, refer and close them.
+  'red_flags.act': row(treats, treats, no, treats, no),
   // Bills and payments: managers see a "payment pending" flag, physios "sessions left" only.
   'bills.view_amounts': row(yes, no, yes, no, yes),
   'bills.create_and_collect': row(yes, no, yes, no, yes),
@@ -123,6 +125,7 @@ export const deniedToSupport: readonly Action[] = [
   'consultant_records.sign',
   'session_notes.write',
   'red_flags.view',
+  'red_flags.act',
 ];
 
 /** What the guard needs to know about a staff member. */

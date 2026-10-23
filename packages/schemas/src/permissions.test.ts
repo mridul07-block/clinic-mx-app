@@ -47,6 +47,8 @@ const expected: Record<Action, Expected> = {
   'session_notes.write': ['treats', 'treats', '-', 'treats', '-'],
   'red_flags.view': ['yes', 'yes', '-', 'yes', '-'],
   'red_flags.view_banner': ['yes', 'yes', 'yes', 'yes', '-'],
+  // User decision 23 October 2026 (ALT-01), not a PRD row: only clinicians act on alerts.
+  'red_flags.act': ['treats', 'treats', '-', 'treats', '-'],
   'bills.view_amounts': ['yes', '-', 'yes', '-', 'yes'],
   'bills.create_and_collect': ['yes', '-', 'yes', '-', 'yes'],
   'bills.view_payment_pending': ['yes', 'yes', 'yes', '-', 'yes'],
@@ -141,6 +143,7 @@ describe('the permission map', () => {
       'consultant_records.sign',
       'session_notes.write',
       'red_flags.view',
+      'red_flags.act',
     ];
     for (const role of ['finance', 'front_desk'] as const) {
       const staff = person(role, { treatsPatients: true, consultant: true });
