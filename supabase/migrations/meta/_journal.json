@@ -477,6 +477,13 @@
       "when": 1792776194903,
       "tag": "20261023172314_report_clinical_read",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1792779647032,
+      "tag": "20261023182047_assisted_mode",
+      "breakpoints": true
     }
   ]
 }

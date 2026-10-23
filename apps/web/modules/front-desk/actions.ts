@@ -11,6 +11,7 @@ import {
   ReportError,
   addReports,
   checkIn,
+  fillInWithPatient,
   openFormOnTablet,
   showHealthForm,
   undoCheckIn,
@@ -92,6 +93,19 @@ export async function showQrAction(
     return failure(error);
   }
   redirect(back(form, { qr: true }));
+}
+
+/** Fill in with the patient (INT-09): the helper is recorded; the drawer offers the form. */
+export async function fillInAction(
+  _state: TodayFormState,
+  form: FormData,
+): Promise<TodayFormState> {
+  try {
+    await fillInWithPatient(await serviceContext(), { appointmentId: text(form, 'appointmentId') });
+  } catch (error) {
+    return failure(error);
+  }
+  redirect(back(form, { done: 'assisted' }));
 }
 
 /** Open on tablet (INT-02): the health form goes to the chosen tablet. */

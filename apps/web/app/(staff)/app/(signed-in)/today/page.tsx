@@ -72,7 +72,7 @@ export default async function TodayPage({
     params.appointment && /^[0-9a-f-]{36}$/i.test(params.appointment)
       ? await loadCheckIn(staff, params.appointment)
       : undefined;
-  const doneOptions: CheckInDone[] = ['checked-in', 'undone', 'tablet', 'reports'];
+  const doneOptions: CheckInDone[] = ['checked-in', 'undone', 'tablet', 'reports', 'assisted'];
   const done = doneOptions.find((d) => d === params.done);
 
   return (

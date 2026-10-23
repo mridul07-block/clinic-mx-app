@@ -4,6 +4,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import {
   appointment,
   appointmentType,
+  intakeResponse,
   patient,
   patientLink,
   patientReport,
@@ -33,10 +34,13 @@ export interface CheckInView {
   phoneEnding: string;
   /** A Part A consent declined (INT-06). */
   consentDeclined: boolean;
+  /** The staff member helping with the health form, in assisted mode (INT-09). */
+  assistedByName: string | null;
 }
 
 const physio = alias(staffUser, 'check_in_physio');
 const checker = alias(staffUser, 'check_in_by');
+const helper = alias(staffUser, 'check_in_helper');
 
 /** One appointment for the check in drawer, under the reader's row level security. */
 export async function checkInView(
@@ -62,12 +66,15 @@ export async function checkInView(
       dateOfBirth: patient.dateOfBirth,
       phone: patient.phone,
       consentDeclined: partAConsentDeclined(appointment.id),
+      assistedByName: helper.name,
     })
     .from(appointment)
     .innerJoin(patient, eq(patient.id, appointment.patientId))
     .innerJoin(physio, eq(physio.id, appointment.physioId))
     .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
     .leftJoin(checker, eq(checker.id, appointment.checkedInBy))
+    .leftJoin(intakeResponse, eq(intakeResponse.appointmentId, appointment.id))
+    .leftJoin(helper, eq(helper.id, intakeResponse.assistedBy))
     .where(eq(appointment.id, appointmentId));
   if (!row) return undefined;
   const { phone, ...view } = row;

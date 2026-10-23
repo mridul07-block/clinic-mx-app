@@ -113,6 +113,22 @@ export async function saveIntakeResponse(
 }
 
 /**
+ * Assisted mode (INT-09): records the signed in staff member as helping with a visit's health
+ * form, starting the form if the patient has not yet. `internal.mark_health_form_assisted` allows
+ * only someone who checks in, for a checked in visit at a centre they see, with its health form
+ * link, before the form is sent; whether it was marked.
+ */
+export async function markIntakeAssisted(
+  tx: DbOrTransaction,
+  form: { appointmentId: string; patientLinkId: string; formVersion: string },
+): Promise<boolean> {
+  const [row] = await tx.execute<{ marked: boolean }>(
+    sql`select internal.mark_health_form_assisted(${form.appointmentId}, ${form.patientLinkId}, ${form.formVersion}) as marked`,
+  );
+  return row?.marked ?? false;
+}
+
+/**
  * Submits the form of the link the page runs under (INT-05): its submit time is now, once; row
  * level security allows only that, and nothing after. False when there is no form to submit.
  */

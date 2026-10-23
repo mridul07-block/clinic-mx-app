@@ -79,6 +79,11 @@ export default async function NotificationsPage() {
                   Open the alerts
                 </Link>
               ) : null}
+              {entry.kind === 'health_form_submitted' && entry.assistedByName ? (
+                <p className="text-sm text-ink-secondary" data-testid="assisted-by">
+                  Entered with help by {entry.assistedByName}
+                </p>
+              ) : null}
               <p className="text-sm text-ink-secondary">{formatIstDateTime(entry.createdAt)}</p>
               {entry.appointmentId && entry.centreId && entry.startsAt ? (
                 <Link

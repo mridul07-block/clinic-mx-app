@@ -5,6 +5,7 @@ import type {
   RedFlagTriage,
 } from '@clinic-mx/schemas';
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import {
   appointment,
   consentRecord,
@@ -14,6 +15,7 @@ import {
   patient,
   precaution,
   redFlagAlert,
+  staffUser,
 } from './schema';
 import type { DbOrTransaction } from './versioned';
 
@@ -172,8 +174,12 @@ export interface NotificationEntry {
   startsAt: Date | null;
   centreId: string | null;
   patientName: string | null;
+  /** The staff member who helped with the visit's health form (INT-09). */
+  assistedByName: string | null;
   alerts: { name: string; triage: RedFlagTriage; signedOff: boolean }[];
 }
+
+const notificationHelper = alias(staffUser, 'notification_helper');
 
 /** The signed in staff member's notifications, newest first (row level security: their own). */
 export async function myNotifications(
@@ -191,10 +197,13 @@ export async function myNotifications(
       startsAt: appointment.startsAt,
       centreId: appointment.centreId,
       patientName: patient.name,
+      assistedByName: notificationHelper.name,
     })
     .from(notification)
     .leftJoin(appointment, eq(appointment.id, notification.appointmentId))
     .leftJoin(patient, eq(patient.id, appointment.patientId))
+    .leftJoin(intakeResponse, eq(intakeResponse.appointmentId, notification.appointmentId))
+    .leftJoin(notificationHelper, eq(notificationHelper.id, intakeResponse.assistedBy))
     // An emergency before the form it came with.
     .orderBy(desc(notification.createdAt), desc(notification.kind), desc(notification.id))
     .limit(limit);
