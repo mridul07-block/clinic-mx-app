@@ -1,3 +1,4 @@
+import { withSentryConfig } from '@sentry/nextjs/config';
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
@@ -17,6 +18,8 @@ const nextConfig: NextConfig = {
   env: {
     // The service worker URL carries the build's commit, so each deployment updates it.
     NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA ?? 'local',
+    // The environment the browser's error reports carry (FND-12).
+    NEXT_PUBLIC_DEPLOY_ENV: process.env.VERCEL_ENV ?? 'local',
   },
   headers() {
     return Promise.resolve([
@@ -54,4 +57,18 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Error reports (FND-12, docs/runbooks/monitoring.md). The browser posts them to /monitoring on our
+// own domain, which forwards them to Sentry, so no page calls sentry.io. Source maps are uploaded
+// (and removed from the deployment) only when the build has SENTRY_AUTH_TOKEN.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  tunnelRoute: '/monitoring',
+  telemetry: false,
+  silent: true,
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN, deleteSourcemapsAfterUpload: true },
+  // Errors only: no tracing, so no router transition spans or route names.
+  suppressOnRouterTransitionStartWarning: true,
+  routeManifestInjection: false,
+});

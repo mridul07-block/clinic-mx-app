@@ -40,7 +40,12 @@ export default defineConfig({
     // `next` resolves from node_modules/.bin, which pnpm adds to PATH for `test:e2e`.
     command: `next build && next start --port ${PORT}`,
     // Turns on the autosave test harness (/app/test-harness/...); never set on Vercel.
-    env: { CLINIC_MX_TEST_HARNESS: '1' },
+    // A stand-in browser DSN (FND-12): pages report errors to /monitoring, which the monitoring
+    // test catches; organisation 0 does not exist, so anything else sent is refused by Sentry.
+    env: {
+      CLINIC_MX_TEST_HARNESS: '1',
+      NEXT_PUBLIC_SENTRY_DSN: 'https://public@o0.ingest.de.sentry.io/0',
+    },
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: !isCI,
     timeout: 180_000,

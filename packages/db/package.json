@@ -21,6 +21,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@opentelemetry/api": "1.10.0",
     "drizzle-kit": "0.31.11",
     "exceljs": "4.4.0",
     "tsx": "4.23.15"

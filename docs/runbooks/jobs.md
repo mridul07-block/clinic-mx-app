@@ -60,6 +60,8 @@ Local and CI databases have no Vault secrets, so their tick does nothing.
 
 ## Watching it
 
+- Uptime (FND-12): each tick calls the Better Stack heartbeat `JOBS_TICK_HEARTBEAT_URL` after a
+  run; five minutes without a beat alerts the on call phone (`monitoring.md`).
 - Waiting work: `select kind, count(*) from job where status = 'queued' group by kind`.
 - Failures: open tasks of kind `job.failed`, or `select kind, last_error from job where status = 'failed'`.
 - To run a failed job again after fixing the cause:

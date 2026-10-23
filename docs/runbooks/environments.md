@@ -28,4 +28,6 @@ On the Hobby plan Vercel's "Production" target serves staging; real patient data
 
 Every variable is listed in `.env.example` and validated in `apps/web/lib/env.ts`. Values are set in
 the Vercel project per environment (Production and Preview), never committed. Add a variable to all
-three places in the same pull request.
+three places in the same pull request. Build time variables (`NEXT_PUBLIC_SENTRY_DSN`, and `SENTRY_ORG`,
+`SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` for source maps) are read by the build, not `env.ts`; see
+`monitoring.md`.

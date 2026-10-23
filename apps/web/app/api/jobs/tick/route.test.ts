@@ -34,6 +34,7 @@ describe('POST /api/jobs/tick', () => {
     limits.limited.mockResolvedValue({ limited: false, retryAfterSeconds: 0 });
     db.createDb.mockReturnValue({ db: {}, close: () => Promise.resolve() });
     db.runDueJobs.mockResolvedValue({ ran: 0 });
+    vi.unstubAllGlobals();
   });
 
   it('counts a wrong secret against the network and refuses it', async () => {
@@ -57,5 +58,40 @@ describe('POST /api/jobs/tick', () => {
     expect(response.status).toBe(200);
     expect(db.runDueJobs).toHaveBeenCalled();
     expect(limits.count).not.toHaveBeenCalled();
+  });
+
+  // FND-12: each run tells the uptime service; its silence is the alert.
+  describe('heartbeat', () => {
+    const beat = 'https://uptime.example/api/v1/heartbeat/test';
+
+    it('beats after a run', async () => {
+      vi.stubEnv('JOBS_TICK_HEARTBEAT_URL', beat);
+      const fetch = vi.fn().mockResolvedValue(new Response('OK'));
+      vi.stubGlobal('fetch', fetch);
+      expect((await tick(`Bearer ${secret}`)).status).toBe(200);
+      expect(fetch).toHaveBeenCalledWith(beat, expect.objectContaining({ cache: 'no-store' }));
+    });
+
+    it('never beats for a wrong secret', async () => {
+      vi.stubEnv('JOBS_TICK_HEARTBEAT_URL', beat);
+      const fetch = vi.fn().mockResolvedValue(new Response('OK'));
+      vi.stubGlobal('fetch', fetch);
+      expect((await tick('Bearer not-the-secret')).status).toBe(401);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('still answers 200 when the uptime service is down', async () => {
+      vi.stubEnv('JOBS_TICK_HEARTBEAT_URL', beat);
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')));
+      expect((await tick(`Bearer ${secret}`)).status).toBe(200);
+    });
+
+    it('beats nowhere when no heartbeat is set', async () => {
+      vi.stubEnv('JOBS_TICK_HEARTBEAT_URL', '');
+      const fetch = vi.fn();
+      vi.stubGlobal('fetch', fetch);
+      expect((await tick(`Bearer ${secret}`)).status).toBe(200);
+      expect(fetch).not.toHaveBeenCalled();
+    });
   });
 });
