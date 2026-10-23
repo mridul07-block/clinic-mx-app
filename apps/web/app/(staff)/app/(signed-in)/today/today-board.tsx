@@ -200,7 +200,7 @@ export function TodayBoard({
                 <Link
                   href={calendarHref({ centreId, date, appointmentId: appointment.id })}
                   className="row-span-2 text-sm text-ink tabular-nums underline-offset-2 hover:underline md:row-span-1"
-                  aria-label={`${timeOf(appointment.startsAt)}, ${appointment.number} on the calendar`}
+                  aria-label={`Open ${appointment.number} at ${timeOf(appointment.startsAt)}`}
                 >
                   {timeOf(appointment.startsAt)}
                   <span className="block text-xs text-ink-muted">{timeOf(appointment.endsAt)}</span>

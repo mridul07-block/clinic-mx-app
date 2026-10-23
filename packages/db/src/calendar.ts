@@ -246,6 +246,16 @@ export async function calendarDay(
       starts.push(block.starts);
       ends.push(block.ends);
     }
+    // Appointments outside the hours (booked before the roster changed, or written in) still
+    // need a row: the span covers them too, on the slot grid (INT-01 found one drawn under the
+    // header at 03:45).
+    const dayStart = startOfIstDay(request.date).getTime();
+    for (const appointment of column.appointments) {
+      const from = (appointment.startsAt.getTime() - dayStart) / 60_000;
+      const to = (appointment.endsAt.getTime() - dayStart) / 60_000;
+      starts.push(Math.max(0, Math.floor(from / request.step) * request.step));
+      ends.push(Math.min(24 * 60, Math.ceil(to / request.step) * request.step));
+    }
   }
   const span =
     starts.length === 0
