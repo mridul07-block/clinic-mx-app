@@ -456,3 +456,13 @@ export {
   type CloseAlertInput,
   type ReferAlertInput,
 } from './red-flag-alerts';
+export {
+  messageTemplate,
+  messageTemplates,
+  templateButtonKindLabels,
+  templateHeaderLabels,
+  templateStatusLabels,
+  type MessageTemplate,
+  type MessageTemplateKey,
+  type TemplateVariables,
+} from './message-templates';
