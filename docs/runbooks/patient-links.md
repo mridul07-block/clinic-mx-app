@@ -68,7 +68,7 @@ What the page `/p/[token]` shows patients:
 | State | Message |
 | --- | --- |
 | Valid | The purpose's title. The page itself comes with that purpose's ticket (INT, MYP, FBK). |
-| Valid, health form, visit on | "Your health form", "Hello <first name>", the start in IST, "<centre>, with <physio>", "It takes about 5 minutes. The questions open here." (INT-03; the questions come with INT-04 and INT-05). |
+| Valid, health form, visit on | "Your health form", "Hello <first name>", the start in IST, "<centre>, with <physio>", "It takes about 5 minutes." and Start or Continue: the health form itself (INT-04, `docs/runbooks/health-form.md`). |
 | Valid, health form, visit not on | "This form is no longer open. Please ask the front desk." On the tablet: "Please hand the tablet back to the front desk." |
 | Expired or stopped, My plan | "This link has expired. To get a new one, send "My plan" to Movementology Clinics on WhatsApp." The WhatsApp router (MSG tickets) must answer that message with `reissueMyPlanLink`. |
 | Expired, anything else | "This link has expired. Please ask the clinic for a new one." |
@@ -77,7 +77,9 @@ What the page `/p/[token]` shows patients:
 
 Headers on `/p/*` (`next.config.ts`):
 
-- `Referrer-Policy: no-referrer`, so the token never reaches another site;
+- `Referrer-Policy: same-origin`, so the token never reaches another site. It was
+  `no-referrer` until INT-04: that makes a plain form post send `Origin: null`, and the server
+  then refuses the health form's server action when scripts are off;
 - `Cache-Control: private, no-store`;
 - `X-Robots-Tag: noindex, nofollow`.
 
@@ -143,7 +145,8 @@ Decisions (user, 23 October 2026):
 
 `loadHealthFormVisit` (`apps/web/modules/intake/visit.ts`) reads the visit through `asPatient`;
 the appointment comes from the link, never from the browser. **The form tickets (INT-04, INT-10)
-must check `healthFormOpen` again inside the submit transaction.**
+must check `healthFormOpen` again inside the submit transaction.** INT-04 does so on every
+save, and row level security refuses a save for a visit that is not on.
 
 ## On the clinic tablet (IAM-10)
 

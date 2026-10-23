@@ -22,7 +22,7 @@ test('a valid link opens its page, for its purpose only, and the opening is audi
 
   // The token stays on our page: no referrer to other sites, no caching, no search engines.
   const headers = response?.headers() ?? {};
-  expect(headers['referrer-policy']).toBe('no-referrer');
+  expect(headers['referrer-policy']).toBe('same-origin');
   expect(headers['cache-control']).toContain('no-store');
   expect(headers['x-robots-tag']).toContain('noindex');
 
