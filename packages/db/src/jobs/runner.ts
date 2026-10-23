@@ -11,6 +11,14 @@ export interface JobHandler<S extends z.ZodType = z.ZodType> {
 
 export type JobHandlers = Readonly<Record<string, JobHandler>>;
 
+/**
+ * A handler whose work reads its payload as its schema gives it. Safe to widen: the tick parses
+ * every payload with the handler's own schema before running it.
+ */
+export function defineJob<S extends z.ZodType>(handler: JobHandler<S>): JobHandler {
+  return handler;
+}
+
 export interface TickResult {
   claimed: number;
   done: number;

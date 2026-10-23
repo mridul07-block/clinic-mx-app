@@ -1,5 +1,6 @@
 import 'server-only';
 import {
+  enqueueIntakeSubmitted,
   healthFormVisit,
   insertConsentRecords,
   insertPatientReport,
@@ -35,6 +36,7 @@ import { patientService } from '../access/service';
 import { checkReportFiles, ReportError } from '../front-desk/report-files';
 import { reportStore, type ReportStore } from '../front-desk/report-store';
 import { completePatientLink, verifyPatientLink } from '../patient-links/services';
+import { processIntakeSubmission } from './pipeline';
 import { getSetting } from '../settings/settings';
 import { signatureStore, type SignatureStore } from './signature-store';
 import { formFor } from './visit';
@@ -361,6 +363,8 @@ export async function saveHealthFormScreen(
 
 export type SubmitResult =
   | { status: 'submitted' }
+  /** Submitted by this request: the pipeline runs next (INT-10). */
+  | { status: 'submitted_now'; appointmentId: string }
   /** Answers still needed: carry on where the form stands. */
   | { status: 'elsewhere'; resume: string }
   | { status: 'closed' }
@@ -369,7 +373,9 @@ export type SubmitResult =
 /**
  * Check and submit (INT-05): once every shown screen is complete, the form's submit time is now
  * and its single use link is completed, in one patient transaction. The answers then stay as
- * they are. The submit pipeline (INT-10) follows.
+ * they are. The same transaction queues the submit pipeline (INT-10), so a submitted form always
+ * gets its episode, alerts, precautions and notifications: the pipeline runs straight after, and
+ * the job runs it again if that failed.
  */
 const submit = patientService({
   input: z.object({}),
@@ -386,7 +392,8 @@ const submit = patientService({
     }
     await submitIntakeResponse(tx);
     await completePatientLink(tx, link);
-    return { status: 'submitted' };
+    await enqueueIntakeSubmitted(tx, visit.appointmentId);
+    return { status: 'submitted_now', appointmentId: visit.appointmentId };
   },
 });
 
@@ -395,5 +402,13 @@ export async function submitHealthForm(token: string, ip?: string): Promise<Subm
   const opened = await verifyPatientLink(token);
   if (opened.status === 'used' && opened.purpose === 'health_form') return { status: 'submitted' };
   if (opened.status !== 'valid' || opened.link.purpose !== 'health_form') return { status: 'link' };
-  return submit(opened.link, {}, ip);
+  const result = await submit(opened.link, {}, ip);
+  if (result.status !== 'submitted_now') return result;
+  try {
+    await processIntakeSubmission(result.appointmentId);
+  } catch {
+    // The submit stands: the `intake.submitted` job it queued runs the pipeline again within a
+    // minute, and after five failures it becomes a task for the Super Admin.
+  }
+  return { status: 'submitted' };
 }

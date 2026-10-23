@@ -135,10 +135,10 @@ async function liveHealthFormLink(
   if (!view || view.status !== 'checked_in') {
     throw new SchedulingError('Check the patient in first.');
   }
-  if (!needsHealthForm(view)) {
+  const latest = await healthFormLink(tx, appointmentId);
+  if (!needsHealthForm(view, latest)) {
     throw new SchedulingError('No health form for this visit: it is part of an open episode.');
   }
-  const latest = await healthFormLink(tx, appointmentId);
   const state = healthFormState(latest, new Date());
   if (state === 'submitted') {
     throw new SchedulingError('The health form for this visit has been sent already.');

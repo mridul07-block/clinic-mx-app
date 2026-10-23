@@ -61,6 +61,7 @@ const expected: Record<Action, Expected> = {
   'dashboard.finance': ['yes', '-', '-', '-', 'yes'],
   'knowledge_base.view': ['yes', 'yes', '-', 'yes', '-'],
   'knowledge_base.edit': ['yes', '-', '-', '-', '-'],
+  'notifications.read': ['yes', 'yes', 'yes', 'yes', 'yes'],
   'audit.view_all': ['yes', '-', '-', '-', '-'],
   'audit.view_clinical': ['yes', 'yes', '-', '-', '-'],
   'audit.view_finance': ['yes', '-', '-', '-', 'yes'],

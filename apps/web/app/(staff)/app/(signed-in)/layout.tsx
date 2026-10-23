@@ -7,18 +7,22 @@ import { DEVICE_COOKIE, readDevice } from '../../../../lib/session-cookies';
 import { asStaff } from '../../../../modules/access/staff-db';
 import { StaffProvider } from '../../../../lib/staff-context';
 import { requireStaff } from '../../../../modules/auth/session';
+import { unreadNotifications } from '../../../../modules/notifications/services';
 import { getSetting } from '../../../../modules/settings/settings';
+import { NotificationsLink } from './notifications-link';
 import { SessionGuard } from './session-guard';
 
 // Every page here needs an active staff member (IAM-01); anyone else goes to sign in. Their
 // drafts are kept on the device under their id and saved when the connection returns (FND-08).
 // The session rules (IAM-07) watch every open page; desktops sign out after the idle minutes.
-// A Velyx support login is told on every page that it is read only and logged (IAM-08).
+// A Velyx support login is told on every page that it is read only and logged (IAM-08). Every
+// page links to the staff member's notifications with the unread count (INT-10).
 export default async function SignedInLayout({ children }: { children: ReactNode }) {
   const staff = await requireStaff();
   const device = readDevice((await cookies()).get(DEVICE_COOKIE)?.value);
   const idleMinutes = await getSetting('security.desktop_idle_logout_minutes');
   const grant = staff.support ? await asStaff(staff, (tx) => activeGrant(tx)) : undefined;
+  const unread = await unreadNotifications(staff);
   return (
     <StaffProvider staff={{ id: staff.id, name: staff.name, role: staff.role }}>
       {staff.support ? (
@@ -31,6 +35,9 @@ export default async function SignedInLayout({ children }: { children: ReactNode
           logged.
         </p>
       ) : null}
+      <div className="flex justify-end border-b border-line px-4 text-sm">
+        <NotificationsLink unread={unread} />
+      </div>
       {children}
       <DraftSync />
       <SessionGuard device={device} idleMinutes={idleMinutes} />

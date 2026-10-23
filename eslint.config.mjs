@@ -109,8 +109,10 @@ export default defineConfig(
     // claims check, the settings reader and jobs. No person drives these reads directly. Opening
     // a patient link is the patients' sign in (IAM-09): the signed token is checked first. A clinic
     // tablet's cookie is its sign in (IAM-10): the token's hash finds the tablet. Rate limit counters
-    // (IAM-11) are bookkeeping no person drives.
+    // (IAM-11) are bookkeeping no person drives. The health form's submit pipeline (INT-10) runs
+    // as the system after the patient's own submit, and from its job.
     files: [
+      'apps/web/modules/intake/pipeline.ts',
       'apps/web/proxy.ts',
       'apps/web/lib/**',
       'apps/web/modules/auth/**',

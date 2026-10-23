@@ -96,6 +96,9 @@ export const permissionMap = {
   // Knowledge base.
   'knowledge_base.view': row(yes, yes, no, yes, no),
   'knowledge_base.edit': row(yes, no, no, no, no),
+  // Not in the PRD summary: user decision 23 October 2026 (INT-10), everyone reads the
+  // notifications sent to them; row level security keeps them to their own.
+  'notifications.read': row(yes, yes, yes, yes, yes),
   // Audit log and data export.
   'audit.view_all': row(yes, no, no, no, no),
   'audit.view_clinical': row(yes, yes, no, no, no),

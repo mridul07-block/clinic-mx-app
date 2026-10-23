@@ -16,7 +16,10 @@ const db = vi.hoisted(() => ({
   ownGuardians: vi.fn(),
   insertPatientReport: vi.fn(),
   submitIntakeResponse: vi.fn(),
+  enqueueIntakeSubmitted: vi.fn(),
 }));
+const pipeline = vi.hoisted(() => ({ processIntakeSubmission: vi.fn() }));
+vi.mock('./pipeline', () => pipeline);
 vi.mock('@clinic-mx/db', () => db);
 vi.mock('../../lib/db', () => ({ appDb: () => ({ kind: 'appDb' }) }));
 const links = vi.hoisted(() => ({ verifyPatientLink: vi.fn(), completePatientLink: vi.fn() }));
@@ -83,6 +86,7 @@ describe('saving a health form screen', () => {
       ...Object.values(links),
       ...Object.values(store),
       ...Object.values(reportFiles),
+      ...Object.values(pipeline),
     ]) {
       fn.mockReset();
     }
@@ -415,6 +419,17 @@ describe('saving a health form screen', () => {
       expect(await submitHealthForm('token')).toEqual({ status: 'submitted' });
       expect(db.submitIntakeResponse).toHaveBeenCalledWith(fakeTx);
       expect(links.completePatientLink).toHaveBeenCalledWith(fakeTx, link);
+      // INT-10: the pipeline is queued with the submit, then run straight after it.
+      expect(db.enqueueIntakeSubmitted).toHaveBeenCalledWith(fakeTx, appointmentId);
+      expect(pipeline.processIntakeSubmission).toHaveBeenCalledWith(appointmentId);
+    });
+
+    it('keeps the submit when the pipeline fails: its job runs it again', async () => {
+      db.ownIntakeResponse.mockResolvedValue({ ...atHistory, doneScreens: [...all, 'history'] });
+      db.submitIntakeResponse.mockResolvedValue(true);
+      pipeline.processIntakeSubmission.mockRejectedValueOnce(new Error('database away'));
+      expect(await submitHealthForm('token')).toEqual({ status: 'submitted' });
+      expect(db.enqueueIntakeSubmitted).toHaveBeenCalledTimes(1);
     });
 
     it('does not submit before the end, after the visit, or twice', async () => {
@@ -426,6 +441,7 @@ describe('saving a health form screen', () => {
       links.verifyPatientLink.mockResolvedValue({ status: 'used', purpose: 'health_form' });
       expect(await submitHealthForm('token')).toEqual({ status: 'submitted' });
       expect(links.completePatientLink).not.toHaveBeenCalled();
+      expect(pipeline.processIntakeSubmission).not.toHaveBeenCalled();
     });
   });
 });

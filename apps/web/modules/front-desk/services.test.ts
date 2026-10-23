@@ -254,6 +254,8 @@ describe('front desk today', () => {
       await expect(showHealthForm(context(), { appointmentId })).rejects.toThrow(
         'The health form for this visit has been sent already.',
       );
+      // Another visit's episode: no form here (a form of its own, submitted, is "sent already").
+      db.healthFormLink.mockResolvedValue(waiting);
       db.checkInView.mockResolvedValue({ ...view, episodeId: 'episode' });
       await expect(showHealthForm(context(), { appointmentId })).rejects.toThrow(
         'No health form for this visit: it is part of an open episode.',

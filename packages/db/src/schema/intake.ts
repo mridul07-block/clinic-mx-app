@@ -2,6 +2,7 @@ import type { HealthFormAnswer } from '@clinic-mx/schemas';
 import { sql } from 'drizzle-orm';
 import { jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { appointment } from './appointments';
+import { episode } from './episodes';
 import { staffUser } from './identity';
 import { patient } from './patients';
 
@@ -35,6 +36,8 @@ export const intakeResponse = pgTable('intake_response', {
     .notNull()
     .default(sql`'{}'::text[]`),
   submittedAt: timestamp('submitted_at', { withTimezone: true }),
+  /** The episode its submit opened (INT-10). */
+  episodeId: uuid('episode_id').references(() => episode.id),
   assistedBy: uuid('assisted_by').references(() => staffUser.id),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

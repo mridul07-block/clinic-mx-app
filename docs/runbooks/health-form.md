@@ -214,6 +214,56 @@ Database (`20261023134407_health_form_submit_rules.sql`):
   loop).
 - Patient pages may read the patient's `sex` and `occupation`.
 
+## Submit pipeline (INT-10)
+
+PRD J2.6: on submit, the clinical episode is created; answers and consents are saved with form
+versions; red flag rules run; precautions are stored; the AI preparation sheet is generated.
+
+Decisions (user, 23 October 2026):
+
+- **Rules:** the latest knowledge base version's red flag rules run, signed off or not. Each alert
+  keeps the version and whether its rule was signed off, and the physio sees "awaiting clinical
+  sign-off".
+- **The physio is told in the app:** a Notifications link with the unread count on every staff
+  page, and a list at `/app/notifications` that links to the visit on the calendar. Opening the
+  list marks what it shows read. The count updates on each page load; realtime comes later.
+
+How it runs (`apps/web/modules/intake/pipeline.ts`):
+
+1. The patient's submit transaction also queues the job `intake.submitted` (`{appointmentId}`,
+   key `intake.submitted:<appointment>`). Only that job is allowed to a patient page, for its own
+   visit, once its form is submitted (`job_patient_intake_submitted`). So a submitted form always
+   gets its pipeline.
+2. Straight after the submit, the same request runs `processIntakeSubmission`. If that fails, the
+   submit stands and the job runs it again within a minute (five tries, then a Super Admin task).
+3. The pipeline runs as `system:intake`, in one transaction. It locks the form's row and does
+   nothing for a form that already has its episode, so the job and the request never both act.
+   - It opens the episode (patient, centre, body region from the answers), then moves it from
+     Intake pending to Awaiting consultation through the episode machine. The episode is linked
+     from the appointment, the form (`intake_response.episode_id`) and the visit's Part A consent
+     records.
+   - It runs `evaluateRedFlags` over the screening answers, with the age from the answered date
+     of birth (else the record) and the `screening.*` settings. Each raised rule becomes a
+     `red_flag_alert` (status Raised). With no knowledge base version, no rules run.
+   - Each Health check item ticked (never "None of these") becomes a `precaution` with the label
+     as the patient saw it and the form version.
+   - It queues `ai.preparation_sheet` (`{episodeId}`, once per episode). Its handler does nothing
+     yet: the AI gateway and sheet come with AI-01 to AI-03, and AI-09 switches them on.
+   - It notifies the visit's physio: "Health form submitted", and "Red flag: emergency" when a
+     raised rule's display is emergency.
+4. The drawer and Today keep showing the visit's own form, now Submitted
+   (`needsHealthForm(appointment, latestLink)`).
+
+Reviewing, referring and closing alerts, and the emergency banner, are ALT-01; the modality
+precaution warnings are CLN-07 and SES-05.
+
+Database (`20261023145017_submit_pipeline_rules.sql`):
+
+- `red_flag_alert` and `precaution`: read by staff who treat patients, at a centre they see. Only
+  the system writes them.
+- `notification`: read by the staff member it is for, who may change only `read_at`.
+- `job`: the patient insert policy above; support stays read only.
+
 ## Checking it
 
 | Test | What it proves |
@@ -226,6 +276,9 @@ Database (`20261023134407_health_form_submit_rules.sql`):
 | `apps/web/e2e/guardian.spec.ts` | 360 px and desktop. A guardian on file signs for a 12 year old, and the records name them. Without a date of birth the form asks; under 18 with no guardian waits for reception; No lets the patient sign. Without scripts, the question opens the section. |
 | `packages/schemas/src/health-form-screens.test.ts` | `hf-3` screens; only the region, gender, warning signs and health check needed; dates; sliders 0 to 10; chart zones; pregnancy only for female and pruned; None of these alone; Other (specify) under Other; zones unique and on the outline |
 | `apps/web/e2e/health-form-screens.spec.ts` | 360 px and desktop. The whole form with the chart, sliders and a report photo; Check and submit reads it back; Submit thanks the patient; the desk sees Submitted and "Added by the patient". No pregnancy for a male patient. Without scripts: chart boxes, 0 to 10 buttons and a submit. |
+| `packages/schemas/src/intake-submit.test.ts` | Screening answers picked for the rules; the age from the form or the record; precautions from the Health check, never None of these |
+| `apps/web/modules/intake/pipeline.test.ts` | Episode opened and moved; rules raised with the version and sign-off; precautions; the AI job; the physio told, twice for an emergency; a second run does nothing; not submitted refused; no knowledge base version |
+| `apps/web/e2e/submit-pipeline.spec.ts` | 360 px and desktop. A back form with a saddle numbness yes: episode Awaiting consultation, emergency alert, precautions, AI job, two notifications; the physio's count and list, read on opening; the desk still sees Submitted. An all clear form: no alerts or precautions, one notification. |
 | `apps/web/e2e/health-form.spec.ts` | 360 px and desktop: screen by screen with messages and region questions; leave and Continue; all answered on `hf-1` by the patient; a closed visit saves nothing; without scripts |
 
 **Negative checks (23 October 2026):**
@@ -238,3 +291,5 @@ Database (`20261023134407_health_form_submit_rules.sql`):
   guardian failed (INT-07).
 - With `patient_report_patient_add` dropped, 2 database tests and the whole form end-to-end test
   failed (INT-05).
+- With `job_patient_intake_submitted` dropped, the database test and the submit end-to-end test
+  failed: the submit was refused, so nothing was submitted (INT-10).

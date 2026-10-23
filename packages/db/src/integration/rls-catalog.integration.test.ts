@@ -10,10 +10,11 @@ const { db, close } = createDb(url, { max: 1 });
 afterAll(close);
 
 // Tables only server work touches, with no policy for any person.
-// job: the queue; jobs run on the server, never as a staff member.
 // rate_limit: counters the server keeps for sign in, patient links and webhooks (IAM-11).
 // centre_sequence: OP numbers and the like, advanced only by a database function (SCH-01).
-const serverOnly = ['centre_sequence', 'job', 'rate_limit'];
+// job (the queue) runs on the server, never as a staff member; its one policy lets a patient's
+// health form submit queue its own pipeline (INT-10).
+const serverOnly = ['centre_sequence', 'rate_limit'];
 
 const names = async (query: ReturnType<typeof sql>) =>
   (await db.execute<{ name: string }>(query)).map((r) => r.name);

@@ -62,6 +62,9 @@ describe('today board', () => {
   it('gives a health form to a first visit only, and reads its link', () => {
     expect(needsHealthForm({ episodeId: null })).toBe(true);
     expect(needsHealthForm({ episodeId: 'episode' })).toBe(false);
+    // Its own submitted form opened the episode (INT-10): still the visit's form.
+    expect(needsHealthForm({ episodeId: 'episode' }, { completedAt: new Date() })).toBe(true);
+    expect(needsHealthForm({ episodeId: 'episode' }, { completedAt: null })).toBe(false);
     const now = new Date('2026-11-02T05:00:00.000Z');
     const link = {
       expiresAt: new Date('2026-11-02T06:00:00.000Z'),

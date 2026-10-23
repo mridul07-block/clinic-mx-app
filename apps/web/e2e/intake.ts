@@ -3,14 +3,19 @@ import {
   auditEvent,
   consentRecord,
   createDb,
+  episode,
   intakeResponse,
+  job,
+  notification,
   patientLink,
   patientReport,
+  precaution,
+  redFlagAlert,
   systemActor,
   withActor,
 } from '@clinic-mx/db';
 import { expect, type Page } from '@playwright/test';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 // The health form in the database for end to end tests (INT-04): what a visit's form saved and
 // who the audit says saved it; and a check in undone, as the desk's Undo does. Generated
@@ -157,4 +162,78 @@ export function reportsOf(appointmentId: string) {
     })
     .from(patientReport)
     .where(eq(patientReport.appointmentId, appointmentId));
+}
+
+/**
+ * What the submit pipeline left for a visit (INT-10): its episode and status, whether the form
+ * and the appointment point to it, the alerts raised, the precautions, the AI job and the
+ * notifications sent.
+ */
+export async function pipelineOf(appointmentId: string) {
+  const [visit] = await db()
+    .select({ episodeId: appointment.episodeId, formEpisode: intakeResponse.episodeId })
+    .from(appointment)
+    .leftJoin(intakeResponse, eq(intakeResponse.appointmentId, appointment.id))
+    .where(eq(appointment.id, appointmentId));
+  const episodeId = visit?.episodeId ?? null;
+  if (!episodeId) return { episodeId, formEpisode: visit?.formEpisode ?? null };
+  const [opened] = await db()
+    .select({ status: episode.status, bodyRegion: episode.bodyRegion })
+    .from(episode)
+    .where(eq(episode.id, episodeId));
+  const alerts = await db()
+    .select({
+      ruleKey: redFlagAlert.ruleKey,
+      display: redFlagAlert.display,
+      status: redFlagAlert.status,
+      signedOff: redFlagAlert.signedOff,
+      kbVersionId: redFlagAlert.kbVersionId,
+    })
+    .from(redFlagAlert)
+    .where(eq(redFlagAlert.episodeId, episodeId))
+    .orderBy(asc(redFlagAlert.ruleKey));
+  const precautions = await db()
+    .select({ key: precaution.key })
+    .from(precaution)
+    .where(eq(precaution.episodeId, episodeId))
+    .orderBy(asc(precaution.key));
+  const jobs = await db()
+    .select({ kind: job.kind })
+    .from(job)
+    .where(
+      inArray(job.idempotencyKey, [
+        `ai.preparation_sheet:${episodeId}`,
+        `intake.submitted:${appointmentId}`,
+      ]),
+    )
+    .orderBy(asc(job.kind));
+  const told = await db()
+    .select({ staffUserId: notification.staffUserId, kind: notification.kind })
+    .from(notification)
+    .where(eq(notification.appointmentId, appointmentId))
+    .orderBy(asc(notification.kind));
+  return {
+    episodeId,
+    formEpisode: visit?.formEpisode ?? null,
+    status: opened?.status,
+    bodyRegion: opened?.bodyRegion,
+    alerts,
+    precautions: precautions.map((row) => row.key),
+    jobs: jobs.map((row) => row.kind),
+    told,
+  };
+}
+
+/** Removes the pipeline's jobs for these visits' episodes, as a test clean up. */
+export async function removePipelineJobs(appointmentIds: string[]): Promise<void> {
+  if (appointmentIds.length === 0) return;
+  const episodes = await db()
+    .select({ id: appointment.episodeId })
+    .from(appointment)
+    .where(inArray(appointment.id, appointmentIds));
+  const keys = [
+    ...appointmentIds.map((id) => `intake.submitted:${id}`),
+    ...episodes.flatMap((row) => (row.id ? [`ai.preparation_sheet:${row.id}`] : [])),
+  ];
+  await db().delete(job).where(inArray(job.idempotencyKey, keys));
 }
