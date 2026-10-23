@@ -6,6 +6,7 @@ import {
   ReportError,
   addReports,
   checkIn,
+  fillInWithPatient,
   openFormOnTablet,
   showHealthForm,
   undoCheckIn,
@@ -26,6 +27,7 @@ const db = vi.hoisted(() => ({
   findKioskDevice: vi.fn(),
   sendLinkToKiosk: vi.fn(),
   insertPatientReport: vi.fn(),
+  markIntakeAssisted: vi.fn(),
   patientRecord: vi.fn(),
   bookAppointment: vi.fn(),
 }));
@@ -293,6 +295,52 @@ describe('front desk today', () => {
         'That tablet is not at this centre.',
       );
       expect(db.sendLinkToKiosk).toHaveBeenCalledTimes(1);
+    });
+
+    // INT-09: the helper is recorded on the visit's form, which then opens on this device.
+    it('records the staff member helping with the form, and gives its page', async () => {
+      db.appointmentRecord.mockResolvedValue(booked);
+      db.checkInView.mockResolvedValue(view);
+      db.healthFormLink.mockResolvedValue(waiting);
+      links.patientLinkPath.mockReturnValue('/p/waiting');
+      db.markIntakeAssisted.mockResolvedValue(true);
+      expect(await fillInWithPatient(context(), { appointmentId })).toEqual({ path: '/p/waiting' });
+      expect(db.markIntakeAssisted).toHaveBeenCalledWith(fakeTx, {
+        appointmentId,
+        patientLinkId: 'link',
+        formVersion: 'hf-3',
+      });
+      db.markIntakeAssisted.mockResolvedValueOnce(false);
+      await expect(fillInWithPatient(context(), { appointmentId })).rejects.toThrow(
+        'The form could not be marked as helped. Reload and try again.',
+      );
+
+      db.markIntakeAssisted.mockClear();
+      db.healthFormLink.mockResolvedValue({ ...waiting, completedAt: new Date() });
+      await expect(fillInWithPatient(context(), { appointmentId })).rejects.toThrow(
+        'The health form for this visit has been sent already.',
+      );
+      db.healthFormLink.mockResolvedValue(waiting);
+      db.checkInView.mockResolvedValue({ ...view, status: 'booked' });
+      await expect(fillInWithPatient(context(), { appointmentId })).rejects.toThrow(
+        'Check the patient in first.',
+      );
+      db.checkInView.mockResolvedValue({ ...view, episodeId: 'episode' });
+      await expect(fillInWithPatient(context(), { appointmentId })).rejects.toThrow(
+        'No health form for this visit: it is part of an open episode.',
+      );
+      db.checkInView.mockResolvedValue(view);
+      db.appointmentRecord.mockResolvedValue({ ...booked, centreId: koramangala });
+      await expect(fillInWithPatient(context(), { appointmentId })).rejects.toThrow(
+        NotAllowedError,
+      );
+      db.appointmentRecord.mockResolvedValue(booked);
+      await expect(
+        fillInWithPatient(context(member({ role: 'physiotherapist', treatsPatients: true })), {
+          appointmentId,
+        }),
+      ).rejects.toThrow(NotAllowedError);
+      expect(db.markIntakeAssisted).not.toHaveBeenCalled();
     });
 
     const png = (bytes = 64) =>

@@ -10,7 +10,7 @@ import {
 import type { Tone } from '@clinic-mx/ui';
 import Link from 'next/link';
 import QRCode from 'qrcode';
-import { FormMessage } from '../../../../../components/forms';
+import { FormMessage, primaryButtonClass } from '../../../../../components/forms';
 import { Tag } from '../../../../../components/tag';
 import type { CheckInDrawerView } from '../../../../../modules/front-desk/check-in';
 import type { CheckInDone } from '../../../../../modules/front-desk/links';
@@ -18,6 +18,7 @@ import { timeOf } from '../calendar/calendar-block';
 import { Detail, Drawer, linkClass } from '../calendar/drawer';
 import {
   CheckInForm,
+  FillInButton,
   OpenOnTabletForm,
   ReportUpload,
   ShowQrButton,
@@ -39,6 +40,7 @@ const doneMessages: Record<CheckInDone, string> = {
   undone: 'Check in undone.',
   tablet: 'Sent to the tablet. It opens the form within a few seconds.',
   reports: 'Reports added.',
+  assisted: 'You are helping with the form. Open it with the patient.',
 };
 
 /** The health form link as a QR the patient scans with their phone camera (PRD J2.2). */
@@ -155,6 +157,11 @@ export async function CheckInDrawer({
                   {healthFormStateLabels[healthForm.state]}
                 </Tag>
               </span>
+              {appointment.assistedByName ? (
+                <p data-testid="form-assisted" className="text-sm text-ink-secondary">
+                  Entered with help by {appointment.assistedByName}
+                </p>
+              ) : null}
               {showQr && formUrl && healthForm.expiresAt ? (
                 <figure
                   data-testid="form-qr"
@@ -179,12 +186,26 @@ export async function CheckInDrawer({
               ) : null}
               {healthForm.state !== 'submitted' ? (
                 <div className="flex flex-col gap-2">
+                  {appointment.assistedByName && healthForm.path ? (
+                    <a
+                      href={healthForm.path}
+                      target="_blank"
+                      rel="noopener"
+                      className={`${primaryButtonClass} sm:w-auto`}
+                    >
+                      Open the form
+                    </a>
+                  ) : null}
                   {!showQr || !formUrl ? (
                     <ShowQrButton
                       place={place}
                       label={healthForm.state === 'expired' ? 'Show a new QR' : 'Show QR'}
+                      secondary={Boolean(appointment.assistedByName && healthForm.path)}
                     />
                   ) : null}
+                  {appointment.assistedByName || healthForm.state === 'expired' ? null : (
+                    <FillInButton place={place} />
+                  )}
                   {view.tablets.length > 0 ? (
                     <OpenOnTabletForm place={place} tablets={view.tablets} />
                   ) : (

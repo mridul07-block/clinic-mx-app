@@ -98,7 +98,8 @@ export async function loadHealthFormVisit(
     answers,
     doneScreens,
     resume: resumeAt(form, answers, doneScreens),
-    started: saved !== undefined || decisions.length > 0,
+    // A form started by the desk in assisted mode (INT-09) has no screen yet: Start.
+    started: doneScreens.length > 0 || decisions.length > 0,
     consentDeclined: latestConsent(decisions).declined,
     signing: {
       status: minorStatus(visit.dateOfBirth, adultAge, istDate(new Date())),

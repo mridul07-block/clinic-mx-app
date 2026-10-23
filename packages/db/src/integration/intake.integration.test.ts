@@ -24,6 +24,7 @@ import { episodeRecord, insertEpisode } from '../episodes';
 import { moveRedFlagAlert, openEmergencies, openRedFlagAlerts } from '../red-flag-alerts';
 import {
   healthFormVisit,
+  markIntakeAssisted,
   ownIntakeResponse,
   ownReports,
   saveIntakeResponse,
@@ -331,7 +332,7 @@ describe('the health form under row level security', () => {
     });
   });
 
-  it('is seen by no staff member yet', async () => {
+  it('shows staff only who helped and whether it was sent, never the answers (INT-09)', async () => {
     await rolledBack(async (tx) => {
       const { physio, patientId } = await visits(tx);
       const visit = await checkedIn(tx, physio.id, patientId, 800);
@@ -355,7 +356,16 @@ describe('the health form under row level security', () => {
         support: false,
       };
       await becomeStaff(tx, actor);
-      expect(await tx.select({ id: intakeResponse.id }).from(intakeResponse)).toEqual([]);
+      const [seen] = await tx
+        .select({ assistedBy: intakeResponse.assistedBy, submittedAt: intakeResponse.submittedAt })
+        .from(intakeResponse)
+        .where(eq(intakeResponse.appointmentId, visit));
+      expect(seen).toEqual({ assistedBy: null, submittedAt: null });
+      expect(
+        await failure(tx, (sp) =>
+          sp.select({ answers: intakeResponse.answers }).from(intakeResponse),
+        ),
+      ).toBe('42501');
     });
   });
 });
@@ -1197,6 +1207,122 @@ describe('opening report photos under row level security', () => {
           path: '42501',
         });
       }
+    });
+  });
+});
+
+// INT-09: those who check in record themselves as helping with a checked in visit's form at their
+// centre, before it is sent; they and clinicians read who helped, never the answers; the patient
+// saves and submits as before, and cannot change who helped.
+describe('assisted mode under row level security', () => {
+  it('records who helped, as themselves, and nobody else may', async () => {
+    await rolledBack(async (tx) => {
+      const { physio, patientId, mine } = await visits(tx);
+      const visit = await checkedIn(tx, physio.id, patientId, 800);
+      const link = await insertPatientLink(tx, {
+        patientId,
+        purpose: 'health_form',
+        appointmentId: visit,
+        expiresAt: new Date(Date.now() + 3_600_000),
+      });
+      const desk = seedMember('desk.hsr@clinicmx.test');
+      const mark = async (actor: StaffMember, values: { appointmentId?: string } = {}) => {
+        await tx.execute(sql`savepoint marking`);
+        await becomeStaff(tx, actor);
+        const marked = await markIntakeAssisted(tx, {
+          appointmentId: values.appointmentId ?? visit,
+          patientLinkId: link.id,
+          formVersion: 'hf-3',
+        });
+        if (marked) await tx.execute(sql`release savepoint marking`);
+        else await tx.execute(sql`rollback to savepoint marking`);
+        await tx.execute(sql`reset role`);
+        return marked;
+      };
+      const elsewhere = {
+        ...seedMember('desk.koramangala@clinicmx.test'),
+        centreIds: [centreIds.koramangala],
+      };
+      const support = {
+        ...seedMember('support.velyx@clinicmx.test'),
+        treatsPatients: false,
+        support: true,
+      };
+      for (const actor of [elsewhere, physio, support]) {
+        expect(await mark(actor), actor.email).toBe(false);
+      }
+      // A visit not checked in (and not the link's).
+      expect(await mark(desk, { appointmentId: mine.id })).toBe(false);
+      // Staff have no write right on the table at all.
+      await becomeStaff(tx, desk);
+      expect(
+        await failure(tx, (sp) =>
+          sp
+            .update(intakeResponse)
+            .set({ assistedBy: desk.id })
+            .where(eq(intakeResponse.appointmentId, visit)),
+        ),
+      ).toBe('42501');
+      await tx.execute(sql`reset role`);
+      // The patient starts first; the desk then helps.
+      await tx.execute(sql`savepoint patient`);
+      await becomePatient(tx, { ...link, patientId, purpose: 'health_form' });
+      await saveIntakeResponse(tx, {
+        appointmentId: visit,
+        patientId,
+        patientLinkId: link.id,
+        formVersion: 'hf-3',
+        answers: { region: 'back' },
+        doneScreens: ['consent'],
+      });
+      await tx.execute(sql`release savepoint patient`);
+      await tx.execute(sql`reset role`);
+      expect(await mark(desk)).toBe(true);
+
+      // Who helped, for the desk and the physio; never the answers.
+      const helper = async (actor: StaffMember) => {
+        await tx.execute(sql`savepoint looking`);
+        await becomeStaff(tx, actor);
+        const [row] = await tx
+          .select({ assistedBy: intakeResponse.assistedBy })
+          .from(intakeResponse)
+          .where(eq(intakeResponse.appointmentId, visit));
+        const answers = await failure(tx, (sp) =>
+          sp.select({ answers: intakeResponse.answers }).from(intakeResponse),
+        );
+        await tx.execute(sql`rollback to savepoint looking`);
+        return { helper: row?.assistedBy ?? null, answers };
+      };
+      expect(await helper(desk)).toEqual({ helper: desk.id, answers: '42501' });
+      expect(await helper(physio)).toEqual({ helper: desk.id, answers: '42501' });
+
+      // The patient keeps saving and submits; who helped is not theirs to change.
+      await becomePatient(tx, { ...link, patientId, purpose: 'health_form' });
+      expect(
+        await failure(tx, (sp) =>
+          sp
+            .update(intakeResponse)
+            .set({ assistedBy: null })
+            .where(eq(intakeResponse.appointmentId, visit)),
+        ),
+      ).toBe('42501');
+      await saveIntakeResponse(tx, {
+        appointmentId: visit,
+        patientId,
+        patientLinkId: link.id,
+        formVersion: 'hf-3',
+        answers: { region: 'back', pain_now: 4 },
+        doneScreens: ['consent', 'problem'],
+      });
+      expect(await submitIntakeResponse(tx)).toBe(true);
+      await tx.execute(sql`reset role`);
+      const [sent] = await tx
+        .select({ assistedBy: intakeResponse.assistedBy, answers: intakeResponse.answers })
+        .from(intakeResponse)
+        .where(eq(intakeResponse.appointmentId, visit));
+      expect(sent).toEqual({ assistedBy: desk.id, answers: { region: 'back', pain_now: 4 } });
+      // Once sent, nobody changes who helped.
+      expect(await mark(seedMember('manager@clinicmx.test'))).toBe(false);
     });
   });
 });

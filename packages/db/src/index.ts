@@ -292,6 +292,7 @@ export {
   healthFormVisit,
   ownIntakeResponse,
   ownReports,
+  markIntakeAssisted,
   saveIntakeResponse,
   submitIntakeResponse,
   type HealthFormVisit,

@@ -10,6 +10,7 @@ import {
 import {
   addReportsAction,
   checkInAction,
+  fillInAction,
   openOnTabletAction,
   showQrAction,
   undoCheckInAction,
@@ -81,14 +82,44 @@ export function UndoCheckInButton({ place }: { place: DrawerPlace }) {
 }
 
 /** Show QR (INT-02): the health form link, issued if needed, as a QR for the patient's phone. */
-export function ShowQrButton({ place, label }: { place: DrawerPlace; label: string }) {
+export function ShowQrButton({
+  place,
+  label,
+  secondary = false,
+}: {
+  place: DrawerPlace;
+  label: string;
+  /** While someone helps (INT-09), opening the form is the drawer's one primary action. */
+  secondary?: boolean;
+}) {
   const [state, action, pending] = useActionState(showQrAction, initialState);
   return (
     <form action={action} className="flex flex-col gap-2">
       <Fields place={place} />
       <Refusal state={state} />
-      <button type="submit" disabled={pending} className={primaryButtonClass}>
+      <button
+        type="submit"
+        disabled={pending}
+        className={secondary ? secondaryButtonClass : primaryButtonClass}
+      >
         {label}
+      </button>
+    </form>
+  );
+}
+
+/**
+ * Fill in with the patient (INT-09): the staff member is recorded as helping, then opens the form
+ * here with the patient, who still signs Part A.
+ */
+export function FillInButton({ place }: { place: DrawerPlace }) {
+  const [state, action, pending] = useActionState(fillInAction, initialState);
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      <Fields place={place} />
+      <Refusal state={state} />
+      <button type="submit" disabled={pending} className={secondaryButtonClass}>
+        Fill in with the patient
       </button>
     </form>
   );

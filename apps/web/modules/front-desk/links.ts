@@ -1,5 +1,5 @@
 /** What just happened in the check in drawer, for its message (INT-02). */
-export type CheckInDone = 'checked-in' | 'undone' | 'tablet' | 'reports';
+export type CheckInDone = 'checked-in' | 'undone' | 'tablet' | 'reports' | 'assisted';
 
 /**
  * The Today board's address (INT-01): its centre and the chip picked, if any; and the check in

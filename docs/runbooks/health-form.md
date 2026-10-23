@@ -72,8 +72,12 @@ The steps:
 - **Audited** by the trigger.
 - **Row level security for `clinic_patient`:** a patient reads, starts and saves only their own
   link's visit, only while the visit is Checked in or In consultation, and never once submitted.
-  They never set `assisted_by` or `submitted_at`, and nobody deletes a form.
-- **Staff:** no policy yet. The consultation and INT-10 add their reads. Support stays read only.
+  They never set `assisted_by` (no column right since INT-09) and set `submitted_at` only to now,
+  once; nobody deletes a form.
+- **Staff (INT-09):** those who check in, and clinicians, at the visit's centre read only `id`,
+  `appointment_id`, `patient_id`, `assisted_by` and `submitted_at`; never the answers. Staff have no
+  write right on the table; marking who helps goes through `internal.mark_health_form_assisted`.
+  Support stays read only.
 
 ## The page
 
@@ -264,6 +268,28 @@ Database (`20261023145017_submit_pipeline_rules.sql`):
 - `notification`: read by the staff member it is for, who may change only `read_at`.
 - `job`: the patient insert policy above; support stays read only.
 
+## Assisted mode (INT-09)
+
+PRD J2.5: the record shows who helped. Decisions (user, 23 October 2026):
+
+- **Start:** "Fill in with the patient" in the check-in drawer, for a checked in visit whose form is
+  not sent. The staff member is recorded as helping, then "Open the form" opens the patient's form in
+  a new tab on that device. "Show QR" and "Open on tablet" still work. The patient still signs Part A.
+- **Shown:** "Entered with help by <name>" in the drawer, before and after submit, and on the
+  physio's "Health form submitted" notification. The consultation screen shows it when it is built.
+- **How it is recorded:** `fillInWithPatient` (`apps/web/modules/front-desk/services.ts`, the
+  `check_in.manage` permission at the visit's centre) gets or issues the visit's link, then calls
+  `internal.mark_health_form_assisted(visit, link, version)`. The function:
+  - refuses (false) anyone who does not check in, Velyx support, a visit not checked in at a centre
+    they see, a link that is not the visit's health form link, and a form already sent;
+  - records the signed in staff member only (`jwt_staff_id()`), whatever the caller passes;
+  - starts the form if the patient has not yet (no screens done, so the patient still sees Start);
+  - is audited as the staff member by the trigger.
+- **Why a function, not table rights:** Supabase grants `authenticated` every right on public tables
+  by default, so column grants mean nothing until those are revoked; and Drizzle's insert lists
+  every column, so a column-limited insert right cannot work. The function keeps staff to one
+  column, checked in one place.
+
 ## Checking it
 
 | Test | What it proves |
@@ -279,6 +305,7 @@ Database (`20261023145017_submit_pipeline_rules.sql`):
 | `packages/schemas/src/intake-submit.test.ts` | Screening answers picked for the rules; the age from the form or the record; precautions from the Health check, never None of these |
 | `apps/web/modules/intake/pipeline.test.ts` | Episode opened and moved; rules raised with the version and sign-off; precautions; the AI job; the physio told, twice for an emergency; a second run does nothing; not submitted refused; no knowledge base version |
 | `apps/web/e2e/submit-pipeline.spec.ts` | 360 px and desktop. A back form with a saddle numbness yes: episode Awaiting consultation, emergency alert, precautions, AI job, two notifications; the physio's count and list, read on opening; the desk still sees Submitted. An all clear form: no alerts or precautions, one notification. |
+| `apps/web/e2e/assisted.spec.ts` | 360 px and desktop. The desk presses "Fill in with the patient", sees who helps, opens the form from "Open the form"; the patient signs and submits; the drawer shows Submitted and "Entered with help by <desk>", and so does the physio's notification. |
 | `apps/web/e2e/health-form.spec.ts` | 360 px and desktop: screen by screen with messages and region questions; leave and Continue; all answered on `hf-1` by the patient; a closed visit saves nothing; without scripts |
 
 **Negative checks (23 October 2026):**
@@ -293,3 +320,4 @@ Database (`20261023145017_submit_pipeline_rules.sql`):
   failed (INT-05).
 - With `job_patient_intake_submitted` dropped, the database test and the submit end-to-end test
   failed: the submit was refused, so nothing was submitted (INT-10).
+- With `internal.mark_health_form_assisted` dropped, the assisted database test failed (INT-09).

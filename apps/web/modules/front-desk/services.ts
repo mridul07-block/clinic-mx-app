@@ -6,12 +6,14 @@ import {
   findKioskDevice,
   healthFormLink,
   insertPatientReport,
+  markIntakeAssisted,
   sendLinkToKiosk,
   undoCheckIn as undoAppointmentCheckIn,
 } from '@clinic-mx/db';
 import {
   canCheckIn,
   checkInSchema,
+  currentHealthFormVersion,
   healthFormState,
   isChangeable,
   needsHealthForm,
@@ -130,7 +132,7 @@ const appointmentInput = z.object({ appointmentId: z.guid() });
 async function liveHealthFormLink(
   tx: ServiceTransaction,
   appointmentId: string,
-): Promise<IssuedLink & { centreId: string }> {
+): Promise<IssuedLink & { centreId: string; patientId: string }> {
   const view = await checkInView(tx, appointmentId);
   if (!view || view.status !== 'checked_in') {
     throw new SchedulingError('Check the patient in first.');
@@ -146,14 +148,20 @@ async function liveHealthFormLink(
   if (latest && state === 'waiting') {
     const path = patientLinkPath({ ...latest, purpose: 'health_form' });
     if (!path) throw new SchedulingError('Patient links are not set up (PATIENT_LINK_SECRET).');
-    return { linkId: latest.id, path, expiresAt: latest.expiresAt, centreId: view.centreId };
+    return {
+      linkId: latest.id,
+      path,
+      expiresAt: latest.expiresAt,
+      centreId: view.centreId,
+      patientId: view.patientId,
+    };
   }
   const issued = await issuePatientLink(tx, {
     patientId: view.patientId,
     purpose: 'health_form',
     appointmentId,
   });
-  return { ...issued, centreId: view.centreId };
+  return { ...issued, centreId: view.centreId, patientId: view.patientId };
 }
 
 /** Show QR (INT-02): the health form link to show as a QR, issued if needed, audited. */
@@ -162,6 +170,28 @@ export const showHealthForm = staffService({
   input: appointmentInput,
   target: (input, tx) => appointmentTarget(tx, input.appointmentId),
   run: (tx, input) => liveHealthFormLink(tx, input.appointmentId),
+});
+
+/**
+ * Fill in with the patient (INT-09, PRD J2.5): the staff member helping is recorded on the visit's
+ * health form, which starts if the patient has not yet; the form then opens on this device. The
+ * patient still signs Part A. The form's page, to open.
+ */
+export const fillInWithPatient = staffService({
+  action: 'check_in.manage',
+  input: appointmentInput,
+  target: (input, tx) => appointmentTarget(tx, input.appointmentId),
+  run: async (tx, input) => {
+    const link = await liveHealthFormLink(tx, input.appointmentId);
+    const marked = await markIntakeAssisted(tx, {
+      appointmentId: input.appointmentId,
+      patientLinkId: link.linkId,
+      formVersion: currentHealthFormVersion,
+    });
+    if (!marked)
+      throw new SchedulingError('The form could not be marked as helped. Reload and try again.');
+    return { path: link.path };
+  },
 });
 
 /**
