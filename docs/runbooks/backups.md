@@ -104,6 +104,17 @@ nightly copies kept), move the copies to an object store in Mumbai and keep the 
 
 | Date | Copy | Result | Time | By |
 | --- | --- | --- | --- | --- |
+| 24 October 2026 | `nightly-2026-10-24` of staging (run 40030664342): 70 tables, 4,140 rows, no stored files (staging's buckets were empty) | Passed: decrypted with the offline key, matched its manifest, restored, every table's count equal, 0 problems | 0.6 minutes | Claude Code for Velyx, first test (FND-13) |
+| 24 October 2026 | A weekly copy of the local stack: 73 tables, 120,725 rows, 329 stored files | Passed: every count and file hash equal, archive readable by `pg_restore` | 1.1 minutes | Claude Code for Velyx, before the first staging run |
+
+## When a run fails
+
+- Read the failed step in Actions, Backup. A failed "Prove it restores" lists each table or file
+  that differs; never keep or trust that copy, and run the workflow again once the cause is fixed.
+- "toomanyrequests: Rate exceeded" while starting the restore stack is the public image registry
+  limiting pulls; the Supabase CLI retries, and the first runs got through. If nights fail on it,
+  cache the images in the workflow.
+- A missing secret or `BACKUP_AGE_RECIPIENT` fails the first check with its name.
 
 ## Checking it
 
