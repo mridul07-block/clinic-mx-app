@@ -1,5 +1,6 @@
 import { createDb, runDueJobs } from '@clinic-mx/db';
 import { serverEnv } from '../../../../lib/env';
+import { sendHeartbeat } from '../../../../lib/monitoring/heartbeat';
 import { requestAddress } from '../../../../lib/network';
 import { count, limited, networkKey } from '../../../../modules/rate-limits/limits';
 import { jobHandlers } from '../../../../modules/jobs/handlers';
@@ -32,6 +33,7 @@ export async function POST(request: Request): Promise<Response> {
   const { db, close } = createDb(env.DATABASE_URL, { max: 1 });
   try {
     const result = await runDueJobs(db, jobHandlers, { budgetMs: 40_000 });
+    await sendHeartbeat(env.JOBS_TICK_HEARTBEAT_URL);
     return Response.json(result, { headers: { 'Cache-Control': 'no-store' } });
   } finally {
     await close();

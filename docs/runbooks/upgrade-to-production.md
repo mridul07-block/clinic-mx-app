@@ -18,7 +18,13 @@ done; until then FND-02, FND-03 and FND-12 are only complete for the free plans.
    Keep `clinic-mx-staging` for staging and previews.
 3. **Production variables** set in Vercel's Production target only, pointing at the production
    Supabase project; staging values move to the staging environment.
-4. **Spend alerts** on Vercel, Supabase and the AI gateway (FND-12).
+4. **Spend alerts and monitoring** (FND-12, `monitoring.md`):
+   - Vercel Pro: Settings, Billing, Spend Management on, with an amount, email notifications to
+     the on call inbox, and pausing production off (the clinic keeps working; the alert is enough).
+   - Supabase Pro: spend cap on; usage emails to the on call inbox.
+   - AI gateway: a monthly budget alert to the on call inbox, when the AI tickets add the gateway.
+   - Better Stack: checks every minute (a paid plan), as TAD section 10 asks.
+   - A separate Sentry environment (`production`) is set by Vercel; run the drill on production.
 5. **Backups**: confirm Supabase daily backups plus the independent nightly copy (FND-13), then run
    and record a restore test.
 6. **Domain**: production hostname on the clinic domain through Cloudflare (FND-05).
