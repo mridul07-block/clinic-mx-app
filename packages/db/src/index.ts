@@ -241,6 +241,7 @@ export {
   appointmentRecord,
   bookAppointment,
   changeAppointment,
+  checkIn,
   currentHold,
   datesWithFreeSlots,
   freeSlots,
@@ -248,6 +249,7 @@ export {
   placeHold,
   releaseHold,
   slotFit,
+  undoCheckIn,
   undoNoShow,
   type AppointmentEntry,
   type BookingRequest,
@@ -259,9 +261,11 @@ export { bookingCounterOf, liftBookingBlock, type BookingCounterEntry } from './
 export {
   calendarDay,
   calendarVersion,
+  contentVersion,
   type CalendarAppointment,
   type LinkedAppointment,
   type CalendarColumn,
   type CalendarDay,
   type CalendarRequest,
 } from './calendar';
+export { todayBoard, type TodayAppointment } from './today';

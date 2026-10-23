@@ -108,6 +108,8 @@ test('Finance adds a package type and preset discounts, and deactivates one', as
 test('the front desk reads prices but cannot change them', async ({ page }) => {
   const desk = await temporaryDesk();
   await signIn(page, desk.email);
+  // The Front Desk lands on Today (INT-01); Prices is on Home.
+  await page.getByRole('link', { name: 'Home' }).click();
   await page.getByRole('link', { name: 'Prices' }).click();
   await expect(row(page, 'price-item', 'Consultation')).toContainText('₹750');
   await expect(page.getByRole('link', { name: 'Add a price' })).toHaveCount(0);

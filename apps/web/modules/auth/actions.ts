@@ -34,7 +34,7 @@ import {
   take,
   tryAgainIn,
 } from '../rate-limits/limits';
-import { safeNextPath } from './next-path';
+import { homePath, safeNextPath } from './next-path';
 import { clientIp } from './session';
 import { signInStage, stagePath } from './two-step';
 
@@ -101,10 +101,11 @@ export async function signIn(_state: AuthFormState, form: FormData): Promise<Aut
     (factor) => factor.factor_type === 'totp' && factor.status === 'verified',
   );
   const stage = signInStage({ role: staff.role, level: 'aal1', hasAuthenticator });
+  // Only a page asked for travels through two step verification; the home comes at the end.
   const next = safeNextPath(form.get('next'));
   if (stage !== 'complete') redirect(`${stagePath[stage]}${nextParam(next)}`);
   await logAccess(staff, 'sign_in');
-  redirect(next);
+  redirect(safeNextPath(next, homePath(staff.role)));
 }
 
 export async function requestPasswordReset(

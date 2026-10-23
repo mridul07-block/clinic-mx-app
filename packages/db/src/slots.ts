@@ -663,3 +663,44 @@ export async function undoNoShow(
     .returning({ id: appointment.id });
   return row;
 }
+
+/**
+ * Checks a Booked or Confirmed patient in (INT-01, PRD J2.1): Checked in, with the arrival time.
+ * The service checks it is the appointment's day; the database guards it too.
+ */
+export async function checkIn(
+  tx: DbOrTransaction,
+  arrival: { appointmentId: string; now: Date },
+): Promise<{ id: string } | undefined> {
+  const [row] = await tx
+    .update(appointment)
+    .set({ status: 'checked_in', arrivedAt: arrival.now, updatedAt: arrival.now })
+    .where(
+      and(
+        eq(appointment.id, arrival.appointmentId),
+        inArray(appointment.status, [...changeableStatuses]),
+      ),
+    )
+    .returning({ id: appointment.id });
+  return row;
+}
+
+/**
+ * Undoes a check in made by mistake (INT-01, user decision 23 October 2026): back to Confirmed if
+ * the patient had confirmed, otherwise Booked, without an arrival time.
+ */
+export async function undoCheckIn(
+  tx: DbOrTransaction,
+  undo: { appointmentId: string; now: Date },
+): Promise<{ id: string } | undefined> {
+  const [row] = await tx
+    .update(appointment)
+    .set({
+      status: sql`case when ${appointment.confirmedAt} is null then 'booked' else 'confirmed' end::appointment_status`,
+      arrivedAt: null,
+      updatedAt: undo.now,
+    })
+    .where(and(eq(appointment.id, undo.appointmentId), eq(appointment.status, 'checked_in')))
+    .returning({ id: appointment.id });
+  return row;
+}

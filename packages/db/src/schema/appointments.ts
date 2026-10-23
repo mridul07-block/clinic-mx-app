@@ -99,6 +99,10 @@ export const appointment = pgTable(
       sql`(${table.status} in ('cancelled', 'rescheduled')) = (${table.changeReason} is not null and ${table.changedAt} is not null and ${table.changedBy} is not null) and (${table.changeReason} is null) = (${table.changedAt} is null) and (${table.changeReason} is null) = (${table.changedBy} is null)`,
     ),
     check(
+      'appointment_arrived',
+      sql`${table.status} <> 'checked_in' or ${table.arrivedAt} is not null`,
+    ),
+    check(
       'appointment_no_show',
       sql`(${table.status} = 'no_show') = (${table.noShowAt} is not null) and (${table.noShowAt} is null) = (${table.noShowBy} is null)`,
     ),

@@ -136,6 +136,22 @@ describe('the calendar day', () => {
       });
       expect(column?.appointments[0]?.patientName).toMatch(/^Test Patient /);
       expect(day.span && minutesOf([day.span.startsAt, day.span.endsAt])).toEqual([540, 780]);
+
+      // INT-01: an appointment outside the hours (07:50, written in) widens the span to the slot
+      // before it, so it has a row instead of sitting under the header.
+      await tx.insert(appointment).values({
+        number: '',
+        patientId: column?.appointments[0]?.patientId ?? '',
+        centreId: centreIds.hsrLayout,
+        physioId: consultant.id,
+        appointmentTypeId: session,
+        startsAt: on(470),
+        endsAt: on(515),
+        channel: 'front_desk',
+        bookedBy: deskHsr.id,
+      });
+      const wider = await calendarDay(tx, request);
+      expect(wider.span && minutesOf([wider.span.startsAt, wider.span.endsAt])).toEqual([465, 780]);
     });
   });
 

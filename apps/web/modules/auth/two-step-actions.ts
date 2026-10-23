@@ -13,7 +13,7 @@ import {
   type AuthFormState,
 } from './auth-support';
 import { clear, count, limited, tryAgainIn } from '../rate-limits/limits';
-import { safeNextPath } from './next-path';
+import { homePath, safeNextPath } from './next-path';
 import { signInState } from './session';
 
 /**
@@ -28,7 +28,8 @@ export async function verifyTwoStep(_state: AuthFormState, form: FormData): Prom
 
   const state = await signInState();
   if (!state) redirect('/app/sign-in');
-  if (state.stage === 'complete') redirect(safeNextPath(form.get('next')));
+  if (state.stage === 'complete')
+    redirect(safeNextPath(form.get('next'), homePath(state.staff.role)));
   if (state.stage === 'setup') redirect('/app/two-step/setup');
 
   // IAM-11: wrong codes are limited per login.
@@ -46,7 +47,7 @@ export async function verifyTwoStep(_state: AuthFormState, form: FormData): Prom
   }
   await clear('two_step_per_person', state.staff.id);
   await logAccess(state.staff, 'sign_in');
-  redirect(safeNextPath(form.get('next')));
+  redirect(safeNextPath(form.get('next'), homePath(state.staff.role)));
 }
 
 /**

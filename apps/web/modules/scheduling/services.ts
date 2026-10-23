@@ -195,7 +195,7 @@ export async function addPatientAndBook(
 }
 
 /** Where an appointment is, for the permission check: its centre, or none when not seen. */
-async function appointmentTarget(tx: DbOrTransaction, appointmentId: string) {
+export async function appointmentTarget(tx: DbOrTransaction, appointmentId: string) {
   const found = await appointmentRecord(tx, appointmentId);
   if (!found) throw new SchedulingError('That appointment was not found.');
   return { centreId: found.centreId };

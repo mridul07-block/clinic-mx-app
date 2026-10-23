@@ -50,7 +50,8 @@ Also decided while building SCH-05:
   name, a "Consultant" tag and the fee.
 - **Rows** follow the calendar grid (`scheduling.slot_minutes`, 15). There is a solid line on the
   hour and a dotted one on the half hour. The day runs from the earliest start to the latest end
-  of anyone's hours. Time outside a physio's hours, or on leave, is sunken.
+  of anyone's hours, widened to the slot grid around any appointment outside them (INT-01 found
+  one at 03:45 drawn under the header). Time outside a physio's hours, or on leave, is sunken.
 - **Free cells** are the slot engine's free starts with the grid as the length. Each is a link,
   named "Free at 10:30 with <physio>", and shows "+ 10:30" on hover.
 - **Blocks** follow the design system:

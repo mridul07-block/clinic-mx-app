@@ -39,14 +39,14 @@ test('five failed sign ins for an email stop the sixth, even with the right pass
   // The limit is the email's: someone else on the same network still signs in.
   const colleague = await temporaryDesk();
   await trySignIn(page, colleague.email, seedPassword());
-  await expect(page).toHaveURL(/\/app$/);
+  await expect(page).toHaveURL(/\/app\/today$/);
 
   // Once the count is cleared (the runbook's unlock), the right password works.
   await clearSignInLimit(desk.email);
   const fresh = await (await browser.newContext(test.info().project.use)).newPage();
   await fromNetwork(fresh);
   await trySignIn(fresh, desk.email, seedPassword());
-  await expect(fresh).toHaveURL(/\/app$/);
+  await expect(fresh).toHaveURL(/\/app\/today$/);
   await fresh.context().close();
 });
 
@@ -57,7 +57,7 @@ test('signing in clears the email’s failed attempts', async ({ page }) => {
     await trySignIn(page, desk.email, 'not-the-password');
   }
   await trySignIn(page, desk.email, seedPassword());
-  await expect(page).toHaveURL(/\/app$/);
+  await expect(page).toHaveURL(/\/app\/today$/);
   await page.context().clearCookies();
   // Four more failures are four, not eight: none is refused for too many.
   for (let attempt = 1; attempt <= 4; attempt++) {

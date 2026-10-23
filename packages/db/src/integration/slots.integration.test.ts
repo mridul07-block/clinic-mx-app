@@ -1,4 +1,4 @@
-import { addDays } from '@clinic-mx/schemas';
+import { addDays, istDate } from '@clinic-mx/schemas';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
@@ -13,13 +13,16 @@ import {
   appointmentRecord,
   bookAppointment,
   changeAppointment,
+  checkIn,
   currentHold,
   datesWithFreeSlots,
   freeSlots,
   markNoShow,
   placeHold,
+  undoCheckIn,
   undoNoShow,
 } from '../slots';
+import { todayBoard } from '../today';
 import { becomeStaff, on, testDate, testPatient, testPhysio, typeId } from './fake-schedule';
 
 // SCH-04: the slot engine in the database. Free starts leave out the physio's appointments at
@@ -812,6 +815,138 @@ describe('the slot engine', () => {
       expect(
         await failure(tx, (sp) => undoNoShow(sp, { appointmentId: yesterday.id, now: now() })),
       ).toBe('23514');
+    });
+  });
+
+  // INT-01: a Booked or Confirmed patient is checked in on the appointment's own IST day, with the
+  // arrival time; an undo goes back on that day only; the Today board leaves out Cancelled and
+  // Rescheduled and is read by the front desk under row level security.
+  it('checks patients in and undoes it on the day, guarded, for the Today board', async () => {
+    await rolledBack(async (tx) => {
+      const session = await typeId(tx, 'session');
+      const physio = await testPhysio(tx, {
+        centreIds: [centreIds.hsrLayout],
+        createdBy: superAdmin.id,
+      });
+      const patientId = await testPatient(tx);
+      const at = { physioId: physio.id, patientId, typeId: session };
+      const read = async (id: string) =>
+        (
+          await tx
+            .select({ status: appointment.status, arrivedAt: appointment.arrivedAt })
+            .from(appointment)
+            .where(eq(appointment.id, id))
+        )[0];
+
+      const arriving = await pastAppointment(tx, { ...at, minutesAgo: 2 });
+      expect(await checkIn(tx, { appointmentId: arriving.id, now: now() })).toEqual({
+        id: arriving.id,
+      });
+      expect(await read(arriving.id)).toMatchObject({ status: 'checked_in' });
+      expect((await read(arriving.id))?.arrivedAt).toBeInstanceOf(Date);
+      // Checking in twice changes nothing.
+      expect(await checkIn(tx, { appointmentId: arriving.id, now: now() })).toBeUndefined();
+      expect(await undoCheckIn(tx, { appointmentId: arriving.id, now: now() })).toEqual({
+        id: arriving.id,
+      });
+      expect(await read(arriving.id)).toEqual({ status: 'booked', arrivedAt: null });
+      const audited = await tx
+        .select({ id: auditEvent.id })
+        .from(auditEvent)
+        .where(and(eq(auditEvent.entity, 'appointment'), eq(auditEvent.entityId, arriving.id)));
+      // Added, checked in, undone.
+      expect(audited.length).toBe(3);
+
+      const confirmed = await pastAppointment(tx, { ...at, minutesAgo: 4 });
+      await tx
+        .update(appointment)
+        .set({ status: 'confirmed', confirmedAt: now() })
+        .where(eq(appointment.id, confirmed.id));
+      await checkIn(tx, { appointmentId: confirmed.id, now: now() });
+      await undoCheckIn(tx, { appointmentId: confirmed.id, now: now() });
+      expect((await read(confirmed.id))?.status).toBe('confirmed');
+
+      // Refused: another day, from No show, without an arrival time, and an undo another day.
+      const ahead = await bookAppointment(tx, {
+        centreId: centreIds.hsrLayout,
+        physioId: physio.id,
+        appointmentTypeId: session,
+        patientId,
+        channel: 'front_desk',
+        bookedBy: superAdmin.id,
+        holder: 'test:check-in',
+        startsAt: on(600),
+        step: 15,
+        now: now(),
+      });
+      expect(await failure(tx, (sp) => checkIn(sp, { appointmentId: ahead.id, now: now() }))).toBe(
+        '23514',
+      );
+      const missed = await pastAppointment(tx, { ...at, minutesAgo: 6 });
+      await markNoShow(tx, { appointmentId: missed.id, by: deskHsr.id, now: now() });
+      expect(
+        await failure(tx, (sp) =>
+          sp
+            .update(appointment)
+            .set({ status: 'checked_in', arrivedAt: now(), noShowAt: null, noShowBy: null })
+            .where(eq(appointment.id, missed.id)),
+        ),
+      ).toBe('23514');
+      const bare = await pastAppointment(tx, { ...at, minutesAgo: 8 });
+      expect(
+        await failure(tx, (sp) =>
+          sp.update(appointment).set({ status: 'checked_in' }).where(eq(appointment.id, bare.id)),
+        ),
+      ).toBe('23514');
+      // Left checked in yesterday (written as it was, the guard watches changes only).
+      const startedYesterday = new Date(now().getTime() - 24 * 60 * 60000);
+      const [yesterday] = await tx
+        .insert(appointment)
+        .values({
+          number: '',
+          patientId,
+          centreId: centreIds.hsrLayout,
+          physioId: physio.id,
+          appointmentTypeId: session,
+          startsAt: startedYesterday,
+          endsAt: new Date(startedYesterday.getTime() + 60000),
+          channel: 'front_desk',
+          bookedBy: superAdmin.id,
+          status: 'checked_in',
+          arrivedAt: startedYesterday,
+        })
+        .returning({ id: appointment.id });
+      expect(
+        await failure(tx, (sp) =>
+          undoCheckIn(sp, { appointmentId: yesterday?.id ?? '', now: now() }),
+        ),
+      ).toBe('23514');
+
+      // The board: today's appointments at the centre, without Cancelled, for the front desk.
+      const dropped = await pastAppointment(tx, { ...at, minutesAgo: 10 });
+      await changeAppointment(tx, {
+        appointmentId: dropped.id,
+        status: 'cancelled',
+        reason: 'patient',
+        changedBy: superAdmin.id,
+        now: now(),
+      });
+      await tx.transaction(async (sp) => {
+        await becomeStaff(sp, deskHsr);
+        const board = await todayBoard(sp, {
+          centreId: centreIds.hsrLayout,
+          date: istDate(now()),
+        });
+        const mine = board.filter((row) => row.physioId === physio.id).map((row) => row.id);
+        expect(mine).toEqual(
+          expect.arrayContaining([arriving.id, confirmed.id, missed.id, bare.id]),
+        );
+        expect(mine).not.toContain(dropped.id);
+        expect(board.find((row) => row.id === arriving.id)).toMatchObject({
+          physioName: physio.name,
+          typeName: 'Session',
+        });
+      });
     });
   });
 
