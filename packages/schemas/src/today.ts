@@ -87,7 +87,13 @@ export function needsHealthForm(appointment: { episodeId: string | null }): bool
   return appointment.episodeId === null;
 }
 
-export const healthFormStates = ['not_sent', 'waiting', 'submitted', 'expired'] as const;
+export const healthFormStates = [
+  'not_sent',
+  'waiting',
+  'submitted',
+  'expired',
+  'declined',
+] as const;
 
 export type HealthFormState = (typeof healthFormStates)[number];
 
@@ -96,15 +102,22 @@ export const healthFormStateLabels = {
   waiting: 'Waiting for the patient',
   submitted: 'Submitted',
   expired: 'Link expired',
+  declined: 'Consent declined',
 } as const satisfies Record<HealthFormState, string>;
 
-/** Where an appointment's health form stands, from its latest link (none: not sent). */
+/**
+ * Where an appointment's health form stands, from its latest link (none: not sent); a Part A
+ * consent declined (INT-06) shows until the patient changes their mind, so reception can speak
+ * to them.
+ */
 export function healthFormState(
   link: { expiresAt: Date; revokedAt: Date | null; completedAt: Date | null } | undefined,
   now: Date,
+  consentDeclined = false,
 ): HealthFormState {
   if (!link) return 'not_sent';
   if (link.completedAt) return 'submitted';
+  if (consentDeclined) return 'declined';
   if (link.revokedAt || link.expiresAt <= now) return 'expired';
   return 'waiting';
 }

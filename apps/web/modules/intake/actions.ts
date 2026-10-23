@@ -42,6 +42,8 @@ export async function saveScreenAction(
     return { errors: result.errors, values: posted, attempt: (state.attempt ?? 0) + 1 };
   }
   if (result.status === 'saved') redirect(`${page}?screen=${encodeURIComponent(result.next)}`);
+  // A Part A statement declined (INT-06): the consent screen now asks for reception.
+  if (result.status === 'declined') redirect(`${page}?screen=${encodeURIComponent(screen)}`);
   if (result.status === 'elsewhere') {
     redirect(`${page}?screen=${encodeURIComponent(result.resume)}`);
   }

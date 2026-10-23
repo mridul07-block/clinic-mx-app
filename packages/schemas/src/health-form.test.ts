@@ -20,7 +20,8 @@ import {
 // INT-04: the health form engine. Screens and fields show on earlier answers, a change drops what
 // it hid, every shown field needs an answer, a returning patient carries on where they stopped,
 // and a published version never changes.
-const form = healthForms[currentHealthFormVersion] as HealthFormDefinition;
+const form = healthForms['hf-1'] as HealthFormDefinition;
+const current = healthForms[currentHealthFormVersion] as HealthFormDefinition;
 const [problem, warnings] = form.screens;
 if (!problem || !warnings) throw new Error('hf-1 has two screens');
 const keys = (fields: { key: string }[]) => fields.map((f) => f.key);
@@ -151,9 +152,23 @@ describe('health form engine', () => {
     }
   });
 
+  it('starts new forms on Part A consent, complete once accepted and signed (INT-06)', () => {
+    expect(currentHealthFormVersion).toBe('hf-2');
+    expect(current.screens.map((s) => s.key)).toEqual(['consent', 'problem', 'warning_signs']);
+    expect(current.screens[0]?.consent).toEqual({
+      stage: 'A',
+      statements: ['part_a.screening', 'part_a.contact'],
+    });
+    expect(resumeAt(current, {}, [])).toBe('consent');
+    expect(canOpen(current, {}, [], 'problem')).toBe(false);
+    expect(resumeAt(current, {}, ['consent'])).toBe('problem');
+    expect(stepOf(current, {}, 'consent')).toEqual({ step: 1, of: 3 });
+  });
+
   it('never changes a published version: a change is a new version', () => {
     const pinned: Record<string, string> = {
       'hf-1': '845da8f257842aeae22f29aefb2727719761ba9a2ef8a78adaf6445d2b15fdce',
+      'hf-2': 'da3736b9f71b5341364b7c430c2e868f90dba7189f5bfa5f38ea70cfaff78999',
     };
     for (const [version, definition] of Object.entries(healthForms)) {
       const digest = createHash('sha256').update(JSON.stringify(definition)).digest('hex');

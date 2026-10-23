@@ -61,7 +61,7 @@ export async function loadCheckIn(
     const link = needsHealthForm(appointment)
       ? await healthFormLink(tx, appointment.id)
       : undefined;
-    const state = healthFormState(link, now);
+    const state = healthFormState(link, now, appointment.consentDeclined);
     return {
       appointment,
       age,

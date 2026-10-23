@@ -27,6 +27,8 @@ const formTone: Record<HealthFormState, Tone> = {
   waiting: 'waiting',
   submitted: 'active',
   expired: 'neutral',
+  // A Part A consent declined (INT-06): reception speaks to the patient.
+  declined: 'danger',
 };
 
 const doneMessages: Record<CheckInDone, string> = {

@@ -5,6 +5,7 @@ import {
   screeningRegions,
   type ScreeningQuestion,
 } from './red-flags';
+import { partAStatements, type ConsentStage, type ConsentStatementKey } from './consent';
 
 /**
  * The health form engine (INT-04, PRD J2.3, Frontend Specification §7): a form is versioned data,
@@ -52,6 +53,11 @@ export interface HealthFormScreen {
   showIf?: readonly HealthFormCondition[];
   /** Patient wording not yet approved by the client (INT-05 brings the approval). */
   awaitingApproval: boolean;
+  /**
+   * A consent screen (INT-06): its statements, recorded as consent records with a signature, not
+   * as answers. It has no fields, so it is complete once accepted and signed.
+   */
+  consent?: { stage: ConsentStage; statements: readonly ConsentStatementKey[] };
 }
 
 export interface HealthFormDefinition {
@@ -328,9 +334,30 @@ const healthFormV1: HealthFormDefinition = {
 };
 
 /** Every published version, kept for the answers given on it. */
+/**
+ * Version 2 (INT-06, user decision 23 October 2026): Part A consent first ("Welcome and Part A
+ * consent", Frontend Specification §7; the Blueprint's title), then version 1's screens. The
+ * questions open only after both statements are accepted and signed.
+ */
+const healthFormV2: HealthFormDefinition = {
+  version: 'hf-2',
+  screens: [
+    {
+      key: 'consent',
+      title: 'Pre-consultation consent',
+      source: 'Blueprint Module 3, Part A',
+      awaitingApproval: false,
+      fields: [],
+      consent: { stage: 'A', statements: partAStatements },
+    },
+    ...healthFormV1.screens,
+  ],
+};
+
 export const healthForms: Readonly<Record<string, HealthFormDefinition>> = {
   [healthFormV1.version]: healthFormV1,
+  [healthFormV2.version]: healthFormV2,
 };
 
 /** The version a new form starts on. */
-export const currentHealthFormVersion = healthFormV1.version;
+export const currentHealthFormVersion = healthFormV2.version;

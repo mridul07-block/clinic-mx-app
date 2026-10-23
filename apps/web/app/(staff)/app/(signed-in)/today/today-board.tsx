@@ -219,6 +219,10 @@ export function TodayBoard({
                 <span className="col-start-2 row-start-2 flex flex-wrap items-center gap-2 md:col-start-3 md:row-start-1 md:justify-end">
                   {late ? <span className="text-sm text-waiting-strong">{late}</span> : null}
                   <Tag tone={toneByAppointmentStatus[status]}>{label}</Tag>
+                  {appointment.consentDeclined ? (
+                    // INT-06: the patient declined a Part A statement; reception speaks to them.
+                    <Tag tone="danger">Consent declined</Tag>
+                  ) : null}
                 </span>
                 <span className="col-start-3 row-span-2 row-start-1 justify-self-end md:col-start-4 md:row-span-1">
                   {appointment.status === 'booked' || appointment.status === 'confirmed' ? (
