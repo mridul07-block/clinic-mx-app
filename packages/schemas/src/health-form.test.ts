@@ -4,7 +4,6 @@ import {
   ANSWER_THIS,
   HEALTH_FORM_END,
   canOpen,
-  currentHealthFormVersion,
   healthForms,
   nextScreen,
   parseScreen,
@@ -21,7 +20,8 @@ import {
 // it hid, every shown field needs an answer, a returning patient carries on where they stopped,
 // and a published version never changes.
 const form = healthForms['hf-1'] as HealthFormDefinition;
-const current = healthForms[currentHealthFormVersion] as HealthFormDefinition;
+const withConsent = healthForms['hf-2'] as HealthFormDefinition;
+const ctx = { today: '2026-10-23' };
 const [problem, warnings] = form.screens;
 if (!problem || !warnings) throw new Error('hf-1 has two screens');
 const keys = (fields: { key: string }[]) => fields.map((f) => f.key);
@@ -64,12 +64,15 @@ describe('health form engine', () => {
   });
 
   it('needs an answer to every shown field, and reads each kind', () => {
-    expect(parseScreen(problem, {}, {})).toEqual({ ok: false, errors: { region: ANSWER_THIS } });
-    expect(parseScreen(problem, {}, { region: 'elbow_and_more' })).toEqual({
+    expect(parseScreen(problem, {}, {}, ctx)).toEqual({
       ok: false,
       errors: { region: ANSWER_THIS },
     });
-    expect(parseScreen(problem, {}, { region: 'back' })).toEqual({
+    expect(parseScreen(problem, {}, { region: 'elbow_and_more' }, ctx)).toEqual({
+      ok: false,
+      errors: { region: ANSWER_THIS },
+    });
+    expect(parseScreen(problem, {}, { region: 'back' }, ctx)).toEqual({
       ok: true,
       answers: { region: 'back' },
     });
@@ -80,9 +83,9 @@ describe('health form engine', () => {
         f.kind === 'number' ? '0' : 'no',
       ]),
     );
-    expect(parseScreen(warnings, { region: 'knee' }, all).ok).toBe(true);
+    expect(parseScreen(warnings, { region: 'knee' }, all, ctx).ok).toBe(true);
     // A yes on this screen shows its follow ups, which then need answers too.
-    const yes = parseScreen(warnings, { region: 'knee' }, { ...all, weight_loss: 'yes' });
+    const yes = parseScreen(warnings, { region: 'knee' }, { ...all, weight_loss: 'yes' }, ctx);
     expect(yes).toEqual({
       ok: false,
       errors: { weight_loss_kg: ANSWER_THIS, weight_loss_months: ANSWER_THIS },
@@ -91,13 +94,14 @@ describe('health form engine', () => {
       warnings,
       { region: 'knee' },
       { ...all, weight_loss: 'yes', weight_loss_kg: '6', weight_loss_months: '61' },
+      ctx,
     );
     expect(amounts).toEqual({
       ok: false,
       errors: { weight_loss_months: 'Enter a whole number from 0 to 60.' },
     });
     // Hidden fields' posted values are ignored.
-    const parsed = parseScreen(warnings, { region: 'knee' }, { ...all, back_bladder: 'yes' });
+    const parsed = parseScreen(warnings, { region: 'knee' }, { ...all, back_bladder: 'yes' }, ctx);
     expect(parsed.ok && 'back_bladder' in parsed.answers).toBe(false);
     expect(parsed.ok && parsed.answers.fever_sweats).toBe(false);
   });
@@ -152,8 +156,8 @@ describe('health form engine', () => {
     }
   });
 
-  it('starts new forms on Part A consent, complete once accepted and signed (INT-06)', () => {
-    expect(currentHealthFormVersion).toBe('hf-2');
+  it('puts Part A consent first, complete once accepted and signed (INT-06)', () => {
+    const current = withConsent;
     expect(current.screens.map((s) => s.key)).toEqual(['consent', 'problem', 'warning_signs']);
     expect(current.screens[0]?.consent).toEqual({
       stage: 'A',
@@ -169,6 +173,7 @@ describe('health form engine', () => {
     const pinned: Record<string, string> = {
       'hf-1': '845da8f257842aeae22f29aefb2727719761ba9a2ef8a78adaf6445d2b15fdce',
       'hf-2': 'da3736b9f71b5341364b7c430c2e868f90dba7189f5bfa5f38ea70cfaff78999',
+      'hf-3': '8cb02b7f7d29be416141a89cb1dbd062294a8c3813b36d67228dc0942c18b3ba',
     };
     for (const [version, definition] of Object.entries(healthForms)) {
       const digest = createHash('sha256').update(JSON.stringify(definition)).digest('hex');

@@ -78,7 +78,7 @@ test('a guardian on file signs for a patient under 18', async ({ page }) => {
   await signer(page).getByText(`${guardian}, Mother`).click();
   await drawSignature(page);
   await next(page);
-  await expect(page).toHaveURL(/\?screen=problem$/);
+  await expect(page).toHaveURL(/\?screen=about_you$/);
   const records = await consentOf(visit.id);
   expect(records.map((r) => [r.statementKey, r.accepted, r.signer])).toEqual([
     ['part_a.contact', true, 'guardian'],
@@ -116,7 +116,7 @@ test('without a date of birth the form asks; under 18 with no guardian on file w
   await agreeToBoth(page);
   await drawSignature(page);
   await next(page);
-  await expect(page).toHaveURL(/\?screen=problem$/);
+  await expect(page).toHaveURL(/\?screen=about_you$/);
   expect((await consentOf(visit.id)).map((r) => [r.signer, r.guardianId])).toEqual([
     ['patient', null],
     ['patient', null],
@@ -139,7 +139,7 @@ test('works without scripts: the age question opens the guardian section by CSS'
   await agreeToBoth(page);
   await page.getByLabel('Type your full name to sign').fill(guardian);
   await next(page);
-  await expect(page).toHaveURL(/\?screen=problem$/);
+  await expect(page).toHaveURL(/\?screen=about_you$/);
   expect((await consentOf(visit.id)).map((r) => [r.signer, r.typedName])).toEqual([
     ['guardian', guardian],
     ['guardian', guardian],

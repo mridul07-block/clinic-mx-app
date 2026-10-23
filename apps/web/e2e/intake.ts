@@ -4,6 +4,8 @@ import {
   consentRecord,
   createDb,
   intakeResponse,
+  patientLink,
+  patientReport,
   systemActor,
   withActor,
 } from '@clinic-mx/db';
@@ -102,7 +104,7 @@ export async function drawSignature(page: Page): Promise<void> {
 
 /**
  * On the consent screen: agrees to both Part A statements and signs, drawn when scripts run,
- * typed otherwise; then the questions open.
+ * typed otherwise; then the questions open on About you.
  */
 export async function signConsent(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\?screen=consent/);
@@ -116,6 +118,14 @@ export async function signConsent(page: Page): Promise<void> {
   if (await page.getByTestId('signature-pad').isVisible()) await drawSignature(page);
   else await page.getByLabel('Type your full name to sign').fill('Test Patient');
   await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page).toHaveURL(/\?screen=about_you$/);
+}
+
+/** About you (INT-05): only gender is needed; the rest is left for the physio. */
+export async function aboutYou(page: Page, gender = 'Female'): Promise<void> {
+  await expect(page).toHaveURL(/\?screen=about_you$/);
+  await page.getByRole('group', { name: 'Gender' }).getByText(gender, { exact: true }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
   await expect(page).toHaveURL(/\?screen=problem$/);
 }
 
@@ -125,4 +135,26 @@ export async function signatureStored(path: string): Promise<boolean> {
     sql`select exists (select 1 from storage.objects where bucket_id = 'signatures' and name = ${path}) as stored`,
   );
   return row?.stored ?? false;
+}
+
+/** When a visit's form was submitted and its link completed (INT-05). */
+export async function submittedOf(appointmentId: string) {
+  const [row] = await db()
+    .select({ submittedAt: intakeResponse.submittedAt, completedAt: patientLink.completedAt })
+    .from(intakeResponse)
+    .innerJoin(patientLink, eq(patientLink.id, intakeResponse.patientLinkId))
+    .where(eq(intakeResponse.appointmentId, appointmentId));
+  return row;
+}
+
+/** A visit's reports and who added them (INT-05: the patient, through the link). */
+export function reportsOf(appointmentId: string) {
+  return db()
+    .select({
+      contentType: patientReport.contentType,
+      uploadedBy: patientReport.uploadedBy,
+      patientLinkId: patientReport.patientLinkId,
+    })
+    .from(patientReport)
+    .where(eq(patientReport.appointmentId, appointmentId));
 }

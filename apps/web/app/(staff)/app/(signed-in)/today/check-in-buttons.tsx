@@ -15,6 +15,7 @@ import {
   undoCheckInAction,
   type TodayFormState,
 } from '../../../../../modules/front-desk/actions';
+import { shrinkPhotos } from '../../../../../lib/shrink-photo';
 
 const initialState: TodayFormState = {};
 
@@ -133,25 +134,6 @@ export function OpenOnTabletForm({
   );
 }
 
-/** The longest side of a report photo once shrunk on the device (TAD: resized before upload). */
-const PHOTO_SIDE = 1600;
-
-/** A photo redrawn at most PHOTO_SIDE pixels on its longest side, as a JPEG. */
-async function shrink(file: File): Promise<File> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  const blob = await new Promise<Blob | null>((done) => {
-    canvas.toBlob(done, 'image/jpeg', 0.82);
-  });
-  if (!blob) return file;
-  return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
-}
-
 /**
  * Add reports (INT-02): photos taken or chosen on the device, shrunk first to save mobile data,
  * and PDF scans as they are, up to `maxMegabytes` each.
@@ -173,12 +155,8 @@ export function ReportUpload({
     const form = new FormData(event.currentTarget);
     const chosen = form.getAll('reports').filter((v): v is File => v instanceof File && v.size > 0);
     setPreparing(true);
-    void Promise.all(
-      // A photo the browser cannot redraw goes as it is; the server says if it cannot be used.
-      chosen.map((file) =>
-        file.type.startsWith('image/') ? shrink(file).catch(() => file) : Promise.resolve(file),
-      ),
-    )
+    // A photo the browser cannot redraw goes as it is; the server says if it cannot be used.
+    void shrinkPhotos(chosen)
       .then((files) => {
         // Said here, before a large upload is sent and refused.
         const large = files.find((file) => file.size > maxMegabytes * 1024 * 1024);

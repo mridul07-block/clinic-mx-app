@@ -111,7 +111,7 @@ test('a decline blocks the form for reception; changing their mind and signing o
   await choose(patientPhone, contact, 'I agree');
   await drawSignature(patientPhone);
   await next(patientPhone);
-  await expect(patientPhone).toHaveURL(/\?screen=problem$/);
+  await expect(patientPhone).toHaveURL(/\?screen=about_you$/);
   const records = await consentOf(visit.id);
   expect(records.map((r) => [r.statementKey, r.accepted, r.signatureKind])).toEqual([
     ['part_a.contact', false, null],
@@ -151,7 +151,7 @@ test('without scripts the patient signs with their typed full name', async ({ br
   await expect(page.getByText('Type your full name to sign.')).toBeVisible();
   await page.getByLabel('Type your full name to sign').fill('Test Patient Typed');
   await next(page);
-  await expect(page).toHaveURL(/\?screen=problem$/);
+  await expect(page).toHaveURL(/\?screen=about_you$/);
   expect(
     (await consentOf(visit.id)).map((r) => [r.statementKey, r.signatureKind, r.typedName]),
   ).toEqual([

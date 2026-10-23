@@ -108,7 +108,8 @@ export interface PatientReportEntry {
   appointmentId: string | null;
   contentType: ReportContentType;
   sizeBytes: number;
-  uploadedByName: string;
+  /** The staff member who added it; null when the patient added it on the health form. */
+  uploadedByName: string | null;
   createdAt: Date;
 }
 
@@ -127,12 +128,15 @@ export function patientReports(
       createdAt: patientReport.createdAt,
     })
     .from(patientReport)
-    .innerJoin(staffUser, eq(staffUser.id, patientReport.uploadedBy))
+    .leftJoin(staffUser, eq(staffUser.id, patientReport.uploadedBy))
     .where(eq(patientReport.patientId, patientId))
     .orderBy(desc(patientReport.createdAt));
 }
 
-/** Records a report already stored at `filePath` in the `reports` bucket. */
+/**
+ * Records a report already stored at `filePath` in the `reports` bucket, added by a staff member
+ * or, on the health form, through the patient's link (INT-05).
+ */
 export async function insertPatientReport(
   tx: DbOrTransaction,
   report: {
@@ -142,8 +146,7 @@ export async function insertPatientReport(
     filePath: string;
     contentType: ReportContentType;
     sizeBytes: number;
-    uploadedBy: string;
-  },
+  } & ({ uploadedBy: string } | { patientLinkId: string }),
 ): Promise<{ id: string }> {
   const [row] = await tx.insert(patientReport).values(report).returning({ id: patientReport.id });
   if (!row) throw new Error('The report was not recorded.');

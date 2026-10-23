@@ -231,7 +231,12 @@ export {
   screenLayout,
   stepOf,
   visibleFields,
+  visibleOptions,
   visibleScreens,
+  NONE_ALONE,
+  answerText,
+  REAL_DATE,
+  type ParseContext,
   type HealthFormAnswer,
   type HealthFormAnswers,
   type HealthFormCondition,
@@ -243,6 +248,15 @@ export {
   type ParsedScreen,
   type PostedScreen,
 } from './health-form';
+export {
+  bodyChartViewLabels,
+  bodyChartViews,
+  bodyChartZoneByKey,
+  bodyChartZones,
+  type BodyChartFace,
+  type BodyChartView,
+  type BodyChartZone,
+} from './body-chart';
 export {
   ANSWER_AGE,
   CHOOSE_ONE,

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { saveHealthFormScreen } from './services';
+import { healthForms, visibleFields } from '@clinic-mx/schemas';
+import { saveHealthFormScreen, submitHealthForm } from './services';
 
 // INT-04: saving a health form screen. The link is checked first; then, as the patient, the visit
 // must be on, the screen reachable and every shown field answered; answers a change has hidden
@@ -13,10 +14,12 @@ const db = vi.hoisted(() => ({
   insertConsentRecords: vi.fn(),
   ownConsentDecisions: vi.fn(),
   ownGuardians: vi.fn(),
+  insertPatientReport: vi.fn(),
+  submitIntakeResponse: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
 vi.mock('../../lib/db', () => ({ appDb: () => ({ kind: 'appDb' }) }));
-const links = vi.hoisted(() => ({ verifyPatientLink: vi.fn() }));
+const links = vi.hoisted(() => ({ verifyPatientLink: vi.fn(), completePatientLink: vi.fn() }));
 vi.mock('../patient-links/services', () => links);
 // Test value only; the real one is the `patients.adult_age_years` row.
 vi.mock('../settings/settings', () => ({ getSetting: vi.fn(() => Promise.resolve(18)) }));
@@ -33,6 +36,7 @@ const link = {
 const visit = { appointmentId, status: 'checked_in', dateOfBirth: '1990-01-01' };
 const guardianId = '00000000-0000-4000-8000-000000000a01';
 const store = { put: vi.fn(), remove: vi.fn() };
+const reportFiles = { put: vi.fn(), remove: vi.fn() };
 /** A form on version 2 with Part A consent accepted and signed. */
 const consented = {
   id: 'response',
@@ -42,7 +46,7 @@ const consented = {
   submittedAt: null,
 };
 const save = (screen: string, posted: Record<string, string | string[]>) =>
-  saveHealthFormScreen('token', screen, posted, undefined, store);
+  saveHealthFormScreen('token', screen, posted, { signatures: store });
 const agree = { 'part_a.screening': 'agree', 'part_a.contact': 'agree' };
 const png = `data:image/png;base64,${Buffer.concat([
   Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -74,7 +78,12 @@ const noToBack = Object.fromEntries(
 
 describe('saving a health form screen', () => {
   beforeEach(() => {
-    for (const fn of [...Object.values(db), ...Object.values(links), ...Object.values(store)]) {
+    for (const fn of [
+      ...Object.values(db),
+      ...Object.values(links),
+      ...Object.values(store),
+      ...Object.values(reportFiles),
+    ]) {
       fn.mockReset();
     }
     db.withPatientAccess.mockImplementation(
@@ -202,7 +211,7 @@ describe('saving a health form screen', () => {
     it('stores a drawn signature, records both statements and opens the questions', async () => {
       expect(await save('consent', { ...agree, signature: png })).toEqual({
         status: 'saved',
-        next: 'problem',
+        next: 'about_you',
       });
       const [path, bytes, type] = store.put.mock.calls[0] as [string, Uint8Array, string];
       expect(path.startsWith(`${link.patientId}/`) && path.endsWith('.png')).toBe(true);
@@ -217,7 +226,7 @@ describe('saving a health form screen', () => {
       ]);
       expect(db.saveIntakeResponse).toHaveBeenCalledWith(
         fakeTx,
-        expect.objectContaining({ formVersion: 'hf-2', doneScreens: ['consent'] }),
+        expect.objectContaining({ formVersion: 'hf-3', doneScreens: ['consent'] }),
       );
       expect(store.remove).not.toHaveBeenCalled();
     });
@@ -280,7 +289,7 @@ describe('saving a health form screen', () => {
       expect(db.insertConsentRecords).not.toHaveBeenCalled();
       expect(await save('consent', { ...typed, guardian: guardianId })).toEqual({
         status: 'saved',
-        next: 'problem',
+        next: 'about_you',
       });
       expect(signers()).toEqual([
         ['guardian', guardianId],
@@ -311,6 +320,112 @@ describe('saving a health form screen', () => {
       expect(await save('consent', typed)).toEqual({ status: 'guardian_needed' });
       expect(db.insertConsentRecords).not.toHaveBeenCalled();
       expect(store.put).not.toHaveBeenCalled();
+    });
+  });
+
+  // INT-05: report photos on History and Check and submit.
+  describe('on version 3', () => {
+    const all = ['consent', 'about_you', 'problem', 'warning_signs', 'health_check', 'activity'];
+    const atHistory = {
+      id: 'response',
+      formVersion: 'hf-3',
+      answers: {
+        sex: 'female',
+        region: 'knee',
+        // Every warning sign shown for a knee answered no (numbers 0).
+        ...Object.fromEntries(
+          visibleFields(
+            healthForms['hf-3']?.screens.find((screen) => screen.key === 'warning_signs') ??
+              ({ fields: [] } as never),
+            { region: 'knee' },
+          ).map((field) => [field.key, field.kind === 'number' ? 0 : false]),
+        ),
+        health_conditions: ['none'],
+      },
+      doneScreens: all,
+      submittedAt: null,
+    };
+    const photo = (bytes: number[], type = 'image/png', name = 'report.png') =>
+      new File([new Uint8Array([...bytes, ...new Array<number>(20).fill(0)])], name, { type });
+    const pngBytes = [0x89, 0x50, 0x4e, 0x47];
+    const withFiles = (files: File[], posted: Record<string, string> = {}) =>
+      saveHealthFormScreen('token', 'history', posted, { files, reports: reportFiles });
+
+    it('stores a report photo, then records it with the screen as the patient', async () => {
+      db.ownIntakeResponse.mockResolvedValue(atHistory);
+      expect(await withFiles([photo(pngBytes)], { injuries: 'Sprain' })).toEqual({
+        status: 'saved',
+        next: 'end',
+      });
+      expect(reportFiles.put).toHaveBeenCalledTimes(1);
+      const [path, , type] = reportFiles.put.mock.calls[0] as [string, Uint8Array, string];
+      expect(path.startsWith(`${link.patientId}/`) && path.endsWith('.png')).toBe(true);
+      expect(type).toBe('image/png');
+      expect(db.insertPatientReport).toHaveBeenCalledWith(fakeTx, {
+        id: expect.any(String) as string,
+        filePath: path,
+        contentType: 'image/png',
+        sizeBytes: 24,
+        patientId: link.patientId,
+        appointmentId,
+        patientLinkId: link.id,
+      });
+      expect(reportFiles.remove).not.toHaveBeenCalled();
+    });
+
+    it('refuses a file that is not a photo or PDF, storing nothing', async () => {
+      db.ownIntakeResponse.mockResolvedValue(atHistory);
+      expect(await withFiles([photo([0x47, 0x49, 0x46], 'image/png', 'fake.png')])).toEqual({
+        status: 'invalid',
+        errors: { reports: 'fake.png is not a photo or PDF.' },
+      });
+      expect(await withFiles([photo(pngBytes, 'image/gif', 'a.gif')])).toEqual({
+        status: 'invalid',
+        errors: { reports: 'a.gif is not a photo or PDF.' },
+      });
+      expect(reportFiles.put).not.toHaveBeenCalled();
+      expect(db.saveIntakeResponse).not.toHaveBeenCalled();
+    });
+
+    it('removes the stored photo when recording fails', async () => {
+      db.ownIntakeResponse.mockResolvedValue(atHistory);
+      db.insertPatientReport.mockRejectedValueOnce(new Error('refused'));
+      await expect(withFiles([photo(pngBytes)])).rejects.toThrow('refused');
+      const [path] = reportFiles.put.mock.calls[0] as [string];
+      expect(reportFiles.remove).toHaveBeenCalledWith([path]);
+    });
+
+    it('takes no photos on another screen', async () => {
+      db.ownIntakeResponse.mockResolvedValue({ ...atHistory, doneScreens: all.slice(0, 5) });
+      expect(
+        await saveHealthFormScreen(
+          'token',
+          'activity',
+          {},
+          { files: [photo(pngBytes)], reports: reportFiles },
+        ),
+      ).toEqual({ status: 'saved', next: 'history' });
+      expect(reportFiles.put).not.toHaveBeenCalled();
+      expect(db.insertPatientReport).not.toHaveBeenCalled();
+    });
+
+    it('submits once every screen is complete, and completes the link', async () => {
+      db.ownIntakeResponse.mockResolvedValue({ ...atHistory, doneScreens: [...all, 'history'] });
+      db.submitIntakeResponse.mockResolvedValue(true);
+      expect(await submitHealthForm('token')).toEqual({ status: 'submitted' });
+      expect(db.submitIntakeResponse).toHaveBeenCalledWith(fakeTx);
+      expect(links.completePatientLink).toHaveBeenCalledWith(fakeTx, link);
+    });
+
+    it('does not submit before the end, after the visit, or twice', async () => {
+      db.ownIntakeResponse.mockResolvedValue(atHistory);
+      expect(await submitHealthForm('token')).toEqual({ status: 'elsewhere', resume: 'history' });
+      db.healthFormVisit.mockResolvedValue({ ...visit, status: 'completed' });
+      expect(await submitHealthForm('token')).toEqual({ status: 'closed' });
+      expect(db.submitIntakeResponse).not.toHaveBeenCalled();
+      links.verifyPatientLink.mockResolvedValue({ status: 'used', purpose: 'health_form' });
+      expect(await submitHealthForm('token')).toEqual({ status: 'submitted' });
+      expect(links.completePatientLink).not.toHaveBeenCalled();
     });
   });
 });

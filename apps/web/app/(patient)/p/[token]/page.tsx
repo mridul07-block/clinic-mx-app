@@ -6,8 +6,10 @@ import {
   previousScreen,
   screenLayout,
   stepOf,
+  visibleOptions,
   visibleScreens,
   type HealthFormAnswer,
+  type HealthFormRow,
   type PatientLinkPurpose,
 } from '@clinic-mx/schemas';
 import Link from 'next/link';
@@ -30,6 +32,7 @@ import {
   take,
 } from '../../../../modules/rate-limits/limits';
 import { getSetting } from '../../../../modules/settings/settings';
+import { CheckAndSubmit } from './check-submit';
 import { ConsentScreenForm } from './consent-form';
 import { HealthFormScreenForm } from './health-form';
 import { KioskShell } from './kiosk-shell';
@@ -52,7 +55,8 @@ import { patientPrimaryClass, patientSecondaryClass } from './patient-ui';
 // The health form itself (INT-04) is on this page too, one screen at a time (`?screen=<key>`, then
 // `?screen=end`), so the tablet lock and the headers hold for every screen. Each screen is saved
 // as it is sent; a returning patient is offered Continue and carries on where they stopped, and a
-// screen not reached yet opens the one to carry on at.
+// screen not reached yet opens the one to carry on at. The end is Check and submit (INT-05);
+// once submitted the link is used, and its page thanks the patient.
 //
 // Rate limits (IAM-11): every open counts against the network's opens, and a link that is not
 // valid against its bad links. Over either, the page checks nothing and asks the patient to wait.
@@ -86,7 +90,13 @@ function message(opened: Shown): { title: string; body: string } {
         body: 'This form is no longer open. Please ask the front desk.',
       };
     case 'used':
-      return { title: titleOf(opened.purpose), body: 'You have already sent this. Thank you.' };
+      return {
+        title: titleOf(opened.purpose),
+        body:
+          opened.purpose === 'health_form'
+            ? 'Thank you. Your answers are with your physiotherapist.'
+            : 'You have already sent this. Thank you.',
+      };
     case 'expired':
     case 'revoked':
       return {
@@ -146,6 +156,19 @@ function posted(answer: HealthFormAnswer): string | string[] {
   return typeof answer === 'string' ? answer : [...answer];
 }
 
+/** A screen's rows with only the options its earlier answers show (INT-05: pregnancy for female). */
+function shownOptions(rows: HealthFormRow[], answers: Record<string, HealthFormAnswer>) {
+  const shown = <F extends HealthFormRow['field']>(field: F): F =>
+    field.kind === 'multi_choice'
+      ? { ...field, options: visibleOptions(field.options, answers) }
+      : field;
+  return rows.map((row) => ({
+    ...row,
+    field: shown(row.field),
+    followUps: row.followUps.map(shown),
+  }));
+}
+
 /** A health form screen, the end, or nothing (the welcome), for an open form (INT-04). */
 function healthFormScreen(
   token: string,
@@ -153,6 +176,7 @@ function healthFormScreen(
   key: string | undefined,
   changing: boolean,
   guardianNeeded: boolean,
+  reportMegabytes: number,
 ): ReactNode {
   if (!key) return null;
   const { form, answers, doneScreens, resume } = welcome;
@@ -162,19 +186,13 @@ function healthFormScreen(
   if (!canOpen(form, answers, doneScreens, key)) redirect(`${here}?screen=${resume}`);
   if (key === HEALTH_FORM_END) {
     return (
-      <>
-        <h1 className="text-xl font-semibold text-ink">Your health form</h1>
-        <p className="text-ink" data-testid="health-form-end">
-          Your answers are saved.
-        </p>
-        <div className="fixed inset-x-0 bottom-0 border-t border-line bg-surface px-4 py-3">
-          <div className="mx-auto flex w-full max-w-signin">
-            <Link href={backHref} className={`${patientSecondaryClass} flex-1`}>
-              Back
-            </Link>
-          </div>
-        </div>
-      </>
+      <CheckAndSubmit
+        token={token}
+        form={form}
+        answers={answers}
+        reports={welcome.reports}
+        backHref={backHref}
+      />
     );
   }
   const screen = visibleScreens(form, answers).find((s) => s.key === key);
@@ -240,9 +258,11 @@ function healthFormScreen(
       </>
     );
   }
+  // About you starts from the record until the screen is sent (INT-05).
+  const sent = doneScreens.includes(screen.key);
   const saved = Object.fromEntries(
     screen.fields.flatMap((field) => {
-      const answer = answers[field.key];
+      const answer = answers[field.key] ?? (sent ? undefined : welcome.prefill[field.key]);
       return answer === undefined ? [] : [[field.key, posted(answer)]];
     }),
   );
@@ -253,9 +273,12 @@ function healthFormScreen(
       <HealthFormScreenForm
         token={token}
         screenKey={screen.key}
-        rows={screenLayout(screen, answers)}
+        rows={shownOptions(screenLayout(screen, answers), answers)}
         saved={saved}
         backHref={backHref}
+        reports={
+          screen.reports ? { maxMegabytes: reportMegabytes, added: welcome.reports } : undefined
+        }
       />
     </>
   );
@@ -288,7 +311,14 @@ export default async function PatientPage({
   }
   const { title, body } = kiosk ? kioskMessage(opened) : message(opened);
   const formScreen = welcome?.open
-    ? healthFormScreen(token, welcome, screenKey, change === '1', guardian === 'needed')
+    ? healthFormScreen(
+        token,
+        welcome,
+        screenKey,
+        change === '1',
+        guardian === 'needed',
+        await getSetting('reports.max_file_mb'),
+      )
     : null;
   const page = (
     <main data-voice="patient" className="min-h-dvh bg-surface px-4 py-6">
