@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { clientIp } from '../auth/session';
-import { saveHealthFormScreen } from './services';
+import { saveHealthFormScreen, submitHealthForm } from './services';
 
 /** What a health form screen shows after a post that needs answers (INT-04). */
 export interface HealthFormState {
@@ -31,13 +31,18 @@ export async function saveScreenAction(
     redirect('/');
   }
   const posted: Record<string, string | string[]> = {};
+  // Report photos on History (INT-05), already shrunk on the phone when scripts run.
+  const files = form.getAll('reports').filter((value): value is File => value instanceof File);
   for (const key of new Set(form.keys())) {
-    if (key === 'token' || key === 'screen' || key.startsWith('$')) continue;
+    if (key === 'token' || key === 'screen' || key === 'reports' || key.startsWith('$')) continue;
     const values = form.getAll(key).filter((value): value is string => typeof value === 'string');
     posted[key] = values.length === 1 ? (values[0] ?? '') : values;
   }
   const page = `/p/${token}`;
-  const result = await saveHealthFormScreen(token, screen, posted, await clientIp());
+  const result = await saveHealthFormScreen(token, screen, posted, {
+    ip: await clientIp(),
+    files,
+  });
   if (result.status === 'invalid') {
     return { errors: result.errors, values: posted, attempt: (state.attempt ?? 0) + 1 };
   }
@@ -48,6 +53,21 @@ export async function saveScreenAction(
   if (result.status === 'guardian_needed') {
     redirect(`${page}?screen=${encodeURIComponent(screen)}&guardian=needed`);
   }
+  if (result.status === 'elsewhere') {
+    redirect(`${page}?screen=${encodeURIComponent(result.resume)}`);
+  }
+  redirect(page);
+}
+
+/**
+ * Check and submit (INT-05): submits the form, then the link's page thanks the patient; with
+ * answers still needed, the screen to carry on at.
+ */
+export async function submitAction(form: FormData): Promise<void> {
+  const token = form.get('token');
+  if (typeof token !== 'string' || !tokenPattern.test(token)) redirect('/');
+  const page = `/p/${token}`;
+  const result = await submitHealthForm(token, await clientIp());
   if (result.status === 'elsewhere') {
     redirect(`${page}?screen=${encodeURIComponent(result.resume)}`);
   }

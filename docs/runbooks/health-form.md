@@ -17,10 +17,8 @@ with the link, until the link ends.
      - The back and neck questions show only for that region.
      - The weight loss amount and period show only after a yes.
      - Every question shown is mandatory (J2.4).
-- **Coming later:**
-  - the other J2.3 screens and Check and submit, with INT-05;
-  - Part A consent with INT-06, and the guardian section with INT-07.
-- **No submit yet.** After the last screen the patient sees "Your answers are saved."
+- **Later versions:** `hf-2` adds Part A consent (INT-06) and the guardian section (INT-07);
+  `hf-3` has every J2.3 screen and ends with Check and submit (INT-05, below).
 
 ## The engine (`packages/schemas/src/health-form.ts`)
 
@@ -165,6 +163,57 @@ Database:
 - Patient pages may read a guardian's `id`, `name` and `relationship` (never the phone), and the
   patient's `date_of_birth`.
 
+## Screens (INT-05)
+
+PRD J2.3: Part A consent; about you; your problem (region, body chart, complaint, onset, how it
+started, duration, pain now and with activity 0 to 10, aggravating and easing); warning signs;
+health check (pregnancy only for female); activity and goal; history with an optional report
+photo; check and submit. About 5 minutes on a phone.
+
+Decisions (user, 23 October 2026):
+
+- **Body chart:** the whole body, front and back outlines, with 44 zones by area and side (for
+  example "Right knee, front"). Several may be marked; checkboxes, so it works without scripts.
+  - `bodyChartZones` (`packages/schemas/src/body-chart.ts`) gives each zone its region where one
+    fits and its face: front for the knowledge base's Anterior subregions, back for Posterior.
+  - The upper arm, thigh and shin or calf name no region.
+- **Pain sliders:** "Pain now" and "Pain with activity", 0 to 10, ends worded "No pain" and "Worst
+  pain you can imagine" (NPRS), with a readout ("6 out of 10"). Without scripts, a row of 0 to 10
+  buttons. Untouched, a slider posts nothing.
+- **Report photos** on History go to the private `reports` bucket as `patient_report` rows with
+  `patient_link_id` set and no `uploaded_by`. The drawer lists them as "Added by the patient".
+  Same types and `reports.max_file_mb` as INT-02; photos are shrunk on the phone first.
+- **Mandatory:** the warning signs and the health check (J2.4), the body region (it decides the
+  back and neck questions) and gender (it decides the pregnancy question, a precaution). Every
+  other field is marked "(optional)" for the physio to complete.
+
+Wording comes from the Blueprint's Module 2 fields and the SOP's intake list (occupation,
+dominant side, goals). Every screen except Part A consent is `awaitingApproval` until the client
+approves patient wording.
+
+Engine additions: `optional` fields; `date`, `scale` and `body_chart` kinds; a "None of these"
+option ticked alone (`exclusive`); options shown on earlier answers (`showIf`, pruned when hidden);
+the `has` condition (Other (specify) while Other is ticked). About you starts from the patient
+record (date of birth, sex, occupation) until the screen is sent; the record itself is not changed
+here.
+
+Check and submit lists every shown screen's answers ("Not answered" for empty ones) with Change.
+Submit, in one patient transaction, sets `submitted_at` to now and completes the health form link
+(`completePatientLink`). After that the link's page says "Thank you. Your answers are with your
+physiotherapist.", Today shows Submitted, and nothing can be changed. The submit pipeline (episode,
+red flags, precautions, AI job, physio notified) is INT-10.
+
+Database (`20261023134407_health_form_submit_rules.sql`):
+
+- `patient_report_patient_add`: a patient page adds reports only to its own visit, through its
+  own link, with no `uploaded_by`, while the visit is on and the form is not submitted.
+  `patient_report_patient_read` reads back only the reports added through that link.
+- `intake_response_patient_save` allows `submitted_at` only as now; nothing is saved after.
+- `patient_link_patient_complete`: the page's own working health form link completes once its
+  form is submitted (`internal.health_form_submitted`, security definer, so the policies do not
+  loop).
+- Patient pages may read the patient's `sex` and `occupation`.
+
 ## Checking it
 
 | Test | What it proves |
@@ -175,6 +224,8 @@ Database:
 | `packages/schemas/src/consent.test.ts` | Wording pinned; a decision for each statement; a signature only to agree, drawn or typed; a bad or too large picture refused; the latest decision counts |
 | `apps/web/e2e/consent.spec.ts` | 360 px and desktop. A decline blocks the form, and reception sees it on Today and in the drawer. Changing their mind and signing on the pad opens the questions, and the signature is stored. Agreeing needs a signature. Without scripts, a typed name signs. |
 | `apps/web/e2e/guardian.spec.ts` | 360 px and desktop. A guardian on file signs for a 12 year old, and the records name them. Without a date of birth the form asks; under 18 with no guardian waits for reception; No lets the patient sign. Without scripts, the question opens the section. |
+| `packages/schemas/src/health-form-screens.test.ts` | `hf-3` screens; only the region, gender, warning signs and health check needed; dates; sliders 0 to 10; chart zones; pregnancy only for female and pruned; None of these alone; Other (specify) under Other; zones unique and on the outline |
+| `apps/web/e2e/health-form-screens.spec.ts` | 360 px and desktop. The whole form with the chart, sliders and a report photo; Check and submit reads it back; Submit thanks the patient; the desk sees Submitted and "Added by the patient". No pregnancy for a male patient. Without scripts: chart boxes, 0 to 10 buttons and a submit. |
 | `apps/web/e2e/health-form.spec.ts` | 360 px and desktop: screen by screen with messages and region questions; leave and Continue; all answered on `hf-1` by the patient; a closed visit saves nothing; without scripts |
 
 **Negative checks (23 October 2026):**
@@ -185,3 +236,5 @@ Database:
   failed (INT-06).
 - With the policy accepting any `guardian_id`, the database test refusing another patient's
   guardian failed (INT-07).
+- With `patient_report_patient_add` dropped, 2 database tests and the whole form end-to-end test
+  failed (INT-05).

@@ -15,12 +15,10 @@ import {
   healthFormState,
   isChangeable,
   needsHealthForm,
-  reportContentTypes,
   reportExtensions,
   undoCheckInSchema,
   walkInNewPatientSchema,
   walkInSchema,
-  type ReportContentType,
 } from '@clinic-mx/schemas';
 import { z } from 'zod';
 import { assertCan } from '../access/guard';
@@ -34,7 +32,10 @@ import {
   type BookNewPatientResult,
 } from '../scheduling/services';
 import { getSetting } from '../settings/settings';
+import { checkReportFiles, ReportError } from './report-files';
 import { reportStore } from './report-store';
+
+export { ReportError };
 
 /**
  * Checks a Booked or Confirmed patient in from the check in drawer (INT-01, INT-02, PRD J2.1):
@@ -184,21 +185,6 @@ export const openFormOnTablet = staffService({
   },
 });
 
-/** A refused report file, in words for the desk. */
-export class ReportError extends Error {
-  override name = 'ReportError';
-}
-
-/** The first bytes each kind of file starts with: the browser's word for the type is not enough. */
-const signatures: Record<ReportContentType, number[]> = {
-  'image/jpeg': [0xff, 0xd8, 0xff],
-  'image/png': [0x89, 0x50, 0x4e, 0x47],
-  'application/pdf': [0x25, 0x50, 0x44, 0x46],
-};
-
-const isReportType = (type: string): type is ReportContentType =>
-  (reportContentTypes as readonly string[]).includes(type);
-
 /**
  * Add reports (INT-02, TAD section 9): photos (shrunk on the phone first) and PDF scans of the
  * patient's reports, at most `reports.max_file_mb` each. Each file goes to the private `reports`
@@ -209,23 +195,8 @@ export async function addReports(
   context: ServiceContext,
   rawInput: { appointmentId: unknown; files: File[] },
 ): Promise<number> {
-  const maxMegabytes = await getSetting('reports.max_file_mb');
-  const files = rawInput.files.filter((file) => file.size > 0);
-  if (files.length === 0) throw new ReportError('Choose a photo or PDF of the report.');
-  const checked: { bytes: Uint8Array; contentType: ReportContentType }[] = [];
-  for (const file of files) {
-    if (!isReportType(file.type)) {
-      throw new ReportError(`${file.name} is not a photo or PDF.`);
-    }
-    if (file.size > maxMegabytes * 1024 * 1024) {
-      throw new ReportError(`${file.name} is larger than ${String(maxMegabytes)} MB.`);
-    }
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    if (!signatures[file.type].every((byte, i) => bytes[i] === byte)) {
-      throw new ReportError(`${file.name} is not a photo or PDF.`);
-    }
-    checked.push({ bytes, contentType: file.type });
-  }
+  const checked = await checkReportFiles(rawInput.files, await getSetting('reports.max_file_mb'));
+  if (checked.length === 0) throw new ReportError('Choose a photo or PDF of the report.');
   const store = reportStore();
   const stored: string[] = [];
   try {

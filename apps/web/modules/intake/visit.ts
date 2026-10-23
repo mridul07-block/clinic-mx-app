@@ -4,6 +4,7 @@ import {
   ownConsentDecisions,
   ownGuardians,
   ownIntakeResponse,
+  ownReports,
   type PatientLinkAccess,
 } from '@clinic-mx/db';
 import {
@@ -52,6 +53,10 @@ export type HealthFormWelcome =
         adultAge: number;
         guardians: { id: string; label: string }[];
       };
+      /** About you starts from the record (INT-05): what is on file, by field, until answered. */
+      prefill: Record<string, HealthFormAnswer>;
+      /** Report photos added on this form (INT-05). */
+      reports: number;
     }
   | { open: false };
 
@@ -68,13 +73,14 @@ export async function loadHealthFormVisit(
   ip?: string,
 ): Promise<HealthFormWelcome> {
   const adultAge = await getSetting('patients.adult_age_years');
-  const { visit, saved, decisions, guardians } = await asPatient(
+  const { visit, saved, decisions, guardians, reports } = await asPatient(
     link,
     async (tx) => ({
       visit: await healthFormVisit(tx),
       saved: await ownIntakeResponse(tx),
       decisions: await ownConsentDecisions(tx),
       guardians: await ownGuardians(tx),
+      reports: await ownReports(tx),
     }),
     ip,
   );
@@ -102,5 +108,15 @@ export async function loadHealthFormVisit(
         label: `${guardian.name}, ${guardianRelationshipLabels[guardian.relationship]}`,
       })),
     },
+    prefill: Object.fromEntries(
+      Object.entries({
+        date_of_birth: visit.dateOfBirth,
+        sex: visit.sex,
+        occupation: visit.occupation,
+      }).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1] !== '',
+      ),
+    ),
+    reports: reports.length,
   };
 }

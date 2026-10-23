@@ -1,6 +1,19 @@
-import type { AppointmentStatus, HealthFormAnswer } from '@clinic-mx/schemas';
-import { eq, sql } from 'drizzle-orm';
-import { appointment, centre, intakeResponse, patient, patientLink, staffUser } from './schema';
+import type {
+  AppointmentStatus,
+  HealthFormAnswer,
+  PatientSex,
+  ReportContentType,
+} from '@clinic-mx/schemas';
+import { asc, eq, isNull, sql } from 'drizzle-orm';
+import {
+  appointment,
+  centre,
+  intakeResponse,
+  patient,
+  patientLink,
+  patientReport,
+  staffUser,
+} from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /** The visit a health form link is tied to, as its patient page shows it (INT-03). */
@@ -11,6 +24,9 @@ export interface HealthFormVisit {
   patientName: string;
   /** For the guardian section (INT-07): `YYYY-MM-DD`, or null when not on file. */
   dateOfBirth: string | null;
+  /** On file, to start About you from the record (INT-05). */
+  sex: PatientSex | null;
+  occupation: string | null;
   centreName: string;
   physioName: string;
 }
@@ -28,6 +44,8 @@ export async function healthFormVisit(db: DbOrTransaction): Promise<HealthFormVi
       startsAt: appointment.startsAt,
       patientName: patient.name,
       dateOfBirth: patient.dateOfBirth,
+      sex: patient.sex,
+      occupation: patient.occupation,
       centreName: centre.name,
       physioName: staffUser.name,
     })
@@ -92,4 +110,39 @@ export async function saveIntakeResponse(
     .returning({ id: intakeResponse.id });
   if (!row) throw new Error('The health form was not saved.');
   return row;
+}
+
+/**
+ * Submits the form of the link the page runs under (INT-05): its submit time is now, once; row
+ * level security allows only that, and nothing after. False when there is no form to submit.
+ */
+export async function submitIntakeResponse(tx: DbOrTransaction): Promise<boolean> {
+  const done = await tx
+    .update(intakeResponse)
+    .set({ submittedAt: sql`now()`, updatedAt: sql`now()` })
+    .where(isNull(intakeResponse.submittedAt))
+    .returning({ id: intakeResponse.id });
+  return done.length > 0;
+}
+
+/** A report photo the patient added on the health form (INT-05). */
+export interface OwnReport {
+  id: string;
+  contentType: ReportContentType;
+  createdAt: Date;
+}
+
+/**
+ * The reports added through the link the page runs under, oldest first: row level security shows
+ * a patient page only those.
+ */
+export function ownReports(db: DbOrTransaction): Promise<OwnReport[]> {
+  return db
+    .select({
+      id: patientReport.id,
+      contentType: patientReport.contentType,
+      createdAt: patientReport.createdAt,
+    })
+    .from(patientReport)
+    .orderBy(asc(patientReport.createdAt), asc(patientReport.id));
 }

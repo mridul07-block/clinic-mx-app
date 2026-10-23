@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { patientActor, setAuditContext, systemActor, withActor } from '../audit';
@@ -9,8 +10,15 @@ import {
   partAConsentDeclined,
 } from '../consent';
 import { insertGuardian, removeGuardian } from '../patients';
-import { healthFormVisit, ownIntakeResponse, saveIntakeResponse } from '../intake';
-import { insertPatientLink } from '../patient-links';
+import { insertPatientReport } from '../check-in';
+import {
+  healthFormVisit,
+  ownIntakeResponse,
+  ownReports,
+  saveIntakeResponse,
+  submitIntakeResponse,
+} from '../intake';
+import { completePatientLinkRow, insertPatientLink } from '../patient-links';
 import {
   appointment,
   auditEvent,
@@ -19,6 +27,8 @@ import {
   guardian,
   intakeResponse,
   patient,
+  patientLink,
+  patientReport,
   staffUser,
 } from '../schema';
 import { centreIds, seedStaff } from '../seed/data';
@@ -129,6 +139,8 @@ describe('a health form link under row level security', () => {
         startsAt: on(600),
         patientName: names?.patientName,
         dateOfBirth: null,
+        sex: null,
+        occupation: null,
         centreName: names?.centreName,
         physioName: physio.name,
       });
@@ -589,6 +601,134 @@ describe('the guardian section under row level security', () => {
         partA(link, visit, patientId, { ...signed, signer: 'guardian', guardianId: mother }),
       ]);
       expect(await ownConsentDecisions(tx)).toHaveLength(1);
+    });
+  });
+});
+
+// INT-05: the patient adds report photos to their own visit while the form is open, reads back
+// only those, starts About you from the record, and submits once: the submit time is now and the
+// link completes only after the form is submitted.
+describe('report photos and submitting under row level security', () => {
+  async function open(tx: Tx) {
+    const { physio, patientId, mine, theirs } = await visits(tx);
+    await tx
+      .update(patient)
+      .set({ sex: 'female', occupation: 'Teacher' })
+      .where(eq(patient.id, patientId));
+    const visit = await checkedIn(tx, physio.id, patientId, 800);
+    const link = await insertPatientLink(tx, {
+      patientId,
+      purpose: 'health_form',
+      appointmentId: visit,
+      expiresAt: new Date(Date.now() + 3_600_000),
+    });
+    const report = (appointmentId = visit) => {
+      const id = randomUUID();
+      return {
+        id,
+        patientId,
+        appointmentId,
+        filePath: `${patientId}/${id}.png`,
+        contentType: 'image/png' as const,
+        sizeBytes: 1200,
+      };
+    };
+    return { patientId, mine, theirs, visit, link, report };
+  }
+
+  it('adds a report to its own visit, reads back only its own, and reads sex and occupation', async () => {
+    await rolledBack(async (tx) => {
+      const { patientId, link, report } = await open(tx);
+      // One the desk added already: the patient page does not see it.
+      await insertPatientReport(tx, { ...report(), uploadedBy: superAdminId });
+      await becomePatient(tx, { id: link.id, patientId, purpose: 'health_form' });
+      expect(await healthFormVisit(tx)).toMatchObject({ sex: 'female', occupation: 'Teacher' });
+      const added = await insertPatientReport(tx, { ...report(), patientLinkId: link.id });
+      expect((await ownReports(tx)).map((r) => r.id)).toEqual([added.id]);
+      expect(
+        await failure(tx, (sp) => sp.select({ size: patientReport.sizeBytes }).from(patientReport)),
+      ).toBe('42501');
+      await tx.execute(sql`reset role`);
+      const [row] = await tx
+        .select({ uploadedBy: patientReport.uploadedBy, link: patientReport.patientLinkId })
+        .from(patientReport)
+        .where(eq(patientReport.id, added.id));
+      expect(row).toEqual({ uploadedBy: null, link: link.id });
+      const events = await tx
+        .select({ actor: auditEvent.actor })
+        .from(auditEvent)
+        .where(eq(auditEvent.entityId, added.id));
+      expect(events).toEqual([{ actor: `patient:${patientId}` }]);
+    });
+  });
+
+  it('refuses a report for another visit, as a staff member, with the visit not on, or after submit', async () => {
+    await rolledBack(async (tx) => {
+      const { patientId, theirs, mine, visit, link, report } = await open(tx);
+      const add = (sp: Tx, appointmentId?: string) =>
+        insertPatientReport(sp, { ...report(appointmentId), patientLinkId: link.id });
+      await tx.execute(sql`savepoint as_patient`);
+      await becomePatient(tx, { id: link.id, patientId, purpose: 'health_form' });
+      expect(await failure(tx, (sp) => add(sp, theirs.id))).toBe('42501');
+      expect(await failure(tx, (sp) => add(sp, mine.id))).toBe('42501');
+      expect(
+        await failure(tx, (sp) =>
+          insertPatientReport(sp, { ...report(), uploadedBy: superAdminId }),
+        ),
+      ).toBe('42501');
+      expect(await failure(tx, (sp) => add(sp))).toBeUndefined();
+      await tx.execute(sql`rollback to savepoint as_patient`);
+
+      await tx.execute(sql`savepoint not_on`);
+      await tx.update(appointment).set({ status: 'completed' }).where(eq(appointment.id, visit));
+      await becomePatient(tx, { id: link.id, patientId, purpose: 'health_form' });
+      expect(await failure(tx, (sp) => add(sp))).toBe('42501');
+      await tx.execute(sql`rollback to savepoint not_on`);
+
+      await tx
+        .insert(intakeResponse)
+        .values({ ...form(link, visit, patientId), submittedAt: new Date() });
+      await becomePatient(tx, { id: link.id, patientId, purpose: 'health_form' });
+      expect(await failure(tx, (sp) => add(sp))).toBe('42501');
+    });
+  });
+
+  it('submits once, at now, then completes its own link; nothing changes after', async () => {
+    await rolledBack(async (tx) => {
+      const { patientId, mine, visit, link } = await open(tx);
+      const other = await insertPatientLink(tx, {
+        patientId,
+        purpose: 'health_form',
+        appointmentId: mine.id,
+        expiresAt: new Date(Date.now() + 3_600_000),
+      });
+      await becomePatient(tx, { id: link.id, patientId, purpose: 'health_form' });
+      await saveIntakeResponse(tx, form(link, visit, patientId));
+      // The link completes only after the form is submitted, and never another link.
+      expect(await failure(tx, (sp) => completePatientLinkRow(sp, link.id))).toBe('42501');
+      expect(
+        await failure(tx, (sp) =>
+          sp.update(intakeResponse).set({ submittedAt: new Date(Date.now() - 3_600_000) }),
+        ),
+      ).toBe('42501');
+      expect(await submitIntakeResponse(tx)).toBe(true);
+      expect(await completePatientLinkRow(tx, link.id)).toBe(true);
+      expect(await completePatientLinkRow(tx, other.id)).toBe(false);
+      expect(await submitIntakeResponse(tx)).toBe(false);
+      expect(await failure(tx, (sp) => saveIntakeResponse(sp, form(link, visit, patientId)))).toBe(
+        '42501',
+      );
+      await tx.execute(sql`reset role`);
+      const [done] = await tx
+        .select({ completedAt: patientLink.completedAt })
+        .from(patientLink)
+        .where(eq(patientLink.id, link.id));
+      expect(done?.completedAt).toBeInstanceOf(Date);
+      const [submitted] = await tx
+        .select({ at: intakeResponse.submittedAt })
+        .from(intakeResponse)
+        .where(eq(intakeResponse.appointmentId, visit));
+      expect(submitted?.at).toBeInstanceOf(Date);
     });
   });
 });

@@ -1,16 +1,17 @@
 import { istDate } from '@clinic-mx/schemas';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { removeCalendarRows, startedAppointment } from './calendar';
-import { savedForm, signConsent, undoCheckInOf } from './intake';
+import { aboutYou, savedForm, signConsent, undoCheckInOf } from './intake';
 import { testLink } from './patient-links';
 import { testPatient } from './patients';
 import { temporaryWithCode } from './staff';
 
 // INT-04 done when: a versioned form, conditional screens, and resume after leaving. Decision
 // (user, 23 October 2026): the region ("Your problem") and the warning signs, with back and neck
-// questions for that region and the weight loss follow ups after a yes; the other screens and the
-// submit come with INT-05. Since INT-06 new forms (hf-2) open on Part A consent, signed first. Each test has its own temporary physio and a
-// generated patient's visit, checked in a few minutes ago today, and its health form link.
+// questions for that region and the weight loss follow ups after a yes. New forms (hf-3, INT-05)
+// open on Part A consent, signed first, then About you; the other screens and the submit are in
+// health-form-screens.spec.ts. Each test has its own temporary physio and a generated patient's
+// visit, checked in a few minutes ago today, and its health form link.
 
 const made: string[] = [];
 test.afterEach(async () => {
@@ -80,7 +81,8 @@ test('the form opens screen by screen; shown answers are needed; questions follo
   await page.goto(path);
   await page.getByRole('link', { name: 'Start' }).click();
   await signConsent(page);
-  await expect(step(page)).toHaveText('Step 2 of 3');
+  await aboutYou(page);
+  await expect(step(page)).toHaveText('Step 3 of 7');
   await expect(page.getByRole('heading', { name: 'Your problem' })).toBeVisible();
   await next(page);
   await expect(missing(page)).toBeVisible();
@@ -89,7 +91,7 @@ test('the form opens screen by screen; shown answers are needed; questions follo
   await question(page, 'Body region').getByText('Back', { exact: true }).click();
   await next(page);
   await expect(page).toHaveURL(/\?screen=warning_signs$/);
-  await expect(step(page)).toHaveText('Step 3 of 3');
+  await expect(step(page)).toHaveText('Step 4 of 7');
   await expect(question(page, backBowel)).toBeVisible();
   await expect(question(page, neckVision)).toHaveCount(0);
 
@@ -113,6 +115,7 @@ test('leaving and coming back carries on where it stopped, and a new region chan
   await first.goto(path);
   await first.getByRole('link', { name: 'Start' }).click();
   await signConsent(first);
+  await aboutYou(first);
   await question(first, 'Body region').getByText('Back', { exact: true }).click();
   await next(first);
   await expect(first).toHaveURL(/\?screen=warning_signs$/);
@@ -128,7 +131,7 @@ test('leaving and coming back carries on where it stopped, and a new region chan
   await next(page);
   await expect(page).toHaveURL(/\?screen=warning_signs$/);
   await expect(question(page, backBowel)).toHaveCount(0);
-  expect((await savedForm(visit.id))?.answers).toEqual({ region: 'knee' });
+  expect((await savedForm(visit.id))?.answers).toEqual({ sex: 'female', region: 'knee' });
 });
 
 test('all answered: saved on its version, by the patient', async ({ page }) => {
@@ -137,16 +140,17 @@ test('all answered: saved on its version, by the patient', async ({ page }) => {
   // Not reached yet: it opens where the form stands, Part A consent first.
   await expect(page).toHaveURL(/\?screen=consent$/);
   await signConsent(page);
+  await aboutYou(page);
   await question(page, 'Body region').getByText('Neck', { exact: true }).click();
   await next(page);
   await expect(question(page, neckVision)).toBeVisible();
   await answerAll(page);
   await next(page);
-  await expect(page.getByTestId('health-form-end')).toHaveText('Your answers are saved.');
+  await expect(page).toHaveURL(/\?screen=health_check$/);
   const saved = await savedForm(visit.id);
   expect(saved).toMatchObject({
-    formVersion: 'hf-2',
-    doneScreens: ['consent', 'problem', 'warning_signs'],
+    formVersion: 'hf-3',
+    doneScreens: ['consent', 'about_you', 'problem', 'warning_signs'],
   });
   expect(saved?.answers).toMatchObject({
     region: 'neck',
@@ -163,6 +167,7 @@ test('a visit no longer on saves nothing more', async ({ page }) => {
   await page.goto(path);
   await page.getByRole('link', { name: 'Start' }).click();
   await signConsent(page);
+  await aboutYou(page);
   await question(page, 'Body region').getByText('Hip', { exact: true }).click();
   await next(page);
   await expect(page).toHaveURL(/\?screen=warning_signs$/);
@@ -172,7 +177,7 @@ test('a visit no longer on saves nothing more', async ({ page }) => {
   await expect(page.getByTestId('patient-link-status')).toHaveText(
     'This form is no longer open. Please ask the front desk.',
   );
-  expect((await savedForm(visit.id))?.doneScreens).toEqual(['consent', 'problem']);
+  expect((await savedForm(visit.id))?.doneScreens).toEqual(['consent', 'about_you', 'problem']);
 });
 
 test('works without scripts: follow ups show by CSS, messages by the server', async ({
@@ -183,6 +188,7 @@ test('works without scripts: follow ups show by CSS, messages by the server', as
   await page.goto(path);
   await page.getByRole('link', { name: 'Start' }).click();
   await signConsent(page);
+  await aboutYou(page);
   await question(page, 'Body region').getByText('Wrist and hand', { exact: true }).click();
   await next(page);
   await expect(page).toHaveURL(/\?screen=warning_signs$/);

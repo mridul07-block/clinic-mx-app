@@ -228,7 +228,8 @@ export async function CheckInDrawer({
                   {reportKinds[report.contentType]}, {sizeOf(report.sizeBytes)}
                 </span>
                 <span className="text-ink-secondary">
-                  Added by {report.uploadedByName}, {formatIstDateTime(report.createdAt)}
+                  Added by {report.uploadedByName ?? 'the patient'},{' '}
+                  {formatIstDateTime(report.createdAt)}
                 </span>
               </li>
             ))}

@@ -289,7 +289,10 @@ export {
 export {
   healthFormVisit,
   ownIntakeResponse,
+  ownReports,
   saveIntakeResponse,
+  submitIntakeResponse,
   type HealthFormVisit,
   type IntakeResponse,
+  type OwnReport,
 } from './intake';

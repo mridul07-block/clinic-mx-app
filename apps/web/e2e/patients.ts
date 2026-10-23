@@ -35,7 +35,14 @@ export function fakeName(label = 'Test Patient'): string {
 
 /** Adds a generated patient at the centre with this code; returns their id and OP number. */
 export async function testPatient(
-  values: { name?: string; phone?: string; centreCode?: string; dateOfBirth?: string } = {},
+  values: {
+    name?: string;
+    phone?: string;
+    centreCode?: string;
+    dateOfBirth?: string;
+    sex?: 'female' | 'male' | 'other';
+    occupation?: string;
+  } = {},
 ): Promise<{ id: string; opNumber: string; name: string; phone: string }> {
   const [registering] = await db()
     .select({ id: centre.id })
@@ -50,6 +57,8 @@ export async function testPatient(
       phone,
       registeredCentreId: registering.id,
       ...(values.dateOfBirth ? { dateOfBirth: values.dateOfBirth } : {}),
+      ...(values.sex ? { sex: values.sex } : {}),
+      ...(values.occupation ? { occupation: values.occupation } : {}),
     }),
   );
   return { ...added, name, phone };
