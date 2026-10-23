@@ -57,6 +57,14 @@ clinical review) insert them on the server as the system, in the same transactio
   names or phone numbers;
 - add the kind's label to `taskKindLabels` in `packages/schemas/src/tasks.ts`.
 
+Kinds so far:
+
+| Kind | Made by | For |
+| --- | --- | --- |
+| `job.failed` | A job out of attempts (FND-10) | The Super Admin |
+| `call.no_show` | A confirmed no show (ALT-04, `docs/runbooks/no-shows.md`) | The Front Desk at the centre |
+| `review.no_shows` | Missed appointments in a row (ALT-04) | The physio of the missed appointment |
+
 ## Checking it
 
 | Test | What it checks |

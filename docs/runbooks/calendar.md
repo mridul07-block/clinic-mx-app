@@ -238,8 +238,8 @@ How it works:
   Confirmed on its own IST day. `count_booking_change` adds a no show and takes one back on an
   undo, never below zero (a lift in between stays lifted).
 - **No show keeps its time:** only Cancelled and Rescheduled free a slot.
-- **Later:** the no show WhatsApp message and the call task (ALT-04, WA tickets); the Today board
-  (INT-01) uses the same rules.
+- **What follows a no show** (the call task, the clinical review after two in a row, the queued
+  message) is ALT-04: `docs/runbooks/no-shows.md`. The Today board (INT-01) uses the same rules.
 
 ## Live updates
 

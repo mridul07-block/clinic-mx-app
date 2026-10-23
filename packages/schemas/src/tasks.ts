@@ -17,6 +17,8 @@ export const taskPriorityLabels: Record<TaskPriority, string> = {
 /** What each kind of task is, as its card says. Tickets that make a new kind add it here. */
 export const taskKindLabels: Record<string, string> = {
   'job.failed': 'Background job failed',
+  'call.no_show': 'Call after a no show',
+  'review.no_shows': 'Clinical review: missed appointments',
 };
 
 export function taskKindLabel(kind: string): string {

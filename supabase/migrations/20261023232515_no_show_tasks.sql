@@ -1,0 +1,1 @@
+CREATE INDEX "task_open_appointment_idx" ON "task" USING btree (("details" ->> 'appointmentId')) WHERE "task"."status" = 'open';
