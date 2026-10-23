@@ -1,7 +1,8 @@
-import { istDate } from '@clinic-mx/schemas';
+import { formatIstDateTime, istDate } from '@clinic-mx/schemas';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { removeCalendarRows, startedAppointment } from './calendar';
 import { tabletNamed } from './kiosk';
+import { testLink } from './patient-links';
 import { testEpisode, testPatient } from './patients';
 import { signIn, temporaryDesk, temporaryWithCode } from './staff';
 
@@ -10,6 +11,11 @@ import { signIn, temporaryDesk, temporaryWithCode } from './staff';
 // ticks that it checked who this is, then checks in; the health form is for a first visit (no
 // episode yet); the desk adds reports and sees the list, opening them comes with CLN. Each test has
 // its own temporary physio with an appointment that started a few minutes ago today.
+//
+// INT-03 done when: the QR opens the form for that appointment only, with no login and no code.
+// Decisions (user, 23 October 2026): the first screen greets the patient by first name and shows
+// the visit, nothing else about them; the link opens only while the visit is on (Checked in or
+// In consultation), and opens again when the patient is checked in again.
 
 const made: string[] = [];
 test.afterEach(async () => {
@@ -24,10 +30,12 @@ async function visit(given?: Patient, values: { episodeId?: string } = {}) {
   const patient = given ?? (await testPatient());
   const started = await startedAppointment(person.id, patient.id, 3, { minutes: 5, values });
   test.skip(istDate(started.startsAt) !== istDate(new Date()), 'Just after midnight in IST.');
-  return { patient, number: started.number };
+  return { patient, number: started.number, physio: person, startsAt: started.startsAt };
 }
 
 const drawer = (page: Page) => page.getByRole('complementary', { name: 'Check in' });
+const formVisit = (page: Page) => page.getByTestId('health-form-visit');
+const linkStatus = (page: Page) => page.getByTestId('patient-link-status');
 
 async function openDrawer(page: Page, patientName: string) {
   await page
@@ -89,8 +97,11 @@ test('Check in opens the drawer; the identity tick comes first; undo puts it bac
   ).toBeVisible();
 });
 
-test('a first visit shows the health form QR, which opens the form', async ({ page, browser }) => {
-  const { patient } = await visit();
+test('a first visit shows the health form QR, which opens the form for that visit only while it is on', async ({
+  page,
+  browser,
+}) => {
+  const { patient, physio, startsAt } = await visit();
   const desk = await temporaryDesk();
   await signIn(page, desk.email);
   await openDrawer(page, patient.name);
@@ -107,10 +118,72 @@ test('a first visit shows the health form QR, which opens the form', async ({ pa
   const path = (await qr.locator('.font-mono').innerText()).trim();
   expect(path).toMatch(/^\/p\/\S+$/);
 
+  // The patient's phone: no sign in and no code, just the visit and the first name.
   const phone = await anotherBrowser(browser);
+  const supabase: string[] = [];
+  phone.on('request', (request) => {
+    if (/supabase\.(co|in)/.test(request.url())) supabase.push(request.url());
+  });
   await phone.goto(path);
+  await expect(phone).toHaveURL(path);
   await expect(phone.getByRole('heading', { name: 'Your health form' })).toBeVisible();
+  await expect(formVisit(phone)).toHaveText(
+    [
+      `Hello ${patient.name.split(' ')[0] ?? ''}`,
+      formatIstDateTime(startsAt),
+      `HSR Layout, with ${physio.name}`,
+    ].join(''),
+  );
+  await expect(linkStatus(phone)).toHaveText('It takes about 5 minutes. The questions open here.');
+  const shown = await phone.locator('main').innerText();
+  expect(shown).not.toContain(patient.name);
+  expect(shown).not.toContain(patient.phone);
+  expect(shown).not.toContain(patient.opNumber);
+
+  // A check in undone closes it; checked in again, the same link opens again.
+  await drawer(page).getByRole('button', { name: 'Undo check in' }).click();
+  await expect(page.getByTestId('check-in-done')).toHaveText('Check in undone.');
+  await phone.reload();
+  await expect(linkStatus(phone)).toHaveText(
+    'This form is no longer open. Please ask the front desk.',
+  );
+  await expect(linkStatus(phone)).toHaveAttribute('data-status', 'closed');
+  await expect(formVisit(phone)).toHaveCount(0);
+  await checkIn(page);
+  await phone.reload();
+  await expect(linkStatus(phone)).toHaveAttribute('data-status', 'valid');
+  await expect(formVisit(phone)).toContainText(formatIstDateTime(startsAt));
+  expect(supabase).toEqual([]);
   await phone.context().close();
+});
+
+test('each visit’s link opens that visit only', async ({ page }) => {
+  const person = await temporaryWithCode('physiotherapist', ['HSR Layout']);
+  made.push(person.id);
+  const patient = await testPatient();
+  const here = { status: 'checked_in' as const, arrivedAt: new Date(), checkedInBy: person.id };
+  const visits = [
+    await startedAppointment(person.id, patient.id, 3, { minutes: 5, values: here }),
+    await startedAppointment(person.id, patient.id, 12, { minutes: 5, values: here }),
+  ];
+  test.skip(
+    visits.some((v) => istDate(v.startsAt) !== istDate(new Date())),
+    'Just after midnight in IST.',
+  );
+  for (const [i, shown] of visits.entries()) {
+    const other = visits[1 - i];
+    const link = await testLink({
+      purpose: 'health_form',
+      patientId: patient.id,
+      appointmentId: shown.id,
+    });
+    await page.goto(link.path);
+    await expect(formVisit(page)).toContainText(formatIstDateTime(shown.startsAt));
+    if (other) await expect(formVisit(page)).not.toContainText(formatIstDateTime(other.startsAt));
+  }
+  // A link for an appointment the patient does not have reaches no visit.
+  await page.goto((await testLink({ purpose: 'health_form', patientId: patient.id })).path);
+  await expect(linkStatus(page)).toHaveAttribute('data-status', 'closed');
 });
 
 test('Open on tablet sends the form to the centre’s kiosk tablet', async ({ page, browser }) => {
@@ -139,6 +212,14 @@ test('Open on tablet sends the form to the centre’s kiosk tablet', async ({ pa
   );
   await expect(tablet).toHaveURL(/\/p\//, { timeout: 15_000 });
   await expect(tablet.getByRole('heading', { name: 'Your health form' })).toBeVisible();
+  await expect(formVisit(tablet)).toContainText('Hello');
+
+  // A check in undone closes the form on the tablet too: it asks for the tablet back.
+  await drawer(page).getByRole('button', { name: 'Undo check in' }).click();
+  await expect(page.getByTestId('check-in-done')).toHaveText('Check in undone.');
+  await tablet.reload();
+  await expect(tablet.getByRole('heading', { name: 'We could not open this form' })).toBeVisible();
+  await expect(linkStatus(tablet)).toHaveText('Please hand the tablet back to the front desk.');
   await tablet.context().close();
 });
 

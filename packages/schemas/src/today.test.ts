@@ -4,6 +4,8 @@ import { appointmentStatuses } from './slots';
 import {
   canCheckIn,
   checkInSchema,
+  firstName,
+  healthFormOpen,
   healthFormState,
   inTodayFilter,
   needsHealthForm,
@@ -69,5 +71,18 @@ describe('today board', () => {
     expect(healthFormState({ ...link, completedAt: now }, now)).toBe('submitted');
     expect(healthFormState({ ...link, expiresAt: now }, now)).toBe('expired');
     expect(healthFormState({ ...link, revokedAt: now }, now)).toBe('expired');
+  });
+});
+
+// INT-03: the health form link opens only while the visit is on, and greets by first name.
+describe('health form link', () => {
+  it('opens while checked in or in consultation, and not otherwise', () => {
+    expect(appointmentStatuses.filter(healthFormOpen)).toEqual(['checked_in', 'in_progress']);
+  });
+
+  it('greets by the first word of the name only', () => {
+    expect(firstName('Test Patient Asha')).toBe('Test');
+    expect(firstName('  Ravi   Kumar ')).toBe('Ravi');
+    expect(firstName('Meera')).toBe('Meera');
   });
 });

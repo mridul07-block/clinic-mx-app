@@ -335,6 +335,9 @@ export {
 export {
   canCheckIn,
   checkInSchema,
+  firstName,
+  healthFormOpen,
+  healthFormOpenStatuses,
   healthFormState,
   healthFormStateLabels,
   healthFormStates,

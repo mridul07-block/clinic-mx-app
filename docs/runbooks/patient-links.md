@@ -68,6 +68,8 @@ What the page `/p/[token]` shows patients:
 | State | Message |
 | --- | --- |
 | Valid | The purpose's title. The page itself comes with that purpose's ticket (INT, MYP, FBK). |
+| Valid, health form, visit on | "Your health form", "Hello <first name>", the start in IST, "<centre>, with <physio>", "It takes about 5 minutes. The questions open here." (INT-03; the questions come with INT-04 and INT-05). |
+| Valid, health form, visit not on | "This form is no longer open. Please ask the front desk." On the tablet: "Please hand the tablet back to the front desk." |
 | Expired or stopped, My plan | "This link has expired. To get a new one, send "My plan" to Movementology Clinics on WhatsApp." The WhatsApp router (MSG tickets) must answer that message with `reissueMyPlanLink`. |
 | Expired, anything else | "This link has expired. Please ask the clinic for a new one." |
 | Submitted | "You have already sent this. Thank you." |
@@ -107,7 +109,11 @@ Headers on `/p/*` (`next.config.ts`):
   - with `patient_link` in its claims;
   - with `patient:<id>` as the audit actor.
 - **What a patient sees.** Policies `TO clinic_patient` show only what that link reaches.
-  - Today that is its own `patient_link` row.
+  - Its own `patient_link` row.
+  - For a link with an appointment (INT-03): that appointment (`id, patient_id, centre_id,
+    physio_id, starts_at, status`), the patient's `id, name`, and the `id, name` of that
+    appointment's centre and physio. Column grants keep every other column out of reach; another
+    appointment of the same patient is not seen.
   - Every patient table must add its own policy the same way, and grant `SELECT` to
     `clinic_patient`.
 - **Staff.** Staff have no policy on `patient_link` yet.
@@ -123,6 +129,21 @@ Headers on `/p/*` (`next.config.ts`):
 | `apps/web/modules/patient-links/services.test.ts` | Issue, reissue, open states, complete |
 | `packages/db/src/integration/patient-links.integration.test.ts` | Checks, audit, a patient sees only its link and changes nothing, staff see none |
 | `apps/web/e2e/patient-links.spec.ts` | 360 px and desktop |
+
+## The health form link (INT-03)
+
+Decisions (user, 23 October 2026):
+
+- **The first screen** greets the patient by first name and shows the visit (time, centre,
+  physio), nothing else about them. The first name tells a family sharing one phone whose form it
+  is.
+- **It opens only while the visit is on:** Checked in or In consultation (`healthFormOpen`). The
+  status is read on every open, so nothing is revoked. A visit cancelled, rescheduled, missed or
+  finished, or a check in undone, closes it; checked in again, the same link opens again.
+
+`loadHealthFormVisit` (`apps/web/modules/intake/visit.ts`) reads the visit through `asPatient`;
+the appointment comes from the link, never from the browser. **The form tickets (INT-04, INT-10)
+must check `healthFormOpen` again inside the submit transaction.**
 
 ## On the clinic tablet (IAM-10)
 

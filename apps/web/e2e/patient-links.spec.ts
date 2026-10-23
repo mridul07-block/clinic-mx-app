@@ -14,9 +14,9 @@ test('a valid link opens its page, for its purpose only, and the opening is audi
   page.on('request', (request) => {
     if (/supabase\.(co|in)/.test(request.url())) supabase.push(request.url());
   });
-  const link = await testLink({ purpose: 'health_form' });
+  const link = await testLink({ purpose: 'consent' });
   const response = await page.goto(link.path);
-  await expect(page.getByRole('heading', { name: 'Your health form' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your consent' })).toBeVisible();
   await expect(status(page)).toHaveAttribute('data-status', 'valid');
   expect(await linkViews(link)).toBe(1);
 
