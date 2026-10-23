@@ -2,6 +2,7 @@ import 'server-only';
 import {
   healthFormVisit,
   insertConsentRecords,
+  ownGuardians,
   ownIntakeResponse,
   saveIntakeResponse,
   type PatientLinkAccess,
@@ -10,9 +11,12 @@ import {
   canOpen,
   consentStatements,
   healthFormOpen,
+  istDate,
+  minorStatus,
   nextScreen,
   parseConsent,
   parseScreen,
+  parseSigner,
   pruneAnswers,
   resumeAt,
   visibleScreens,
@@ -24,6 +28,7 @@ import { z } from 'zod';
 import { asPatient } from '../access/patient-db';
 import { patientService } from '../access/service';
 import { verifyPatientLink } from '../patient-links/services';
+import { getSetting } from '../settings/settings';
 import { signatureStore, type SignatureStore } from './signature-store';
 import { formFor } from './visit';
 
@@ -42,6 +47,8 @@ export type SaveScreenResult =
   | { status: 'invalid'; errors: Record<string, string> }
   /** A Part A statement declined (INT-06): the form waits for reception. */
   | { status: 'declined' }
+  /** Under the adult age with no guardian on file (INT-07): reception adds one first. */
+  | { status: 'guardian_needed' }
   /** Not this screen yet: carry on where the form stands. */
   | { status: 'elsewhere'; resume: string }
   /** The visit is not on (INT-03). */
@@ -100,6 +107,10 @@ const saveScreen = patientService({
 const recordConsentSchema = z.object({
   screen: z.string().min(1).max(40),
   decisions: z.record(z.string(), z.boolean()),
+  signer: z.union([
+    z.object({ signer: z.literal('patient') }),
+    z.object({ signer: z.literal('guardian'), guardianId: z.guid() }),
+  ]),
   signature: z
     .union([
       z.object({ kind: z.literal('drawn'), file: z.string().min(1) }),
@@ -115,7 +126,11 @@ const recordConsentSchema = z.object({
  */
 const recordConsent = patientService({
   input: recordConsentSchema,
-  run: async (tx, { screen: key, decisions, signature }, link): Promise<SaveScreenResult> => {
+  run: async (
+    tx,
+    { screen: key, decisions, signer, signature },
+    link,
+  ): Promise<SaveScreenResult> => {
     const found = await standing(tx, key);
     if (found.status !== 'open') return found;
     const { visit, form, answers, done } = found;
@@ -125,7 +140,9 @@ const recordConsent = patientService({
       appointmentId: visit.appointmentId,
       patientLinkId: link.id,
       stage: 'A' as const,
-      signer: 'patient' as const,
+      // The patient, or for a patient under the adult age the guardian on file who signs (INT-07).
+      signer: signer.signer,
+      guardianId: signer.signer === 'guardian' ? signer.guardianId : null,
     };
     const statement = (statementKey: string) => ({
       statementKey,
@@ -166,17 +183,28 @@ const recordConsent = patientService({
   },
 });
 
-/** The consent screen: read the decisions, store a drawn signature, then record (INT-06). */
+/**
+ * The consent screen: read the decisions and who signs (INT-07: a guardian on file for a patient
+ * under the adult age), store a drawn signature, then record (INT-06).
+ */
 async function saveConsentScreen(
   link: PatientLinkAccess,
   key: string,
   statements: readonly string[],
+  signing: Parameters<typeof parseSigner>[0],
   posted: Posted,
   ip: string | undefined,
   store: SignatureStore,
 ): Promise<SaveScreenResult> {
+  const signer = parseSigner(signing, posted);
+  if (!signer.ok && signer.guardianNeeded) return { status: 'guardian_needed' };
   const parsed = parseConsent(statements, posted);
-  if (!parsed.ok) return { status: 'invalid', errors: parsed.errors };
+  if (!parsed.ok || !signer.ok) {
+    return {
+      status: 'invalid',
+      errors: { ...(signer.ok ? {} : signer.errors), ...(parsed.ok ? {} : parsed.errors) },
+    };
+  }
   const drawn: ConsentSignature | undefined = parsed.signature;
   // A drawn signature is stored first, outside the transaction, and removed if recording fails.
   const file = drawn?.kind === 'drawn' ? `${link.patientId}/${crypto.randomUUID()}.png` : undefined;
@@ -187,6 +215,10 @@ async function saveConsentScreen(
       {
         screen: key,
         decisions: parsed.decisions,
+        signer:
+          signer.signer === 'guardian'
+            ? { signer: 'guardian', guardianId: signer.guardianId }
+            : { signer: 'patient' },
         signature:
           drawn?.kind === 'typed'
             ? { kind: 'typed', name: drawn.name }
@@ -215,10 +247,30 @@ export async function saveHealthFormScreen(
   const opened = await verifyPatientLink(token);
   if (opened.status !== 'valid' || opened.link.purpose !== 'health_form') return { status: 'link' };
   const { link } = opened;
-  const found = await asPatient(link, (tx) => standing(tx, screen), ip);
-  if (found.status !== 'open') return found;
+  const adultAge = await getSetting('patients.adult_age_years');
+  const found = await asPatient(
+    link,
+    async (tx) => ({ ...(await standing(tx, screen)), guardians: await ownGuardians(tx) }),
+    ip,
+  );
+  if (found.status !== 'open')
+    return found.status === 'elsewhere'
+      ? { status: 'elsewhere', resume: found.resume }
+      : { status: 'closed' };
   if (found.screen.consent) {
-    return saveConsentScreen(link, screen, found.screen.consent.statements, posted, ip, store);
+    const signing = {
+      status: minorStatus(found.visit.dateOfBirth, adultAge, istDate(new Date())),
+      guardianIds: found.guardians.map((guardian) => guardian.id),
+    };
+    return saveConsentScreen(
+      link,
+      screen,
+      found.screen.consent.statements,
+      signing,
+      posted,
+      ip,
+      store,
+    );
   }
   return saveScreen(link, { screen, posted }, ip);
 }

@@ -9,6 +9,8 @@ export interface HealthFormVisit {
   status: AppointmentStatus;
   startsAt: Date;
   patientName: string;
+  /** For the guardian section (INT-07): `YYYY-MM-DD`, or null when not on file. */
+  dateOfBirth: string | null;
   centreName: string;
   physioName: string;
 }
@@ -25,6 +27,7 @@ export async function healthFormVisit(db: DbOrTransaction): Promise<HealthFormVi
       status: appointment.status,
       startsAt: appointment.startsAt,
       patientName: patient.name,
+      dateOfBirth: patient.dateOfBirth,
       centreName: centre.name,
       physioName: staffUser.name,
     })

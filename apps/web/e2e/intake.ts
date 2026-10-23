@@ -60,6 +60,8 @@ export function consentOf(appointmentId: string) {
       signatureKind: consentRecord.signatureKind,
       signatureFile: consentRecord.signatureFile,
       typedName: consentRecord.typedName,
+      signer: consentRecord.signer,
+      guardianId: consentRecord.guardianId,
     })
     .from(consentRecord)
     .where(eq(consentRecord.appointmentId, appointmentId))
@@ -68,6 +70,19 @@ export function consentOf(appointmentId: string) {
 
 /** A Part A statement's card on the consent screen, by part of its text. */
 export const consentCard = (page: Page, text: string) => page.getByRole('group', { name: text });
+
+/** The age question, asked when no date of birth is on file (INT-07). */
+export const ageQuestion = (page: Page) =>
+  page.getByRole('group', { name: /^Is the patient under/ });
+
+/** Answers the age question No when it is asked: the patient signs. */
+export async function notUnderAge(page: Page): Promise<void> {
+  // The consent screen first: the question shows with its cards.
+  await expect(page.getByText('I agree', { exact: true }).first()).toBeVisible();
+  if (await ageQuestion(page).isVisible()) {
+    await ageQuestion(page).getByText('No', { exact: true }).click();
+  }
+}
 
 /** Draws a stroke on the signature pad, as a finger would. */
 export async function drawSignature(page: Page): Promise<void> {
@@ -91,6 +106,7 @@ export async function drawSignature(page: Page): Promise<void> {
  */
 export async function signConsent(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\?screen=consent/);
+  await notUnderAge(page);
   for (const card of await page
     .getByRole('group')
     .filter({ has: page.getByText('I agree', { exact: true }) })

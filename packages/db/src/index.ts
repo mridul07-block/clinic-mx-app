@@ -281,8 +281,10 @@ export {
 export {
   insertConsentRecords,
   ownConsentDecisions,
+  ownGuardians,
   partAConsentDeclined,
   type ConsentDecisionRow,
+  type OwnGuardian,
 } from './consent';
 export {
   healthFormVisit,

@@ -12,7 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { appointment } from './appointments';
 import { episode } from './episodes';
-import { patient } from './patients';
+import { guardian, patient } from './patients';
 
 /**
  * A consent decision (INT-06, TAD `consent_record`, Blueprint Module 3): one statement, its
@@ -44,6 +44,8 @@ export const consentRecord = pgTable(
     signatureFile: text('signature_file'),
     typedName: text('typed_name'),
     signer: text('signer', { enum: consentSigners }).notNull(),
+    /** The guardian on file who signed for a patient under the adult age (INT-07). */
+    guardianId: uuid('guardian_id').references(() => guardian.id),
     /** Part B's modality statements (later). */
     modality: text('modality'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -56,6 +58,11 @@ export const consentRecord = pgTable(
     ),
     check('consent_record_stage', sql`${table.stage} in ('A', 'B')`),
     check('consent_record_signer', sql`${table.signer} in ('patient', 'guardian')`),
+    // A guardian's record names the guardian on file; the patient's names none.
+    check(
+      'consent_record_guardian',
+      sql`(${table.signer} = 'guardian') = (${table.guardianId} is not null)`,
+    ),
     // Accepted is signed, drawn with its file or typed with the name; declined is not signed.
     check(
       'consent_record_signature',

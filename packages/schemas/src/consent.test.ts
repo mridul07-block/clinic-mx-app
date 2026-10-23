@@ -1,12 +1,16 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
+  ANSWER_AGE,
   CHOOSE_ONE,
+  CHOOSE_SIGNER,
   SIGN_HERE,
   TYPE_NAME,
   consentStatements,
   latestConsent,
+  minorStatus,
   parseConsent,
+  parseSigner,
   partAStatements,
   signatureMaxBytes,
 } from './consent';
@@ -87,5 +91,54 @@ describe('Part A consent', () => {
     ];
     expect(latestConsent(changed).declined).toBe(false);
     expect(latestConsent([]).declined).toBe(false);
+  });
+});
+
+// INT-07: under the adult age a guardian on file signs; without a date of birth the screen asks.
+describe('who signs Part A', () => {
+  const guardianIds = ['00000000-0000-4000-8000-000000000a01'];
+
+  it('knows a minor from the date of birth and the adult age, or does not know', () => {
+    expect(minorStatus('2014-10-24', 18, '2026-10-23')).toBe('minor');
+    expect(minorStatus('2008-10-23', 18, '2026-10-23')).toBe('adult');
+    expect(minorStatus('2008-10-24', 18, '2026-10-23')).toBe('minor');
+    expect(minorStatus(null, 18, '2026-10-23')).toBe('unknown');
+  });
+
+  it('lets an adult sign, and asks when the age is unknown', () => {
+    expect(parseSigner({ status: 'adult', guardianIds }, {})).toEqual({
+      ok: true,
+      signer: 'patient',
+    });
+    expect(parseSigner({ status: 'unknown', guardianIds }, {})).toEqual({
+      ok: false,
+      errors: { minor: ANSWER_AGE },
+    });
+    expect(parseSigner({ status: 'unknown', guardianIds }, { minor: 'no' })).toEqual({
+      ok: true,
+      signer: 'patient',
+    });
+  });
+
+  it('has a guardian on file sign for a minor, or asks for reception without one', () => {
+    for (const [status, posted] of [
+      ['minor', {}],
+      ['unknown', { minor: 'yes' }],
+    ] as const) {
+      expect(parseSigner({ status, guardianIds }, posted)).toEqual({
+        ok: false,
+        errors: { guardian: CHOOSE_SIGNER },
+      });
+      expect(parseSigner({ status, guardianIds }, { ...posted, guardian: guardianIds[0] })).toEqual(
+        { ok: true, signer: 'guardian', guardianId: guardianIds[0] },
+      );
+      expect(
+        parseSigner({ status, guardianIds }, { ...posted, guardian: crypto.randomUUID() }),
+      ).toEqual({ ok: false, errors: { guardian: CHOOSE_SIGNER } });
+      expect(parseSigner({ status, guardianIds: [] }, posted)).toEqual({
+        ok: false,
+        guardianNeeded: true,
+      });
+    }
   });
 });

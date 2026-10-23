@@ -44,6 +44,10 @@ export async function saveScreenAction(
   if (result.status === 'saved') redirect(`${page}?screen=${encodeURIComponent(result.next)}`);
   // A Part A statement declined (INT-06): the consent screen now asks for reception.
   if (result.status === 'declined') redirect(`${page}?screen=${encodeURIComponent(screen)}`);
+  // Under the adult age with no guardian on file (INT-07): reception adds one first.
+  if (result.status === 'guardian_needed') {
+    redirect(`${page}?screen=${encodeURIComponent(screen)}&guardian=needed`);
+  }
   if (result.status === 'elsewhere') {
     redirect(`${page}?screen=${encodeURIComponent(result.resume)}`);
   }

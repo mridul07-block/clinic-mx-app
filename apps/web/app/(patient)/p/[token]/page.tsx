@@ -152,6 +152,7 @@ function healthFormScreen(
   welcome: Extract<HealthFormWelcome, { open: true }>,
   key: string | undefined,
   changing: boolean,
+  guardianNeeded: boolean,
 ): ReactNode {
   if (!key) return null;
   const { form, answers, doneScreens, resume } = welcome;
@@ -194,8 +195,11 @@ function healthFormScreen(
   );
   if (screen.consent) {
     // Part A consent (INT-06): after a decline the form waits for reception, unless the patient
-    // chooses to change their answer.
-    if (welcome.consentDeclined && !changing) {
+    // chooses to change their answer. Under the adult age with no guardian on file (INT-07)
+    // reception adds one first; when the age was only the patient's answer, they may change it.
+    const { signing } = welcome;
+    const noGuardian = signing.status === 'minor' && signing.guardians.length === 0;
+    if ((welcome.consentDeclined || guardianNeeded || noGuardian) && !changing) {
       return (
         <>
           {stepper}
@@ -203,16 +207,18 @@ function healthFormScreen(
           <p className="text-lg text-ink" data-testid="consent-declined">
             Please speak to reception.
           </p>
-          <div className="fixed inset-x-0 bottom-0 border-t border-line bg-surface px-4 py-3">
-            <div className="mx-auto flex w-full max-w-signin">
-              <Link
-                href={`${here}?screen=${screen.key}&change=1`}
-                className={`${patientSecondaryClass} flex-1`}
-              >
-                Change my answer
-              </Link>
+          {noGuardian && !welcome.consentDeclined ? null : (
+            <div className="fixed inset-x-0 bottom-0 border-t border-line bg-surface px-4 py-3">
+              <div className="mx-auto flex w-full max-w-signin">
+                <Link
+                  href={`${here}?screen=${screen.key}&change=1`}
+                  className={`${patientSecondaryClass} flex-1`}
+                >
+                  Change my answer
+                </Link>
+              </div>
             </div>
-          </div>
+          )}
         </>
       );
     }
@@ -228,6 +234,7 @@ function healthFormScreen(
             version: consentStatements[statementKey].version,
             text: consentStatements[statementKey].text,
           }))}
+          signing={signing}
           backHref={backHref}
         />
       </>
@@ -259,10 +266,10 @@ export default async function PatientPage({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ screen?: string; change?: string }>;
+  searchParams: Promise<{ screen?: string; change?: string; guardian?: string }>;
 }) {
   const { token } = await params;
-  const { screen: screenKey, change } = await searchParams;
+  const { screen: screenKey, change, guardian } = await searchParams;
   const browser = await kioskBrowser();
   if (browser.status !== 'none') {
     const linkId = patientLinkIdFromToken(token);
@@ -281,7 +288,7 @@ export default async function PatientPage({
   }
   const { title, body } = kiosk ? kioskMessage(opened) : message(opened);
   const formScreen = welcome?.open
-    ? healthFormScreen(token, welcome, screenKey, change === '1')
+    ? healthFormScreen(token, welcome, screenKey, change === '1', guardian === 'needed')
     : null;
   const page = (
     <main data-voice="patient" className="min-h-dvh bg-surface px-4 py-6">

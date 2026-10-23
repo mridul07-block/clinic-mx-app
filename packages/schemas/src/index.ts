@@ -244,14 +244,18 @@ export {
   type PostedScreen,
 } from './health-form';
 export {
+  ANSWER_AGE,
   CHOOSE_ONE,
+  CHOOSE_SIGNER,
   SIGN_HERE,
   TYPE_NAME,
   consentSigners,
   consentStages,
   consentStatements,
   latestConsent,
+  minorStatus,
   parseConsent,
+  parseSigner,
   partAStatements,
   signatureKinds,
   signatureMaxBytes,
@@ -261,7 +265,9 @@ export {
   type ConsentStage,
   type ConsentStatement,
   type ConsentStatementKey,
+  type MinorStatus,
   type ParsedConsent,
+  type ParsedSigner,
   type SignatureKind,
 } from './consent';
 export { keyFromName } from './keys';

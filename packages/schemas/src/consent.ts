@@ -1,3 +1,5 @@
+import { ageOn, needsGuardian } from './patients';
+
 /**
  * Consent (INT-06, Blueprint Module 3, TAD `consent_record`): statements are versioned data, each
  * recorded with a tick, the time, its version and the e-signature; declining a mandatory one
@@ -148,4 +150,56 @@ export function latestConsent(records: readonly ConsentDecision[]): {
     Object.entries(latest).map(([key, value]) => [key, value.accepted]),
   );
   return { latest: decided, declined: Object.values(decided).some((accepted) => !accepted) };
+}
+
+/**
+ * Whether the patient is under the adult age (INT-07, setting `patients.adult_age_years`): known
+ * from the date of birth on file, or unknown without one (the consent screen then asks).
+ */
+export type MinorStatus = 'minor' | 'adult' | 'unknown';
+
+export function minorStatus(
+  dateOfBirth: string | null,
+  adultAge: number,
+  today: string,
+): MinorStatus {
+  if (!dateOfBirth) return 'unknown';
+  return needsGuardian(ageOn(dateOfBirth, today), adultAge) ? 'minor' : 'adult';
+}
+
+export const CHOOSE_SIGNER = 'Choose who is signing.';
+export const ANSWER_AGE = 'Answer this question.';
+
+export type ParsedSigner =
+  | { ok: true; signer: 'patient' }
+  | { ok: true; signer: 'guardian'; guardianId: string }
+  /** Under the adult age with no guardian on file: reception adds one first. */
+  | { ok: false; guardianNeeded: true }
+  | { ok: false; guardianNeeded?: false; errors: Record<string, string> };
+
+/**
+ * Who signs Part A (INT-07, PRD J2.7; user decisions 23 October 2026): the patient, or for a
+ * patient under the adult age a guardian on file, chosen as `guardian`. Without a date of birth
+ * the screen asks (`minor`: yes or no) and the answer decides.
+ */
+export function parseSigner(
+  { status, guardianIds }: { status: MinorStatus; guardianIds: readonly string[] },
+  posted: Readonly<Record<string, string | readonly string[] | undefined>>,
+): ParsedSigner {
+  const one = (key: string) => {
+    const raw = posted[key];
+    return (typeof raw === 'string' ? raw : raw?.[0])?.trim() ?? '';
+  };
+  let minor = status === 'minor';
+  if (status === 'unknown') {
+    const answer = one('minor');
+    if (answer !== 'yes' && answer !== 'no') return { ok: false, errors: { minor: ANSWER_AGE } };
+    minor = answer === 'yes';
+  }
+  if (!minor) return { ok: true, signer: 'patient' };
+  if (guardianIds.length === 0) return { ok: false, guardianNeeded: true };
+  const guardianId = one('guardian');
+  return guardianIds.includes(guardianId)
+    ? { ok: true, signer: 'guardian', guardianId }
+    : { ok: false, errors: { guardian: CHOOSE_SIGNER } };
 }
