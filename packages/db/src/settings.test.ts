@@ -18,6 +18,7 @@ const stored: Settings = {
   'packages.never_reschedulable_items': ['zero_gravity_treadmill'],
   'day.running_late_minutes': 15,
   'day.no_show_allowed_minutes': 25,
+  'reports.max_file_mb': 4,
   'billing.consultation_fee_timing': 'after_consultation',
   'packages.validity_months': 3,
   'packages.expiry_reminder_days': 14,

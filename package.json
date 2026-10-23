@@ -20,7 +20,7 @@
     "format:check": "prettier --check .",
     "verify": "pnpm run \"/^(format:check|lint|typecheck|test|check:design)$/\"",
     "supabase": "supabase",
-    "db:start": "supabase start -x studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor",
+    "db:start": "supabase start -x studio,imgproxy,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor",
     "db:stop": "supabase stop",
     "db:status": "supabase status",
     "db:generate": "pnpm --filter @clinic-mx/db db:generate",

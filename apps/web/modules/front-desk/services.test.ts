@@ -2,7 +2,14 @@ import type { Db, StaffMember } from '@clinic-mx/db';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotAllowedError } from '../access/guard';
 import { SchedulingError } from '../scheduling/services';
-import { checkIn, undoCheckIn } from './services';
+import {
+  ReportError,
+  addReports,
+  checkIn,
+  openFormOnTablet,
+  showHealthForm,
+  undoCheckIn,
+} from './services';
 import { loadToday } from './today';
 
 const fakeTx = { kind: 'transaction' };
@@ -13,8 +20,19 @@ const db = vi.hoisted(() => ({
   undoCheckIn: vi.fn(),
   todayBoard: vi.fn(),
   contentVersion: vi.fn(() => 'v1'),
+  checkInView: vi.fn(),
+  healthFormLink: vi.fn(),
+  findKioskDevice: vi.fn(),
+  sendLinkToKiosk: vi.fn(),
+  insertPatientReport: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
+const links = vi.hoisted(() => ({ issuePatientLink: vi.fn(), patientLinkPath: vi.fn() }));
+vi.mock('../patient-links/services', () => links);
+const store = vi.hoisted(() => ({ put: vi.fn(), remove: vi.fn() }));
+vi.mock('./report-store', () => ({ reportStore: () => store }));
+// Test value only; the real one is the `reports.max_file_mb` row.
+vi.mock('../settings/settings', () => ({ getSetting: vi.fn(() => Promise.resolve(1)) }));
 vi.mock('../access/staff-db', () => ({
   asStaff: (_actor: unknown, work: (tx: unknown) => unknown): unknown =>
     db.withStaffAccess({}, {}, work) as unknown,
@@ -53,7 +71,9 @@ const refusedFor = [
 // check in made by mistake on that day; the board is for those who check in.
 describe('front desk today', () => {
   beforeEach(() => {
-    for (const fn of Object.values(db)) if ('mockReset' in fn) fn.mockReset();
+    for (const fn of [...Object.values(db), ...Object.values(links), ...Object.values(store)]) {
+      if ('mockReset' in fn) fn.mockReset();
+    }
     db.withStaffAccess.mockImplementation(
       (_db: Db, _context: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
     );
@@ -67,27 +87,35 @@ describe('front desk today', () => {
   it('checks a booked or confirmed patient in on the day', async () => {
     db.appointmentRecord.mockResolvedValue(booked);
     db.checkIn.mockResolvedValue({ id: appointmentId });
-    await checkIn(context(), { appointmentId });
+    await expect(checkIn(context(), { appointmentId })).rejects.toThrow(
+      'Tick that you have checked who this is.',
+    );
+    await checkIn(context(), { appointmentId, identityChecked: true });
     expect(db.checkIn).toHaveBeenCalledWith(fakeTx, {
       appointmentId,
+      by: deskId,
       now: new Date('2026-11-02T03:00:00.000Z'),
     });
 
     db.appointmentRecord.mockResolvedValue({ ...booked, status: 'no_show' });
-    await expect(checkIn(context(), { appointmentId })).rejects.toThrow(
+    await expect(checkIn(context(), { appointmentId, identityChecked: true })).rejects.toThrow(
       'Only a booked or confirmed appointment is checked in.',
     );
     db.appointmentRecord.mockResolvedValue(booked);
     // 00:00 IST on 3 November.
     vi.setSystemTime(new Date('2026-11-02T18:30:00.000Z'));
-    await expect(checkIn(context(), { appointmentId })).rejects.toThrow(SchedulingError);
+    await expect(checkIn(context(), { appointmentId, identityChecked: true })).rejects.toThrow(
+      SchedulingError,
+    );
     expect(db.checkIn).toHaveBeenCalledTimes(1);
   });
 
   it('checks in for those who check in at the centre only', async () => {
     db.appointmentRecord.mockResolvedValue(booked);
     for (const actor of refusedFor) {
-      await expect(checkIn(context(actor), { appointmentId })).rejects.toThrow(NotAllowedError);
+      await expect(
+        checkIn(context(actor), { appointmentId, identityChecked: true }),
+      ).rejects.toThrow(NotAllowedError);
     }
     expect(db.checkIn).not.toHaveBeenCalled();
   });
@@ -120,5 +148,140 @@ describe('front desk today', () => {
         NotAllowedError,
       );
     }
+  });
+
+  // INT-02: the drawer's health form (first visits only), the tablet, and reports.
+  describe('check in drawer', () => {
+    const view = { ...booked, status: 'checked_in', episodeId: null, patientId: 'patient' };
+    const waiting = {
+      id: 'link',
+      expiresAt: new Date('2026-11-02T05:00:00.000Z'),
+      revokedAt: null,
+      completedAt: null,
+    };
+
+    it('shows the waiting health form link, or issues one, for a checked in first visit', async () => {
+      db.appointmentRecord.mockResolvedValue(booked);
+      db.checkInView.mockResolvedValue(view);
+      db.healthFormLink.mockResolvedValue(waiting);
+      links.patientLinkPath.mockReturnValue('/p/waiting');
+      expect(await showHealthForm(context(), { appointmentId })).toMatchObject({
+        linkId: 'link',
+        path: '/p/waiting',
+      });
+      expect(links.issuePatientLink).not.toHaveBeenCalled();
+
+      db.healthFormLink.mockResolvedValue({
+        ...waiting,
+        expiresAt: new Date('2026-11-02T02:00:00.000Z'),
+      });
+      links.issuePatientLink.mockResolvedValue({
+        linkId: 'new',
+        path: '/p/new',
+        expiresAt: new Date(),
+      });
+      expect(await showHealthForm(context(), { appointmentId })).toMatchObject({ path: '/p/new' });
+      expect(links.issuePatientLink).toHaveBeenCalledWith(fakeTx, {
+        patientId: 'patient',
+        purpose: 'health_form',
+        appointmentId,
+      });
+
+      db.healthFormLink.mockResolvedValue({ ...waiting, completedAt: new Date() });
+      await expect(showHealthForm(context(), { appointmentId })).rejects.toThrow(
+        'The health form for this visit has been sent already.',
+      );
+      db.checkInView.mockResolvedValue({ ...view, episodeId: 'episode' });
+      await expect(showHealthForm(context(), { appointmentId })).rejects.toThrow(
+        'No health form for this visit: it is part of an open episode.',
+      );
+      db.checkInView.mockResolvedValue({ ...view, status: 'booked' });
+      await expect(showHealthForm(context(), { appointmentId })).rejects.toThrow(
+        'Check the patient in first.',
+      );
+    });
+
+    it('opens the form on a working tablet at the appointment’s centre only', async () => {
+      const kioskId = '00000000-0000-4000-8000-000000000901';
+      db.appointmentRecord.mockResolvedValue(booked);
+      db.checkInView.mockResolvedValue(view);
+      db.healthFormLink.mockResolvedValue(waiting);
+      links.patientLinkPath.mockReturnValue('/p/waiting');
+      db.findKioskDevice.mockResolvedValue({
+        id: kioskId,
+        centreId: hsr,
+        name: 'Front desk tablet',
+        stoppedAt: null,
+      });
+      db.sendLinkToKiosk.mockResolvedValue(true);
+      expect(await openFormOnTablet(context(), { appointmentId, kioskId })).toEqual({
+        tabletName: 'Front desk tablet',
+      });
+      expect(db.sendLinkToKiosk).toHaveBeenCalledWith(fakeTx, kioskId, 'link');
+      db.findKioskDevice.mockResolvedValue({
+        id: kioskId,
+        centreId: koramangala,
+        name: 'Other',
+        stoppedAt: null,
+      });
+      await expect(openFormOnTablet(context(), { appointmentId, kioskId })).rejects.toThrow(
+        'That tablet is not at this centre.',
+      );
+      expect(db.sendLinkToKiosk).toHaveBeenCalledTimes(1);
+    });
+
+    const png = (bytes = 64) =>
+      new File(
+        [new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...new Array<number>(bytes).fill(0)])],
+        'scan.png',
+        {
+          type: 'image/png',
+        },
+      );
+
+    it('stores reports, then records them, for those who check in', async () => {
+      db.appointmentRecord.mockResolvedValue(booked);
+      db.checkInView.mockResolvedValue(view);
+      db.insertPatientReport.mockResolvedValue({ id: 'r' });
+      expect(await addReports(context(), { appointmentId, files: [png(), png()] })).toBe(2);
+      expect(store.put).toHaveBeenCalledTimes(2);
+      expect(store.put.mock.calls[0]?.[0]).toMatch(/^patient\/[0-9a-f-]{36}\.png$/);
+      expect(db.insertPatientReport).toHaveBeenCalledWith(
+        fakeTx,
+        expect.objectContaining({ patientId: 'patient', appointmentId, uploadedBy: deskId }),
+      );
+      await expect(
+        addReports(context(member({ role: 'physiotherapist', treatsPatients: true })), {
+          appointmentId,
+          files: [png()],
+        }),
+      ).rejects.toThrow(NotAllowedError);
+    });
+
+    it('refuses other files and files over the limit, and removes what it stored on a failure', async () => {
+      db.appointmentRecord.mockResolvedValue(booked);
+      db.checkInView.mockResolvedValue(view);
+      const named = (name: string, type: string, bytes: number[]) =>
+        new File([new Uint8Array(bytes)], name, { type });
+      await expect(
+        addReports(context(), { appointmentId, files: [named('a.txt', 'text/plain', [1])] }),
+      ).rejects.toThrow('a.txt is not a photo or PDF.');
+      await expect(
+        addReports(context(), {
+          appointmentId,
+          files: [named('b.png', 'image/png', [1, 2, 3, 4])],
+        }),
+      ).rejects.toThrow(ReportError);
+      await expect(
+        addReports(context(), { appointmentId, files: [png(1024 * 1024)] }),
+      ).rejects.toThrow('scan.png is larger than 1 MB.');
+      expect(store.put).not.toHaveBeenCalled();
+
+      db.insertPatientReport.mockRejectedValueOnce(new Error('insert failed'));
+      await expect(addReports(context(), { appointmentId, files: [png()] })).rejects.toThrow(
+        'insert failed',
+      );
+      expect(store.remove).toHaveBeenCalledWith([expect.stringMatching(/^patient\//)]);
+    });
   });
 });

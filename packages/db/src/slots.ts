@@ -665,16 +665,22 @@ export async function undoNoShow(
 }
 
 /**
- * Checks a Booked or Confirmed patient in (INT-01, PRD J2.1): Checked in, with the arrival time.
+ * Checks a Booked or Confirmed patient in (INT-01, PRD J2.1): Checked in, with the arrival time
+ * and who checked them in, having checked who they are (INT-02).
  * The service checks it is the appointment's day; the database guards it too.
  */
 export async function checkIn(
   tx: DbOrTransaction,
-  arrival: { appointmentId: string; now: Date },
+  arrival: { appointmentId: string; by: string; now: Date },
 ): Promise<{ id: string } | undefined> {
   const [row] = await tx
     .update(appointment)
-    .set({ status: 'checked_in', arrivedAt: arrival.now, updatedAt: arrival.now })
+    .set({
+      status: 'checked_in',
+      arrivedAt: arrival.now,
+      checkedInBy: arrival.by,
+      updatedAt: arrival.now,
+    })
     .where(
       and(
         eq(appointment.id, arrival.appointmentId),
@@ -698,6 +704,7 @@ export async function undoCheckIn(
     .set({
       status: sql`case when ${appointment.confirmedAt} is null then 'booked' else 'confirmed' end::appointment_status`,
       arrivedAt: null,
+      checkedInBy: null,
       updatedAt: undo.now,
     })
     .where(and(eq(appointment.id, undo.appointmentId), eq(appointment.status, 'checked_in')))

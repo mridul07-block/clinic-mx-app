@@ -2,22 +2,41 @@ import 'server-only';
 import {
   appointmentRecord,
   checkIn as checkInAppointment,
+  checkInView,
+  findKioskDevice,
+  healthFormLink,
+  insertPatientReport,
+  sendLinkToKiosk,
   undoCheckIn as undoAppointmentCheckIn,
 } from '@clinic-mx/db';
-import { canCheckIn, checkInSchema, isChangeable, undoCheckInSchema } from '@clinic-mx/schemas';
-import { staffService } from '../access/service';
+import {
+  canCheckIn,
+  checkInSchema,
+  healthFormState,
+  isChangeable,
+  needsHealthForm,
+  reportContentTypes,
+  reportExtensions,
+  undoCheckInSchema,
+  type ReportContentType,
+} from '@clinic-mx/schemas';
+import { z } from 'zod';
+import { staffService, type ServiceContext, type ServiceTransaction } from '../access/service';
+import { issuePatientLink, patientLinkPath, type IssuedLink } from '../patient-links/services';
 import { SchedulingError, appointmentTarget } from '../scheduling/services';
+import { getSetting } from '../settings/settings';
+import { reportStore } from './report-store';
 
 /**
- * Checks a Booked or Confirmed patient in from the Today board (INT-01, PRD J2.1): Checked in
- * with the arrival time, on the appointment's own day, by those who check in at its centre.
- * The Check in drawer (INT-02) adds the identity check, form status and QR around it.
+ * Checks a Booked or Confirmed patient in from the check in drawer (INT-01, INT-02, PRD J2.1):
+ * Checked in with the arrival time and who did it, on the appointment's own day, by those who
+ * check in at its centre, once they have ticked that they checked who the patient is.
  */
 export const checkIn = staffService({
   action: 'check_in.manage',
   input: checkInSchema,
   target: (input, tx) => appointmentTarget(tx, input.appointmentId),
-  run: async (tx, input) => {
+  run: async (tx, input, actor) => {
     const found = await appointmentRecord(tx, input.appointmentId);
     if (!found || !isChangeable(found.status)) {
       throw new SchedulingError('Only a booked or confirmed appointment is checked in.');
@@ -26,7 +45,7 @@ export const checkIn = staffService({
     if (!canCheckIn(found.startsAt, now)) {
       throw new SchedulingError('Check a patient in on the appointment’s day.');
     }
-    if (!(await checkInAppointment(tx, { appointmentId: found.id, now }))) {
+    if (!(await checkInAppointment(tx, { appointmentId: found.id, by: actor.id, now }))) {
       throw new SchedulingError('Only a booked or confirmed appointment is checked in.');
     }
   },
@@ -54,3 +73,143 @@ export const undoCheckIn = staffService({
     }
   },
 });
+
+const appointmentInput = z.object({ appointmentId: z.guid() });
+
+/**
+ * The appointment's health form link (INT-02, PRD J2.2): the one still waiting, or a new one when
+ * none was sent or it ran out. Only for a patient checked in on a first visit for a problem.
+ */
+async function liveHealthFormLink(
+  tx: ServiceTransaction,
+  appointmentId: string,
+): Promise<IssuedLink & { centreId: string }> {
+  const view = await checkInView(tx, appointmentId);
+  if (!view || view.status !== 'checked_in') {
+    throw new SchedulingError('Check the patient in first.');
+  }
+  if (!needsHealthForm(view)) {
+    throw new SchedulingError('No health form for this visit: it is part of an open episode.');
+  }
+  const latest = await healthFormLink(tx, appointmentId);
+  const state = healthFormState(latest, new Date());
+  if (state === 'submitted') {
+    throw new SchedulingError('The health form for this visit has been sent already.');
+  }
+  if (latest && state === 'waiting') {
+    const path = patientLinkPath({ ...latest, purpose: 'health_form' });
+    if (!path) throw new SchedulingError('Patient links are not set up (PATIENT_LINK_SECRET).');
+    return { linkId: latest.id, path, expiresAt: latest.expiresAt, centreId: view.centreId };
+  }
+  const issued = await issuePatientLink(tx, {
+    patientId: view.patientId,
+    purpose: 'health_form',
+    appointmentId,
+  });
+  return { ...issued, centreId: view.centreId };
+}
+
+/** Show QR (INT-02): the health form link to show as a QR, issued if needed, audited. */
+export const showHealthForm = staffService({
+  action: 'check_in.manage',
+  input: appointmentInput,
+  target: (input, tx) => appointmentTarget(tx, input.appointmentId),
+  run: (tx, input) => liveHealthFormLink(tx, input.appointmentId),
+});
+
+/**
+ * Open on tablet (INT-02, IAM-10): the health form goes to a working kiosk tablet at the
+ * appointment's centre, which opens it within a few seconds. The tablet's name, for the message.
+ */
+export const openFormOnTablet = staffService({
+  action: 'check_in.manage',
+  input: appointmentInput.extend({ kioskId: z.guid({ error: 'Choose a tablet.' }) }),
+  target: (input, tx) => appointmentTarget(tx, input.appointmentId),
+  run: async (tx, input) => {
+    const link = await liveHealthFormLink(tx, input.appointmentId);
+    const kiosk = await findKioskDevice(tx, input.kioskId);
+    if (!kiosk || kiosk.centreId !== link.centreId) {
+      throw new SchedulingError('That tablet is not at this centre.');
+    }
+    if (kiosk.stoppedAt || !(await sendLinkToKiosk(tx, kiosk.id, link.linkId))) {
+      throw new SchedulingError('That tablet is no longer a kiosk.');
+    }
+    return { tabletName: kiosk.name };
+  },
+});
+
+/** A refused report file, in words for the desk. */
+export class ReportError extends Error {
+  override name = 'ReportError';
+}
+
+/** The first bytes each kind of file starts with: the browser's word for the type is not enough. */
+const signatures: Record<ReportContentType, number[]> = {
+  'image/jpeg': [0xff, 0xd8, 0xff],
+  'image/png': [0x89, 0x50, 0x4e, 0x47],
+  'application/pdf': [0x25, 0x50, 0x44, 0x46],
+};
+
+const isReportType = (type: string): type is ReportContentType =>
+  (reportContentTypes as readonly string[]).includes(type);
+
+/**
+ * Add reports (INT-02, TAD section 9): photos (shrunk on the phone first) and PDF scans of the
+ * patient's reports, at most `reports.max_file_mb` each. Each file goes to the private `reports`
+ * bucket, then a row records it in the audited transaction; if anything fails, the files stored
+ * so far are removed again. How many were added.
+ */
+export async function addReports(
+  context: ServiceContext,
+  rawInput: { appointmentId: unknown; files: File[] },
+): Promise<number> {
+  const maxMegabytes = await getSetting('reports.max_file_mb');
+  const files = rawInput.files.filter((file) => file.size > 0);
+  if (files.length === 0) throw new ReportError('Choose a photo or PDF of the report.');
+  const checked: { bytes: Uint8Array; contentType: ReportContentType }[] = [];
+  for (const file of files) {
+    if (!isReportType(file.type)) {
+      throw new ReportError(`${file.name} is not a photo or PDF.`);
+    }
+    if (file.size > maxMegabytes * 1024 * 1024) {
+      throw new ReportError(`${file.name} is larger than ${String(maxMegabytes)} MB.`);
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (!signatures[file.type].every((byte, i) => bytes[i] === byte)) {
+      throw new ReportError(`${file.name} is not a photo or PDF.`);
+    }
+    checked.push({ bytes, contentType: file.type });
+  }
+  const store = reportStore();
+  const stored: string[] = [];
+  try {
+    return await staffService({
+      action: 'check_in.manage',
+      input: appointmentInput,
+      target: (input, tx) => appointmentTarget(tx, input.appointmentId),
+      run: async (tx, input, actor) => {
+        const view = await checkInView(tx, input.appointmentId);
+        if (!view) throw new SchedulingError('That appointment was not found.');
+        for (const file of checked) {
+          const id = crypto.randomUUID();
+          const filePath = `${view.patientId}/${id}.${reportExtensions[file.contentType]}`;
+          await store.put(filePath, file.bytes, file.contentType);
+          stored.push(filePath);
+          await insertPatientReport(tx, {
+            id,
+            patientId: view.patientId,
+            appointmentId: view.id,
+            filePath,
+            contentType: file.contentType,
+            sizeBytes: file.bytes.byteLength,
+            uploadedBy: actor.id,
+          });
+        }
+        return checked.length;
+      },
+    })(context, { appointmentId: rawInput.appointmentId });
+  } catch (error) {
+    await store.remove(stored);
+    throw error;
+  }
+}

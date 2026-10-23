@@ -78,6 +78,8 @@ export const appointment = pgTable(
       .unique()
       .references((): AnyPgColumn => appointment.id),
     arrivedAt: timestamp('arrived_at', { withTimezone: true }),
+    /** Who checked the patient in, having checked who they are (INT-02); cleared by an undo. */
+    checkedInBy: uuid('checked_in_by').references(() => staffUser.id),
     /** Marked a no show (INT-11): when, and the staff member who did it; cleared by an undo. */
     noShowAt: timestamp('no_show_at', { withTimezone: true }),
     noShowBy: uuid('no_show_by').references(() => staffUser.id),
@@ -100,7 +102,7 @@ export const appointment = pgTable(
     ),
     check(
       'appointment_arrived',
-      sql`${table.status} <> 'checked_in' or ${table.arrivedAt} is not null`,
+      sql`(${table.status} <> 'checked_in' or ${table.arrivedAt} is not null) and (${table.arrivedAt} is null) = (${table.checkedInBy} is null)`,
     ),
     check(
       'appointment_no_show',

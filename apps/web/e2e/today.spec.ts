@@ -46,12 +46,16 @@ test('the desk lands on Today; chips count and filter; tags and timers show', as
     minutes: 5,
     values: { status: 'confirmed', confirmedAt: new Date() },
   });
+  const desk = await temporaryDesk();
   await startedAppointment(person.id, here.id, 10, {
     minutes: 5,
-    values: { status: 'checked_in', arrivedAt: new Date(Date.now() - 12 * 60_000) },
+    values: {
+      status: 'checked_in',
+      arrivedAt: new Date(Date.now() - 12 * 60_000),
+      checkedInBy: desk.id,
+    },
   });
   await startedAppointment(person.id, done.id, 40, { minutes: 5, values: { status: 'completed' } });
-  const desk = await temporaryDesk();
   await startedAppointment(person.id, dropped.id, 60, {
     minutes: 5,
     values: {
@@ -92,7 +96,7 @@ test('the desk lands on Today; chips count and filter; tags and timers show', as
   await expect(rowOf(page, later.name)).toHaveCount(0);
 });
 
-test('the desk checks a patient in in one tap and undoes a mistake', async ({ page }) => {
+test('the desk checks a patient in from the drawer and undoes a mistake', async ({ page }) => {
   const person = await physio();
   const patient = await testPatient();
   await startedAppointment(person.id, patient.id, 20, {
@@ -102,15 +106,28 @@ test('the desk checks a patient in in one tap and undoes a mistake', async ({ pa
   const desk = await temporaryDesk();
   await signIn(page, desk.email);
 
+  // INT-02: Check in opens the drawer, where the identity is ticked first.
   const row = rowOf(page, patient.name);
+  const drawer = page.getByRole('complementary', { name: 'Check in' });
   await expect(row).toContainText('Running late');
-  await row.getByRole('button', { name: `Check in ${patient.name}` }).click();
+  await row.getByRole('link', { name: `Check in ${patient.name}` }).click();
+  await drawer.getByLabel('I have checked who this is (name and date of birth)').check();
+  await drawer.getByRole('button', { name: 'Check in', exact: true }).click();
+  await expect(drawer.getByTestId('checked-in')).toBeVisible();
+  await drawer.getByRole('link', { name: 'Close' }).click();
+  await expect(drawer).toHaveCount(0);
   await expect(row).toContainText('Here 0 min');
   await expect(row).not.toContainText('min late');
   await chip(page, 'here').click();
+  await expect(page).toHaveURL(/show=here/);
   await expect(row).toBeVisible();
 
-  await row.getByRole('button', { name: `Undo check in for ${patient.name}` }).click();
+  await row.getByRole('link', { name: `Form and reports for ${patient.name}` }).click();
+  await drawer.getByRole('button', { name: 'Undo check in' }).click();
+  await expect(page.getByTestId('check-in-done')).toHaveText('Check in undone.');
+  await drawer.getByRole('link', { name: 'Close' }).click();
+  await expect(drawer).toHaveCount(0);
+  await expect(page).toHaveURL(/show=here/);
   // Back on the Here now chip, where it no longer is; then under To arrive, running late again.
   await expect(row).toHaveCount(0);
   await chip(page, 'to_arrive').click();

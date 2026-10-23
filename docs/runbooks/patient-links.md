@@ -96,6 +96,8 @@ Headers on `/p/*` (`next.config.ts`):
   - a health form has an appointment;
   - a questionnaire or My plan has an episode.
 - **Audited** by the trigger: issued is an insert; stopped or completed is an update.
+- **Check in staff** (INT-02) read and issue the health form link of an appointment they can see
+  (`patient_link_checkin_read`, `patient_link_checkin_issue`); no other link.
 
 ## Patient access under row level security
 

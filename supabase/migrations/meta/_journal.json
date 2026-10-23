@@ -358,6 +358,20 @@
       "when": 1792705936292,
       "tag": "20261022215216_check_in_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1792745191740,
+      "tag": "20261023084631_check_in_drawer",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1792745192859,
+      "tag": "20261023084632_check_in_drawer_rules",
+      "breakpoints": true
     }
   ]
 }

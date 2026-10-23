@@ -15,3 +15,4 @@ export * from './rosters';
 export * from './knowledge';
 export * from './episodes';
 export * from './appointments';
+export * from './reports';

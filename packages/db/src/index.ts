@@ -269,3 +269,12 @@ export {
   type CalendarRequest,
 } from './calendar';
 export { todayBoard, type TodayAppointment } from './today';
+export {
+  checkInView,
+  healthFormLink,
+  insertPatientReport,
+  patientReports,
+  type CheckInView,
+  type HealthFormLink,
+  type PatientReportEntry,
+} from './check-in';
