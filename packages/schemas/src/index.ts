@@ -439,3 +439,17 @@ export {
   type NotificationKind,
   type RedFlagAlertStatus,
 } from './intake-submit';
+export {
+  alertEventLabels,
+  alertEvents,
+  alertOpen,
+  alertOrder,
+  alertTransition,
+  closeAlertSchema,
+  referAlertSchema,
+  reviewAlertSchema,
+  type AlertEvent,
+  type AlertTransition,
+  type CloseAlertInput,
+  type ReferAlertInput,
+} from './red-flag-alerts';

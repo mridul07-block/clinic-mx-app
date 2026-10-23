@@ -29,7 +29,7 @@ export const notificationKind = pgEnum('notification_kind', notificationKinds);
 /**
  * A red flag rule raised by a form's answers. It keeps the knowledge base version and whether the
  * rule was signed off then (user decision, 23 October 2026: unsigned rules run too, and say so).
- * Reviewing, referring and closing come with ALT-01.
+ * Clinicians then review, refer and close it (ALT-01; the lifecycle trigger allows only those).
  */
 export const redFlagAlert = pgTable(
   'red_flag_alert',
@@ -52,12 +52,19 @@ export const redFlagAlert = pgTable(
     signedOff: boolean('signed_off').notNull(),
     status: redFlagAlertStatus('status').notNull().default('raised'),
     raisedAt: timestamp('raised_at', { withTimezone: true }).notNull().defaultNow(),
+    // The lifecycle (ALT-01): who said "I'm reviewing", referred and closed, and when.
     reviewedBy: uuid('reviewed_by').references(() => staffUser.id),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    referredTo: text('referred_to'),
+    referredBy: uuid('referred_by').references(() => staffUser.id),
+    referredAt: timestamp('referred_at', { withTimezone: true }),
     decision: text('decision'),
+    closedBy: uuid('closed_by').references(() => staffUser.id),
     closedAt: timestamp('closed_at', { withTimezone: true }),
   },
   (table) => [
     index('red_flag_alert_episode_idx').on(table.episodeId),
+    index('red_flag_alert_status_idx').on(table.status, table.display),
     unique('red_flag_alert_episode_rule').on(table.episodeId, table.ruleKey),
   ],
 ).enableRLS();

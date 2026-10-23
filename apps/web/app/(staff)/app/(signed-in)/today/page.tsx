@@ -2,8 +2,6 @@ import { centreList } from '@clinic-mx/db';
 import { istDate, staffRoleLabels, todayFilters, type TodayFilter } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import type { EmergencyAlert } from '../../../../../components/emergency-banner';
-import { EmergencyBanner } from '../../../../../components/emergency-banner';
 import {
   FormMessage,
   primaryButtonClass,
@@ -76,15 +74,9 @@ export default async function TodayPage({
       : undefined;
   const doneOptions: CheckInDone[] = ['checked-in', 'undone', 'tablet', 'reports'];
   const done = doneOptions.find((d) => d === params.done);
-  // The emergency banner's place: open emergency alerts at the centre come with red flag alerts
-  // (INT-10); until then there are none to show.
-  const emergencies: EmergencyAlert[] = [];
 
   return (
     <>
-      {emergencies.map((alert) => (
-        <EmergencyBanner key={alert.id} alert={alert} />
-      ))}
       <main className="flex w-full flex-col gap-4 px-4 py-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1">

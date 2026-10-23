@@ -14,7 +14,7 @@ import {
   systemActor,
   withActor,
 } from '@clinic-mx/db';
-import { expect, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Page } from '@playwright/test';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 // The health form in the database for end to end tests (INT-04): what a visit's form saved and
@@ -224,16 +224,112 @@ export async function pipelineOf(appointmentId: string) {
   };
 }
 
-/** Removes the pipeline's jobs for these visits' episodes, as a test clean up. */
-export async function removePipelineJobs(appointmentIds: string[]): Promise<void> {
+/**
+ * Removes the pipeline's jobs, alerts and precautions for these visits' episodes, as a test clean
+ * up: an emergency left Raised would show its banner on every page at the centre (ALT-01).
+ */
+export async function removePipelineRows(appointmentIds: string[]): Promise<void> {
   if (appointmentIds.length === 0) return;
-  const episodes = await db()
-    .select({ id: appointment.episodeId })
-    .from(appointment)
-    .where(inArray(appointment.id, appointmentIds));
+  const episodes = (
+    await db()
+      .select({ id: appointment.episodeId })
+      .from(appointment)
+      .where(inArray(appointment.id, appointmentIds))
+  ).flatMap((row) => (row.id ? [row.id] : []));
   const keys = [
     ...appointmentIds.map((id) => `intake.submitted:${id}`),
-    ...episodes.flatMap((row) => (row.id ? [`ai.preparation_sheet:${row.id}`] : [])),
+    ...episodes.map((id) => `ai.preparation_sheet:${id}`),
   ];
-  await db().delete(job).where(inArray(job.idempotencyKey, keys));
+  await withActor(db(), systemActor('tests'), async (tx) => {
+    await tx.delete(job).where(inArray(job.idempotencyKey, keys));
+    if (episodes.length === 0) return;
+    await tx.delete(redFlagAlert).where(inArray(redFlagAlert.episodeId, episodes));
+    await tx.delete(precaution).where(inArray(precaution.episodeId, episodes));
+  });
+}
+
+/** Who moved a visit's alerts, and how, from the audit trail (ALT-01). */
+export async function alertTrailOf(appointmentId: string) {
+  const alerts = await db()
+    .select({ id: redFlagAlert.id })
+    .from(redFlagAlert)
+    .where(eq(redFlagAlert.appointmentId, appointmentId));
+  if (alerts.length === 0) return [];
+  const rows = await db()
+    .select({ action: auditEvent.action, actor: auditEvent.actor, after: auditEvent.after })
+    .from(auditEvent)
+    .where(
+      and(
+        eq(auditEvent.entity, 'red_flag_alert'),
+        inArray(
+          auditEvent.entityId,
+          alerts.map((alert) => alert.id),
+        ),
+        eq(auditEvent.action, 'update'),
+      ),
+    )
+    .orderBy(asc(auditEvent.at));
+  return rows.map((row) => ({
+    actor: row.actor,
+    status: (row.after as { status?: string } | null)?.status,
+  }));
+}
+
+/** Another browser like this project's: the patient's phone, or the desk. */
+export async function otherBrowser(browser: Browser): Promise<Page> {
+  const { viewport, isMobile, hasTouch, userAgent, deviceScaleFactor, baseURL } =
+    test.info().project.use;
+  const context = await browser.newContext({
+    viewport,
+    isMobile,
+    hasTouch,
+    userAgent,
+    deviceScaleFactor,
+    baseURL,
+  });
+  return context.newPage();
+}
+
+const question = (page: Page, text: string) => page.getByRole('group', { name: text });
+const next = (page: Page) => page.getByRole('button', { name: 'Next' }).click();
+const at = (page: Page, screen: string) =>
+  expect.poll(() => new URL(page.url()).searchParams.get('screen')).toBe(screen);
+export const saddle = 'Any numbness around your bottom or between your legs?';
+
+/** Fills a back form: No to every warning sign but `yes`, then the Health check, then submits. */
+export async function submitBackForm(
+  page: Page,
+  path: string,
+  yes: string[],
+  conditions: string[],
+) {
+  await page.goto(path);
+  await page.getByRole('link', { name: 'Start' }).click();
+  await signConsent(page);
+  await aboutYou(page, 'Male');
+  await question(page, 'Body region').getByText('Back', { exact: true }).click();
+  await next(page);
+  await at(page, 'warning_signs');
+  for (const group of await page.getByRole('group').all()) {
+    const no = group.getByText('No', { exact: true });
+    if ((await no.count()) > 0 && (await no.isVisible())) await no.click();
+  }
+  for (const text of yes) await question(page, text).getByText('Yes', { exact: true }).click();
+  const minutes = page.getByLabel(/how many minutes does it last/);
+  if ((await minutes.count()) > 0) await minutes.fill('0');
+  await next(page);
+  await at(page, 'health_check');
+  for (const text of conditions) {
+    await question(page, 'Tick any that apply').getByText(text, { exact: true }).click();
+  }
+  await next(page);
+  await at(page, 'activity');
+  await next(page);
+  await at(page, 'history');
+  await next(page);
+  await at(page, 'end');
+  await page.getByRole('button', { name: 'Submit' }).click();
+  await expect(page.getByTestId('patient-link-status')).toHaveText(
+    'Thank you. Your answers are with your physiotherapist.',
+  );
 }

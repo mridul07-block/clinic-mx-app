@@ -314,3 +314,15 @@ export {
   type NotificationEntry,
   type SubmittedIntake,
 } from './clinical';
+export {
+  alertForUpdate,
+  moveRedFlagAlert,
+  openEmergencies,
+  openRedFlagAlerts,
+  recentlyClosedAlerts,
+  redFlagAlertsByIds,
+  type AlertForUpdate,
+  type AlertMove,
+  type OpenEmergency,
+  type RedFlagAlertEntry,
+} from './red-flag-alerts';
