@@ -328,3 +328,13 @@ export {
   type OpenEmergency,
   type RedFlagAlertEntry,
 } from './red-flag-alerts';
+export {
+  closeTask,
+  inboxTasks,
+  openTaskCount,
+  recentlyClosedTasks,
+  takeTask,
+  taskForUpdate,
+  type TaskEntry,
+  type TaskForUpdate,
+} from './tasks';

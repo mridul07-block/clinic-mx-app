@@ -1,9 +1,10 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { claimsForStaff, withStaffAccess } from '../access';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
 import { currentStaffClaims, type StaffMember } from '../identity';
+import { closeTask } from '../tasks';
 import { auditEvent, centre, job, setting, staffUser, staffUserCentre, task } from '../schema';
 import { centreIds, seedCentres, seedStaff, seedStaffCentres } from '../seed/data';
 
@@ -328,16 +329,11 @@ describe('what each role may change', () => {
   });
 
   it('tasks are closed by the people they are for', async () => {
+    // ALT-03: closing a role task takes it for the person closing (closeTask).
     const close = (actor: StaffMember, id: string) =>
-      as(actor, (tx) =>
-        tx
-          .update(task)
-          .set({ status: 'closed', decision: 'Done in the RLS test', closedAt: new Date() })
-          .where(inArray(task.id, [id]))
-          .returning({ id: task.id }),
-      );
-    expect(await close(deskHsr, taskIds.financeRole)).toEqual([]);
-    expect(await close(physioHsr, taskIds.physioWhitefield)).toEqual([]);
-    expect(await close(deskHsr, taskIds.deskRole)).toHaveLength(1);
+      as(actor, (tx) => closeTask(tx, id, actor.id, 'Done in the RLS test'));
+    expect(await close(deskHsr, taskIds.financeRole)).toBe(false);
+    expect(await close(physioHsr, taskIds.physioWhitefield)).toBe(false);
+    expect(await close(deskHsr, taskIds.deskRole)).toBe(true);
   });
 });

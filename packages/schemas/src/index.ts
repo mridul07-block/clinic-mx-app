@@ -466,3 +466,15 @@ export {
   type MessageTemplateKey,
   type TemplateVariables,
 } from './message-templates';
+export {
+  closeTaskSchema,
+  takeTaskSchema,
+  taskIdSchema,
+  taskKindLabel,
+  taskKindLabels,
+  taskPriorities,
+  taskPriorityLabels,
+  type CloseTaskInput,
+  type TakeTaskInput,
+  type TaskPriority,
+} from './tasks';
