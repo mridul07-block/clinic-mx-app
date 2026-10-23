@@ -25,6 +25,7 @@ export const slotOptionsQuerySchema = z.object({
 export const bookingChannelLabels = {
   whatsapp: 'WhatsApp',
   front_desk: 'Front desk',
+  walk_in: 'Walk in',
 } as const satisfies Record<BookingChannel, string>;
 
 /** Setting or clearing a consultant's consultation fee: a price item, or empty for none. */

@@ -27,6 +27,8 @@ export function calendarHref(view: {
   pick?: { on?: string; physioId?: string };
   /** The open appointment was just booked in place of another (SCH-08). */
   moved?: boolean;
+  /** A walk in (INT-12): the booking sheets book and check in, today only. */
+  walkIn?: boolean;
 }): string {
   const query = new URLSearchParams({ centre: view.centreId, date: view.date });
   if (view.physioId) query.set('physio', view.physioId);
@@ -47,5 +49,6 @@ export function calendarHref(view: {
     if (view.newBooking.appointmentTypeId) query.set('type', view.newBooking.appointmentTypeId);
     if (view.newBooking.on) query.set('on', view.newBooking.on);
   }
+  if (view.walkIn) query.set('walkin', '1');
   return `/app/calendar?${query.toString()}`;
 }

@@ -35,10 +35,12 @@ import {
   selfBookingBlock,
   slotChoiceSchema,
   undoNoShowSchema,
+  type BookSlotInput,
+  type BookingChannel,
   type SelfBookingBlock,
 } from '@clinic-mx/schemas';
 import { assertCan, assertMay } from '../access/guard';
-import { staffService, type ServiceContext } from '../access/service';
+import { staffService, type ServiceContext, type ServiceTransaction } from '../access/service';
 import { asStaff } from '../access/staff-db';
 import { addPatient } from '../patients/services';
 import { getSetting } from '../settings/settings';
@@ -115,6 +117,36 @@ export async function holdSlot(context: ServiceContext, rawInput: unknown) {
 }
 
 /**
+ * Books a free start for a patient as staff, inside the caller's transaction: the patient and any
+ * episode checked, the slot rechecked, the person's hold given back. Shared by the desk's Book
+ * (Front desk) and Walk in (INT-12).
+ */
+export async function bookFor(
+  tx: ServiceTransaction,
+  input: BookSlotInput,
+  actor: StaffMember,
+  { channel, step, now }: { channel: Exclude<BookingChannel, 'whatsapp'>; step: number; now: Date },
+) {
+  if (!(await patientRecord(tx, input.patientId))) {
+    throw new SchedulingError('That patient was not found.');
+  }
+  if (input.episodeId) {
+    const episode = await episodeRecord(tx, input.episodeId);
+    if (episode?.patientId !== input.patientId || episode.status === 'discharged') {
+      throw new SchedulingError('Book into an open episode of the same patient.');
+    }
+  }
+  return bookAppointment(tx, {
+    ...input,
+    holder: holderOf(actor),
+    channel,
+    bookedBy: actor.id,
+    step,
+    now,
+  });
+}
+
+/**
  * Books a free start for a patient at the front desk, rechecked inside the transaction; the
  * person's hold, if any, is given back. The appointment's id and number.
  */
@@ -124,25 +156,8 @@ export async function bookSlot(context: ServiceContext, rawInput: unknown) {
     action: 'bookings.manage',
     input: bookSlotSchema,
     target: (input) => Promise.resolve({ centreId: input.centreId }),
-    run: async (tx, input, actor) => {
-      if (!(await patientRecord(tx, input.patientId))) {
-        throw new SchedulingError('That patient was not found.');
-      }
-      if (input.episodeId) {
-        const episode = await episodeRecord(tx, input.episodeId);
-        if (episode?.patientId !== input.patientId || episode.status === 'discharged') {
-          throw new SchedulingError('Book into an open episode of the same patient.');
-        }
-      }
-      return bookAppointment(tx, {
-        ...input,
-        holder: holderOf(actor),
-        channel: 'front_desk',
-        bookedBy: actor.id,
-        step,
-        now: new Date(),
-      });
-    },
+    run: (tx, input, actor) =>
+      bookFor(tx, input, actor, { channel: 'front_desk', step, now: new Date() }),
   })(context, rawInput);
 }
 
@@ -167,24 +182,25 @@ export type BookNewPatientResult =
 
 /**
  * A caller or walk in who is new (SCH-07): adds them with a name and mobile at the booking's
- * centre (the centre issues the OP number), then books the held start for them. Two audited
- * writes; when the slot is refused after the patient was added, the patient stays and the message
- * says so.
+ * centre (the centre issues the OP number), then books the held start for them with `book` (Book,
+ * or Walk in's book and check in). Two audited writes; when the slot is refused after the patient
+ * was added, the patient stays and the message says so.
  */
-export async function addPatientAndBook(
+export async function addPatientThenBook(
   context: ServiceContext,
-  rawInput: unknown,
+  details: { name: string; phone: string; confirmNewPerson: boolean; centreId: string },
+  book: (patientId: string) => Promise<{ id: string; number: string }>,
 ): Promise<BookNewPatientResult> {
-  const { name, phone, confirmNewPerson, ...slot } = bookNewPatientSchema.parse(rawInput);
+  const { name, phone, confirmNewPerson, centreId } = details;
   const added = await addPatient(context, {
     name,
     phone,
-    registeredCentreId: slot.centreId,
+    registeredCentreId: centreId,
     confirmNewPerson,
   });
   if (added.status === 'matches') return added;
   try {
-    const booked = await bookSlot(context, { ...slot, patientId: added.id });
+    const booked = await book(added.id);
     return { status: 'booked', ...booked };
   } catch (error) {
     if (error instanceof SlotRefusedError || error instanceof SchedulingError) {
@@ -192,6 +208,17 @@ export async function addPatientAndBook(
     }
     throw error;
   }
+}
+
+/** Adds a new caller, then books the held start for them (SCH-07). */
+export async function addPatientAndBook(
+  context: ServiceContext,
+  rawInput: unknown,
+): Promise<BookNewPatientResult> {
+  const { name, phone, confirmNewPerson, ...slot } = bookNewPatientSchema.parse(rawInput);
+  return addPatientThenBook(context, { name, phone, confirmNewPerson, ...slot }, (patientId) =>
+    bookSlot(context, { ...slot, patientId }),
+  );
 }
 
 /** Where an appointment is, for the permission check: its centre, or none when not seen. */

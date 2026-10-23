@@ -10,6 +10,8 @@ import {
   inTodayFilter,
   needsHealthForm,
   todayGroup,
+  walkInNewPatientSchema,
+  walkInSchema,
 } from './today';
 
 // INT-01: the Today board's chips, and checking in on the appointment's own IST day.
@@ -84,5 +86,30 @@ describe('health form link', () => {
     expect(firstName('Test Patient Asha')).toBe('Test');
     expect(firstName('  Ravi   Kumar ')).toBe('Ravi');
     expect(firstName('Meera')).toBe('Meera');
+  });
+});
+
+// INT-12: a walk in is booked and checked in only after the same identity tick.
+describe('walk in', () => {
+  const slot = {
+    centreId: '00000000-0000-4000-8000-000000000101',
+    physioId: '00000000-0000-4000-8000-000000000301',
+    appointmentTypeId: '00000000-0000-4000-8000-000000000401',
+    startsAt: '2026-11-02T04:30:00.000Z',
+  };
+
+  it('needs the identity tick, for a patient on file or a new one', () => {
+    const patientId = '00000000-0000-4000-8000-000000000501';
+    expect(walkInSchema.safeParse({ ...slot, patientId }).error?.issues[0]?.message).toBe(
+      'Tick that you have checked who this is.',
+    );
+    expect(walkInSchema.safeParse({ ...slot, patientId, identityChecked: true }).success).toBe(
+      true,
+    );
+    const person = { ...slot, name: 'Test Walk In', phone: '9845012345' };
+    expect(walkInNewPatientSchema.safeParse(person).success).toBe(false);
+    expect(walkInNewPatientSchema.safeParse({ ...person, identityChecked: true }).success).toBe(
+      true,
+    );
   });
 });

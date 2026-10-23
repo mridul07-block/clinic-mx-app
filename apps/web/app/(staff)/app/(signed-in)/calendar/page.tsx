@@ -20,6 +20,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { FormMessage, primaryButtonClass } from '../../../../../components/forms';
 import { requirePermission } from '../../../../../modules/access/require-permission';
+import { todayHref } from '../../../../../modules/front-desk/links';
 import { asStaff } from '../../../../../modules/access/staff-db';
 import { loadCalendar, slotOptions } from '../../../../../modules/scheduling/calendar';
 import { findFreeSlots, heldSlot } from '../../../../../modules/scheduling/services';
@@ -67,6 +68,8 @@ export default async function CalendarPage({
     change?: string;
     with?: string;
     moved?: string;
+    walkin?: string;
+    ticked?: string;
   }>;
 }) {
   const staff = await requirePermission('calendar.view');
@@ -118,6 +121,11 @@ export default async function CalendarPage({
 
   // Booking (SCH-07): only for those who book; the services refuse anyone else as well.
   const canBook = can(staff, 'bookings.manage') && !staff.support;
+  // A walk in (INT-12): opened from Today, booked and checked in today by those who do both; the
+  // sheets close back to Today.
+  const walkIn =
+    canBook && can(staff, 'check_in.manage') && params.walkin === '1' && date === today;
+  const sheetCloseHref = walkIn ? todayHref({ centreId: centre.id }) : closeHref;
   const types = canBook
     ? (await asStaff(staff, (tx) => appointmentTypeList(tx))).filter((type) => type.active)
     : [];
@@ -243,7 +251,8 @@ export default async function CalendarPage({
   const results = search ? await asStaff(staff, (tx) => searchPatients(tx, search)) : undefined;
 
   const newBooking = canBook && params.new === '1' && !bookChoice;
-  const on = calendarDateSchema.safeParse(params.on).success ? (params.on ?? date) : date;
+  const on =
+    !walkIn && calendarDateSchema.safeParse(params.on).success ? (params.on ?? date) : date;
   const newType = newBooking ? typeOf(params.type) : undefined;
   const newSlots = newType
     ? await findFreeSlots(staff, { centreId: centre.id, date: on, appointmentTypeId: newType.id })
@@ -439,7 +448,9 @@ export default async function CalendarPage({
           heldUntil={heldUntil}
           find={find}
           results={results}
-          closeHref={closeHref}
+          closeHref={sheetCloseHref}
+          walkIn={walkIn}
+          ticked={walkIn && params.ticked === '1'}
         />
       ) : null}
       {newBooking ? (
@@ -451,7 +462,8 @@ export default async function CalendarPage({
           typeId={newType?.id}
           on={on}
           slots={newSlots}
-          closeHref={closeHref}
+          closeHref={sheetCloseHref}
+          walkIn={walkIn}
         />
       ) : null}
     </main>

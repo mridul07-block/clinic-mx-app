@@ -116,8 +116,11 @@ export const markNoShowSchema = z.object({ appointmentId: z.guid() });
 
 export const undoNoShowSchema = z.object({ appointmentId: z.guid() });
 
-/** PRD section 7: patients book on the WhatsApp Flow; the front desk books callers and walk ins. */
-export const bookingChannels = ['whatsapp', 'front_desk'] as const;
+/**
+ * PRD section 7: patients book on the WhatsApp Flow; the front desk books callers (Front desk) and
+ * walk ins, booked and checked in in one action (INT-12, user decision 23 October 2026).
+ */
+export const bookingChannels = ['whatsapp', 'front_desk', 'walk_in'] as const;
 
 export type BookingChannel = (typeof bookingChannels)[number];
 

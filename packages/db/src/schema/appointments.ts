@@ -91,9 +91,10 @@ export const appointment = pgTable(
     index('appointment_centre_physio_start_idx').on(table.centreId, table.physioId, table.startsAt),
     index('appointment_patient_start_idx').on(table.patientId, table.startsAt),
     check('appointment_span', sql`${table.endsAt} > ${table.startsAt}`),
+    // A booking made by staff (Front desk or Walk in) records who made it (PRD J1.5).
     check(
-      'appointment_front_desk_booked_by',
-      sql`${table.channel} <> 'front_desk' or ${table.bookedBy} is not null`,
+      'appointment_staff_booked_by',
+      sql`${table.channel} = 'whatsapp' or ${table.bookedBy} is not null`,
     ),
     check('appointment_machine', machineCheck(table.machine)),
     check(
