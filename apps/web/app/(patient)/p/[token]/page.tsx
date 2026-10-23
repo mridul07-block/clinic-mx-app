@@ -2,6 +2,7 @@ import { patientLinkDefinitions, type PatientLinkPurpose } from '@clinic-mx/sche
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { clientIp } from '../../../../modules/auth/session';
+import { loadHealthFormVisit, type HealthFormWelcome } from '../../../../modules/intake/visit';
 import { kioskBrowser } from '../../../../modules/kiosk/device';
 import {
   openPatientLink,
@@ -28,6 +29,10 @@ import { KioskShell } from './kiosk-shell';
 // front desk sent to that tablet; anything else goes back to the welcome screen. The kiosk shell
 // returns there after a submit or when idle.
 //
+// A health form link (INT-03) opens the form for its own appointment only: the page reads that
+// visit as the patient, under row level security, and greets them by first name. It is closed
+// unless the visit is on, Checked in or In consultation (user decision, 23 October 2026).
+//
 // Rate limits (IAM-11): every open counts against the network's opens, and a link that is not
 // valid against its bad links. Over either, the page checks nothing and asks the patient to wait.
 export const dynamic = 'force-dynamic';
@@ -37,14 +42,28 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** What the page found: the link's state, or that this network must wait (IAM-11). */
-type Shown = OpenedLink | { status: 'limited' };
+/**
+ * What the page found: the link's state, a health form whose visit is not on (INT-03), or that
+ * this network must wait (IAM-11).
+ */
+type Shown = OpenedLink | { status: 'closed'; purpose: PatientLinkPurpose } | { status: 'limited' };
 
 function message(opened: Shown): { title: string; body: string } {
   const titleOf = (purpose: PatientLinkPurpose) => patientLinkDefinitions[purpose].title;
   switch (opened.status) {
     case 'valid':
-      return { title: titleOf(opened.link.purpose), body: 'This page will open here.' };
+      return {
+        title: titleOf(opened.link.purpose),
+        body:
+          opened.link.purpose === 'health_form'
+            ? 'It takes about 5 minutes. The questions open here.'
+            : 'This page will open here.',
+      };
+    case 'closed':
+      return {
+        title: titleOf(opened.purpose),
+        body: 'This form is no longer open. Please ask the front desk.',
+      };
     case 'used':
       return { title: titleOf(opened.purpose), body: 'You have already sent this. Thank you.' };
     case 'expired':
@@ -110,13 +129,28 @@ export default async function PatientPage({ params }: { params: Promise<{ token:
   }
   const kiosk = browser.status === 'active';
   const ip = await clientIp();
-  const opened = await openLimited(token, ip);
+  const link = await openLimited(token, ip);
+  let opened: Shown = link;
+  let welcome: HealthFormWelcome | undefined;
+  if (link.status === 'valid' && link.link.purpose === 'health_form') {
+    welcome = await loadHealthFormVisit(link.link, ip);
+    if (!welcome.open) opened = { status: 'closed', purpose: 'health_form' };
+  }
   const { title, body } = kiosk ? kioskMessage(opened) : message(opened);
   const page = (
     <main data-voice="patient" className="min-h-dvh bg-surface px-4 py-6">
       <div className="mx-auto flex w-full max-w-signin flex-col gap-3">
         <p className="font-semibold text-ink-secondary">Movementology Clinics</p>
         <h1 className="text-xl font-semibold text-ink">{title}</h1>
+        {welcome?.open ? (
+          <div className="flex flex-col gap-1" data-testid="health-form-visit">
+            <p className="text-lg font-semibold text-ink">Hello {welcome.firstName}</p>
+            <p className="text-ink">{welcome.when}</p>
+            <p className="text-ink">
+              {welcome.centreName}, with {welcome.physioName}
+            </p>
+          </div>
+        ) : null}
         <p
           className="text-ink-secondary"
           data-testid="patient-link-status"

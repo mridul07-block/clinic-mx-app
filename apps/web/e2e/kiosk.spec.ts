@@ -102,11 +102,11 @@ test('a set up tablet is locked to the form sent to it, and resets after 2 minut
   await expect(welcome(page)).toBeVisible();
 
   // The front desk sends a form; the tablet opens it.
-  const form = await testLink({ purpose: 'health_form' });
+  const form = await testLink({ purpose: 'consent' });
   await sendToTablet(kioskId, form.id);
   await waitForForm(page);
   await expect(page).toHaveURL(form.path);
-  await expect(page.getByRole('heading', { name: 'Your health form' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your consent' })).toBeVisible();
   await expect(status(page)).toHaveAttribute('data-status', 'valid');
   expect(await status(page).evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px');
 

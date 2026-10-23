@@ -76,7 +76,7 @@ test('a network that opens 20 bad patient links waits; other networks do not', a
     await page.goto(`/p/${'x'.repeat(attempt)}`);
     await expect(status).toHaveAttribute('data-status', 'invalid');
   }
-  const link = await testLink({ purpose: 'health_form' });
+  const link = await testLink({ purpose: 'consent' });
   await page.goto(link.path);
   await expect(page.getByRole('heading', { name: 'Please wait a moment' })).toBeVisible();
   await expect(status).toHaveText('Too many tries. Please wait a few minutes and try again.');

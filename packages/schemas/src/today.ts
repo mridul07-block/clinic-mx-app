@@ -99,6 +99,25 @@ export function healthFormState(
   return 'waiting';
 }
 
+/**
+ * A health form link opens only while its visit is on: Checked in or In consultation (INT-03,
+ * user decision, 23 October 2026). Cancelled, rescheduled, no show, finished or a check in undone
+ * closes it; checking in again opens the same link again.
+ */
+export const healthFormOpenStatuses = [
+  'checked_in',
+  'in_progress',
+] as const satisfies readonly AppointmentStatus[];
+
+export function healthFormOpen(status: AppointmentStatus): boolean {
+  return (healthFormOpenStatuses as readonly AppointmentStatus[]).includes(status);
+}
+
+/** The first word of a name, for "Hello <first name>" on patient pages; the rest stays off. */
+export function firstName(name: string): string {
+  return name.trim().split(/\s+/)[0] ?? '';
+}
+
 /** What a report can be (TAD: photos and scans): photos are shrunk to JPEG on the phone first. */
 export const reportContentTypes = ['image/jpeg', 'image/png', 'application/pdf'] as const;
 
