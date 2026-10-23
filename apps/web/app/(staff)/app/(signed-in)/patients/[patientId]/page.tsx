@@ -22,12 +22,14 @@ import { z } from 'zod';
 import { FormMessage } from '../../../../../../components/forms';
 import { Tag } from '../../../../../../components/tag';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
+import { reportsOfPatient } from '../../../../../../modules/reports/services';
 import { asStaff } from '../../../../../../modules/access/staff-db';
 import { selfBookingStatus } from '../../../../../../modules/scheduling/services';
 import { getSetting } from '../../../../../../modules/settings/settings';
 import { GuardianForm, RemoveGuardianForm } from '../guardian-forms';
 import { LiftBlockForm } from '../lift-block-form';
 import { PatientForm } from '../patient-form';
+import { ReportList } from './report-list';
 
 export const metadata: Metadata = { title: 'Patient · Clinic Mx' };
 
@@ -57,7 +59,8 @@ const notices: Record<string, string> = {
 // same mobile. Those with patients.edit_contact edit the details; the OP number never changes.
 // Guardians (SCH-02): a patient under the adult age is marked, and "Guardian needed" until one is
 // added. Self booking (SCH-09): for those who book, whether the patient may still book themselves,
-// and for a manager, lifting the block. The full patient record grows here in CLN-12.
+// and for a manager, lifting the block. Reports (ALT-08): clinicians only open the photos and
+// scans added at check in or on the health form. The full patient record grows here in CLN-12.
 export default async function PatientPage({
   params,
   searchParams,
@@ -91,6 +94,8 @@ export default async function PatientPage({
     ? await selfBookingStatus(staff, patient.id)
     : undefined;
   const canLift = can(staff, 'bookings.lift_self_booking_block') && !staff.support;
+  const opensReports = can(staff, 'clinical.read');
+  const reports = opensReports ? await reportsOfPatient(staff, patient.id) : [];
 
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
@@ -188,6 +193,15 @@ export default async function PatientPage({
           </ul>
         )}
       </section>
+
+      {opensReports ? (
+        <section aria-labelledby="reports" className="flex flex-col gap-3">
+          <h2 id="reports" className="font-semibold text-ink">
+            Reports
+          </h2>
+          <ReportList reports={reports} />
+        </section>
+      ) : null}
 
       {selfBooking ? (
         <section aria-labelledby="self-booking" className="flex flex-col gap-3">

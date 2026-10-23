@@ -470,6 +470,13 @@
       "when": 1792773512462,
       "tag": "20261023163832_red_flag_lifecycle_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1792776194903,
+      "tag": "20261023172314_report_clinical_read",
+      "breakpoints": true
     }
   ]
 }

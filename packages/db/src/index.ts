@@ -275,6 +275,7 @@ export {
   healthFormLink,
   insertPatientReport,
   patientReports,
+  reportFileOf,
   type CheckInView,
   type HealthFormLink,
   type PatientReportEntry,

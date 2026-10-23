@@ -1,5 +1,5 @@
 import type { AppointmentStatus, ReportContentType } from '@clinic-mx/schemas';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import {
   appointment,
@@ -108,8 +108,10 @@ export interface PatientReportEntry {
   appointmentId: string | null;
   contentType: ReportContentType;
   sizeBytes: number;
-  /** The staff member who added it; null when the patient added it on the health form. */
+  /** The staff member who added it, when the reader may see their name. */
   uploadedByName: string | null;
+  /** Added by the patient on the health form (INT-05). */
+  addedByPatient: boolean;
   createdAt: Date;
 }
 
@@ -125,12 +127,27 @@ export function patientReports(
       contentType: patientReport.contentType,
       sizeBytes: patientReport.sizeBytes,
       uploadedByName: staffUser.name,
+      addedByPatient: sql<boolean>`${patientReport.patientLinkId} is not null`,
       createdAt: patientReport.createdAt,
     })
     .from(patientReport)
     .leftJoin(staffUser, eq(staffUser.id, patientReport.uploadedBy))
     .where(eq(patientReport.patientId, patientId))
     .orderBy(desc(patientReport.createdAt));
+}
+
+/**
+ * Where a report's file is, for a clinician only (ALT-08): staff never read the path from the
+ * table; `internal.report_file` gives it to clinicians and nothing to anyone else.
+ */
+export async function reportFileOf(
+  db: DbOrTransaction,
+  reportId: string,
+): Promise<{ filePath: string; contentType: ReportContentType } | undefined> {
+  const [row] = await db.execute<{ file_path: string; content_type: ReportContentType }>(
+    sql`select file_path, content_type from internal.report_file(${reportId})`,
+  );
+  return row ? { filePath: row.file_path, contentType: row.content_type } : undefined;
 }
 
 /**

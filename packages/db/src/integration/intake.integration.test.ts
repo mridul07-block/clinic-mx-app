@@ -10,7 +10,7 @@ import {
   partAConsentDeclined,
 } from '../consent';
 import { insertGuardian, removeGuardian } from '../patients';
-import { insertPatientReport } from '../check-in';
+import { insertPatientReport, patientReports, reportFileOf } from '../check-in';
 import {
   enqueueIntakeSubmitted,
   insertNotifications,
@@ -1126,6 +1126,77 @@ describe('red flag alerts after they are raised', () => {
         .where(eq(redFlagAlert.id, alertId));
       expect(still?.status).toBe('raised');
       expect((await episodeRecord(tx, episodeId))?.status).toBe('intake_pending');
+    });
+  });
+});
+
+// ALT-08: clinicians (the Super Admin, and the Treats patients tick) read report rows at any
+// centre, to open the file through our server; the desk still reads the rows to list them; a
+// manager without the tick, Finance and support read none.
+describe('opening report photos under row level security', () => {
+  it('gives clinicians anywhere the file, lets those who check in list it, and nobody else', async () => {
+    await rolledBack(async (tx) => {
+      const { patientId, mine } = await visits(tx);
+      const id = randomUUID();
+      await insertPatientReport(tx, {
+        id,
+        patientId,
+        appointmentId: mine.id,
+        filePath: `${patientId}/${id}.jpg`,
+        contentType: 'image/jpeg',
+        sizeBytes: 90_000,
+        uploadedBy: superAdminId,
+      });
+      const reads = async (actor: StaffMember) => {
+        await tx.execute(sql`savepoint looking`);
+        await becomeStaff(tx, actor);
+        const found = await reportFileOf(tx, id);
+        const listed = (await patientReports(tx, patientId)).some((r) => r.id === id);
+        const path = await failure(tx, (sp) =>
+          sp.select({ path: patientReport.filePath }).from(patientReport),
+        );
+        await tx.execute(sql`rollback to savepoint looking`);
+        return { file: found?.filePath ?? null, listed, path };
+      };
+      const elsewhere = {
+        ...seedMember('physio.koramangala@clinicmx.test'),
+        treatsPatients: true,
+        centreIds: [centreIds.koramangala],
+      };
+      const file = `${patientId}/${id}.jpg`;
+      // No staff member reads where the file is from the table (42501).
+      expect(await reads(elsewhere)).toEqual({ file, listed: true, path: '42501' });
+      expect(await reads({ ...seedMember('super.admin@clinicmx.test'), centreIds: [] })).toEqual({
+        file,
+        listed: true,
+        path: '42501',
+      });
+      // Those who check in list it, without the file.
+      for (const actor of [
+        seedMember('desk.hsr@clinicmx.test'),
+        { ...seedMember('manager@clinicmx.test'), treatsPatients: false },
+      ]) {
+        expect(await reads(actor), actor.email).toEqual({
+          file: null,
+          listed: true,
+          path: '42501',
+        });
+      }
+      // Velyx support lists what the desk lists (INT-02), never the file.
+      expect(
+        await reads({
+          ...seedMember('support.velyx@clinicmx.test'),
+          treatsPatients: false,
+          support: true,
+        }),
+      ).toEqual({ file: null, listed: true, path: '42501' });
+      for (const actor of [{ ...seedMember('finance@clinicmx.test'), centreIds: [] }]) {
+        expect(await reads(actor), actor.email).toEqual({
+          file: null,
+          listed: false,
+          path: '42501',
+        });
+      }
     });
   });
 });

@@ -9,7 +9,7 @@ import { signIn, temporaryDesk, temporaryWithCode } from './staff';
 // INT-02 done when: the check in drawer has the identity check, form status, Show QR, Open on
 // tablet and Add reports. Decisions (user, 23 October 2026): Check in opens the drawer, the desk
 // ticks that it checked who this is, then checks in; the health form is for a first visit (no
-// episode yet); the desk adds reports and sees the list, opening them comes with CLN. Each test has
+// episode yet); the desk adds reports and sees the list; clinicians open them (ALT-08). Each test has
 // its own temporary physio with an appointment that started a few minutes ago today.
 //
 // INT-03 done when: the QR opens the form for that appointment only, with no login and no code.
