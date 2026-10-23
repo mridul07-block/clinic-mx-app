@@ -1093,6 +1093,38 @@ describe('the slot engine', () => {
     });
   });
 
+  // INT-12: a walk in is its own channel, and like every staff booking records who made it.
+  it('books a walk in as its own channel, only with who booked it', async () => {
+    await rolledBack(async (tx) => {
+      const session = await typeId(tx, 'session');
+      const physio = await testPhysio(tx, {
+        centreIds: [centreIds.hsrLayout],
+        createdBy: superAdmin.id,
+      });
+      const patientId = await testPatient(tx);
+      const walkIn = (minutes: number, bookedBy?: string) =>
+        bookAppointment(tx, {
+          centreId: centreIds.hsrLayout,
+          physioId: physio.id,
+          appointmentTypeId: session,
+          patientId,
+          channel: 'walk_in',
+          bookedBy,
+          holder: 'test:walk-in',
+          startsAt: on(minutes),
+          step: 15,
+          now: now(),
+        });
+      expect(await failure(tx, () => walkIn(600))).toBe('23514');
+      const booked = await walkIn(660, deskHsr.id);
+      const [row] = await tx
+        .select({ channel: appointment.channel, bookedBy: appointment.bookedBy })
+        .from(appointment)
+        .where(eq(appointment.id, booked.id));
+      expect(row).toEqual({ channel: 'walk_in', bookedBy: deskHsr.id });
+    });
+  });
+
   // SCH-07: the booking sheet shows the person's own hold while it lasts.
   it('reads one’s own live hold only', async () => {
     await rolledBack(async (tx) => {

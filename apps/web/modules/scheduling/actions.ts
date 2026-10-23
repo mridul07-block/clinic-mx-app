@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { serviceContext } from '../access/staff-db';
+import { todayHref } from '../front-desk/links';
+import { addPatientAndWalkIn, walkIn } from '../front-desk/services';
 import { PatientError } from '../patients/services';
 import { calendarHref } from './links';
 import {
@@ -57,6 +59,14 @@ const dayOf = (startsAt: string) => {
 /** The physio picked on a phone, kept across the booking (SCH-06). */
 const viewFrom = (form: FormData) => text(form, 'view') || undefined;
 
+/** A walk in (INT-12): book and check in, after the identity tick. */
+const walkInFrom = (form: FormData) => text(form, 'walkIn') === '1';
+const identityFrom = (form: FormData) => text(form, 'identityChecked') === 'true';
+
+/** After a walk in: the check in drawer on Today, for the form and reports (INT-12). */
+const walkedInHref = (form: FormData, appointmentId: string) =>
+  todayHref({ centreId: choiceFrom(form).centreId, appointmentId, done: 'checked-in' });
+
 /** Refusals and bad input become messages; anything else is ours and is thrown. */
 function failure(error: unknown): BookingFormState {
   if (error instanceof z.ZodError) {
@@ -64,6 +74,11 @@ function failure(error: unknown): BookingFormState {
     for (const issue of error.issues) {
       const field = String(issue.path.at(-1) ?? 'form');
       fieldErrors[field] ??= issue.message;
+    }
+    // A walk in's identity tick (INT-12) sits outside the fields: its message is the form's.
+    const only = Object.keys(fieldErrors);
+    if (only.length === 1 && fieldErrors.identityChecked) {
+      return { error: fieldErrors.identityChecked };
     }
     return { error: 'Check the highlighted fields.', fieldErrors };
   }
@@ -112,6 +127,7 @@ export async function holdSlotAction(
       date: dayOf(choice.startsAt),
       physioId: viewFrom(form),
       book: { ...choice, startsAt: new Date(choice.startsAt) },
+      walkIn: walkInFrom(form),
     }),
   );
 }
@@ -127,6 +143,7 @@ export async function releaseSlotAction(
   } catch (error) {
     return failure(error);
   }
+  if (walkInFrom(form)) redirect(todayHref({ centreId }));
   redirect(calendarHref({ centreId, date: text(form, 'date'), physioId: viewFrom(form) }));
 }
 
@@ -147,16 +164,17 @@ export async function bookSlotAction(
   form: FormData,
 ): Promise<BookingFormState> {
   let appointmentId: string;
+  const walkingIn = walkInFrom(form);
   try {
-    const booked = await bookSlot(await serviceContext(), {
-      ...choiceFrom(form),
-      patientId: text(form, 'patientId'),
-    });
+    const input = { ...choiceFrom(form), patientId: text(form, 'patientId') };
+    const booked = walkingIn
+      ? await walkIn(await serviceContext(), { ...input, identityChecked: identityFrom(form) })
+      : await bookSlot(await serviceContext(), input);
     appointmentId = booked.id;
   } catch (error) {
     return failure(error);
   }
-  redirect(bookedHref(form, appointmentId));
+  redirect(walkingIn ? walkedInHref(form, appointmentId) : bookedHref(form, appointmentId));
 }
 
 /** Adds a caller or walk in with a name and mobile, then books the held start for them. */
@@ -166,18 +184,25 @@ export async function addPatientAndBookAction(
 ): Promise<BookingFormState> {
   const values = { name: text(form, 'name'), phone: text(form, 'phone') };
   let appointmentId: string;
+  const walkingIn = walkInFrom(form);
   try {
-    const result = await addPatientAndBook(await serviceContext(), {
+    const input = {
       ...choiceFrom(form),
       ...values,
       confirmNewPerson: text(form, 'confirmNewPerson') === 'true',
-    });
+    };
+    const result = walkingIn
+      ? await addPatientAndWalkIn(await serviceContext(), {
+          ...input,
+          identityChecked: identityFrom(form),
+        })
+      : await addPatientAndBook(await serviceContext(), input);
     if (result.status === 'matches') return { matches: result.matches, values };
     appointmentId = result.id;
   } catch (error) {
     return { ...failure(error), values };
   }
-  redirect(bookedHref(form, appointmentId));
+  redirect(walkingIn ? walkedInHref(form, appointmentId) : bookedHref(form, appointmentId));
 }
 
 /** Cancels the open appointment, recording who asked (SCH-08); then shows it, cancelled. */

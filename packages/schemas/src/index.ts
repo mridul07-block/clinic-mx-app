@@ -352,6 +352,8 @@ export {
   todayGroupLabels,
   todayGroups,
   undoCheckInSchema,
+  walkInNewPatientSchema,
+  walkInSchema,
   type HealthFormState,
   type ReportContentType,
   type TodayFilter,

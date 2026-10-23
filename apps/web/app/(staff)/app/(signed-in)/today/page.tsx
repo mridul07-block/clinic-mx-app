@@ -4,7 +4,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { EmergencyAlert } from '../../../../../components/emergency-banner';
 import { EmergencyBanner } from '../../../../../components/emergency-banner';
-import { FormMessage, primaryButtonClass } from '../../../../../components/forms';
+import {
+  FormMessage,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from '../../../../../components/forms';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../modules/access/staff-db';
 import { loadCheckIn } from '../../../../../modules/front-desk/check-in';
@@ -100,12 +104,26 @@ export default async function TodayPage({
               {centre.name} · {signedInAs}
             </p>
           </div>
-          <Link
-            href={calendarHref({ centreId: centre.id, date, newBooking: {} })}
-            className={`${primaryButtonClass} sm:w-auto`}
-          >
-            New booking
-          </Link>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            {/* A walk in (INT-12): today's free starts, then book and check in in one action. */}
+            <Link
+              href={calendarHref({
+                centreId: centre.id,
+                date,
+                newBooking: { on: date },
+                walkIn: true,
+              })}
+              className={`${secondaryButtonClass} sm:w-auto`}
+            >
+              Walk in
+            </Link>
+            <Link
+              href={calendarHref({ centreId: centre.id, date, newBooking: {} })}
+              className={`${primaryButtonClass} sm:w-auto`}
+            >
+              New booking
+            </Link>
+          </div>
         </div>
         {centres.length > 1 ? (
           <nav aria-label="Centre" className="flex flex-wrap gap-2">

@@ -6,7 +6,7 @@ import {
   appointmentChangeReasons,
   formatIndianPhone,
 } from '@clinic-mx/schemas';
-import { useActionState, useId } from 'react';
+import { createContext, useActionState, useContext, useId, useState, type ReactNode } from 'react';
 import {
   FormMessage,
   TextField,
@@ -39,9 +39,60 @@ export interface SlotChoiceFields {
   startsAt: string;
 }
 
+/**
+ * A walk in (INT-12): the sheets book and check in, and the booking sheet's identity tick, once
+ * above the patients, goes with whichever Book and check in is pressed.
+ */
+const WalkInContext = createContext({ walkIn: false, identityChecked: false });
+
+export function WalkIn({
+  tick,
+  ticked = false,
+  children,
+}: {
+  tick: boolean;
+  /** Ticked before a patient search reloaded the sheet. */
+  ticked?: boolean;
+  children: ReactNode;
+}) {
+  const [identityChecked, setIdentityChecked] = useState(ticked);
+  const id = useId();
+  return (
+    <WalkInContext value={{ walkIn: true, identityChecked }}>
+      {tick ? (
+        <label
+          htmlFor={id}
+          className="flex min-h-11 items-start gap-3 rounded-control border border-line-control bg-surface p-3 text-ink"
+        >
+          <input
+            id={id}
+            type="checkbox"
+            checked={identityChecked}
+            onChange={(event) => {
+              setIdentityChecked(event.target.checked);
+            }}
+            className="mt-1 size-5 shrink-0"
+          />
+          <span>I have checked who this is (name and date of birth)</span>
+        </label>
+      ) : null}
+      {children}
+    </WalkInContext>
+  );
+}
+
+/** Keeps the identity tick across the booking sheet's patient search, a plain form. */
+export function KeepTick() {
+  const { identityChecked } = useContext(WalkInContext);
+  return identityChecked ? <input type="hidden" name="ticked" value="1" /> : null;
+}
+
 function ChoiceFields({ choice, view }: { choice: SlotChoiceFields; view?: string }) {
+  const { walkIn, identityChecked } = useContext(WalkInContext);
   return (
     <>
+      {walkIn ? <input type="hidden" name="walkIn" value="1" /> : null}
+      {identityChecked ? <input type="hidden" name="identityChecked" value="true" /> : null}
       <input type="hidden" name="centreId" value={choice.centreId} />
       <input type="hidden" name="physioId" value={choice.physioId} />
       <input type="hidden" name="appointmentTypeId" value={choice.appointmentTypeId} />
@@ -99,14 +150,18 @@ export function CancelBookingButton({
   centreId,
   date,
   view,
+  walkIn,
 }: {
   centreId: string;
   date: string;
   view?: string;
+  /** A walk in goes back to Today (INT-12). */
+  walkIn?: boolean;
 }) {
   const [state, action, pending] = useActionState(releaseSlotAction, initialState);
   return (
     <form action={action} className="flex flex-col gap-2">
+      {walkIn ? <input type="hidden" name="walkIn" value="1" /> : null}
       <input type="hidden" name="centreId" value={centreId} />
       <input type="hidden" name="date" value={date} />
       {view ? <input type="hidden" name="view" value={view} /> : null}
@@ -129,17 +184,18 @@ export function BookPatientButton({
   patient: PatientMatch;
 }) {
   const [state, action, pending] = useActionState(bookSlotAction, initialState);
+  const { walkIn } = useContext(WalkInContext);
   return (
     <form action={action} className="flex flex-col gap-2">
       <ChoiceFields choice={choice} view={view} />
       <input type="hidden" name="patientId" value={patient.id} />
       <button
         type="submit"
-        aria-label={`Book for ${patient.name}`}
+        aria-label={walkIn ? `Book and check in ${patient.name}` : `Book for ${patient.name}`}
         disabled={pending}
         className={bookButtonClass}
       >
-        Book
+        {walkIn ? 'Book and check in' : 'Book'}
       </button>
       {state.error ? (
         <span role="alert" className="text-sm text-danger">
@@ -169,6 +225,7 @@ export function PatientLine({ patient }: { patient: PatientMatch }) {
  */
 export function NewPatientBookForm({ choice, view }: { choice: SlotChoiceFields; view?: string }) {
   const [state, action, pending] = useActionState(addPatientAndBookAction, initialState);
+  const { walkIn } = useContext(WalkInContext);
   const id = useId();
   const errors = state.fieldErrors ?? {};
   const matches = state.matches ?? [];
@@ -197,7 +254,7 @@ export function NewPatientBookForm({ choice, view }: { choice: SlotChoiceFields;
         />
         {matches.length > 0 ? null : (
           <button type="submit" disabled={pending} className={primaryButtonClass}>
-            Add and book
+            {walkIn ? 'Add, book and check in' : 'Add and book'}
           </button>
         )}
         {matches.length > 0 ? (
@@ -215,7 +272,7 @@ export function NewPatientBookForm({ choice, view }: { choice: SlotChoiceFields;
                 Book for one of these, or add {name || 'them'} as a new person on the same mobile.
               </p>
               <button type="submit" disabled={pending} className={secondaryButtonClass}>
-                Add {name || 'them'} as a new person and book
+                Add {name || 'them'} as a new person and {walkIn ? 'book and check in' : 'book'}
               </button>
             </section>
           </>

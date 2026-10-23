@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { istDate } from './ist';
-import type { AppointmentStatus } from './slots';
+import { bookNewPatientSchema } from './calendar';
+import { bookSlotSchema, type AppointmentStatus } from './slots';
 
 /**
  * The front desk Today board (INT-01, Frontend Specification "Front Desk"): count chips that
@@ -62,10 +63,19 @@ export function canCheckIn(startsAt: Date, now: Date): boolean {
 }
 
 /** Check in (INT-02): the desk ticks that it has checked who the patient is (user decision). */
-export const checkInSchema = z.object({
-  appointmentId: z.guid(),
-  identityChecked: z.literal(true, { error: 'Tick that you have checked who this is.' }),
-});
+/** The desk has checked who this is, name and date of birth, before checking in (INT-02). */
+const identityChecked = z.literal(true, { error: 'Tick that you have checked who this is.' });
+
+export const checkInSchema = z.object({ appointmentId: z.guid(), identityChecked });
+
+/**
+ * A walk in (INT-12, user decisions 23 October 2026): a free start today booked and checked in in
+ * one action, as the Walk in channel, after the same identity tick; for a patient on file, or
+ * added with a name and mobile.
+ */
+export const walkInSchema = bookSlotSchema.extend({ identityChecked });
+
+export const walkInNewPatientSchema = bookNewPatientSchema.extend({ identityChecked });
 
 export const undoCheckInSchema = z.object({ appointmentId: z.guid() });
 

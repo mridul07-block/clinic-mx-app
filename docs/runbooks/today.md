@@ -94,6 +94,34 @@ Database and access:
 - The `reports` bucket is private; only our server reaches it. Locally and in CI, `pnpm db:start`
   now runs Supabase's storage service.
 
+## Walk in (INT-12)
+
+Decisions (user, 23 October 2026):
+
+- **"Walk in" on Today** opens the calendar's booking sheets for today (`/app/calendar?...&new=1&walkin=1`).
+  The desk:
+  1. picks the type;
+  2. picks a physio's next free start (no date field);
+  3. finds the patient or adds them with a name and mobile;
+  4. ticks "I have checked who this is (name and date of birth)";
+  5. presses **Book and check in** (for a new patient, **Add, book and check in**).
+
+  It lands on the check in drawer with "Checked in." for the QR, the tablet and reports. The tick
+  is kept across a patient search (`ticked=1`). Cancel booking and Close go back to Today.
+- **Its own channel.** The booking is the Walk in channel (`walk_in`), and calls stay Front desk.
+  Every staff booking records who made it (check `appointment_staff_booked_by`).
+- **Next free start only.** The slot engine is the booking's: on the grid and still ahead. A
+  patient arriving at 10:07 gets 10:15 or later.
+
+How it works:
+
+- `walkIn` (`apps/web/modules/front-desk/services.ts`) runs one transaction:
+  - it needs `check_in.manage` and `bookings.manage` at the centre, the tick, and a start today;
+  - it books with `bookFor` (`modules/scheduling/services.ts`, shared with Book);
+  - then it checks in by the same person.
+- `addPatientAndWalkIn` adds the patient first, as Add and book does (`addPatientThenBook`).
+- The sheets show walk-in mode only to someone who both books and checks in, and only for today.
+
 ## Rules
 
 - **The service** (`checkIn`, `undoCheckIn` in `apps/web/modules/front-desk/services.ts`):
@@ -109,7 +137,7 @@ Database and access:
 ## Not yet
 
 - Notifying the physio on check in (PRD J2.1) comes with notifications.
-- The health form pages (INT-03 to INT-05) and walk ins (INT-12).
+- The health form questions (INT-04, INT-05).
 - Landing screens for the other roles come with their tickets.
 
 ## Checking it
@@ -122,8 +150,12 @@ Database and access:
 | `packages/db/src/integration/slots.integration.test.ts` | Check in and undo with the arrival time; back to Confirmed; refused on another day, from No show, without an arrival time, and an undo another day; audited; the board leaves out Cancelled and is read by the front desk |
 | `apps/web/e2e/check-in.spec.ts` | 360 px and desktop: Check in opens the drawer, the identity tick comes first, undo; Show QR opens the health form on another phone; Open on tablet opens it on a kiosk tablet; reports added and listed, a text file and a file over 4 MB refused; a visit in an open episode has no health form |
 | `apps/web/modules/front-desk/services.test.ts` (INT-02) | The tick; reuse or issue the link; no form in an open episode; the tablet's centre; report types, sizes and first bytes; files removed when recording fails |
+| `apps/web/e2e/walk-in.spec.ts` | 360 px and desktop: Walk in from Today; refused without the tick, kept across a search, then booked as `walk_in` and checked in by the desk in one press; a new patient added, booked and checked in |
+| `apps/web/modules/front-desk/services.test.ts` (INT-12) | Walk in books as `walk_in` and checks in in one transaction after the tick; today only; Physio, Finance and another centre refused |
 | `apps/web/e2e/today.spec.ts` | 360 px and desktop: the desk lands on Today; tags, "n min late", "Here n min"; chips filter; check in and undo; a booking made elsewhere appears; Physio and Finance refused; the emergency banner full width and red |
 
 **Negative checks (23 October 2026).** With the same day rule taken out of the guard, checking in
 an appointment on another day was no longer refused and the database test failed (INT-01). With
-`patient_link_checkin_issue` dropped, the database test and "Show QR" failed (INT-02).
+`patient_link_checkin_issue` dropped, the database test and "Show QR" failed (INT-02). With
+the check in taken out of `walkIn` (book only), the service test and both walk in end to end
+tests failed (INT-12).

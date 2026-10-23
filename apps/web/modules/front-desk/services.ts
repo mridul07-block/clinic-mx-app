@@ -18,12 +18,21 @@ import {
   reportContentTypes,
   reportExtensions,
   undoCheckInSchema,
+  walkInNewPatientSchema,
+  walkInSchema,
   type ReportContentType,
 } from '@clinic-mx/schemas';
 import { z } from 'zod';
+import { assertCan } from '../access/guard';
 import { staffService, type ServiceContext, type ServiceTransaction } from '../access/service';
 import { issuePatientLink, patientLinkPath, type IssuedLink } from '../patient-links/services';
-import { SchedulingError, appointmentTarget } from '../scheduling/services';
+import {
+  SchedulingError,
+  addPatientThenBook,
+  appointmentTarget,
+  bookFor,
+  type BookNewPatientResult,
+} from '../scheduling/services';
 import { getSetting } from '../settings/settings';
 import { reportStore } from './report-store';
 
@@ -50,6 +59,43 @@ export const checkIn = staffService({
     }
   },
 });
+
+/**
+ * A walk in (INT-12, user decisions 23 October 2026): a free start today booked as the Walk in
+ * channel and checked in, in one transaction, by someone who both books and checks in at the
+ * centre, after the identity tick. The slot engine is the booking's (next free start only).
+ */
+export async function walkIn(context: ServiceContext, rawInput: unknown) {
+  const step = await getSetting('scheduling.slot_minutes');
+  return staffService({
+    action: 'check_in.manage',
+    input: walkInSchema,
+    target: (input) => Promise.resolve({ centreId: input.centreId }),
+    run: async (tx, { identityChecked: _ticked, ...input }, actor) => {
+      assertCan(actor, 'bookings.manage', { centreId: input.centreId });
+      const now = new Date();
+      if (!canCheckIn(input.startsAt, now)) {
+        throw new SchedulingError('A walk in is booked for today.');
+      }
+      const booked = await bookFor(tx, input, actor, { channel: 'walk_in', step, now });
+      if (!(await checkInAppointment(tx, { appointmentId: booked.id, by: actor.id, now }))) {
+        throw new SchedulingError('The walk in was not checked in.');
+      }
+      return booked;
+    },
+  })(context, rawInput);
+}
+
+/** A new walk in: added with a name and mobile, then booked and checked in (INT-12). */
+export async function addPatientAndWalkIn(
+  context: ServiceContext,
+  rawInput: unknown,
+): Promise<BookNewPatientResult> {
+  const { name, phone, confirmNewPerson, ...slot } = walkInNewPatientSchema.parse(rawInput);
+  return addPatientThenBook(context, { name, phone, confirmNewPerson, ...slot }, (patientId) =>
+    walkIn(context, { ...slot, patientId }),
+  );
+}
 
 /**
  * Undoes a check in made by mistake (INT-01, user decision 23 October 2026): on the

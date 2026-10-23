@@ -12,7 +12,7 @@ import {
   systemActor,
   withActor,
 } from '@clinic-mx/db';
-import { istDate, istInstant } from '@clinic-mx/schemas';
+import { istDate, istInstant, type Block } from '@clinic-mx/schemas';
 import { eq, inArray } from 'drizzle-orm';
 
 // The calendar for end to end tests (SCH-05). Each test uses its own temporary physio, so tests
@@ -37,12 +37,12 @@ export const centreIdByCode = (code: string) =>
   idOf(db().select({ id: centre.id }).from(centre).where(eq(centre.code, code)), code);
 
 /**
- * Gives a physio hours every day at HSR Layout, 09:00 to 13:00, from today; as a consultant, with
- * a consultation fee (a price item key) when given.
+ * Gives a physio hours every day at HSR Layout, 09:00 to 13:00 unless `hours` says otherwise, from
+ * today; as a consultant, with a consultation fee (a price item key) when given.
  */
 export async function physioAtHsr(
   physioId: string,
-  options: { consultant?: boolean; feeKey?: string } = {},
+  options: { consultant?: boolean; feeKey?: string; hours?: Block[] } = {},
 ): Promise<void> {
   const hsr = await centreIdByCode('HSR');
   const admin = await idOf(
@@ -67,7 +67,7 @@ export async function physioAtHsr(
       staffUserId: physioId,
       centreId: hsr,
       effectiveFrom: istDate(new Date()),
-      weekly: Array.from({ length: 7 }, () => [{ starts: 9 * 60, ends: 13 * 60 }]),
+      weekly: Array.from({ length: 7 }, () => options.hours ?? [{ starts: 9 * 60, ends: 13 * 60 }]),
       createdBy: admin,
     });
   });
@@ -151,6 +151,19 @@ export async function startedAppointment(
   );
   if (!row) throw new Error('The appointment was not recorded.');
   return { id: row.id, number: row.number, startsAt };
+}
+
+/** A patient's appointments: channel, who booked, status and who checked in (INT-12). */
+export function appointmentsOf(patientId: string) {
+  return db()
+    .select({
+      channel: appointment.channel,
+      bookedBy: appointment.bookedBy,
+      status: appointment.status,
+      checkedInBy: appointment.checkedInBy,
+    })
+    .from(appointment)
+    .where(eq(appointment.patientId, patientId));
 }
 
 /** Removes the appointments, holds and hours of the given physios. */

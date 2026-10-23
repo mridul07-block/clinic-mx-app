@@ -5,8 +5,10 @@ import {
   BookPatientButton,
   CancelBookingButton,
   HoldButton,
+  KeepTick,
   NewPatientBookForm,
   PatientLine,
+  WalkIn,
   type SlotChoiceFields,
 } from './booking-forms';
 import { timeOf } from './calendar-block';
@@ -45,6 +47,8 @@ export function BookingSheet({
   find,
   results,
   closeHref,
+  walkIn = false,
+  ticked = false,
 }: {
   choice: SlotChoiceFields;
   date: string;
@@ -59,34 +63,14 @@ export function BookingSheet({
   /** Patients matching the search; undefined with too little typed. */
   results?: PatientMatch[];
   closeHref: string;
+  /** A walk in (INT-12): the identity tick, then Book and check in. */
+  walkIn?: boolean;
+  /** The tick, kept across a search. */
+  ticked?: boolean;
 }) {
   const startsAt = new Date(choice.startsAt);
-  return (
-    <Drawer
-      label="Book"
-      closeHref={closeHref}
-      footer={<CancelBookingButton centreId={choice.centreId} date={date} view={view} />}
-    >
-      <div className="flex flex-col gap-1">
-        <h2 className="text-title font-semibold text-ink">Book {typeName}</h2>
-        <p
-          data-testid="hold-status"
-          className={heldUntil ? 'text-ink-secondary' : 'text-waiting-strong'}
-        >
-          {heldUntil
-            ? `Held for you until ${timeOf(heldUntil)}`
-            : 'Your hold ran out. Book still works if the time is free.'}
-        </p>
-      </div>
-      <dl className="flex flex-col gap-3">
-        <Detail term="When">
-          {formatIstDate(istDate(startsAt))}, {timeOf(startsAt)}
-        </Detail>
-        <Detail term="With">
-          {physioName} at {centreName}
-        </Detail>
-      </dl>
-
+  const patients = (
+    <>
       <section aria-labelledby="find-patient" className="flex flex-col gap-3">
         <h3 id="find-patient" className="text-md font-semibold text-ink">
           Find the patient
@@ -99,8 +83,10 @@ export function BookingSheet({
               physio: view,
               book: `${choice.physioId}@${choice.startsAt}`,
               type: choice.appointmentTypeId,
+              walkin: walkIn ? '1' : undefined,
             }}
           />
+          {walkIn ? <KeepTick /> : null}
           <label htmlFor="booking-find" className="font-medium text-ink">
             Mobile or name
           </label>
@@ -147,6 +133,45 @@ export function BookingSheet({
         </p>
         <NewPatientBookForm choice={choice} view={view} />
       </section>
+    </>
+  );
+  return (
+    <Drawer
+      label={walkIn ? 'Walk in' : 'Book'}
+      closeHref={closeHref}
+      footer={
+        <CancelBookingButton centreId={choice.centreId} date={date} view={view} walkIn={walkIn} />
+      }
+    >
+      <div className="flex flex-col gap-1">
+        <h2 className="text-title font-semibold text-ink">
+          {walkIn ? `Walk in: ${typeName}` : `Book ${typeName}`}
+        </h2>
+        <p
+          data-testid="hold-status"
+          className={heldUntil ? 'text-ink-secondary' : 'text-waiting-strong'}
+        >
+          {heldUntil
+            ? `Held for you until ${timeOf(heldUntil)}`
+            : 'Your hold ran out. Book still works if the time is free.'}
+        </p>
+      </div>
+      <dl className="flex flex-col gap-3">
+        <Detail term="When">
+          {formatIstDate(istDate(startsAt))}, {timeOf(startsAt)}
+        </Detail>
+        <Detail term="With">
+          {physioName} at {centreName}
+        </Detail>
+      </dl>
+
+      {walkIn ? (
+        <WalkIn tick ticked={ticked}>
+          {patients}
+        </WalkIn>
+      ) : (
+        patients
+      )}
     </Drawer>
   );
 }
@@ -164,6 +189,7 @@ export function NewBookingSheet({
   on,
   slots,
   closeHref,
+  walkIn = false,
 }: {
   centreId: string;
   date: string;
@@ -174,13 +200,58 @@ export function NewBookingSheet({
   /** Free starts per physio for the type and day picked; undefined until both are. */
   slots?: PhysioSlots[];
   closeHref: string;
+  /** A walk in (INT-12): today's free starts only, held for booking and checking in. */
+  walkIn?: boolean;
 }) {
   const typeName = types.find((type) => type.id === typeId)?.name ?? '';
+  const title = walkIn ? 'Walk in' : 'New booking';
+  const freeTimes = slots ? (
+    slots.every((physio) => physio.slots.length === 0) ? (
+      <p className="text-ink-muted" data-testid="no-free-times">
+        No free time for {typeName} {walkIn ? 'today' : `on ${formatIstDate(on)}`}.
+      </p>
+    ) : (
+      <ul className="flex flex-col gap-4" aria-label="Free times">
+        {slots
+          .filter((physio) => physio.slots.length > 0)
+          .map((physio) => (
+            <li key={physio.physioId} className="flex flex-col gap-2">
+              <span className="font-medium text-ink">{physio.physioName}</span>
+              <span className="flex flex-wrap gap-2">
+                {physio.slots.map((slot) => (
+                  <HoldButton
+                    key={slot.startsAt.toISOString()}
+                    choice={{
+                      centreId,
+                      physioId: physio.physioId,
+                      appointmentTypeId: typeId ?? '',
+                      startsAt: slot.startsAt.toISOString(),
+                    }}
+                    view={view}
+                    label={timeOf(slot.startsAt)}
+                    name={`${walkIn ? 'Walk in' : 'Book'} ${typeName} at ${timeOf(slot.startsAt)} with ${physio.physioName}`}
+                    className={chipClass}
+                  />
+                ))}
+              </span>
+            </li>
+          ))}
+      </ul>
+    )
+  ) : null;
   return (
-    <Drawer label="New booking" closeHref={closeHref}>
-      <h2 className="text-title font-semibold text-ink">New booking</h2>
+    <Drawer label={title} closeHref={closeHref}>
+      <h2 className="text-title font-semibold text-ink">{title}</h2>
       <form action="/app/calendar" className="flex flex-col gap-3">
-        <KeepFields fields={{ centre: centreId, date, physio: view, new: '1' }} />
+        <KeepFields
+          fields={{
+            centre: centreId,
+            date,
+            physio: view,
+            new: '1',
+            walkin: walkIn ? '1' : undefined,
+          }}
+        />
         <div className="flex flex-col gap-1.5">
           <label htmlFor="booking-type" className="font-medium text-ink">
             Appointment type
@@ -196,51 +267,22 @@ export function NewBookingSheet({
             ))}
           </select>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="booking-on" className="font-medium text-ink">
-            Date
-          </label>
-          <input id="booking-on" name="on" type="date" defaultValue={on} className={inputClass} />
-        </div>
+        {walkIn ? (
+          <p className="text-ink-secondary">Today, {formatIstDate(on)}</p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="booking-on" className="font-medium text-ink">
+              Date
+            </label>
+            <input id="booking-on" name="on" type="date" defaultValue={on} className={inputClass} />
+          </div>
+        )}
         <button type="submit" className={secondaryButtonClass}>
           Show free times
         </button>
       </form>
 
-      {slots ? (
-        slots.every((physio) => physio.slots.length === 0) ? (
-          <p className="text-ink-muted" data-testid="no-free-times">
-            No free time for {typeName} on {formatIstDate(on)}.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-4" aria-label="Free times">
-            {slots
-              .filter((physio) => physio.slots.length > 0)
-              .map((physio) => (
-                <li key={physio.physioId} className="flex flex-col gap-2">
-                  <span className="font-medium text-ink">{physio.physioName}</span>
-                  <span className="flex flex-wrap gap-2">
-                    {physio.slots.map((slot) => (
-                      <HoldButton
-                        key={slot.startsAt.toISOString()}
-                        choice={{
-                          centreId,
-                          physioId: physio.physioId,
-                          appointmentTypeId: typeId ?? '',
-                          startsAt: slot.startsAt.toISOString(),
-                        }}
-                        view={view}
-                        label={timeOf(slot.startsAt)}
-                        name={`Book ${typeName} at ${timeOf(slot.startsAt)} with ${physio.physioName}`}
-                        className={chipClass}
-                      />
-                    ))}
-                  </span>
-                </li>
-              ))}
-          </ul>
-        )
-      ) : null}
+      {walkIn && freeTimes ? <WalkIn tick={false}>{freeTimes}</WalkIn> : freeTimes}
     </Drawer>
   );
 }

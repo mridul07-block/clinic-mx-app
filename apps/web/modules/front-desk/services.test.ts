@@ -9,6 +9,7 @@ import {
   openFormOnTablet,
   showHealthForm,
   undoCheckIn,
+  walkIn,
 } from './services';
 import { loadToday } from './today';
 
@@ -25,6 +26,8 @@ const db = vi.hoisted(() => ({
   findKioskDevice: vi.fn(),
   sendLinkToKiosk: vi.fn(),
   insertPatientReport: vi.fn(),
+  patientRecord: vi.fn(),
+  bookAppointment: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
 const links = vi.hoisted(() => ({ issuePatientLink: vi.fn(), patientLinkPath: vi.fn() }));
@@ -151,6 +154,66 @@ describe('front desk today', () => {
   });
 
   // INT-02: the drawer's health form (first visits only), the tablet, and reports.
+  // INT-12: a walk in is booked as its own channel and checked in, in one transaction, after the
+  // identity tick, today only, by those who both book and check in at the centre.
+  describe('walk in', () => {
+    const slot = {
+      centreId: hsr,
+      physioId: '00000000-0000-4000-8000-000000000301',
+      appointmentTypeId: '00000000-0000-4000-8000-000000000401',
+      startsAt: '2026-11-02T04:30:00.000Z',
+      patientId: '00000000-0000-4000-8000-000000000501',
+    };
+
+    it('books as a walk in and checks in, in one transaction, after the tick', async () => {
+      db.patientRecord.mockResolvedValue({ id: slot.patientId });
+      db.bookAppointment.mockResolvedValue({ id: appointmentId, number: 'MVH-00001' });
+      db.checkIn.mockResolvedValue({ id: appointmentId });
+      await expect(walkIn(context(), slot)).rejects.toThrow(
+        'Tick that you have checked who this is.',
+      );
+      expect(db.bookAppointment).not.toHaveBeenCalled();
+
+      expect(await walkIn(context(), { ...slot, identityChecked: true })).toEqual({
+        id: appointmentId,
+        number: 'MVH-00001',
+      });
+      expect(db.withStaffAccess).toHaveBeenCalledTimes(1);
+      expect(db.bookAppointment).toHaveBeenCalledWith(
+        fakeTx,
+        expect.objectContaining({
+          channel: 'walk_in',
+          bookedBy: deskId,
+          holder: `staff:${deskId}`,
+          startsAt: new Date(slot.startsAt),
+        }),
+      );
+      expect(db.checkIn).toHaveBeenCalledWith(fakeTx, {
+        appointmentId,
+        by: deskId,
+        now: new Date('2026-11-02T03:00:00.000Z'),
+      });
+    });
+
+    it('is for today only, by those who book and check in at the centre', async () => {
+      db.patientRecord.mockResolvedValue({ id: slot.patientId });
+      await expect(
+        walkIn(context(), {
+          ...slot,
+          startsAt: '2026-11-03T04:30:00.000Z',
+          identityChecked: true,
+        }),
+      ).rejects.toThrow('A walk in is booked for today.');
+      for (const actor of refusedFor) {
+        await expect(walkIn(context(actor), { ...slot, identityChecked: true })).rejects.toThrow(
+          NotAllowedError,
+        );
+      }
+      expect(db.bookAppointment).not.toHaveBeenCalled();
+      expect(db.checkIn).not.toHaveBeenCalled();
+    });
+  });
+
   describe('check in drawer', () => {
     const view = { ...booked, status: 'checked_in', episodeId: null, patientId: 'patient' };
     const waiting = {
