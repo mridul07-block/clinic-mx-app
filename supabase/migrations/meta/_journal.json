@@ -484,6 +484,20 @@
       "when": 1792779647032,
       "tag": "20261023182047_assisted_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1792794852285,
+      "tag": "20261023223412_task_inbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1792794863479,
+      "tag": "20261023223423_task_inbox_rules",
+      "breakpoints": true
     }
   ]
 }

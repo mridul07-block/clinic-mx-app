@@ -1,11 +1,15 @@
 import { sql } from 'drizzle-orm';
 import { check, index, jsonb, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { staffRole, staffUser } from './identity';
+import { episode } from './episodes';
+import { centre, staffRole, staffUser } from './identity';
+import { patient } from './patients';
 
 /**
  * Tasks (TAD section 4): work for a person or a role, closed only with a recorded decision
- * (PRD M11). FND-10 creates them for failed jobs; the tasks inbox is ALT-03, and the links to
- * episodes and patients arrive with those tables.
+ * (PRD M11). FND-10 creates them for failed jobs. ALT-03 is the inbox: a task for a role at a
+ * centre reaches that role there; one person may take it ("Take it"), and then only they see it.
+ * Tasks are created by the server as the system; staff only take and close them
+ * (docs/runbooks/tasks.md).
  */
 
 export const taskPriorities = ['urgent', 'high', 'normal'] as const;
@@ -28,6 +32,12 @@ export const task = pgTable(
     /** Assigned to a role (every staff member with it) or to one person. */
     assigneeRole: staffRole('assignee_role'),
     assigneeStaffUserId: uuid('assignee_staff_user_id').references(() => staffUser.id),
+    /** When someone took a role task for themselves (ALT-03); null when it was made for them. */
+    takenAt: timestamp('taken_at', { withTimezone: true }),
+    /** The centre a role task is for; none means every centre (the Super Admin's job tasks). */
+    centreId: uuid('centre_id').references(() => centre.id),
+    patientId: uuid('patient_id').references(() => patient.id),
+    episodeId: uuid('episode_id').references(() => episode.id),
     dueAt: timestamp('due_at', { withTimezone: true }),
     decision: text('decision'),
     closedBy: uuid('closed_by').references(() => staffUser.id),
@@ -39,6 +49,10 @@ export const task = pgTable(
     index('task_open_role_idx')
       .on(table.assigneeRole)
       .where(sql`${table.status} = 'open'`),
+    index('task_open_assignee_idx')
+      .on(table.assigneeStaffUserId)
+      .where(sql`${table.status} = 'open'`),
+    index('task_closed_at_idx').on(table.closedAt),
     check(
       'task_has_assignee',
       sql`${table.assigneeRole} is not null or ${table.assigneeStaffUserId} is not null`,

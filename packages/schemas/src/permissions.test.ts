@@ -49,6 +49,9 @@ const expected: Record<Action, Expected> = {
   'red_flags.view_banner': ['yes', 'yes', 'yes', 'yes', '-'],
   // User decision 23 October 2026 (ALT-01), not a PRD row: only clinicians act on alerts.
   'red_flags.act': ['treats', 'treats', '-', 'treats', '-'],
+  // ALT-03, not a PRD row: everyone has tasks.
+  'tasks.view': ['yes', 'yes', 'yes', 'yes', 'yes'],
+  'tasks.act': ['yes', 'yes', 'yes', 'yes', 'yes'],
   'bills.view_amounts': ['yes', '-', 'yes', '-', 'yes'],
   'bills.create_and_collect': ['yes', '-', 'yes', '-', 'yes'],
   'bills.view_payment_pending': ['yes', 'yes', 'yes', '-', 'yes'],

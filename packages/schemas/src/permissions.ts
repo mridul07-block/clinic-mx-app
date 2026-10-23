@@ -80,6 +80,10 @@ export const permissionMap = {
   'red_flags.view_banner': row(yes, yes, yes, yes, no),
   // User decision 23 October 2026 (ALT-01): only clinicians review, refer and close them.
   'red_flags.act': row(treats, treats, no, treats, no),
+  // Not in the PRD summary (ALT-03, PRD M11): everyone has tasks; row level security gives each
+  // person theirs and their role's at their centres. Acting is taking and closing with a decision.
+  'tasks.view': row(yes, yes, yes, yes, yes),
+  'tasks.act': row(yes, yes, yes, yes, yes),
   // Bills and payments: managers see a "payment pending" flag, physios "sessions left" only.
   'bills.view_amounts': row(yes, no, yes, no, yes),
   'bills.create_and_collect': row(yes, no, yes, no, yes),
