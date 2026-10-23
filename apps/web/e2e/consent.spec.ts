@@ -1,7 +1,7 @@
 import { istDate } from '@clinic-mx/schemas';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { centreIdByCode, removeCalendarRows, startedAppointment } from './calendar';
-import { consentCard, consentOf, drawSignature, signatureStored } from './intake';
+import { consentCard, consentOf, drawSignature, notUnderAge, signatureStored } from './intake';
 import { testLink } from './patient-links';
 import { testPatient } from './patients';
 import { signIn, temporaryDesk, temporaryWithCode } from './staff';
@@ -74,6 +74,7 @@ test('a decline blocks the form for reception; changing their mind and signing o
     'Choose I agree or I do not agree.',
   );
 
+  await notUnderAge(patientPhone);
   await choose(patientPhone, screening, 'I agree');
   await choose(patientPhone, contact, 'I do not agree');
   await next(patientPhone);
@@ -87,6 +88,8 @@ test('a decline blocks the form for reception; changing their mind and signing o
       signatureKind: null,
       signatureFile: null,
       typedName: null,
+      signer: 'patient',
+      guardianId: null,
     },
   ]);
 
@@ -103,6 +106,7 @@ test('a decline blocks the form for reception; changing their mind and signing o
 
   // They change their mind: both agreed, signed on the pad.
   await patientPhone.getByRole('link', { name: 'Change my answer' }).click();
+  await notUnderAge(patientPhone);
   await choose(patientPhone, screening, 'I agree');
   await choose(patientPhone, contact, 'I agree');
   await drawSignature(patientPhone);
@@ -127,6 +131,7 @@ test('a decline blocks the form for reception; changing their mind and signing o
 test('agreeing needs a signature in the box', async ({ page }) => {
   const { path } = await visitLink();
   await page.goto(`${path}?screen=consent`);
+  await notUnderAge(page);
   await choose(page, screening, 'I agree');
   await choose(page, contact, 'I agree');
   await next(page);
@@ -139,6 +144,7 @@ test('without scripts the patient signs with their typed full name', async ({ br
   const page = await phone(browser, false);
   await page.goto(path);
   await page.getByRole('link', { name: 'Start' }).click();
+  await notUnderAge(page);
   await choose(page, screening, 'I agree');
   await choose(page, contact, 'I agree');
   await next(page);

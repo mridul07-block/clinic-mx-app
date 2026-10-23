@@ -414,6 +414,20 @@
       "when": 1792756530916,
       "tag": "20261023115530_consent_record_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1792759302900,
+      "tag": "20261023124142_consent_guardian",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1792759304372,
+      "tag": "20261023124144_consent_guardian_rules",
+      "breakpoints": true
     }
   ]
 }

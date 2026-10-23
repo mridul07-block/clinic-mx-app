@@ -12,11 +12,14 @@ const db = vi.hoisted(() => ({
   saveIntakeResponse: vi.fn(),
   insertConsentRecords: vi.fn(),
   ownConsentDecisions: vi.fn(),
+  ownGuardians: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
 vi.mock('../../lib/db', () => ({ appDb: () => ({ kind: 'appDb' }) }));
 const links = vi.hoisted(() => ({ verifyPatientLink: vi.fn() }));
 vi.mock('../patient-links/services', () => links);
+// Test value only; the real one is the `patients.adult_age_years` row.
+vi.mock('../settings/settings', () => ({ getSetting: vi.fn(() => Promise.resolve(18)) }));
 
 const appointmentId = '00000000-0000-4000-8000-000000000801';
 const link = {
@@ -27,7 +30,8 @@ const link = {
   episodeId: null,
   expiresAt: new Date('2030-01-01T00:00:00Z'),
 };
-const visit = { appointmentId, status: 'checked_in' };
+const visit = { appointmentId, status: 'checked_in', dateOfBirth: '1990-01-01' };
+const guardianId = '00000000-0000-4000-8000-000000000a01';
 const store = { put: vi.fn(), remove: vi.fn() };
 /** A form on version 2 with Part A consent accepted and signed. */
 const consented = {
@@ -79,6 +83,7 @@ describe('saving a health form screen', () => {
     links.verifyPatientLink.mockResolvedValue({ status: 'valid', link });
     db.healthFormVisit.mockResolvedValue(visit);
     db.saveIntakeResponse.mockResolvedValue({ id: 'response' });
+    db.ownGuardians.mockResolvedValue([]);
   });
 
   it('saves a screen after consent and opens the next one', async () => {
@@ -184,6 +189,7 @@ describe('saving a health form screen', () => {
           patientLinkId: link.id,
           stage: 'A',
           signer: 'patient',
+          guardianId: null,
           statementKey: 'part_a.contact',
           statementVersion: 1,
           accepted: false,
@@ -242,6 +248,69 @@ describe('saving a health form screen', () => {
       expect(await save('consent', { ...agree, signature: png })).toEqual({ status: 'closed' });
       expect(store.remove).toHaveBeenCalledWith([store.put.mock.calls[0]?.[0]]);
       expect(db.insertConsentRecords).not.toHaveBeenCalled();
+    });
+  });
+
+  // INT-07: under the adult age a guardian on file signs; without a date of birth the screen asks.
+  describe('who signs Part A', () => {
+    beforeEach(() => {
+      db.ownIntakeResponse.mockResolvedValue(undefined);
+      db.ownGuardians.mockResolvedValue([
+        { id: guardianId, name: 'Test Guardian', relationship: 'mother' },
+      ]);
+    });
+    const minor = { ...visit, dateOfBirth: '2014-05-04' };
+    const typed = { ...agree, typedName: 'Test Guardian' };
+    const signers = () =>
+      (db.insertConsentRecords.mock.calls[0]?.[1] as Record<string, unknown>[]).map((r) => [
+        r.signer,
+        r.guardianId,
+      ]);
+
+    it('has the guardian on file sign for a minor, never the minor', async () => {
+      db.healthFormVisit.mockResolvedValue(minor);
+      expect(await save('consent', typed)).toEqual({
+        status: 'invalid',
+        errors: { guardian: 'Choose who is signing.' },
+      });
+      expect(await save('consent', { ...typed, guardian: crypto.randomUUID() })).toEqual({
+        status: 'invalid',
+        errors: { guardian: 'Choose who is signing.' },
+      });
+      expect(db.insertConsentRecords).not.toHaveBeenCalled();
+      expect(await save('consent', { ...typed, guardian: guardianId })).toEqual({
+        status: 'saved',
+        next: 'problem',
+      });
+      expect(signers()).toEqual([
+        ['guardian', guardianId],
+        ['guardian', guardianId],
+      ]);
+    });
+
+    it('asks the age without a date of birth: no lets the patient sign', async () => {
+      db.healthFormVisit.mockResolvedValue({ ...visit, dateOfBirth: null });
+      expect(await save('consent', typed)).toEqual({
+        status: 'invalid',
+        errors: { minor: 'Answer this question.' },
+      });
+      await save('consent', { ...typed, minor: 'no' });
+      expect(signers()).toEqual([
+        ['patient', null],
+        ['patient', null],
+      ]);
+    });
+
+    it('asks for reception when a minor has no guardian on file, recording nothing', async () => {
+      db.ownGuardians.mockResolvedValue([]);
+      db.healthFormVisit.mockResolvedValue({ ...visit, dateOfBirth: null });
+      expect(await save('consent', { ...typed, minor: 'yes' })).toEqual({
+        status: 'guardian_needed',
+      });
+      db.healthFormVisit.mockResolvedValue(minor);
+      expect(await save('consent', typed)).toEqual({ status: 'guardian_needed' });
+      expect(db.insertConsentRecords).not.toHaveBeenCalled();
+      expect(store.put).not.toHaveBeenCalled();
     });
   });
 });

@@ -2,7 +2,13 @@ import { eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { patientActor, setAuditContext, systemActor, withActor } from '../audit';
 import { createDb } from '../client';
-import { insertConsentRecords, ownConsentDecisions, partAConsentDeclined } from '../consent';
+import {
+  insertConsentRecords,
+  ownConsentDecisions,
+  ownGuardians,
+  partAConsentDeclined,
+} from '../consent';
+import { insertGuardian, removeGuardian } from '../patients';
 import { healthFormVisit, ownIntakeResponse, saveIntakeResponse } from '../intake';
 import { insertPatientLink } from '../patient-links';
 import {
@@ -10,6 +16,7 @@ import {
   auditEvent,
   centre,
   consentRecord,
+  guardian,
   intakeResponse,
   patient,
   staffUser,
@@ -121,6 +128,7 @@ describe('a health form link under row level security', () => {
         status: 'booked',
         startsAt: on(600),
         patientName: names?.patientName,
+        dateOfBirth: null,
         centreName: names?.centreName,
         physioName: physio.name,
       });
@@ -498,6 +506,89 @@ describe('Part A consent under row level security', () => {
 
       await becomeStaff(tx, seedMember('physio.hsr@clinicmx.test'));
       expect(await tx.select({ id: consentRecord.id }).from(consentRecord)).toEqual([]);
+    });
+  });
+});
+
+// INT-07: for a patient under the adult age a guardian on file signs. The patient page reads its
+// patient's guardians who are not removed, without phones, and the date of birth; a guardian's
+// record names one of them.
+describe('the guardian section under row level security', () => {
+  async function family(tx: Tx) {
+    const { physio, patientId, theirs } = await visits(tx);
+    const [other] = await tx
+      .select({ patientId: appointment.patientId })
+      .from(appointment)
+      .where(eq(appointment.id, theirs.id));
+    const details = (name: string) => ({
+      name,
+      relationship: 'mother' as const,
+      phone: '+919800000001',
+    });
+    const mother = await insertGuardian(tx, patientId, details('Test Guardian Kept'));
+    const removed = await insertGuardian(tx, patientId, details('Test Guardian Removed'));
+    await removeGuardian(tx, removed);
+    const someoneElse = await insertGuardian(
+      tx,
+      other?.patientId ?? '',
+      details('Test Guardian Other'),
+    );
+    const visit = await checkedIn(tx, physio.id, patientId, 800);
+    const link = await insertPatientLink(tx, {
+      patientId,
+      purpose: 'health_form',
+      appointmentId: visit,
+      expiresAt: new Date(Date.now() + 3_600_000),
+    });
+    return { patientId, mother, removed, someoneElse, visit, link };
+  }
+
+  it('reads the patient’s own guardians on file, never phones, and the date of birth', async () => {
+    await rolledBack(async (tx) => {
+      const { patientId, mother, link } = await family(tx);
+      await tx.update(patient).set({ dateOfBirth: '2014-05-04' }).where(eq(patient.id, patientId));
+      await becomePatient(tx, { id: link.id, patientId, purpose: 'health_form' });
+      expect((await ownGuardians(tx)).map((g) => g.id)).toEqual([mother]);
+      expect(await failure(tx, (sp) => sp.select({ phone: guardian.phone }).from(guardian))).toBe(
+        '42501',
+      );
+      expect((await healthFormVisit(tx))?.dateOfBirth).toBe('2014-05-04');
+    });
+  });
+
+  it('records a guardian’s signature with a guardian on file, and refuses any other', async () => {
+    await rolledBack(async (tx) => {
+      const { patientId, mother, removed, someoneElse, visit, link } = await family(tx);
+      const signed = {
+        accepted: true,
+        signatureKind: 'typed' as const,
+        typedName: 'Test Guardian',
+      };
+      // The check holds for everyone: a guardian's record names one, the patient's none.
+      for (const values of [
+        { signer: 'guardian' as const },
+        { signer: 'patient' as const, guardianId: mother },
+      ]) {
+        expect(
+          await failure(tx, (sp) =>
+            insertConsentRecords(sp, [partA(link, visit, patientId, { ...signed, ...values })]),
+          ),
+        ).toBe('23514');
+      }
+      await becomePatient(tx, { id: link.id, patientId, purpose: 'health_form' });
+      for (const guardianId of [someoneElse, removed]) {
+        expect(
+          await failure(tx, (sp) =>
+            insertConsentRecords(sp, [
+              partA(link, visit, patientId, { ...signed, signer: 'guardian', guardianId }),
+            ]),
+          ),
+        ).toBe('42501');
+      }
+      await insertConsentRecords(tx, [
+        partA(link, visit, patientId, { ...signed, signer: 'guardian', guardianId: mother }),
+      ]);
+      expect(await ownConsentDecisions(tx)).toHaveLength(1);
     });
   });
 });

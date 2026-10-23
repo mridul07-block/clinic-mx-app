@@ -2,6 +2,7 @@ import 'server-only';
 import {
   healthFormVisit,
   ownConsentDecisions,
+  ownGuardians,
   ownIntakeResponse,
   type PatientLinkAccess,
 } from '@clinic-mx/db';
@@ -9,14 +10,19 @@ import {
   currentHealthFormVersion,
   firstName,
   formatIstDateTime,
+  guardianRelationshipLabels,
   healthFormOpen,
+  istDate,
+  minorStatus,
   healthForms,
   latestConsent,
   resumeAt,
   type HealthFormAnswer,
   type HealthFormDefinition,
+  type MinorStatus,
 } from '@clinic-mx/schemas';
 import { asPatient } from '../access/patient-db';
+import { getSetting } from '../settings/settings';
 
 /**
  * What the health form shows (INT-03, INT-04, user decisions 23 October 2026): the first name and
@@ -40,6 +46,12 @@ export type HealthFormWelcome =
       started: boolean;
       /** A Part A statement's latest decision is a decline (INT-06): the form waits. */
       consentDeclined: boolean;
+      /** Who signs Part A (INT-07): under the adult age a guardian on file; unknown asks. */
+      signing: {
+        status: MinorStatus;
+        adultAge: number;
+        guardians: { id: string; label: string }[];
+      };
     }
   | { open: false };
 
@@ -55,12 +67,14 @@ export async function loadHealthFormVisit(
   link: PatientLinkAccess,
   ip?: string,
 ): Promise<HealthFormWelcome> {
-  const { visit, saved, decisions } = await asPatient(
+  const adultAge = await getSetting('patients.adult_age_years');
+  const { visit, saved, decisions, guardians } = await asPatient(
     link,
     async (tx) => ({
       visit: await healthFormVisit(tx),
       saved: await ownIntakeResponse(tx),
       decisions: await ownConsentDecisions(tx),
+      guardians: await ownGuardians(tx),
     }),
     ip,
   );
@@ -80,5 +94,13 @@ export async function loadHealthFormVisit(
     resume: resumeAt(form, answers, doneScreens),
     started: saved !== undefined || decisions.length > 0,
     consentDeclined: latestConsent(decisions).declined,
+    signing: {
+      status: minorStatus(visit.dateOfBirth, adultAge, istDate(new Date())),
+      adultAge,
+      guardians: guardians.map((guardian) => ({
+        id: guardian.id,
+        label: `${guardian.name}, ${guardianRelationshipLabels[guardian.relationship]}`,
+      })),
+    },
   };
 }

@@ -128,7 +128,42 @@ How a consent screen is saved (`saveConsentScreen` in `apps/web/modules/intake/s
   patient, while the visit is on. They read their own records back.
 - **Staff.** Those with check in rights read the records of appointments they can see. Nobody
   updates or deletes a record. Support is read only. Every record is audited.
-- **Guardians.** Under 18s get the guardian's signature with INT-07.
+
+## Guardian section (INT-07)
+
+PRD J2.7: under 18 opens a guardian section; the guardian signs and must attend (the drawer
+already says "A guardian must attend").
+
+Decisions (user, 23 October 2026):
+
+- **A guardian on file signs.** Under the adult age (`patients.adult_age_years`, 18), the consent
+  screen shows "A parent or guardian signs for a patient under 18." and asks "Who is signing?".
+  It lists the patient's guardians on file who are not removed, as a name and relationship (for
+  example "Priya, Mother"), without phone numbers.
+  - The chosen guardian agrees and signs, drawn or typed.
+  - Every record stores `signer = guardian` and the guardian's id. Guardians are never deleted,
+    so the record always names who signed.
+- **No guardian on file.** The screen shows "Please speak to reception." The desk adds the
+  guardian on the patient record (SCH-02), and the form then lists them.
+- **Age unknown.** With no date of birth on file, the screen first asks "Is the patient under
+  18?".
+  - Yes opens the guardian section, shown by CSS while Yes is ticked, so it works without
+    scripts.
+  - No lets the patient sign.
+  - Yes with no guardian on file shows the reception message, with Change my answer.
+  - With a date of birth on file the age decides (`minorStatus`); About you (INT-05) brings the
+    date of birth.
+
+`parseSigner` (`packages/schemas/src/consent.ts`) decides who signs. A minor can never sign as
+the patient.
+
+Database:
+
+- The check `consent_record_guardian`: a guardian's record names one; the patient's names none.
+- `consent_record_patient_add` accepts `signer = guardian` only with one of the link's patient's
+  guardians who is not removed (`guardian_patient_read`).
+- Patient pages may read a guardian's `id`, `name` and `relationship` (never the phone), and the
+  patient's `date_of_birth`.
 
 ## Checking it
 
@@ -139,6 +174,7 @@ How a consent screen is saved (`saveConsentScreen` in `apps/web/modules/intake/s
 | `packages/db/src/integration/intake.integration.test.ts` | Saved by its patient while the visit is on, audited as the patient; refused for another visit, a visit not on, and once submitted; no delete; no staff read |
 | `packages/schemas/src/consent.test.ts` | Wording pinned; a decision for each statement; a signature only to agree, drawn or typed; a bad or too large picture refused; the latest decision counts |
 | `apps/web/e2e/consent.spec.ts` | 360 px and desktop. A decline blocks the form, and reception sees it on Today and in the drawer. Changing their mind and signing on the pad opens the questions, and the signature is stored. Agreeing needs a signature. Without scripts, a typed name signs. |
+| `apps/web/e2e/guardian.spec.ts` | 360 px and desktop. A guardian on file signs for a 12 year old, and the records name them. Without a date of birth the form asks; under 18 with no guardian waits for reception; No lets the patient sign. Without scripts, the question opens the section. |
 | `apps/web/e2e/health-form.spec.ts` | 360 px and desktop: screen by screen with messages and region questions; leave and Continue; all answered on `hf-1` by the patient; a closed visit saves nothing; without scripts |
 
 **Negative checks (23 October 2026):**
@@ -147,3 +183,5 @@ How a consent screen is saved (`saveConsentScreen` in `apps/web/modules/intake/s
   failed (INT-04).
 - With `consent_record_patient_add` dropped, the database test and the decline end-to-end test
   failed (INT-06).
+- With the policy accepting any `guardian_id`, the database test refusing another patient's
+  guardian failed (INT-07).

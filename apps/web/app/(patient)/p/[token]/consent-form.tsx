@@ -1,5 +1,6 @@
 'use client';
 
+import type { MinorStatus } from '@clinic-mx/schemas';
 import Link from 'next/link';
 import {
   useActionState,
@@ -18,6 +19,104 @@ import { patientPrimaryClass, patientSecondaryClass } from './patient-ui';
 // types their full name instead (user decision, 23 October 2026).
 
 const initialState: HealthFormState = {};
+
+/** A paired choice drawn as two 64 px buttons, as Yes / No and I agree / I do not agree. */
+const pairClass =
+  'flex min-h-16 cursor-pointer items-center justify-center rounded-control border border-line-control bg-surface px-2 text-center font-semibold text-ink has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-on-accent has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus';
+
+/** Who signs Part A (INT-07): under the adult age a guardian on file; unknown asks first. */
+export interface ConsentSigning {
+  status: MinorStatus;
+  adultAge: number;
+  guardians: { id: string; label: string }[];
+}
+
+/**
+ * The guardian section (INT-07, PRD J2.7): without a date of birth on file, "Is the patient
+ * under 18?" first; for a patient under the adult age, the guardian on file who signs. Shown by
+ * CSS while Yes is ticked, so it works without scripts.
+ */
+function GuardianSection({
+  signing,
+  values,
+  errors,
+}: {
+  signing: ConsentSigning;
+  values: Record<string, string | string[]>;
+  errors: Record<string, string>;
+}) {
+  const { status, adultAge, guardians } = signing;
+  if (status === 'adult') return null;
+  const unknown = status === 'unknown';
+  return (
+    <div className="group/minor flex flex-col gap-6">
+      {unknown ? (
+        <fieldset aria-invalid={errors.minor ? true : undefined} className="flex flex-col gap-3">
+          <legend className="mb-3 font-medium text-ink">Is the patient under {adultAge}?</legend>
+          <div className="grid grid-cols-2 gap-3">
+            {(
+              [
+                ['yes', 'Yes'],
+                ['no', 'No'],
+              ] as const
+            ).map(([value, label]) => (
+              <label key={value} className={pairClass}>
+                <input
+                  type="radio"
+                  name="minor"
+                  value={value}
+                  defaultChecked={values.minor === value}
+                  className="sr-only"
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          {errors.minor ? <p className="text-danger">{errors.minor}</p> : null}
+        </fieldset>
+      ) : null}
+      <section
+        aria-label="Parent or guardian"
+        data-testid="guardian-section"
+        className={
+          unknown
+            ? 'hidden flex-col gap-3 rounded-panel border border-line bg-surface p-4 group-has-[>fieldset_input[value=yes]:checked]/minor:flex'
+            : 'flex flex-col gap-3 rounded-panel border border-line bg-surface p-4'
+        }
+      >
+        <p className="text-ink">A parent or guardian signs for a patient under {adultAge}.</p>
+        {guardians.length > 0 ? (
+          <fieldset
+            aria-invalid={errors.guardian ? true : undefined}
+            className="flex flex-col gap-3"
+          >
+            <legend className="mb-3 font-medium text-ink">Who is signing?</legend>
+            {guardians.map((guardian) => (
+              <label
+                key={guardian.id}
+                className="flex min-h-target-patient items-center gap-3 rounded-control border border-line-control bg-surface px-4 text-ink has-[:checked]:border-accent has-[:checked]:bg-accent-soft"
+              >
+                <input
+                  type="radio"
+                  name="guardian"
+                  value={guardian.id}
+                  defaultChecked={values.guardian === guardian.id}
+                  className="size-5 shrink-0 accent-accent"
+                />
+                {guardian.label}
+              </label>
+            ))}
+            {errors.guardian ? <p className="text-danger">{errors.guardian}</p> : null}
+          </fieldset>
+        ) : (
+          <p className="text-ink" data-testid="guardian-missing">
+            Please speak to reception.
+          </p>
+        )}
+      </section>
+    </div>
+  );
+}
 
 export interface ConsentCard {
   key: string;
@@ -138,11 +237,13 @@ export function ConsentScreenForm({
   token,
   screenKey,
   cards,
+  signing,
   backHref,
 }: {
   token: string;
   screenKey: string;
   cards: ConsentCard[];
+  signing: ConsentSigning;
   backHref: string;
 }) {
   const [state, action, pending] = useActionState(saveScreenAction, initialState);
@@ -161,6 +262,7 @@ export function ConsentScreenForm({
         </p>
       ) : null}
       <div key={state.attempt ?? 0} className="flex flex-col gap-6">
+        <GuardianSection signing={signing} values={values} errors={errors} />
         {cards.map((card) => (
           <fieldset
             key={card.key}
@@ -179,10 +281,7 @@ export function ConsentScreenForm({
                   ['decline', 'I do not agree'],
                 ] as const
               ).map(([value, label]) => (
-                <label
-                  key={value}
-                  className="flex min-h-16 cursor-pointer items-center justify-center rounded-control border border-line-control bg-surface px-2 text-center font-semibold text-ink has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-on-accent has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus"
-                >
+                <label key={value} className={pairClass}>
                   <input
                     type="radio"
                     name={card.key}

@@ -1,0 +1,3 @@
+ALTER TABLE "consent_record" ADD COLUMN "guardian_id" uuid;--> statement-breakpoint
+ALTER TABLE "consent_record" ADD CONSTRAINT "consent_record_guardian_id_guardian_id_fk" FOREIGN KEY ("guardian_id") REFERENCES "public"."guardian"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "consent_record" ADD CONSTRAINT "consent_record_guardian" CHECK (("consent_record"."signer" = 'guardian') = ("consent_record"."guardian_id" is not null));

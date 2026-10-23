@@ -1,6 +1,6 @@
 import { asc, eq, sql, type SQL } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import { consentRecord } from './schema';
+import { consentRecord, guardian } from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /** A consent decision as read back (INT-06). */
@@ -22,6 +22,21 @@ export async function insertConsentRecords(
   rows: (typeof consentRecord.$inferInsert)[],
 ): Promise<void> {
   if (rows.length > 0) await tx.insert(consentRecord).values(rows);
+}
+
+/** A guardian as a patient page shows them (INT-07): no phone. */
+export interface OwnGuardian {
+  id: string;
+  name: string;
+  relationship: (typeof guardian.$inferSelect)['relationship'];
+}
+
+/** The patient's guardians on file who are not removed, inside `withPatientAccess`. */
+export function ownGuardians(db: DbOrTransaction): Promise<OwnGuardian[]> {
+  return db
+    .select({ id: guardian.id, name: guardian.name, relationship: guardian.relationship })
+    .from(guardian)
+    .orderBy(asc(guardian.name));
 }
 
 /** The page's own Part A decisions, inside `withPatientAccess` (its link's rows only). */
