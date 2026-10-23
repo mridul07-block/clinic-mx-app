@@ -12,6 +12,17 @@ import {
 import { insertGuardian, removeGuardian } from '../patients';
 import { insertPatientReport } from '../check-in';
 import {
+  enqueueIntakeSubmitted,
+  insertNotifications,
+  insertPrecautions,
+  insertRedFlagAlerts,
+  markNotificationsRead,
+  myNotifications,
+  unreadNotificationCount,
+} from '../clinical';
+import { insertEpisode } from '../episodes';
+import { latestKnowledgeVersion } from '../knowledge';
+import {
   healthFormVisit,
   ownIntakeResponse,
   ownReports,
@@ -26,9 +37,13 @@ import {
   consentRecord,
   guardian,
   intakeResponse,
+  job,
+  notification,
   patient,
   patientLink,
   patientReport,
+  precaution,
+  redFlagAlert,
   staffUser,
 } from '../schema';
 import { centreIds, seedStaff } from '../seed/data';
@@ -499,7 +514,12 @@ describe('Part A consent under row level security', () => {
 
       await tx.execute(sql`savepoint as_desk`);
       await becomeStaff(tx, seedMember('desk.hsr@clinicmx.test'));
-      expect(await tx.select({ id: consentRecord.id }).from(consentRecord)).toHaveLength(1);
+      const visitRecords = () =>
+        tx
+          .select({ id: consentRecord.id })
+          .from(consentRecord)
+          .where(eq(consentRecord.appointmentId, visit));
+      expect(await visitRecords()).toHaveLength(1);
       expect(await declined()).toBe(true);
       await tx.execute(sql`rollback to savepoint as_desk`);
 
@@ -517,7 +537,7 @@ describe('Part A consent under row level security', () => {
       await tx.execute(sql`rollback to savepoint later`);
 
       await becomeStaff(tx, seedMember('physio.hsr@clinicmx.test'));
-      expect(await tx.select({ id: consentRecord.id }).from(consentRecord)).toEqual([]);
+      expect(await visitRecords()).toEqual([]);
     });
   });
 });
@@ -729,6 +749,189 @@ describe('report photos and submitting under row level security', () => {
         .from(intakeResponse)
         .where(eq(intakeResponse.appointmentId, visit));
       expect(submitted?.at).toBeInstanceOf(Date);
+    });
+  });
+});
+
+// INT-10: the submit queues only its own pipeline job; alerts and precautions are read by staff who
+// treat patients at the centre; a notification by the staff member it is for, who can only mark
+// it read.
+describe('the submit pipeline under row level security', () => {
+  it('lets a submitted form queue its own pipeline job, and no other job', async () => {
+    await rolledBack(async (tx) => {
+      const { physio, patientId, theirs } = await visits(tx);
+      const visit = await checkedIn(tx, physio.id, patientId, 800);
+      const link = await insertPatientLink(tx, {
+        patientId,
+        purpose: 'health_form',
+        appointmentId: visit,
+        expiresAt: new Date(Date.now() + 3_600_000),
+      });
+      await becomePatient(tx, { id: link.id, patientId, purpose: 'health_form' });
+      await saveIntakeResponse(tx, form(link, visit, patientId));
+      // Not before the submit.
+      expect(await failure(tx, (sp) => enqueueIntakeSubmitted(sp, visit))).toBe('42501');
+      await submitIntakeResponse(tx);
+      const queue = (values: Partial<typeof job.$inferInsert>) =>
+        failure(tx, (sp) =>
+          sp.insert(job).values({
+            kind: 'intake.submitted',
+            payload: { appointmentId: visit },
+            idempotencyKey: `intake.submitted:${visit}`,
+            ...values,
+          }),
+        );
+      expect(await queue({ kind: 'system.ping' })).toBe('42501');
+      expect(
+        await queue({
+          payload: { appointmentId: theirs.id },
+          idempotencyKey: `intake.submitted:${theirs.id}`,
+        }),
+      ).toBe('42501');
+      expect(await queue({ idempotencyKey: 'something.else' })).toBe('42501');
+      expect(await queue({ attempts: 1 })).toBe('42501');
+      expect(await queue({ status: 'done' })).toBe('42501');
+      expect(await failure(tx, (sp) => enqueueIntakeSubmitted(sp, visit))).toBeUndefined();
+      await tx.execute(sql`reset role`);
+      const queued = await tx
+        .select({ kind: job.kind, status: job.status })
+        .from(job)
+        .where(eq(job.idempotencyKey, `intake.submitted:${visit}`));
+      expect(queued).toEqual([{ kind: 'intake.submitted', status: 'queued' }]);
+    });
+  });
+
+  it('shows alerts and precautions to staff who treat patients at the centre only', async () => {
+    await rolledBack(async (tx) => {
+      const { physio, patientId, mine } = await visits(tx);
+      const version = await latestKnowledgeVersion(tx);
+      if (!version) throw new Error('no knowledge base version');
+      const episodeId = await insertEpisode(tx, {
+        patientId,
+        centreId: centreIds.hsrLayout,
+        bodyRegion: 'back',
+      });
+      await insertRedFlagAlerts(tx, [
+        {
+          episodeId,
+          appointmentId: mine.id,
+          kbVersionId: version.id,
+          ruleKey: 'back.cauda_equina',
+          name: 'Cauda equina',
+          triage: 'immediate_emergency',
+          display: 'emergency',
+          action: 'Emergency department now.',
+          signedOff: false,
+        },
+      ]);
+      await insertPrecautions(tx, [
+        {
+          episodeId,
+          key: 'implant',
+          label: 'Any implant',
+          intakeResponseId: null,
+          formVersion: 'hf-3',
+        },
+      ]);
+      const sees = async (actor: StaffMember) => {
+        await tx.execute(sql`savepoint looking`);
+        await becomeStaff(tx, actor);
+        const seen = {
+          alerts: (
+            await tx
+              .select({ id: redFlagAlert.id })
+              .from(redFlagAlert)
+              .where(eq(redFlagAlert.episodeId, episodeId))
+          ).length,
+          precautions: (
+            await tx
+              .select({ id: precaution.id })
+              .from(precaution)
+              .where(eq(precaution.episodeId, episodeId))
+          ).length,
+        };
+        await tx.execute(sql`rollback to savepoint looking`);
+        return seen;
+      };
+      expect(await sees(physio)).toEqual({ alerts: 1, precautions: 1 });
+      expect(await sees(seedMember('desk.hsr@clinicmx.test'))).toEqual({
+        alerts: 0,
+        precautions: 0,
+      });
+      expect(
+        await sees({
+          ...seedMember('physio.koramangala@clinicmx.test'),
+          centreIds: [centreIds.koramangala],
+        }),
+      ).toEqual({ alerts: 0, precautions: 0 });
+      // Nobody on staff writes them.
+      await becomeStaff(tx, physio);
+      expect(
+        await failure(tx, (sp) =>
+          sp
+            .update(redFlagAlert)
+            .set({ status: 'closed' })
+            .where(eq(redFlagAlert.episodeId, episodeId)),
+        ),
+      ).toBeUndefined();
+      await tx.execute(sql`reset role`);
+      const [still] = await tx
+        .select({ status: redFlagAlert.status })
+        .from(redFlagAlert)
+        .where(eq(redFlagAlert.episodeId, episodeId));
+      expect(still?.status).toBe('raised');
+    });
+  });
+
+  it('shows a notification only to its staff member, who can only mark it read', async () => {
+    await rolledBack(async (tx) => {
+      const { physio, patientId, mine } = await visits(tx);
+      const other = seedMember('physio.hsr@clinicmx.test');
+      const episodeId = await insertEpisode(tx, { patientId, centreId: centreIds.hsrLayout });
+      await insertNotifications(tx, [
+        {
+          staffUserId: physio.id,
+          kind: 'health_form_submitted',
+          appointmentId: mine.id,
+          episodeId,
+        },
+        { staffUserId: physio.id, kind: 'red_flag_emergency', appointmentId: mine.id, episodeId },
+        { staffUserId: other.id, kind: 'health_form_submitted', appointmentId: mine.id, episodeId },
+      ]);
+      const theirs = await tx
+        .select({ id: notification.id })
+        .from(notification)
+        .where(eq(notification.staffUserId, other.id));
+      await becomeStaff(tx, physio);
+      const mineSeen = await myNotifications(tx);
+      expect(mineSeen.map((n) => n.kind).sort()).toEqual([
+        'health_form_submitted',
+        'red_flag_emergency',
+      ]);
+      expect(mineSeen[0]?.patientName).toEqual(expect.any(String));
+      expect(await unreadNotificationCount(tx)).toBe(2);
+      expect(
+        await markNotificationsRead(
+          tx,
+          theirs.map((n) => n.id),
+        ),
+      ).toBe(0);
+      expect(
+        await failure(tx, (sp) => sp.update(notification).set({ kind: 'red_flag_emergency' })),
+      ).toBe('42501');
+      expect(
+        await markNotificationsRead(
+          tx,
+          mineSeen.map((n) => n.id),
+        ),
+      ).toBe(2);
+      expect(await unreadNotificationCount(tx)).toBe(0);
+      await tx.execute(sql`reset role`);
+      const [left] = await tx
+        .select({ readAt: notification.readAt })
+        .from(notification)
+        .where(eq(notification.staffUserId, other.id));
+      expect(left?.readAt).toBeNull();
     });
   });
 });

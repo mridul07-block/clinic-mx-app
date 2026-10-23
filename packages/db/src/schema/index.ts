@@ -18,3 +18,4 @@ export * from './appointments';
 export * from './reports';
 export * from './intake';
 export * from './consent';
+export * from './clinical';

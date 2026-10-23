@@ -26,6 +26,7 @@ export {
 } from './jobs/queue';
 export {
   runDueJobs,
+  defineJob,
   type JobHandler,
   type JobHandlers,
   type TickOptions,
@@ -296,3 +297,20 @@ export {
   type IntakeResponse,
   type OwnReport,
 } from './intake';
+export {
+  INTAKE_SUBMITTED_JOB,
+  enqueueIntakeSubmitted,
+  insertNotifications,
+  insertPrecautions,
+  insertRedFlagAlerts,
+  linkIntakeEpisode,
+  markNotificationsRead,
+  myNotifications,
+  submittedIntake,
+  unreadNotificationCount,
+  type NewNotification,
+  type NewPrecaution,
+  type NewRedFlagAlert,
+  type NotificationEntry,
+  type SubmittedIntake,
+} from './clinical';

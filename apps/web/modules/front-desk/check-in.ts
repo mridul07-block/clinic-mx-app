@@ -58,16 +58,16 @@ export async function loadCheckIn(
     const now = new Date();
     const age = appointment.dateOfBirth ? ageOn(appointment.dateOfBirth, istDate(now)) : null;
     const minor = needsGuardian(age, adultAge);
-    const link = needsHealthForm(appointment)
-      ? await healthFormLink(tx, appointment.id)
-      : undefined;
+    const latest = await healthFormLink(tx, appointment.id);
+    const hasForm = needsHealthForm(appointment, latest);
+    const link = hasForm ? latest : undefined;
     const state = healthFormState(link, now, appointment.consentDeclined);
     return {
       appointment,
       age,
       minor,
       guardians: minor ? await guardiansOf(tx, appointment.patientId) : [],
-      healthForm: needsHealthForm(appointment)
+      healthForm: hasForm
         ? {
             state,
             expiresAt: link?.expiresAt ?? null,

@@ -28,6 +28,10 @@ names or phone numbers; `last_error` keeps only the error's name and message.
    (`reminder.day_before:<appointment id>`).
 3. Test the handler, including running it twice.
 
+Kinds so far: `system.ping`; `intake.submitted` (the health form submit pipeline, queued by the
+patient's submit; INT-10); `ai.preparation_sheet` (queued by that pipeline; does nothing until
+AI-01 to AI-03).
+
 ## Setting up an environment
 
 Once per environment (staging now, production at the upgrade):

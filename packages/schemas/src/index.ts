@@ -426,3 +426,16 @@ export {
   type TodayFilter,
   type TodayGroup,
 } from './today';
+export {
+  PRECAUTIONS_FIELD,
+  intakeAge,
+  intakePrecautions,
+  intakeScreening,
+  notificationKindLabels,
+  notificationKinds,
+  redFlagAlertStatusLabels,
+  redFlagAlertStatuses,
+  type IntakePrecaution,
+  type NotificationKind,
+  type RedFlagAlertStatus,
+} from './intake-submit';

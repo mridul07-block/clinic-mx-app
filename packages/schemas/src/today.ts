@@ -81,10 +81,14 @@ export const undoCheckInSchema = z.object({ appointmentId: z.guid() });
 
 /**
  * The health form is for a first visit for a problem: an appointment with no episode yet (user
- * decision, 23 October 2026); submitting it creates the episode (INT-10).
+ * decision, 23 October 2026). Submitting it creates the episode (INT-10), so a visit whose own
+ * form was submitted keeps its form, now Submitted.
  */
-export function needsHealthForm(appointment: { episodeId: string | null }): boolean {
-  return appointment.episodeId === null;
+export function needsHealthForm(
+  appointment: { episodeId: string | null },
+  latestLink?: { completedAt: Date | null },
+): boolean {
+  return appointment.episodeId === null || Boolean(latestLink?.completedAt);
 }
 
 export const healthFormStates = [
