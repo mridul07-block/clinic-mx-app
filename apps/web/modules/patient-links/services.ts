@@ -156,6 +156,26 @@ export async function openPatientLink(
   token: string,
   { ip, now = new Date() }: { ip?: string; now?: Date } = {},
 ): Promise<OpenedLink> {
+  const opened = await verifyPatientLink(token, { now });
+  if (opened.status === 'valid') {
+    await logRecordView(appDb(), {
+      actor: patientActor(opened.link.patientId),
+      ip,
+      entity: 'patient_link',
+      entityId: opened.link.id,
+    });
+  }
+  return opened;
+}
+
+/**
+ * The same checks as opening a link, for a form post (INT-04): the post itself is the audited
+ * write, so no view is logged.
+ */
+export async function verifyPatientLink(
+  token: string,
+  { now = new Date() }: { now?: Date } = {},
+): Promise<OpenedLink> {
   const keys = linkKeys();
   const claim = keys ? readPatientLink(token, keys) : null;
   if (!claim) return { status: 'invalid' };
@@ -173,13 +193,6 @@ export async function openPatientLink(
   if (row.revokedAt) return { status: 'revoked', purpose: row.purpose };
   if (row.expiresAt <= now) return { status: 'expired', purpose: row.purpose };
   if (row.completedAt) return { status: 'used', purpose: row.purpose };
-
-  await logRecordView(db, {
-    actor: patientActor(row.patientId),
-    ip,
-    entity: 'patient_link',
-    entityId: row.id,
-  });
   return {
     status: 'valid',
     link: {

@@ -1,7 +1,16 @@
 import 'server-only';
-import { systemActor, withActor, withStaffAccess, type Db, type StaffMember } from '@clinic-mx/db';
+import {
+  systemActor,
+  withActor,
+  withPatientAccess,
+  withStaffAccess,
+  type Db,
+  type PatientLinkAccess,
+  type StaffMember,
+} from '@clinic-mx/db';
 import type { AccessTarget, Action } from '@clinic-mx/schemas';
 import type { z } from 'zod';
+import { appDb } from '../../lib/db';
 import { assertCan, assertMay, assertMayWrite } from './guard';
 
 export type ServiceTransaction = Parameters<Parameters<typeof withStaffAccess>[2]>[0];
@@ -40,6 +49,26 @@ export function staffService<S extends z.ZodType, R>(definition: ServiceDefiniti
       assertCan(actor, definition.action, target);
       return definition.run(tx, input, actor);
     });
+  };
+}
+
+export type PatientTransaction = Parameters<Parameters<typeof withPatientAccess>[2]>[0];
+
+export interface PatientServiceDefinition<S extends z.ZodType, R> {
+  input: S;
+  run: (tx: PatientTransaction, input: z.output<S>, link: PatientLinkAccess) => Promise<R>;
+}
+
+/**
+ * A write by a patient through their link (rule 17, INT-04): the caller has checked the signed
+ * link first (`verifyPatientLink`); the input passes its zod schema, then one transaction as the
+ * `clinic_patient` role with the link in its claims, under row level security, audited as
+ * `patient:<id>`. Patients reach only what their link's policies allow.
+ */
+export function patientService<S extends z.ZodType, R>(definition: PatientServiceDefinition<S, R>) {
+  return async (link: PatientLinkAccess, rawInput: unknown, ip?: string): Promise<R> => {
+    const input = definition.input.parse(rawInput);
+    return withPatientAccess(appDb(), { link, ip }, (tx) => definition.run(tx, input, link));
   };
 }
 

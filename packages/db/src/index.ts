@@ -278,4 +278,10 @@ export {
   type HealthFormLink,
   type PatientReportEntry,
 } from './check-in';
-export { healthFormVisit, type HealthFormVisit } from './intake';
+export {
+  healthFormVisit,
+  ownIntakeResponse,
+  saveIntakeResponse,
+  type HealthFormVisit,
+  type IntakeResponse,
+} from './intake';

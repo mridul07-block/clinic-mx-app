@@ -217,6 +217,32 @@ export {
   type ScreeningThresholdKey,
   type ScreeningThresholds,
 } from './red-flags';
+export {
+  ANSWER_THIS,
+  HEALTH_FORM_END,
+  canOpen,
+  currentHealthFormVersion,
+  healthForms,
+  nextScreen,
+  parseScreen,
+  previousScreen,
+  pruneAnswers,
+  resumeAt,
+  screenLayout,
+  stepOf,
+  visibleFields,
+  visibleScreens,
+  type HealthFormAnswer,
+  type HealthFormAnswers,
+  type HealthFormCondition,
+  type HealthFormDefinition,
+  type HealthFormField,
+  type HealthFormOption,
+  type HealthFormRow,
+  type HealthFormScreen,
+  type ParsedScreen,
+  type PostedScreen,
+} from './health-form';
 export { keyFromName } from './keys';
 export { MAX_PAISE, formatRupees, rupeesSchema, rupeesText } from './money';
 export {

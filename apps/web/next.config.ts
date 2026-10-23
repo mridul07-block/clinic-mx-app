@@ -31,9 +31,11 @@ const nextConfig: NextConfig = {
       {
         // Patient links (IAM-09): the token in the address never goes on to another site, the
         // page is never kept by a browser or proxy cache, and search engines leave it alone.
+        // same-origin, not no-referrer (INT-04): a plain form post must carry its own origin,
+        // or the server refuses the health form's server action without scripts.
         source: '/p/:path*',
         headers: [
-          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'Referrer-Policy', value: 'same-origin' },
           { key: 'Cache-Control', value: 'private, no-store' },
           { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
         ],
@@ -43,7 +45,7 @@ const nextConfig: NextConfig = {
         // opens is never kept or passed on.
         source: '/kiosk/:path*',
         headers: [
-          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'Referrer-Policy', value: 'same-origin' },
           { key: 'Cache-Control', value: 'private, no-store' },
           { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
         ],

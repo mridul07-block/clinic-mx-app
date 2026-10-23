@@ -65,7 +65,7 @@ the form back):
   later stays.
 - It is audited as `system:kiosk.<tablet id>`.
 
-`/kiosk` and `/kiosk/state` send the same headers as `/p`: `no-referrer`, `no-store`, `noindex`.
+`/kiosk` and `/kiosk/state` send the same headers as `/p`: `same-origin`, `no-store`, `noindex`.
 
 ## The lock
 

@@ -134,7 +134,7 @@ test('a first visit shows the health form QR, which opens the form for that visi
       `HSR Layout, with ${physio.name}`,
     ].join(''),
   );
-  await expect(linkStatus(phone)).toHaveText('It takes about 5 minutes. The questions open here.');
+  await expect(linkStatus(phone)).toHaveText('It takes about 5 minutes.');
   const shown = await phone.locator('main').innerText();
   expect(shown).not.toContain(patient.name);
   expect(shown).not.toContain(patient.phone);
