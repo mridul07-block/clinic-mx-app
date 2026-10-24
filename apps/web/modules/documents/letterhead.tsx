@@ -7,7 +7,7 @@ import {
   type LetterheadCentre,
 } from '@clinic-mx/schemas';
 import { tokenValues } from '@clinic-mx/ui';
-import type { ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, type ReactNode } from 'react';
 import { MONO, SANS } from './fonts';
 import { logoPaths, logoViewBox } from './logo-paths';
 
@@ -152,7 +152,11 @@ export function LetterheadDocument({
   );
 }
 
-/** A titled part of a document. `breakBefore` starts it on a new page. */
+/**
+ * A titled part of a document. `breakBefore` starts it on a new page. The heading never ends a page
+ * on its own (ALT-06, seen on staging): it stays with the section's first block, and with a table,
+ * inside its first rows, so a long table still breaks between rows.
+ */
 export function Section({
   heading,
   breakBefore = false,
@@ -162,10 +166,19 @@ export function Section({
   breakBefore?: boolean;
   children: ReactNode;
 }) {
+  const [first, ...rest] = Children.toArray(children);
+  const title = <Text style={styles.heading}>{heading}</Text>;
   return (
     <View style={styles.section} break={breakBefore}>
-      <Text style={styles.heading}>{heading}</Text>
-      {children}
+      {isValidElement<TableProps>(first) && first.type === Table ? (
+        cloneElement(first, { heading: title })
+      ) : (
+        <View wrap={false}>
+          {title}
+          {first}
+        </View>
+      )}
+      {rest}
     </View>
   );
 }
@@ -199,34 +212,45 @@ export interface TableColumn {
   align?: 'start' | 'end';
 }
 
-/** A hairline table; a row never splits across pages. */
-export function Table({
-  columns,
-  rows,
-}: {
+/**
+ * A hairline table; a row never splits across pages, and the header row stays with the first row
+ * (ALT-06: a header alone at the foot of a page, repeated above its row on the next, was seen on
+ * staging).
+ */
+interface TableProps {
   columns: readonly TableColumn[];
   rows: readonly (readonly string[])[];
-}) {
+  /** The section's heading, kept with the table's first rows (set by `Section`). */
+  heading?: ReactNode;
+}
+
+export function Table({ columns, rows, heading }: TableProps) {
   const cell = (column: TableColumn | undefined) =>
     column?.align === 'end' ? [styles.cell, styles.end] : [styles.cell];
+  const line = (row: readonly string[]) => (
+    <View key={row.join('|')} style={styles.tableRow} wrap={false}>
+      {row.map((value, index) => (
+        <Text key={[index, value].join('-')} style={cell(columns[index])}>
+          {value}
+        </Text>
+      ))}
+    </View>
+  );
+  const [first, ...rest] = rows;
   return (
-    <View style={styles.table}>
-      <View style={styles.tableRow} fixed>
-        {columns.map((column) => (
-          <Text key={column.label} style={[...cell(column), styles.headCell]}>
-            {column.label}
-          </Text>
-        ))}
-      </View>
-      {rows.map((row) => (
-        <View key={row.join('|')} style={styles.tableRow} wrap={false}>
-          {row.map((value, index) => (
-            <Text key={[index, value].join('-')} style={cell(columns[index])}>
-              {value}
+    <View>
+      <View wrap={false}>
+        {heading}
+        <View style={[styles.table, styles.tableRow]}>
+          {columns.map((column) => (
+            <Text key={column.label} style={[...cell(column), styles.headCell]}>
+              {column.label}
             </Text>
           ))}
         </View>
-      ))}
+        {first ? line(first) : null}
+      </View>
+      {rest.map(line)}
     </View>
   );
 }

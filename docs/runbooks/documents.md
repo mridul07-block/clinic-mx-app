@@ -44,7 +44,11 @@ await generateDocument(tx, {
 
 The building blocks in `letterhead.tsx`: `Section` (with `breakBefore` for a new page),
 `Paragraph`, `Fields` (label and value rows), `Mono` (OP and bill numbers), `Table` (hairlines,
-rupee amounts and counts with `align: 'end'`; rows never split across pages) and `SignOff`. Money
+rupee amounts and counts with `align: 'end'`; rows never split across pages, and the header row
+stays with the first row) and `SignOff`. A section's heading never ends a page on its own: `Section`
+keeps it with its first block, and with a table, inside its first rows, so a long table still breaks
+between rows (seen on staging with ALT-06's addenda; react-pdf's `minPresenceAhead` did not help).
+Money
 is `formatRupees` (₹1,20,000); counts `indianNumber`; dates and times `documentDate`,
 `documentTime`, `documentDateTime` ("28 Sep 2026, 4:05 PM", IST, with the month names written out).
 
