@@ -24,6 +24,11 @@ export default async function StaffHome() {
             Tasks{openTasks > 0 ? ` (${String(openTasks)} open)` : ''}
           </Link>
         ) : null}
+        {accessScope(staff, 'visits.start') ? (
+          <Link href="/app/my-patients" className={linkClass} data-testid="home-my-patients">
+            My patients today
+          </Link>
+        ) : null}
         {accessScope(staff, 'check_in.manage') ? (
           <Link href="/app/today" className={linkClass}>
             Today

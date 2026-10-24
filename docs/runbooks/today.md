@@ -25,7 +25,8 @@ User, 23 October 2026:
 - **Chips** (they count and filter; the one picked stays in the address as `?show=`): All,
   To arrive (Booked and Confirmed), Here now (Checked in), With physio (In progress), Done
   (Completed and No show), and Not confirmed (Booked, still to arrive; the morning's list of
-  people to call).
+  people to call). A visit becomes In progress when its physio taps Start on My patients today
+  (CLN-01, `docs/runbooks/my-patients.md`).
 - **Rows by time:** start and end (a link to the appointment on the calendar), the patient (a link
   to their page), type and physio, the status tag and the action.
 - **Status tags and waiting time:** "Here n min" in blue from the arrival time; Running late in

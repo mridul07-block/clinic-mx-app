@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { bornYearsAgo, fakeMobile, fakeName, testGuardian, testPatient } from './patients';
-import { signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
+import { physioLanded, signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
 
 // SCH-01 done when: several patients per phone number; OP number from a per centre sequence.
 // Patients are generated (rule 12) and stay: they are never deleted.
@@ -21,7 +21,7 @@ test('the front desk adds two people on one mobile, each with their own OP numbe
   const child = fakeName('Test Child');
   await signIn(page, desk.email);
 
-  await page.getByRole('link', { name: 'Patients' }).click();
+  await page.getByRole('link', { name: 'Patients', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Patients', level: 1 })).toBeVisible();
   await page.getByRole('link', { name: 'Add patient' }).click();
   // Name and mobile are all a new patient needs; the desk's one centre registers them.
@@ -78,7 +78,8 @@ test('a physiotherapist finds and reads a patient but cannot add or edit', async
   const patient = await testPatient({ centreCode: 'KOR' });
   const physio = await temporaryWithCode('physiotherapist', ['HSR Layout']);
   await signInWithCode(page, physio.email, physio.secret);
-  await page.getByRole('link', { name: 'Patients' }).click();
+  await physioLanded(page);
+  await page.getByRole('link', { name: 'Patients', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Add patient' })).toHaveCount(0);
   // Records are shared across centres: a Koramangala patient is found from HSR Layout.
   await page.getByLabel('Mobile or name').fill(patient.name);

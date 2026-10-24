@@ -32,6 +32,8 @@ const expected: Record<Action, Expected> = {
   'bookings.lift_self_booking_block': ['yes', 'yes', '-', '-', '-'],
   'check_in.manage': ['yes', 'yes', 'yes', '-', '-'],
   'check_in.view': ['yes', 'yes', 'yes', 'yes', '-'],
+  // CLN-01, not a PRD row: a treating physio starts their own visit.
+  'visits.start': ['treats', 'treats', '-', 'treats', '-'],
   'patients.view_contact': ['yes', 'yes', 'yes', 'yes', 'yes'],
   'patients.edit_contact': ['yes', 'yes', 'yes', '-', '-'],
   'clinical.read': ['yes', 'treats', '-', 'treats', '-'],

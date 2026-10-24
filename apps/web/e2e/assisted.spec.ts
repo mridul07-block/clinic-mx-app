@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { centreIdByCode, removeCalendarRows, startedAppointment } from './calendar';
 import { otherBrowser, removePipelineRows, submitBackForm } from './intake';
 import { testPatient } from './patients';
-import { signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
+import { physioLanded, signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
 
 // INT-09 done when: the record shows "entered with help by" and the staff member's name.
 // Decisions (user, 23 October 2026): "Fill in with the patient" in the check in drawer records the
@@ -59,7 +59,7 @@ test('the desk fills the form in with the patient; the drawer and the physio see
   // The physio is told who helped.
   const physioPage = await otherBrowser(browser);
   await signInWithCode(physioPage, physio.email, physio.secret);
-  await physioPage.goto('/app/notifications');
+  await physioLanded(physioPage, '/app/notifications');
   await expect(
     physioPage.getByTestId('notifications').locator('[data-kind="health_form_submitted"]'),
   ).toContainText(`Entered with help by ${desk.name}`);

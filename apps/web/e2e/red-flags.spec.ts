@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
+import { physioLanded, signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
 
 // SET-10 done when: rules and tiers are configurable; a test for each emergency rule (those are
 // unit tests, packages/db/src/knowledge/red-flag-rules.test.ts). Here: clinicians read the rules
@@ -18,6 +18,7 @@ test('a physiotherapist reads the red flag rules and presentations', async ({ pa
   });
   const physio = await temporaryWithCode('physiotherapist', ['HSR Layout']);
   await signInWithCode(page, physio.email, physio.secret);
+  await physioLanded(page);
   await page.getByRole('link', { name: 'Red flags' }).click();
   await expect(page.getByRole('heading', { name: 'Red flags', level: 1 })).toBeVisible();
   await expect(page.getByTestId('red-flag-version')).toContainText('Knowledge base version');

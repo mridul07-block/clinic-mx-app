@@ -83,6 +83,9 @@ export const appointment = pgTable(
     /** Marked a no show (INT-11): when, and the staff member who did it; cleared by an undo. */
     noShowAt: timestamp('no_show_at', { withTimezone: true }),
     noShowBy: uuid('no_show_by').references(() => staffUser.id),
+    /** Started by its own physio from My patients today (CLN-01): In progress from then. */
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    startedBy: uuid('started_by').references(() => staffUser.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -108,6 +111,10 @@ export const appointment = pgTable(
     check(
       'appointment_no_show',
       sql`(${table.status} = 'no_show') = (${table.noShowAt} is not null) and (${table.noShowAt} is null) = (${table.noShowBy} is null)`,
+    ),
+    check(
+      'appointment_started',
+      sql`(${table.status} <> 'in_progress' or ${table.startedAt} is not null) and (${table.startedAt} is null) = (${table.startedBy} is null)`,
     ),
     check(
       'appointment_machine_unit',

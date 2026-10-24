@@ -270,6 +270,7 @@ export {
   type CalendarRequest,
 } from './calendar';
 export { todayBoard, type TodayAppointment } from './today';
+export { myPatientsToday, startVisit, type MyPatientVisit } from './my-patients';
 export {
   checkInView,
   healthFormLink,

@@ -1,0 +1,4 @@
+ALTER TABLE "appointment" ADD COLUMN "started_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "appointment" ADD COLUMN "started_by" uuid;--> statement-breakpoint
+ALTER TABLE "appointment" ADD CONSTRAINT "appointment_started_by_staff_user_id_fk" FOREIGN KEY ("started_by") REFERENCES "public"."staff_user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "appointment" ADD CONSTRAINT "appointment_started" CHECK (("appointment"."status" <> 'in_progress' or "appointment"."started_at" is not null) and ("appointment"."started_at" is null) = ("appointment"."started_by" is null));

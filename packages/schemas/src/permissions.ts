@@ -66,6 +66,8 @@ export const permissionMap = {
   // Check in, health form, consent.
   'check_in.manage': row(yes, yes, yes, no, no),
   'check_in.view': row(yes, yes, yes, yes, no),
+  // Not in the PRD summary: CLN-01, a treating physio starts their own checked in visit.
+  'visits.start': row(treats, treats, no, treats, no),
   // Patient name and contact.
   'patients.view_contact': row(yes, yes, yes, yes, yes),
   'patients.edit_contact': row(yes, yes, yes, no, no),
@@ -128,6 +130,7 @@ export const deniedToSupport: readonly Action[] = [
   'consultant_records.write',
   'consultant_records.sign',
   'session_notes.write',
+  'visits.start',
   'red_flags.view',
   'red_flags.act',
 ];

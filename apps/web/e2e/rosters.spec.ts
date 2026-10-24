@@ -1,7 +1,7 @@
 import { addDays, formatIstDate, istDate } from '@clinic-mx/schemas';
 import { expect, test, type Page } from '@playwright/test';
 import { removeRostersAndLeave } from './rosters';
-import { signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
+import { physioLanded, signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
 
 // SET-04 done when: managers set rosters; physios request their own leave. Decisions (user, 22
 // October 2026): a weekly pattern per person per centre from a date; leave is requested and a
@@ -41,6 +41,7 @@ test('a manager sets a physio’s hours and decides their leave requests', async
     const tomorrow = addDays(today, 1);
     const later = addDays(today, 2);
     await signInWithCode(physioPage, physio.email, physio.secret);
+    await physioLanded(physioPage);
     await physioPage.getByRole('link', { name: 'My leave' }).click();
     await physioPage.getByLabel('Part of a day').check();
     await physioPage.getByLabel('Day', { exact: true }).fill(tomorrow);
