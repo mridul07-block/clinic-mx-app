@@ -28,6 +28,8 @@ export interface Autosave<T> extends DraftState<T> {
   keepMine: () => void;
   /** Conflict: drop this person's edit and show the saved version. */
   takeSaved: () => void;
+  /** Saves now; the saved version, or undefined while changes stay unsaved. */
+  saveNow: () => Promise<number | undefined>;
 }
 
 /**
@@ -78,5 +80,6 @@ export function useAutosave<T>({
     ),
     keepMine: useCallback(() => void controller.keepMine(), [controller]),
     takeSaved: useCallback(() => void controller.takeSaved(), [controller]),
+    saveNow: useCallback(() => controller.saveNow(), [controller]),
   };
 }

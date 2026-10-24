@@ -1,7 +1,14 @@
 import type { Db, StaffMember } from '@clinic-mx/db';
+import { screeningItems } from '@clinic-mx/schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
-import { ConsultationError, loadConsultation, saveConsultation } from './services';
+import {
+  ConsultationError,
+  addAddendumService,
+  loadConsultation,
+  saveConsultation,
+  signConsultationService,
+} from './services';
 
 const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
@@ -13,6 +20,10 @@ const db = vi.hoisted(() => ({
   knowledgePlan: vi.fn(),
   treatingPhysios: vi.fn(),
   saveConsultationSections: vi.fn(),
+  consultationAddenda: vi.fn(),
+  staffTreatsNow: vi.fn(),
+  signConsultation: vi.fn(),
+  addAddendum: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
 const settings: Record<string, number> = {
@@ -50,6 +61,9 @@ const record = (extra: Record<string, unknown> = {}) => ({
   startsAt: new Date('2026-10-24T04:30:00Z'),
   physioId: consultant().id,
   kbVersionId: 'kb-version-1',
+  episodeId: 'episode-1',
+  appointmentId: 'visit-1',
+  signedByName: null,
   status: 'draft',
   version: 3,
   sections: { subjective: { notes: 'Saved before' } },
@@ -101,6 +115,10 @@ describe('consultation', () => {
     db.knowledgePlan.mockResolvedValue({ modalities: [], questionnaires: [] });
     db.treatingPhysios.mockResolvedValue([{ id: consultant().id, name: 'Test Consultant' }]);
     db.saveConsultationSections.mockResolvedValue({ status: 'saved', version: 4 });
+    db.consultationAddenda.mockResolvedValue([]);
+    db.staffTreatsNow.mockResolvedValue(true);
+    db.signConsultation.mockResolvedValue('signed');
+    db.addAddendum.mockResolvedValue({ id: 'addendum-1' });
   });
 
   it('opens the consultant’s own consultation with every section', async () => {
@@ -136,12 +154,32 @@ describe('consultation', () => {
     });
     db.consultationIntake.mockResolvedValue(undefined);
     expect((await loadConsultation(consultant(), consultationId))?.patientAnswers).toEqual({});
+    expect(view?.editable).toBe(true);
     db.consultationRecord.mockResolvedValue(record({ physioId: 'someone-else' }));
     await expect(loadConsultation(consultant(), consultationId)).resolves.toBeUndefined();
     await expect(loadConsultation(consultant(), 'not-an-id')).resolves.toBeUndefined();
+    // Someone else's draft stays theirs; a front desk reads no consultation.
     await expect(
       loadConsultation(consultant({ consultant: false }), consultationId),
+    ).resolves.toBeUndefined();
+    await expect(
+      loadConsultation(
+        consultant({ role: 'front_desk', treatsPatients: false, consultant: false }),
+        consultationId,
+      ),
     ).rejects.toThrow(NotAllowedError);
+  });
+
+  // CLN-09: once signed, clinicians at its centre read it and add addenda.
+  it('opens a signed consultation read only, with its addenda, to a colleague', async () => {
+    db.consultationRecord.mockResolvedValue(
+      record({ status: 'signed', physioId: 'someone-else', signedByName: 'Dr Signer' }),
+    );
+    db.consultationAddenda.mockResolvedValue([{ id: 'a1', text: 'Seen again' }]);
+    const view = await loadConsultation(consultant({ consultant: false }), consultationId);
+    expect(view).toMatchObject({ editable: false, addsAddenda: true });
+    expect(view?.addenda).toEqual([{ id: 'a1', text: 'Seen again' }]);
+    expect(db.consultationAddenda).toHaveBeenCalledWith(fakeTx, consultationId);
   });
 
   it('saves the sections at the version the draft started from', async () => {
@@ -170,5 +208,106 @@ describe('consultation', () => {
     await expect(save(consultant({ role: 'super_admin', support: true }))).rejects.toThrow(
       ReadOnlyError,
     );
+  });
+
+  describe('signing', () => {
+    // Every screening item answered and the four parts filled: nothing holds signing back.
+    const confirmed = Object.fromEntries(
+      screeningItems(undefined, undefined, {}).map((item) => [
+        item.key,
+        item.input === 'number' ? 0 : false,
+      ]),
+    );
+    const ready = { ...sections, screening: { notes: '', confirmed } };
+    const sign = (actor = consultant(), baseVersion = 3) =>
+      signConsultationService(context(actor), { consultationId, baseVersion });
+
+    beforeEach(() => {
+      db.consultationRecord.mockResolvedValue(record({ sections: ready }));
+      db.consultationIntake.mockResolvedValue({ formVersion: 'hf-3', answers: {} });
+      db.knowledgeAssessment.mockResolvedValue({
+        conditions: [
+          {
+            conditionId: 'KNE-001',
+            name: 'Patellofemoral Pain Syndrome',
+            synonyms: [],
+            homeRegion: 'knee',
+            categoryCode: null,
+            listings: [],
+          },
+        ],
+        categories: [],
+      });
+    });
+
+    it('signs at the version seen and writes the rows of the record', async () => {
+      await expect(sign()).resolves.toEqual({ status: 'signed' });
+      expect(db.staffTreatsNow).toHaveBeenCalledWith(fakeTx, consultant().id);
+      const [tx, request] = db.signConsultation.mock.calls[0] as [unknown, unknown];
+      expect(tx).toBe(fakeTx);
+      expect(request).toMatchObject({
+        consultationId,
+        baseVersion: 3,
+        by: consultant().id,
+        episodeId: 'episode-1',
+        appointmentId: 'visit-1',
+        kbVersionId: 'kb-version-1',
+        rows: {
+          diagnosis: { conditionId: 'KNE-001', stage: 'subacute' },
+          plan: { reviewDate: '2026-12-05', treatingPhysioId: consultant().id },
+        },
+      });
+    });
+
+    it('refuses without the tick now, with anything held back, or at an older version', async () => {
+      db.staffTreatsNow.mockResolvedValue(false);
+      await expect(sign()).rejects.toThrow('Signing needs the Treats patients tick.');
+      db.staffTreatsNow.mockResolvedValue(true);
+      await expect(sign(consultant(), 2)).rejects.toThrow(
+        'Your latest changes are still saving. Try again.',
+      );
+      db.consultationRecord.mockResolvedValue(record());
+      await expect(sign()).rejects.toThrow('Signing needs every screening item confirmed');
+      db.consultationRecord.mockResolvedValue(
+        record({
+          sections: { ...ready, assessment: { ...ready.assessment, conditionId: 'KNE-999' } },
+        }),
+      );
+      await expect(sign()).rejects.toThrow('Condition "KNE-999" is not in this consultation');
+      expect(db.signConsultation).not.toHaveBeenCalled();
+      db.consultationRecord.mockResolvedValue(record({ sections: ready }));
+      db.signConsultation.mockResolvedValue('stale');
+      await expect(sign()).rejects.toThrow('Your latest changes are still saving. Try again.');
+    });
+
+    it('refuses another consultant, a signed one, and anyone without the ticks', async () => {
+      db.consultationRecord.mockResolvedValue(record({ physioId: 'someone-else' }));
+      await expect(sign()).rejects.toThrow('That consultation was not found.');
+      db.consultationRecord.mockResolvedValue(record({ status: 'signed' }));
+      await expect(sign()).rejects.toThrow('This consultation is signed. Changes are addenda.');
+      await expect(sign(consultant({ treatsPatients: false }))).rejects.toThrow(NotAllowedError);
+      expect(db.signConsultation).not.toHaveBeenCalled();
+    });
+  });
+
+  it('adds an addendum to a signed consultation only, with the tick now', async () => {
+    const add = (actor = consultant({ consultant: false })) =>
+      addAddendumService(context(actor), { consultationId, text: ' Seen again ' });
+    db.consultationRecord.mockResolvedValue(record({ status: 'signed' }));
+    await expect(add()).resolves.toEqual({ id: 'addendum-1' });
+    expect(db.addAddendum).toHaveBeenCalledWith(fakeTx, {
+      consultationId,
+      episodeId: 'episode-1',
+      text: 'Seen again',
+      authorId: consultant().id,
+    });
+    db.staffTreatsNow.mockResolvedValue(false);
+    await expect(add()).rejects.toThrow('Adding an addendum needs the Treats patients tick.');
+    db.staffTreatsNow.mockResolvedValue(true);
+    db.consultationRecord.mockResolvedValue(record());
+    await expect(add()).rejects.toThrow('Addenda are added once the consultation is signed.');
+    await expect(
+      add(consultant({ role: 'front_desk', treatsPatients: false, consultant: false })),
+    ).rejects.toThrow(NotAllowedError);
   });
 });

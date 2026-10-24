@@ -86,6 +86,8 @@ export const appointment = pgTable(
     /** Started by its own physio from My patients today (CLN-01): In progress from then. */
     startedAt: timestamp('started_at', { withTimezone: true }),
     startedBy: uuid('started_by').references(() => staffUser.id),
+    /** Completed: a consultation's visit when it is signed (CLN-09); sessions with SES-07. */
+    completedAt: timestamp('completed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

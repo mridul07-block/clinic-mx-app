@@ -12,6 +12,7 @@ import {
   consultationSectionsSchema,
   consultationStepLabels,
   consultationSteps,
+  formatIstDateTime,
   sectionHasNotes,
   sectionStarted,
   signingBlockers,
@@ -37,9 +38,11 @@ import { ConflictNotice } from '../../../../../../lib/drafts/conflict-notice';
 import { SaveStatus } from '../../../../../../lib/drafts/save-status';
 import { saveConsultationDraft } from '../../../../../../lib/drafts/savers';
 import { useAutosave } from '../../../../../../lib/drafts/use-autosave';
+import { Addenda, type AddendumView } from './addenda';
 import { AssessmentInputs } from './assessment-inputs';
 import { ObjectiveInputs } from './objective-inputs';
 import { PlanInputs } from './plan-inputs';
+import { SignPanel } from './sign-panel';
 import { ScreeningItems } from './screening-items';
 import { SubjectiveFields } from './subjective-fields';
 
@@ -58,7 +61,10 @@ export function ConsultationStepper({
   id,
   serverValue,
   serverVersion,
-  signed,
+  editable,
+  signedBy,
+  addenda,
+  addsAddenda,
   initialStep,
   patientAnswers,
   objectiveCatalog,
@@ -71,7 +77,13 @@ export function ConsultationStepper({
   id: string;
   serverValue: ConsultationSections;
   serverVersion: number;
-  signed: boolean;
+  /** Its own consultant's draft; anything else shows read only (CLN-09). */
+  editable: boolean;
+  /** Who signed it and when; null while a draft. */
+  signedBy: { name: string; at: Date } | null;
+  addenda: AddendumView[];
+  /** Whether the person may add an addendum. */
+  addsAddenda: boolean;
   initialStep: ConsultationStep;
   /** The submitted health form's answers, for Subjective (CLN-03). */
   patientAnswers: HealthFormAnswers;
@@ -96,7 +108,10 @@ export function ConsultationStepper({
     return read.success ? read.data : serverValue;
   }, [draft.value, serverValue]);
   const screening = consultationScreening(sections, patientAnswers);
-  const blockers = signingBlockers(sections, patientAnswers, { planCatalog });
+  const blockers = signingBlockers(sections, patientAnswers, {
+    planCatalog,
+    specialTests: objectiveCatalog.specialTests,
+  });
   const objectiveRegion =
     sections.objective.region ||
     (screening.region ? knowledgeRegionOfScreening[screening.region] : undefined);
@@ -187,11 +202,14 @@ export function ConsultationStepper({
           >
             {consultationStepLabels[step]}
           </h2>
-          <SaveStatus status={draft.status} />
+          {editable ? <SaveStatus status={draft.status} /> : null}
         </div>
-        {signed ? (
-          <p className="rounded-control border border-line bg-surface-sunken px-3 py-2 text-sm">
-            This consultation is signed. Changes are addenda.
+        {signedBy ? (
+          <p
+            data-testid="signed-banner"
+            className="rounded-control border border-line bg-surface-sunken px-3 py-2 text-sm"
+          >
+            Signed by {signedBy.name} on {formatIstDateTime(signedBy.at)}. Changes are addenda.
           </p>
         ) : null}
         {draft.status === 'conflict' ? (
@@ -202,7 +220,7 @@ export function ConsultationStepper({
           <SubjectiveFields
             confirmed={sections.subjective.confirmed}
             patientAnswers={patientAnswers}
-            readOnly={signed}
+            readOnly={!editable}
             onChange={(key, answer) => {
               draft.setValue({
                 ...sections,
@@ -221,7 +239,7 @@ export function ConsultationStepper({
             progress={screening.progress}
             confirmed={sections.screening.confirmed}
             patientAnswers={patientAnswers}
-            readOnly={signed}
+            readOnly={!editable}
             onConfirm={(key, answer) => {
               draft.setValue({
                 ...sections,
@@ -240,7 +258,7 @@ export function ConsultationStepper({
             defaultRegion={
               screening.region ? knowledgeRegionOfScreening[screening.region] : undefined
             }
-            readOnly={signed}
+            readOnly={!editable}
             onChange={(objective) => {
               draft.setValue({ ...sections, objective });
             }}
@@ -257,7 +275,7 @@ export function ConsultationStepper({
             )}
             settings={assessmentSettings}
             region={objectiveRegion}
-            readOnly={signed}
+            readOnly={!editable}
             onChange={(assessment) => {
               draft.setValue({ ...sections, assessment });
             }}
@@ -277,7 +295,7 @@ export function ConsultationStepper({
               subjectiveValue('goals', sections.subjective.confirmed, patientAnswers) ?? '',
             )}
             precautions={precautionsInForce(sections.screening.confirmed, patientAnswers)}
-            readOnly={signed}
+            readOnly={!editable}
             onChange={(plan) => {
               draft.setValue({ ...sections, plan });
             }}
@@ -288,7 +306,7 @@ export function ConsultationStepper({
             <span className="font-medium">{step === 'subjective' ? 'Other notes' : 'Notes'}</span>
             <textarea
               value={sections[step].notes}
-              readOnly={signed}
+              readOnly={!editable}
               maxLength={CONSULTATION_NOTES_MAX}
               onChange={(event) => {
                 draft.setValue({
@@ -302,37 +320,41 @@ export function ConsultationStepper({
           </label>
         ) : (
           <div className="flex flex-col gap-3">
-            <div
-              data-testid="sign-gate"
-              className={[
-                'flex flex-col gap-1.5 rounded-panel border px-3 py-2.5',
-                blockers.length > 0
-                  ? 'border-waiting-line bg-waiting-soft text-waiting-strong'
-                  : 'border-done-line bg-done-soft text-done',
-              ].join(' ')}
-            >
-              <p className="font-medium">Before signing</p>
-              {blockers.length > 0 ? (
-                blockers.map(({ section, reason }) => (
-                  <p key={section} className="flex flex-col items-start gap-0.5">
-                    <span>{reason}</span>
-                    <a
-                      href={hrefOf(section)}
-                      onClick={go(section)}
-                      className="text-sm underline underline-offset-2"
-                    >
-                      Go to {consultationStepLabels[section]}
-                    </a>
+            {editable ? (
+              <div
+                data-testid="sign-gate"
+                className={[
+                  'flex flex-col gap-1.5 rounded-panel border px-3 py-2.5',
+                  blockers.length > 0
+                    ? 'border-waiting-line bg-waiting-soft text-waiting-strong'
+                    : 'border-done-line bg-done-soft text-done',
+                ].join(' ')}
+              >
+                <p className="font-medium">Before signing</p>
+                {blockers.length > 0 ? (
+                  blockers.map(({ section, reason }) => (
+                    <p key={section} className="flex flex-col items-start gap-0.5">
+                      <span>{reason}</span>
+                      <a
+                        href={hrefOf(section)}
+                        onClick={go(section)}
+                        className="text-sm underline underline-offset-2"
+                      >
+                        Go to {consultationStepLabels[section]}
+                      </a>
+                    </p>
+                  ))
+                ) : (
+                  <p>
+                    Screening complete, the working diagnosis has its four parts, every special test
+                    has a result and every warned modality has a reason.
                   </p>
-                ))
-              ) : (
-                <p>
-                  Screening complete, the working diagnosis has its four parts and every warned
-                  modality has a reason.
-                </p>
-              )}
-            </div>
-            <p className="text-ink-secondary">Check each section before signing.</p>
+                )}
+              </div>
+            ) : null}
+            {editable ? (
+              <p className="text-ink-secondary">Check each section before signing.</p>
+            ) : null}
             <ul className="flex flex-col divide-y divide-line rounded-panel border border-line">
               {consultationSections.map((key) => {
                 const written = sectionHasNotes(sections, key);
@@ -345,9 +367,11 @@ export function ConsultationStepper({
                   >
                     <span className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{consultationStepLabels[key]}</span>
-                      <Tag tone={written ? 'done' : 'neutral'}>
-                        {written ? 'Notes added' : 'Nothing yet'}
-                      </Tag>
+                      {written ? (
+                        <Tag tone="done">Notes added</Tag>
+                      ) : confirmedCount(sections, key) === 0 ? (
+                        <Tag tone="neutral">Nothing yet</Tag>
+                      ) : null}
                       {changed > 0 ? (
                         <Tag tone="done">
                           {key === 'assessment' || key === 'plan'
@@ -360,14 +384,24 @@ export function ConsultationStepper({
                       href={hrefOf(key)}
                       onClick={go(key)}
                       className="text-sm underline underline-offset-2"
-                      aria-label={`Edit ${consultationStepLabels[key]}`}
+                      aria-label={[editable ? 'Edit' : 'View', consultationStepLabels[key]].join(
+                        ' ',
+                      )}
                     >
-                      Edit
+                      {editable ? 'Edit' : 'View'}
                     </a>
                   </li>
                 );
               })}
             </ul>
+            {editable ? (
+              <SignPanel
+                consultationId={id}
+                blocked={blockers.length > 0}
+                saveNow={draft.saveNow}
+              />
+            ) : null}
+            {signedBy ? <Addenda consultationId={id} addenda={addenda} adds={addsAddenda} /> : null}
           </div>
         )}
 

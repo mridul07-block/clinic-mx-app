@@ -7,7 +7,7 @@ import {
   withActor,
 } from '@clinic-mx/db';
 import { currentHealthFormVersion, type HealthFormAnswers } from '@clinic-mx/schemas';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 // Reading consultations back for the CLN-02 end to end tests; removed with removeCalendarRows.
 
@@ -58,4 +58,42 @@ export async function submittedAnswers(
       submittedAt: new Date(),
     });
   });
+}
+
+/**
+ * The visit's draft consultation with these sections, saved as the next version (CLN-09: a
+ * consultation ready to sign without filling every screening item on screen).
+ */
+export async function draftSections(
+  appointmentId: string,
+  sections: Record<string, unknown>,
+): Promise<void> {
+  await withActor(db(), systemActor('tests'), (tx) =>
+    tx
+      .update(consultation)
+      .set({ sections, version: sql`${consultation.version} + 1`, updatedAt: new Date() })
+      .where(eq(consultation.appointmentId, appointmentId)),
+  );
+}
+
+/** What signing the visit's consultation wrote (CLN-09): counts by table, and the visit status. */
+export async function signedRows(appointmentId: string) {
+  const [row] = await db().execute<{
+    status: string;
+    visit: string;
+    measures: number;
+    tests: number;
+    diagnoses: number;
+    plans: number;
+    modalities: number;
+  }>(sql`select c.status::text as status, a.status::text as visit,
+      (select count(*)::int from measure m where m.consultation_id = c.id) as measures,
+      (select count(*)::int from special_test_result t where t.consultation_id = c.id) as tests,
+      (select count(*)::int from diagnosis d where d.consultation_id = c.id) as diagnoses,
+      (select count(*)::int from plan_of_care p where p.consultation_id = c.id) as plans,
+      (select count(*)::int from plan_modality pm join plan_of_care p on p.id = pm.plan_of_care_id
+        where p.consultation_id = c.id) as modalities
+    from consultation c join appointment a on a.id = c.appointment_id
+    where c.appointment_id = ${appointmentId}`);
+  return row;
 }

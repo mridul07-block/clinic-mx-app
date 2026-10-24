@@ -557,6 +557,16 @@ export {
   type Stage,
 } from './assessment';
 export {
+  ADDENDUM_MAX,
+  addendumSchema,
+  signedRecord,
+  type Limb,
+  type SignContext,
+  type SignedMeasure,
+  type SignedRows,
+  type Side,
+} from './signed-record';
+export {
   defaultReviewDate,
   DOSE_MAX,
   EXERCISE_MAX,

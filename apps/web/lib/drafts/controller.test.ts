@@ -172,6 +172,19 @@ describe('DraftController', () => {
     expect(second.getState().status).toBe('conflict');
   });
 
+  // CLN-09: signing signs only what is saved.
+  it('saves now and answers the saved version, or nothing while changes stay unsaved', async () => {
+    const { server, save } = fakeServer();
+    const draft = controller(save);
+    expect(await draft.saveNow()).toBe(1);
+    draft.setValue('before signing');
+    expect(await draft.saveNow()).toBe(2);
+    expect(server.value).toBe('before signing');
+    online = false;
+    draft.setValue('offline');
+    expect(await draft.saveNow()).toBeUndefined();
+  });
+
   it('saves an edit made while the previous save was on its way', async () => {
     const { server, save } = fakeServer();
     let release: () => void = () => undefined;

@@ -250,6 +250,52 @@ suggested.
 from the resolved plan; Part B consent (BIL) reads the planned modalities. Sign shows "n of 5 parts"
 (goals, interventions, modalities, frequency, home programme).
 
+## Signing (CLN-09)
+
+PRD J3.9: signing locks the record; later changes are addenda. Signing needs the Treats patients
+tick, checked at that moment (TAD). Decisions (user, 24 October 2026):
+
+- Signing completes the visit (In progress to Completed) in the same transaction; the physio lands
+  on My patients today, where it shows Done.
+- A special test added without a result holds signing back ("Not tested" is a result). A side by
+  side measure with one side entered is kept as that side only.
+- "Sign and finish" asks once: "Signing locks this consultation. Later changes are addenda." with
+  Sign and Keep editing.
+- Addenda are added on the signed consultation by clinicians who read it.
+
+**What Sign checks** (`signingBlockers`, on screen and again on the server): every screening item
+confirmed; the four part working diagnosis; a result for each special test; a reason for each
+modality kept despite a precaution. Each reason links to its section. "Sign and finish" is off
+until none is left.
+
+**What signing does** (`signConsultationService`, one transaction under row level security):
+
+1. Saves the device draft first and signs only the version just saved (`saveNow`); a newer save
+   answers "Your latest changes are still saving. Try again."
+2. Reads the Treats patients tick from the staff record now (not the token).
+3. Runs the gates again with the health form and the consultation's own knowledge base version,
+   and `signedRecord`, which refuses anything the version no longer holds (condition, category,
+   measure, test, modality, questionnaire) or a treating physio who does not treat there.
+4. `signConsultation`: the consultation becomes signed (who, `now()`), then the record's rows are
+   written and the visit completed:
+
+   | Table | From |
+   | --- | --- |
+   | `measure` | Objective: one row per side entered (`limb` involved or uninvolved, `side` from the involved side, the other side for uninvolved), single values without a limb; the unit from the knowledge base |
+   | `special_test_result` | Objective's tests and results |
+   | `diagnosis` | Assessment: the condition (a foreign key into its version), movement, irritability, stage, provisional; the category is the condition's mapped one when it has one, else the clinician's |
+   | `plan_of_care` (version 1) | Plan, resolved: goals and home programme rows left blank are dropped; the review date, questionnaires and treating physio defaults filled in |
+   | `plan_modality` | Plan's modalities and their reasons (parameters with SES-05) |
+
+The summary PDF and WhatsApp message on signing (PRD J4.1) come with ALT-05 and ALT-06.
+
+## Addenda (CLN-09)
+
+A signed consultation opens read only, with "Signed by <name> on <date, time>. Changes are
+addenda." on every step, for its consultant and for clinicians (Treats patients tick) who see the
+episode's centre; CLN-12 links to it from the patient record. Sign shows the addenda (who, when,
+the text) and "Add addendum" (up to 5,000 characters). Addenda never change.
+
 ## Autosave
 
 The screen adopts FND-08 (`docs/runbooks/autosave.md`): one draft per consultation (kind
@@ -272,6 +318,11 @@ Enforced twice. The service: only its own consultant opens or saves it; a signed
 | While a draft only `sections` (and `version`, `updated_at`) change; a signed one never changes (23514) | Trigger `consultation_guard` |
 | Signed exactly when `signed_at` and `signed_by` are set | Check `consultation_signed` |
 | Velyx support never writes; nobody deletes; every change audited | Restrictive policies, `audit_change` |
+| Signed only by its own consultant, active with the Treats patients tick at that moment, changing only status, who and when | Policy `consultation_sign`, trigger `consultation_guard` (`internal.staff_treats`) |
+| The record's rows written only in the signing transaction (`signed_at = now()`), by the signer, on the consultation's episode and version; never updated or deleted | Policies `*_sign` (`internal.signing_consultation`); no update or delete policies |
+| The record, its addenda, its visit and its health form read by its consultant and clinicians at the episode's centre | `internal.reads_consultation`, `appointment_signed_consultation_read`, `consultant_health_form` |
+| Addenda added by clinicians with the tick now, on a signed consultation they read, as themselves | Policy `addendum_add` (`internal.adds_addendum`) |
+| A physio completes their own started visit only once its consultation is signed | Trigger `appointment_physio_change` |
 
 Each save is an audited update (actor, before, after), one per autosave.
 
@@ -285,13 +336,16 @@ Each save is an audited update (actor, before, after), one per autosave.
 | `packages/schemas/src/consultations.test.ts`, `apps/web/lib/drafts/savers.test.ts` | Sections, steps, Back and Next; the saver's endpoint. |
 | `packages/schemas/src/screening.test.ts` | Region questions (knee, back, none), follow ups only after a confirmed yes, pregnancy only for a female patient, what the patient said, progress ignoring stale keys, the signing gate, answers checked against their items. |
 | `packages/schemas/src/assessment.test.ts` | Irritability bands at 2/3 and 5/6 from the worse score, settings honoured; durations in weeks and the stage at 3 and 12 weeks; the clinician's Subjective answers first; search by name, synonym and ID with the Objective's workbook first; the four parts, old drafts, limits and the signing reason; the categories file shape. |
+| `packages/schemas/src/signed-record.test.ts` | The rows signing writes: both sides with their sides, single values, one side kept, a mapped category over the clinician's, defaults resolved, blanks dropped; everything the version no longer holds refused; the special test result reason; the addendum's length. |
+| `packages/db/src/integration/clinical-record.integration.test.ts` | Under row level security: signing writes the rows and completes the visit, audited as the consultant; a signed consultation and its rows never change, and no rows are written outside the signing transaction; another physio, support or a deactivated consultant (token still saying treats) cannot sign, nor at another version; a visit is completed only once signed; addenda by the consultant and a colleague at the centre, not on a draft, not as someone else, not by the desk, another centre or support, who also read nothing. Removing the live tick check fails it. |
+| `apps/web/lib/drafts/controller.test.ts` | `saveNow` answers the saved version, or nothing while changes stay unsaved. |
 | `packages/schemas/src/plan.test.ts` | Precautions in force (a Screening confirmation over the patient's tick, pregnancy only for a female patient); warnings and the reason to keep a modality; the signing reason; questionnaires offered and suggested (VISA-P, KOOS, Kujala, none for PSFS); defaults resolved; parts, old drafts and limits; the catalog file shape. |
 | `packages/db/src/knowledge/plan-catalog.test.ts` | The committed catalog: 8 modalities with their links (PEMF, shockwave, traction, laser), 19 questionnaires, QuickDASH for elbow and wrist; repeated keys, repeated or unknown precautions stop the import. |
 | `packages/db/src/knowledge/categories.test.ts` | The committed file: 44 categories in order, none mapped; a mapping to an unknown condition or category, or a repeated code, stops the import. |
 | `packages/schemas/src/objective.test.ts` | LSI, inverted LSI, heel raise count, deficit bands (absolute and not), reference and target, the Objective section and its limits. |
 | `packages/db/src/knowledge/build.test.ts` | Against the real workbooks: LSI targets, the timed hop, the heel raise, each workbook's bands, cervical references, joint position error at most, 10 grades, special tests with their categories; an unknown header stops the import. |
 | `packages/schemas/src/subjective.test.ts` | The form's fields and wording; sources; answers checked against their fields; Other shown only when ticked. |
-| `apps/web/e2e/consultation.spec.ts` | 360 px and desktop. Start consultation opens Subjective; notes save; Next pinned in view at 360 px, the stepper on desktop; a reload keeps the step and the notes; Back; Sign lists the sections; offline then reconnect saves; refused before the health form, then opens; the desk cannot open it. Subjective (CLN-03): the form's answers Patient reported, a blank one Not answered; edits to the complaint, pain and surgeries become Clinician confirmed with the patient's words beneath, untouched ones stay; the body chart on desktop; saved and kept through a reload; Sign counts them. Screening (CLN-04): a back pain form shows the back questions and pregnancy, no neck questions or follow ups, "0 of N"; Sign is blocked with "N left"; weight loss Yes adds the follow ups; the saddle Yes is marked changed; diabetes Confirmed; with all confirmed, Sign no longer names screening but still waits for the working diagnosis; kept through a reload. Objective (CLN-05): a knee form defaults to Knee; quadriceps 32 and 40 "LSI 80% · Not yet", then 36 "LSI 90% · Pass"; the timed hop 2.4 and 2.2 "LSI 92% · Pass"; effusion grade 2; Lachman added Positive with its positive finding and an interpretation; saved, kept through a reload; Sign shows "4 recorded". Assessment (CLN-06): Sign's "Go to Assessment"; "patellar tend" lists Patellar Tendinopathy (KNE-004, Knee) first and Enter chooses it; the Knee workbook's cause shows; with pain 4 now and 7 with activity, High is suggested and nothing selected, Moderate chosen; 6 weeks suggests Subacute, chosen; category Knee - PFPS; Provisional ticked; saved, kept through a reload; Change with no match keeps the condition; Sign shows "4 of 4 parts" and no diagnosis reason. Plan (CLN-07): with pregnancy and a bleeding disorder ticked, the patient's goal added and a second goal; Exercise; Radial Shockwave warns about both, "Awaiting clinical sign-off"; Sign waits for a reason and "Go to Plan" returns; the reason, 2 a week for 6 weeks, an exercise and dose; the review date is the visit plus 6 weeks; VISA-P ticked and Suggested, KOOS added; the consultant is the treating physio; saved, kept through a reload; Sign shows "5 of 5 parts". |
+| `apps/web/e2e/consultation.spec.ts` | 360 px and desktop. Start consultation opens Subjective; notes save; Next pinned in view at 360 px, the stepper on desktop; a reload keeps the step and the notes; Back; Sign lists the sections; offline then reconnect saves; refused before the health form, then opens; the desk cannot open it. Subjective (CLN-03): the form's answers Patient reported, a blank one Not answered; edits to the complaint, pain and surgeries become Clinician confirmed with the patient's words beneath, untouched ones stay; the body chart on desktop; saved and kept through a reload; Sign counts them. Screening (CLN-04): a back pain form shows the back questions and pregnancy, no neck questions or follow ups, "0 of N"; Sign is blocked with "N left"; weight loss Yes adds the follow ups; the saddle Yes is marked changed; diabetes Confirmed; with all confirmed, Sign no longer names screening but still waits for the working diagnosis; kept through a reload. Objective (CLN-05): a knee form defaults to Knee; quadriceps 32 and 40 "LSI 80% · Not yet", then 36 "LSI 90% · Pass"; the timed hop 2.4 and 2.2 "LSI 92% · Pass"; effusion grade 2; Lachman added Positive with its positive finding and an interpretation; saved, kept through a reload; Sign shows "4 recorded". Assessment (CLN-06): Sign's "Go to Assessment"; "patellar tend" lists Patellar Tendinopathy (KNE-004, Knee) first and Enter chooses it; the Knee workbook's cause shows; with pain 4 now and 7 with activity, High is suggested and nothing selected, Moderate chosen; 6 weeks suggests Subacute, chosen; category Knee - PFPS; Provisional ticked; saved, kept through a reload; Change with no match keeps the condition; Sign shows "4 of 4 parts" and no diagnosis reason. Plan (CLN-07): with pregnancy and a bleeding disorder ticked, the patient's goal added and a second goal; Exercise; Radial Shockwave warns about both, "Awaiting clinical sign-off"; Sign waits for a reason and "Go to Plan" returns; the reason, 2 a week for 6 weeks, an exercise and dose; the review date is the visit plus 6 weeks; VISA-P ticked and Suggested, KOOS added; the consultant is the treating physio; saved, kept through a reload; Sign shows "5 of 5 parts". Signing (CLN-09): a ready draft with Lachman unanswered is held back and "Sign and finish" is off; Negative chosen, Sign and finish, the confirmation, Sign; back on My patients today; the record's rows and the completed visit in the database; reopened read only with "Signed by"; the consultant adds an addendum; a colleague at HSR Layout opens it and adds one. |
 
 The database test also checks that the consultant reads their visit's submitted form, and another
 physio and the desk read nothing.

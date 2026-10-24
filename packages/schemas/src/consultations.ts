@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ASSESSMENT_PART_COUNT, assessmentFields, assessmentParts } from './assessment';
 import type { HealthFormAnswer, HealthFormAnswers } from './health-form';
 import { knowledgeRegionKeys } from './knowledge';
-import { measureEntrySchema, specialTestEntrySchema } from './objective';
+import { measureEntrySchema, specialTestEntrySchema, type KnowledgeSpecialTest } from './objective';
 import {
   modalitiesNeedingReason,
   planFields,
@@ -267,14 +267,15 @@ export interface SigningBlocker {
  * Why the consultation cannot be signed yet; empty when it can: every screening item confirmed
  * (CLN-04, PRD J3.3), the working diagnosis complete (CLN-06, SOP v2 §10.1 "A diagnosis missing
  * any of these components is incomplete"), and a reason for each modality kept despite one of the
- * patient's precautions (CLN-07, user decision 24 October 2026). The sign service (CLN-09) refuses
- * on any reason here, with the health form's answers and the version's plan catalog read on the
- * server.
+ * patient's precautions (CLN-07, user decision 24 October 2026), and a result for each special
+ * test added (CLN-09, user decision 24 October 2026; Not tested is a result). The sign service
+ * refuses on any reason here, with the health form's answers and the version's catalogs read on
+ * the server.
  */
 export function signingBlockers(
   sections: ConsultationSections,
   patientAnswers: HealthFormAnswers,
-  context: { planCatalog: PlanCatalog },
+  context: { planCatalog: PlanCatalog; specialTests?: readonly KnowledgeSpecialTest[] },
 ): SigningBlocker[] {
   const blockers: SigningBlocker[] = [];
   const { progress } = consultationScreening(sections, patientAnswers);
@@ -283,6 +284,16 @@ export function signingBlockers(
     blockers.push({
       section: 'screening',
       reason: `Signing needs every screening item confirmed: ${String(left)} left.`,
+    });
+  }
+  const untested = sections.objective.tests.filter((test) => test.result === undefined);
+  if (untested.length > 0) {
+    const names = untested.map(
+      (test) => context.specialTests?.find((known) => known.key === test.key)?.test ?? test.key,
+    );
+    blockers.push({
+      section: 'objective',
+      reason: `Choose a result for each special test added: ${names.join(', ')}.`,
     });
   }
   if (assessmentParts(sections.assessment) < ASSESSMENT_PART_COUNT) {

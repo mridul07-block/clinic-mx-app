@@ -346,6 +346,14 @@ export {
   type TaskForUpdate,
 } from './tasks';
 export {
+  addAddendum,
+  consultationAddenda,
+  signConsultation,
+  staffTreatsNow,
+  type AddendumEntry,
+  type SignRequest,
+} from './clinical-record';
+export {
   NoKnowledgeVersionError,
   consultationIntake,
   consultationRecord,

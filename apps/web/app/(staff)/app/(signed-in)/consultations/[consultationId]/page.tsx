@@ -1,8 +1,8 @@
-import { formatIstDateTime, stepFromQuery } from '@clinic-mx/schemas';
+import { accessScope, formatIstDateTime, stepFromQuery } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { requirePermission } from '../../../../../../modules/access/require-permission';
+import { notFound, redirect } from 'next/navigation';
+import { requireStaff } from '../../../../../../modules/auth/session';
 import { loadConsultation } from '../../../../../../modules/consultations/services';
 import { ConsultationStepper } from './consultation-stepper';
 
@@ -11,7 +11,8 @@ export const metadata: Metadata = { title: 'Consultation · Clinic Mx' };
 // The consultation (CLN-02, PRD J3.2, Frontend Specification "Consultation"): a vertical stepper
 // of Subjective, Screening, Objective, Assessment, Plan and Sign; one section at a time, with
 // Back and Next pinned at the bottom on phones (user decision 24 October 2026). Everything
-// autosaves. Only its own consultant opens it; CLN-03 to CLN-09 fill the sections and signing.
+// autosaves. Its own consultant writes and signs it (CLN-09); once signed it is read only, read by
+// clinicians at its centre, who add addenda.
 export default async function ConsultationPage({
   params,
   searchParams,
@@ -19,7 +20,10 @@ export default async function ConsultationPage({
   params: Promise<{ consultationId: string }>;
   searchParams: Promise<{ section?: string | string[] }>;
 }) {
-  const staff = await requirePermission('consultant_records.write');
+  const staff = await requireStaff();
+  if (!accessScope(staff, 'consultant_records.write') && !accessScope(staff, 'clinical.read')) {
+    redirect('/app/not-allowed');
+  }
   const { consultationId } = await params;
   const consultation = await loadConsultation(staff, consultationId);
   if (!consultation) notFound();
@@ -49,7 +53,14 @@ export default async function ConsultationPage({
         id={consultation.id}
         serverValue={consultation.sections}
         serverVersion={consultation.version}
-        signed={consultation.status === 'signed'}
+        editable={consultation.editable}
+        signedBy={
+          consultation.signedAt && consultation.signedByName
+            ? { name: consultation.signedByName, at: consultation.signedAt }
+            : null
+        }
+        addenda={consultation.addenda}
+        addsAddenda={consultation.addsAddenda}
         patientAnswers={consultation.patientAnswers}
         objectiveCatalog={consultation.objectiveCatalog}
         assessmentCatalog={consultation.assessmentCatalog}

@@ -27,6 +27,10 @@ export interface ConsultationEntry {
   sections: Record<string, unknown>;
   status: ConsultationStatus;
   version: number;
+  /** Who signed it and when (CLN-09); null while a draft. */
+  signedBy: string | null;
+  signedByName: string | null;
+  signedAt: Date | null;
   patientId: string;
   patientName: string;
   opNumber: string;
@@ -84,6 +88,11 @@ export async function consultationRecord(
       sections: consultation.sections,
       status: consultation.status,
       version: consultation.version,
+      signedBy: consultation.signedBy,
+      signedByName: sql<
+        string | null
+      >`(select s.name from staff_user s where s.id = ${consultation.signedBy})`,
+      signedAt: consultation.signedAt,
       patientId: appointment.patientId,
       patientName: patient.name,
       opNumber: patient.opNumber,
