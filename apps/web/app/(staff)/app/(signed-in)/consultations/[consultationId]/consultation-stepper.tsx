@@ -4,12 +4,14 @@ import {
   CONSULTATION_NOTES_MAX,
   adjacentSteps,
   confirmedCount,
+  consultationScreening,
   consultationSections,
   consultationSectionsSchema,
   consultationStepLabels,
   consultationSteps,
   sectionHasNotes,
   sectionStarted,
+  signingBlockers,
   stepFromQuery,
   type HealthFormAnswers,
   type ConsultationSection,
@@ -23,6 +25,7 @@ import { ConflictNotice } from '../../../../../../lib/drafts/conflict-notice';
 import { SaveStatus } from '../../../../../../lib/drafts/save-status';
 import { saveConsultationDraft } from '../../../../../../lib/drafts/savers';
 import { useAutosave } from '../../../../../../lib/drafts/use-autosave';
+import { ScreeningItems } from './screening-items';
 import { SubjectiveFields } from './subjective-fields';
 
 const isSection = (step: ConsultationStep): step is ConsultationSection =>
@@ -59,6 +62,8 @@ export function ConsultationStepper({
     const read = consultationSectionsSchema.safeParse(draft.value);
     return read.success ? read.data : serverValue;
   }, [draft.value, serverValue]);
+  const screening = consultationScreening(sections, patientAnswers);
+  const blockers = signingBlockers(sections, patientAnswers);
   const [step, setStep] = useState(initialStep);
   const heading = useRef<HTMLHeadingElement>(null);
   const moved = useRef(false);
@@ -173,6 +178,25 @@ export function ConsultationStepper({
             }}
           />
         ) : null}
+        {step === 'screening' ? (
+          <ScreeningItems
+            region={screening.region}
+            sex={screening.sex}
+            progress={screening.progress}
+            confirmed={sections.screening.confirmed}
+            patientAnswers={patientAnswers}
+            readOnly={signed}
+            onConfirm={(key, answer) => {
+              draft.setValue({
+                ...sections,
+                screening: {
+                  ...sections.screening,
+                  confirmed: { ...sections.screening.confirmed, [key]: answer },
+                },
+              });
+            }}
+          />
+        ) : null}
         {isSection(step) ? (
           <label className="flex flex-col gap-1.5">
             <span className="font-medium">{step === 'subjective' ? 'Other notes' : 'Notes'}</span>
@@ -192,11 +216,38 @@ export function ConsultationStepper({
           </label>
         ) : (
           <div className="flex flex-col gap-3">
+            <div
+              data-testid="sign-gate"
+              className={[
+                'flex flex-col gap-1.5 rounded-panel border px-3 py-2.5',
+                blockers.length > 0
+                  ? 'border-waiting-line bg-waiting-soft text-waiting-strong'
+                  : 'border-done-line bg-done-soft text-done',
+              ].join(' ')}
+            >
+              <p className="font-medium">Before signing</p>
+              {blockers.length > 0 ? (
+                <>
+                  {blockers.map((reason) => (
+                    <p key={reason}>{reason}</p>
+                  ))}
+                  <a
+                    href={hrefOf('screening')}
+                    onClick={go('screening')}
+                    className="text-sm underline underline-offset-2"
+                  >
+                    Go to Screening
+                  </a>
+                </>
+              ) : (
+                <p>Screening complete.</p>
+              )}
+            </div>
             <p className="text-ink-secondary">Check each section before signing.</p>
             <ul className="flex flex-col divide-y divide-line rounded-panel border border-line">
               {consultationSections.map((key) => {
                 const written = sectionHasNotes(sections, key);
-                const changed = key === 'subjective' ? confirmedCount(sections) : 0;
+                const changed = confirmedCount(sections, key);
                 return (
                   <li
                     key={key}

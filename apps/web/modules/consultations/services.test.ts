@@ -38,7 +38,7 @@ const record = (extra: Record<string, unknown> = {}) => ({
 });
 const sections = {
   subjective: { notes: 'Pain on stairs', confirmed: {} },
-  screening: { notes: '' },
+  screening: { notes: '', confirmed: {} },
   objective: { notes: '' },
   assessment: { notes: '' },
   plan: { notes: '' },
