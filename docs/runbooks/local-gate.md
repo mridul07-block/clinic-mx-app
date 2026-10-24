@@ -20,7 +20,7 @@ the first failure:
 | Local database reset and every migration applied to it; seed; knowledge base import | Local Supabase stack |
 | Database tests | Local Supabase stack |
 | End to end, phone then desktop (`CI=1`: a fresh build, one retry, as on CI) | End to end (phone), (desktop) |
-| Secret scan of the whole history (gitleaks 8.30.1 in Docker) | Secret scan |
+| Secret scan of the whole history (the gitleaks 8.30.1 release binary, checked against a pinned hash) | Secret scan |
 
 It ends with "Local gate passed at <commit>". The pull request notes that it passed locally, with
 the commit; a merge waits for that line, as it waited for green CI. It resets the local database
