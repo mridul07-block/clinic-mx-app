@@ -3,9 +3,17 @@ import type {
   ConsultationStatus,
   HealthFormAnswers,
 } from '@clinic-mx/schemas';
-import { eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { latestKnowledgeVersion } from './knowledge';
-import { appointment, appointmentType, centre, consultation, patient } from './schema';
+import {
+  appointment,
+  appointmentType,
+  centre,
+  consultation,
+  patient,
+  staffUser,
+  staffUserCentre,
+} from './schema';
 import { updateVersioned, type DbOrTransaction, type VersionedResult } from './versioned';
 
 /** A consultation as its screen shows it (CLN-02). */
@@ -24,6 +32,7 @@ export interface ConsultationEntry {
   opNumber: string;
   appointmentNumber: string;
   startsAt: Date;
+  centreId: string;
   centreName: string;
   typeName: string;
 }
@@ -80,6 +89,7 @@ export async function consultationRecord(
       opNumber: patient.opNumber,
       appointmentNumber: appointment.number,
       startsAt: appointment.startsAt,
+      centreId: centre.id,
       centreName: centre.name,
       typeName: appointmentType.name,
     })
@@ -118,4 +128,27 @@ export async function consultationIntake(
     sql`select form_version, answers from internal.consultant_health_form(${appointmentId})`,
   );
   return row && { formVersion: row.form_version, answers: row.answers };
+}
+
+/**
+ * Who can be a plan's treating physio at a centre (CLN-07): active staff assigned there with the
+ * Treats patients tick, never Velyx support, by name. Read under row level security.
+ */
+export function treatingPhysios(
+  db: DbOrTransaction,
+  centreId: string,
+): Promise<{ id: string; name: string }[]> {
+  return db
+    .select({ id: staffUser.id, name: staffUser.name })
+    .from(staffUser)
+    .innerJoin(staffUserCentre, eq(staffUserCentre.staffUserId, staffUser.id))
+    .where(
+      and(
+        eq(staffUserCentre.centreId, centreId),
+        eq(staffUser.active, true),
+        eq(staffUser.treatsPatients, true),
+        eq(staffUser.velyxSupport, false),
+      ),
+    )
+    .orderBy(asc(staffUser.name));
 }

@@ -4,18 +4,23 @@ import {
   consultationRecord,
   knowledgeAssessment,
   knowledgeObjective,
+  knowledgePlan,
   saveConsultationSections,
+  treatingPhysios,
   type ConsultationEntry,
   type StaffMember,
 } from '@clinic-mx/db';
 import {
   consultationSectionsSchema,
+  istDate,
   recordVersionSchema,
   type AssessmentCatalog,
   type AssessmentSettings,
   type ConsultationSections,
   type DraftSaveResponse,
   type HealthFormAnswers,
+  type PlanCatalog,
+  type PlanDefaults,
   type KnowledgeMeasure,
   type KnowledgeSpecialTest,
 } from '@clinic-mx/schemas';
@@ -52,6 +57,12 @@ export interface ConsultationView extends Omit<ConsultationEntry, 'sections'> {
   assessmentCatalog: AssessmentCatalog;
   /** The thresholds Assessment's suggestions use (CLN-06). */
   assessmentSettings: AssessmentSettings;
+  /** The version's modalities and questionnaires (CLN-07). */
+  planCatalog: PlanCatalog;
+  /** Who can be the treating physio at the visit's centre (CLN-07). */
+  treatingPhysios: { id: string; name: string }[];
+  /** What the plan's '' and null stand for (CLN-07). */
+  planDefaults: PlanDefaults;
 }
 
 /** The `assessment.*` settings, as the suggestions take them. */
@@ -81,6 +92,8 @@ export async function loadConsultation(
       intake: await consultationIntake(tx, found.appointmentId),
       catalog: await knowledgeObjective(tx, found.kbVersionId),
       assessment: await knowledgeAssessment(tx, found.kbVersionId),
+      plan: await knowledgePlan(tx, found.kbVersionId),
+      physios: await treatingPhysios(tx, found.centreId),
     };
   });
   if (!read) return undefined;
@@ -91,6 +104,13 @@ export async function loadConsultation(
     objectiveCatalog: read.catalog,
     assessmentCatalog: read.assessment,
     assessmentSettings: await assessmentSettings(),
+    planCatalog: read.plan,
+    treatingPhysios: read.physios,
+    planDefaults: {
+      visitDate: istDate(read.found.startsAt),
+      reviewWeeks: await getSetting('clinical.review_weeks'),
+      consultantId: read.found.physioId,
+    },
   };
 }
 

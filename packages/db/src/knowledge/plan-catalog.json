@@ -1,0 +1,226 @@
+{
+  "source": "Modalities: Blueprint Module 3 Part B (six statements) and the Clinical Management Software document's consent list (Dry needling, Zero gravity); precaution links drafted from the Part B statements and Consultation SOP v2 §12.3, awaiting clinical sign-off. Questionnaires: Blueprint Module 8, condition-specific outcome measure library, word for word.",
+  "modalities": [
+    {
+      "key": "electrotherapy",
+      "name": "Electrotherapy (US, IFT, TENS, EMS, combination)",
+      "precautions": [
+        {
+          "precaution": "implant",
+          "source": "Blueprint Module 3, Part B modality statement (implanted electronic devices)"
+        },
+        {
+          "precaution": "pregnancy",
+          "source": "Blueprint Module 3, Part B modality statement (pregnancy status)"
+        }
+      ],
+      "signedOff": false
+    },
+    {
+      "key": "radial_shockwave",
+      "name": "Radial Shockwave (RSW)",
+      "precautions": [
+        {
+          "precaution": "bleeding",
+          "source": "Blueprint Module 3, Part B modality statement (bleeding disorders) and Consultation SOP v2 §12.3 (shockwave contraindications)"
+        },
+        {
+          "precaution": "pregnancy",
+          "source": "Consultation SOP v2 §12.3 (shockwave contraindications)"
+        },
+        {
+          "precaution": "cancer",
+          "source": "Consultation SOP v2 §12.3 (shockwave contraindications): malignancy at treatment site"
+        },
+        {
+          "precaution": "chronic_infection",
+          "source": "Consultation SOP v2 §12.3 (shockwave contraindications): active infection over treatment area"
+        }
+      ],
+      "signedOff": false
+    },
+    {
+      "key": "focused_shockwave",
+      "name": "Focused Shockwave (FSW)",
+      "precautions": [
+        {
+          "precaution": "bleeding",
+          "source": "Consultation SOP v2 §12.3 (shockwave contraindications)"
+        },
+        {
+          "precaution": "pregnancy",
+          "source": "Consultation SOP v2 §12.3 (shockwave contraindications)"
+        },
+        {
+          "precaution": "cancer",
+          "source": "Consultation SOP v2 §12.3 (shockwave contraindications): malignancy at treatment site"
+        },
+        {
+          "precaution": "chronic_infection",
+          "source": "Consultation SOP v2 §12.3 (shockwave contraindications): active infection over treatment area"
+        }
+      ],
+      "signedOff": false
+    },
+    {
+      "key": "pemf",
+      "name": "PEMF",
+      "precautions": [
+        {
+          "precaution": "implant",
+          "source": "Blueprint Module 3, Part B modality statement (implanted electronic devices, e.g. pacemakers)"
+        },
+        {
+          "precaution": "pregnancy",
+          "source": "Blueprint Module 3, Part B modality statement (pregnancy status)"
+        }
+      ],
+      "signedOff": false
+    },
+    {
+      "key": "spinal_traction",
+      "name": "Spinal DSO traction",
+      "precautions": [
+        {
+          "precaution": "osteoporosis",
+          "source": "Blueprint Module 3, Part B modality statement (osteoporosis)"
+        }
+      ],
+      "signedOff": false
+    },
+    {
+      "key": "laser",
+      "name": "Laser",
+      "precautions": [],
+      "signedOff": false
+    },
+    {
+      "key": "dry_needling",
+      "name": "Dry needling",
+      "precautions": [],
+      "signedOff": false
+    },
+    {
+      "key": "zero_gravity_treadmill",
+      "name": "Zero Gravity Treadmill",
+      "precautions": [],
+      "signedOff": false
+    }
+  ],
+  "questionnaires": [
+    {
+      "key": "koos",
+      "name": "KOOS",
+      "regions": ["knee"],
+      "useFor": "ACL, meniscus, cartilage injury, early OA"
+    },
+    {
+      "key": "ikdc",
+      "name": "IKDC Subjective Knee Form",
+      "regions": ["knee"],
+      "useFor": "ACL rehabilitation"
+    },
+    {
+      "key": "kujala",
+      "name": "Kujala Anterior Knee Pain Scale (AKPS)",
+      "regions": ["knee"],
+      "useFor": "Patellofemoral pain, patellar instability"
+    },
+    {
+      "key": "visa_p",
+      "name": "VISA-P",
+      "regions": ["knee"],
+      "useFor": "Patellar tendinopathy"
+    },
+    {
+      "key": "womac_oxford_knee",
+      "name": "WOMAC / Oxford Knee Score",
+      "regions": ["knee"],
+      "useFor": "Knee osteoarthritis"
+    },
+    {
+      "key": "spadi",
+      "name": "SPADI",
+      "regions": ["shoulder"],
+      "useFor": "General shoulder pain, frozen shoulder, rotator cuff"
+    },
+    {
+      "key": "wosi",
+      "name": "WOSI",
+      "regions": ["shoulder"],
+      "useFor": "Shoulder instability, dislocation, SLAP lesion"
+    },
+    {
+      "key": "ases",
+      "name": "ASES",
+      "regions": ["shoulder"],
+      "useFor": "Rotator cuff, post-surgery"
+    },
+    {
+      "key": "quickdash",
+      "name": "QuickDASH",
+      "regions": ["elbow", "forearm_wrist"],
+      "useFor": "General upper-limb, elbow, wrist and hand conditions"
+    },
+    {
+      "key": "prtee",
+      "name": "PRTEE",
+      "regions": ["elbow"],
+      "useFor": "Lateral elbow tendinopathy"
+    },
+    {
+      "key": "hhs_oxford_hip",
+      "name": "Harris Hip Score (HHS) / Oxford Hip Score",
+      "regions": ["hip"],
+      "useFor": "Hip AVN, hip OA"
+    },
+    {
+      "key": "ihot",
+      "name": "iHOT-12 / iHOT-33",
+      "regions": ["hip"],
+      "useFor": "Hip FAI, young active hip"
+    },
+    {
+      "key": "odi",
+      "name": "Oswestry Disability Index (ODI)",
+      "regions": ["lumbar_sij"],
+      "useFor": "Moderate to severe low back pain, disc, stenosis, post-surgery"
+    },
+    {
+      "key": "sciatica_bothersomeness",
+      "name": "Sciatica Bothersomeness Index",
+      "regions": ["lumbar_sij"],
+      "useFor": "Leg pain and radicular symptoms"
+    },
+    {
+      "key": "zcq",
+      "name": "Swiss Spinal Stenosis Questionnaire (Zurich Claudication Questionnaire, ZCQ)",
+      "regions": ["lumbar_sij"],
+      "useFor": "Lumbar canal stenosis"
+    },
+    {
+      "key": "ndi",
+      "name": "Neck Disability Index (NDI)",
+      "regions": ["cervical"],
+      "useFor": "Neck pain, radiculopathy, whiplash"
+    },
+    {
+      "key": "cait",
+      "name": "Cumberland Ankle Instability Tool (CAIT)",
+      "regions": ["foot_ankle"],
+      "useFor": "Chronic ankle instability"
+    },
+    {
+      "key": "visa_a",
+      "name": "VISA-A",
+      "regions": ["foot_ankle"],
+      "useFor": "Achilles tendinopathy"
+    },
+    {
+      "key": "psfs",
+      "name": "Patient-Specific Functional Scale (PSFS)",
+      "regions": [],
+      "useFor": "When no condition-specific measure fits, or alongside one"
+    }
+  ]
+}

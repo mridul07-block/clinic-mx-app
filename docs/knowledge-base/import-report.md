@@ -577,6 +577,43 @@ Yes or no screens, ratios, readiness summaries and worded checks; they belong wi
 - Wrist - Soft tissue injuries
 - Wrist - Stiffness
 
+## Plan catalog (CLN-07)
+
+8 modalities and 19 questionnaires from `packages/db/src/knowledge/plan-catalog.json` (SHA-256 89d4855a0316). A modality warns in the plan when the patient has a precaution it lists; the links are drafted from the Blueprint’s Part B statements and the Consultation SOP v2 §12.3 and await clinical sign-off (`docs/runbooks/consultation.md`).
+
+| Modality | Warns about | Signed off |
+| --- | --- | --- |
+| Electrotherapy (US, IFT, TENS, EMS, combination) | Any implant (pacemaker / electronic or metal) (Blueprint Module 3, Part B modality statement (implanted electronic devices)); Pregnancy / breastfeeding (Blueprint Module 3, Part B modality statement (pregnancy status)) | Awaiting clinical sign-off |
+| Radial Shockwave (RSW) | Bleeding disorder or blood thinners (Blueprint Module 3, Part B modality statement (bleeding disorders) and Consultation SOP v2 §12.3 (shockwave contraindications)); Pregnancy / breastfeeding (Consultation SOP v2 §12.3 (shockwave contraindications)); Cancer (current or past) (Consultation SOP v2 §12.3 (shockwave contraindications): malignancy at treatment site); Chronic infection (Consultation SOP v2 §12.3 (shockwave contraindications): active infection over treatment area) | Awaiting clinical sign-off |
+| Focused Shockwave (FSW) | Bleeding disorder or blood thinners (Consultation SOP v2 §12.3 (shockwave contraindications)); Pregnancy / breastfeeding (Consultation SOP v2 §12.3 (shockwave contraindications)); Cancer (current or past) (Consultation SOP v2 §12.3 (shockwave contraindications): malignancy at treatment site); Chronic infection (Consultation SOP v2 §12.3 (shockwave contraindications): active infection over treatment area) | Awaiting clinical sign-off |
+| PEMF | Any implant (pacemaker / electronic or metal) (Blueprint Module 3, Part B modality statement (implanted electronic devices, e.g. pacemakers)); Pregnancy / breastfeeding (Blueprint Module 3, Part B modality statement (pregnancy status)) | Awaiting clinical sign-off |
+| Spinal DSO traction | Osteoporosis (Blueprint Module 3, Part B modality statement (osteoporosis)) | Awaiting clinical sign-off |
+| Laser | Nothing | Awaiting clinical sign-off |
+| Dry needling | Nothing | Awaiting clinical sign-off |
+| Zero Gravity Treadmill | Nothing | Awaiting clinical sign-off |
+
+| Questionnaire | For | Use for |
+| --- | --- | --- |
+| KOOS | Knee | ACL, meniscus, cartilage injury, early OA |
+| IKDC Subjective Knee Form | Knee | ACL rehabilitation |
+| Kujala Anterior Knee Pain Scale (AKPS) | Knee | Patellofemoral pain, patellar instability |
+| VISA-P | Knee | Patellar tendinopathy |
+| WOMAC / Oxford Knee Score | Knee | Knee osteoarthritis |
+| SPADI | Shoulder | General shoulder pain, frozen shoulder, rotator cuff |
+| WOSI | Shoulder | Shoulder instability, dislocation, SLAP lesion |
+| ASES | Shoulder | Rotator cuff, post-surgery |
+| QuickDASH | Elbow, Forearm and wrist | General upper-limb, elbow, wrist and hand conditions |
+| PRTEE | Elbow | Lateral elbow tendinopathy |
+| Harris Hip Score (HHS) / Oxford Hip Score | Hip and groin | Hip AVN, hip OA |
+| iHOT-12 / iHOT-33 | Hip and groin | Hip FAI, young active hip |
+| Oswestry Disability Index (ODI) | Lumbar spine and SIJ | Moderate to severe low back pain, disc, stenosis, post-surgery |
+| Sciatica Bothersomeness Index | Lumbar spine and SIJ | Leg pain and radicular symptoms |
+| Swiss Spinal Stenosis Questionnaire (Zurich Claudication Questionnaire, ZCQ) | Lumbar spine and SIJ | Lumbar canal stenosis |
+| Neck Disability Index (NDI) | Cervical spine | Neck pain, radiculopathy, whiplash |
+| Cumberland Ankle Instability Tool (CAIT) | Foot and ankle | Chronic ankle instability |
+| VISA-A | Foot and ankle | Achilles tendinopathy |
+| Patient-Specific Functional Scale (PSFS) | Any region | When no condition-specific measure fits, or alongside one |
+
 ## Condition IDs
 
 0 new IDs assigned in this run; every ID in the file matched a row.

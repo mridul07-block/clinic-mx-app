@@ -43,6 +43,13 @@ if (healthConditions?.kind !== 'multi_choice') {
 }
 const conditionsField: Extract<HealthFormField, { kind: 'multi_choice' }> = healthConditions;
 
+/** Each Health check precaution's key and its label as the patient saw it ("None of these" left out). */
+export const precautionLabels: Readonly<Record<string, string>> = Object.fromEntries(
+  conditionsField.options
+    .filter((option) => option.value !== conditionsField.exclusive)
+    .map((option) => [option.value, option.label]),
+);
+
 /** The region the screening is for: the one Subjective shows, if it is a screening region. */
 export function screeningRegionOf(region: unknown): ScreeningRegion | undefined {
   return screeningRegions.find((known) => known === region);

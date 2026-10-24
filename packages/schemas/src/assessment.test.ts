@@ -32,7 +32,12 @@ const condition = (
   synonyms,
   homeRegion: regions[0] ?? 'knee',
   categoryCode: null,
-  listings: regions.map((region) => ({ region, name, biomechanicalCause: null })),
+  listings: regions.map((region) => ({
+    region,
+    name,
+    biomechanicalCause: null,
+    specificExercise: null,
+  })),
 });
 
 // CLN-06: irritability suggested from pain, stage from duration, a knowledge base condition.
@@ -140,7 +145,9 @@ describe('assessment', () => {
     });
     expect(confirmedCount(whole, 'assessment')).toBe(3);
     const reasons = (sections: typeof whole) =>
-      signingBlockers(sections, {}).filter((blocker) => blocker.section === 'assessment');
+      signingBlockers(sections, {}, { planCatalog: { modalities: [], questionnaires: [] } }).filter(
+        (blocker) => blocker.section === 'assessment',
+      );
     expect(reasons(whole)).toHaveLength(1);
     expect(
       reasons({ ...whole, assessment: { ...whole.assessment, movement: 'Dynamic valgus' } }),

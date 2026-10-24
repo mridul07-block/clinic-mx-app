@@ -25,7 +25,18 @@ describe('consultation sections', () => {
         categoryCode: '',
         provisional: true,
       },
-      plan: { notes: '' },
+      plan: {
+        notes: '',
+        goals: [],
+        interventions: [],
+        modalities: [],
+        sessionsPerWeek: null,
+        weeks: null,
+        homeProgramme: [],
+        reviewDate: '',
+        questionnaires: null,
+        treatingPhysioId: '',
+      },
     });
   });
 

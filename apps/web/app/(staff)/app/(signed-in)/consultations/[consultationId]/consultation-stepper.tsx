@@ -3,6 +3,7 @@
 import {
   ASSESSMENT_PART_COUNT,
   CONSULTATION_NOTES_MAX,
+  PLAN_PART_COUNT,
   adjacentSteps,
   assessmentSuggestions,
   confirmedCount,
@@ -16,9 +17,13 @@ import {
   signingBlockers,
   stepFromQuery,
   knowledgeRegionOfScreening,
+  precautionsInForce,
+  subjectiveValue,
   type AssessmentCatalog,
   type AssessmentSettings,
   type HealthFormAnswers,
+  type PlanCatalog,
+  type PlanDefaults,
   type KnowledgeMeasure,
   type KnowledgeSpecialTest,
   type ConsultationSection,
@@ -34,6 +39,7 @@ import { saveConsultationDraft } from '../../../../../../lib/drafts/savers';
 import { useAutosave } from '../../../../../../lib/drafts/use-autosave';
 import { AssessmentInputs } from './assessment-inputs';
 import { ObjectiveInputs } from './objective-inputs';
+import { PlanInputs } from './plan-inputs';
 import { ScreeningItems } from './screening-items';
 import { SubjectiveFields } from './subjective-fields';
 
@@ -58,6 +64,9 @@ export function ConsultationStepper({
   objectiveCatalog,
   assessmentCatalog,
   assessmentSettings,
+  planCatalog,
+  treatingPhysios,
+  planDefaults,
 }: {
   id: string;
   serverValue: ConsultationSections;
@@ -72,6 +81,12 @@ export function ConsultationStepper({
   assessmentCatalog: AssessmentCatalog;
   /** The thresholds Assessment's suggestions use (CLN-06). */
   assessmentSettings: AssessmentSettings;
+  /** The version's modalities and questionnaires (CLN-07). */
+  planCatalog: PlanCatalog;
+  /** Who can be the treating physio at the visit's centre (CLN-07). */
+  treatingPhysios: { id: string; name: string }[];
+  /** What the plan's '' and null stand for (CLN-07). */
+  planDefaults: PlanDefaults;
 }) {
   const save = useMemo(() => saveConsultationDraft(id), [id]);
   const draft = useAutosave({ kind: 'consultation', id, serverValue, serverVersion, save });
@@ -81,7 +96,7 @@ export function ConsultationStepper({
     return read.success ? read.data : serverValue;
   }, [draft.value, serverValue]);
   const screening = consultationScreening(sections, patientAnswers);
-  const blockers = signingBlockers(sections, patientAnswers);
+  const blockers = signingBlockers(sections, patientAnswers, { planCatalog });
   const objectiveRegion =
     sections.objective.region ||
     (screening.region ? knowledgeRegionOfScreening[screening.region] : undefined);
@@ -248,6 +263,26 @@ export function ConsultationStepper({
             }}
           />
         ) : null}
+        {step === 'plan' ? (
+          <PlanInputs
+            plan={sections.plan}
+            catalog={planCatalog}
+            physios={treatingPhysios}
+            defaults={planDefaults}
+            region={objectiveRegion}
+            condition={assessmentCatalog.conditions.find(
+              (condition) => condition.conditionId === sections.assessment.conditionId,
+            )}
+            patientGoals={String(
+              subjectiveValue('goals', sections.subjective.confirmed, patientAnswers) ?? '',
+            )}
+            precautions={precautionsInForce(sections.screening.confirmed, patientAnswers)}
+            readOnly={signed}
+            onChange={(plan) => {
+              draft.setValue({ ...sections, plan });
+            }}
+          />
+        ) : null}
         {isSection(step) ? (
           <label className="flex flex-col gap-1.5">
             <span className="font-medium">{step === 'subjective' ? 'Other notes' : 'Notes'}</span>
@@ -291,7 +326,10 @@ export function ConsultationStepper({
                   </p>
                 ))
               ) : (
-                <p>Screening complete and the working diagnosis has its four parts.</p>
+                <p>
+                  Screening complete, the working diagnosis has its four parts and every warned
+                  modality has a reason.
+                </p>
               )}
             </div>
             <p className="text-ink-secondary">Check each section before signing.</p>
@@ -312,8 +350,8 @@ export function ConsultationStepper({
                       </Tag>
                       {changed > 0 ? (
                         <Tag tone="done">
-                          {key === 'assessment'
-                            ? `${String(changed)} of ${String(ASSESSMENT_PART_COUNT)} parts`
+                          {key === 'assessment' || key === 'plan'
+                            ? `${String(changed)} of ${String(key === 'plan' ? PLAN_PART_COUNT : ASSESSMENT_PART_COUNT)} parts`
                             : `${String(changed)} ${key === 'objective' ? 'recorded' : 'confirmed'}`}
                         </Tag>
                       ) : null}

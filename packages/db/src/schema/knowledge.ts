@@ -308,3 +308,55 @@ export const kbSpecialTest = pgTable(
     check('kb_special_test_key', sql`${table.key} ~ '^[a-z_]+[.][a-z0-9_.]+$'`),
   ],
 ).enableRLS();
+
+/**
+ * A modality a plan of care may include (CLN-07), from the committed plan catalog: the
+ * Blueprint's Part B modalities and the software document's, with the Health check precautions
+ * each warns about and where each link comes from. Links are a draft until clinical sign-off.
+ */
+export const kbModality = pgTable(
+  'kb_modality',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    /** Stable across versions, the price master's key where there is one (`radial_shockwave`). */
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    precautions: jsonb('precautions').$type<{ precaution: string; source: string }[]>().notNull(),
+    signedOff: boolean('signed_off').notNull(),
+    sort: integer('sort').notNull(),
+  },
+  (table) => [
+    unique('kb_modality_version_key').on(table.kbVersionId, table.key),
+    check('kb_modality_key', sql`${table.key} ~ '^[a-z][a-z0-9_]*$'`),
+  ],
+).enableRLS();
+
+/**
+ * An outcome questionnaire (CLN-07, Blueprint Module 8): the instrument, the workbooks it is for
+ * (none for any region) and what it is used for, word for word. Items and scoring arrive with
+ * SET-08.
+ */
+export const kbQuestionnaire = pgTable(
+  'kb_questionnaire',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    regions: kbRegion('regions')
+      .array()
+      .notNull()
+      .default(sql`'{}'::kb_region[]`),
+    useFor: text('use_for').notNull(),
+    sort: integer('sort').notNull(),
+  },
+  (table) => [
+    unique('kb_questionnaire_version_key').on(table.kbVersionId, table.key),
+    check('kb_questionnaire_key', sql`${table.key} ~ '^[a-z][a-z0-9_]*$'`),
+  ],
+).enableRLS();

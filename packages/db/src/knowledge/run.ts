@@ -5,12 +5,14 @@ import { buildCategories } from './categories';
 import {
   readCategoriesFile,
   readConditionIds,
+  readPlanCatalogFile,
   readRulesFile,
   WORKBOOK_FOLDER_PATH,
   writeConditionIds,
   writeReport,
 } from './paths';
 import { buildObjective } from './objective';
+import { buildPlanCatalog } from './plan-catalog';
 import { buildRedFlags } from './red-flags';
 import { buildReport, reportMarkdown } from './report';
 import { readWorkbooks } from './workbook';
@@ -31,7 +33,8 @@ try {
   const redFlags = buildRedFlags(workbooks, await readRulesFile());
   const objective = buildObjective(workbooks);
   const categories = buildCategories(await readCategoriesFile(), built);
-  const report = buildReport(workbooks, built, redFlags, objective, categories);
+  const planCatalog = buildPlanCatalog(await readPlanCatalogFile());
+  const report = buildReport(workbooks, built, redFlags, objective, categories, planCatalog);
   await writeReport(reportMarkdown(report));
   console.log(
     `Read ${report.totals.listings} rows: ${report.totals.conditions} conditions, ` +
@@ -39,7 +42,9 @@ try {
       `${built.unmatched.length} IDs matched no row; ${redFlags.rules.length} red flag rules, ` +
       `${redFlags.presentations.length} red flag rows; ${objective.measures.length} measures, ` +
       `${objective.specialTests.length} special tests; ${categories.categories.length} diagnosis ` +
-      `categories, ${Object.keys(categories.mapping).length} conditions mapped. ` +
+      `categories, ${Object.keys(categories.mapping).length} conditions mapped; ` +
+      `${planCatalog.modalities.length} modalities, ${planCatalog.questionnaires.length} ` +
+      'questionnaires. ' +
       'Report: docs/knowledge-base/import-report.md',
   );
 
@@ -49,7 +54,7 @@ try {
     const { db, close } = createDb(url, { max: 1 });
     try {
       const version = await db.transaction((tx) =>
-        applyKnowledge(tx, built, report, redFlags, objective, categories),
+        applyKnowledge(tx, built, report, redFlags, objective, categories, planCatalog),
       );
       console.log(`Recorded knowledge base version ${version.number} as a draft.`);
     } finally {
