@@ -1,11 +1,12 @@
-# FND-01: checks every pull request and every push to main.
-# Actions are pinned to commit SHAs (version in the comment).
+# FND-01: checks every pull request; a merge waits for it. Not again on main after the merge
+# (decision 25 October 2026: the free minutes go twice as far); run it there by hand when needed.
+# While GitHub-hosted runners are unavailable, `pnpm ci:local` runs the same jobs on a developer
+# machine (docs/runbooks/local-gate.md). Actions are pinned to commit SHAs (version in the comment).
 name: CI
 
 on:
   pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

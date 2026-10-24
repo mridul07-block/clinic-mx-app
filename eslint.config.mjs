@@ -64,6 +64,11 @@ export default defineConfig(
     languageOptions: { parser: tseslint.parser },
   },
   {
+    // Repository scripts run in Node (docs/runbooks/local-gate.md).
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
+  {
     // The service worker runs in the browser's service worker scope, not the page or Node.
     files: ['apps/web/public/sw.js'],
     languageOptions: { sourceType: 'script', globals: globals.serviceworker },

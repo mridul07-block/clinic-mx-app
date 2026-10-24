@@ -19,6 +19,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "verify": "pnpm run \"/^(format:check|lint|typecheck|test|check:design)$/\"",
+    "ci:local": "bash scripts/ci-local.sh",
+    "migrate:staging": "node scripts/migrate-staging.mjs",
     "supabase": "supabase",
     "db:start": "supabase start -x studio,imgproxy,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor",
     "db:stop": "supabase stop",
