@@ -58,5 +58,8 @@ export async function addAddendumAction(
     return failure(error, 'Adding an addendum needs the Treats patients tick.');
   }
   revalidatePath(`/app/consultations/${consultationId}`);
+  // Added from the patient record's Notes (CLN-12).
+  const patientId = text(form, 'patientId');
+  if (z.guid().safeParse(patientId).success) revalidatePath(`/app/patients/${patientId}`);
   return { notice: 'Addendum added.' };
 }

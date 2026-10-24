@@ -81,6 +81,12 @@ Sending a form to a tablet needs the link's state, but staff have no policy on `
 `internal.patient_link_state(link_id)` (SECURITY DEFINER) gives someone with check in rights only
 the link's purpose and state, never who it is for (`docs/runbooks/kiosk.md`).
 
+Clinical records are not bound to a centre once signed (kickoff decision C1; ALT-08 reports,
+CLN-12): `internal.jwt_clinical_reader()` (the Super Admin or the Treats patients tick, never
+support) reads signed consultations and their rows, precautions, and through SECURITY DEFINER
+functions the alert history and the names on the record, at any centre. Drafts, `red_flag_alert`
+and every operational list keep their centre scope (`docs/runbooks/patient-record.md`).
+
 Colleague visibility uses `internal.staff_in_seen_centre(staff_id)`, a SECURITY DEFINER function,
 so the `staff_user` policy does not run the `staff_user_centre` policies again.
 

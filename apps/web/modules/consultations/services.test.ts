@@ -24,6 +24,8 @@ const db = vi.hoisted(() => ({
   staffTreatsNow: vi.fn(),
   signConsultation: vi.fn(),
   addAddendum: vi.fn(),
+  logClinicalView: vi.fn(),
+  recordStaffName: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
 const settings: Record<string, number> = {
@@ -37,7 +39,7 @@ vi.mock('../settings/settings', () => ({
   getSetting: (key: string) => Promise.resolve(settings[key]),
 }));
 vi.mock('../access/staff-db', () => ({
-  asStaff: (_actor: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
+  asStaffViewing: (_actor: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
 }));
 
 const consultationId = '00000000-0000-4000-8000-000000000a01';
@@ -119,6 +121,7 @@ describe('consultation', () => {
     db.staffTreatsNow.mockResolvedValue(true);
     db.signConsultation.mockResolvedValue('signed');
     db.addAddendum.mockResolvedValue({ id: 'addendum-1' });
+    db.recordStaffName.mockResolvedValue('Treating Physio Elsewhere');
   });
 
   it('opens the consultant’s own consultation with every section', async () => {
@@ -180,6 +183,35 @@ describe('consultation', () => {
     expect(view).toMatchObject({ editable: false, addsAddenda: true });
     expect(view?.addenda).toEqual([{ id: 'a1', text: 'Seen again' }]);
     expect(db.consultationAddenda).toHaveBeenCalledWith(fakeTx, consultationId);
+    // CLN-12: logged as a record view; its consultant's own opening is not.
+    expect(db.logClinicalView).toHaveBeenCalledWith(fakeTx, 'consultation', consultationId);
+    db.logClinicalView.mockClear();
+    db.consultationRecord.mockResolvedValue(record({ status: 'signed' }));
+    await loadConsultation(consultant(), consultationId);
+    expect(db.logClinicalView).not.toHaveBeenCalled();
+  });
+
+  // CLN-12: clinicians read a signed consultation at any centre; addenda stay with its centre.
+  it('opens a signed consultation at another centre without the addendum form', async () => {
+    const treating = '00000000-0000-4000-8000-000000000299';
+    db.consultationRecord.mockResolvedValue(
+      record({
+        status: 'signed',
+        physioId: 'someone-else',
+        centreId: '00000000-0000-4000-8000-000000000102',
+        sections: { plan: { treatingPhysioId: treating } },
+      }),
+    );
+    const view = await loadConsultation(consultant({ consultant: false }), consultationId);
+    expect(view).toMatchObject({ editable: false, addsAddenda: false });
+    expect(view?.treatingPhysios).toContainEqual({
+      id: treating,
+      name: 'Treating Physio Elsewhere',
+    });
+    expect(db.logClinicalView).toHaveBeenCalledWith(fakeTx, 'consultation', consultationId);
+    // The Super Admin reads it without the tick, and adds no addendum without it.
+    const admin = consultant({ role: 'super_admin', treatsPatients: false, consultant: false });
+    expect(await loadConsultation(admin, consultationId)).toMatchObject({ addsAddenda: false });
   });
 
   it('saves the sections at the version the draft started from', async () => {

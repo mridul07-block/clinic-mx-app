@@ -15,6 +15,14 @@ export function asStaff<R>(actor: StaffMember, work: Work<R>): Promise<R> {
   return withStaffAccess(appDb(), { actor }, work);
 }
 
+/**
+ * As `asStaff`, with the request's address for the audit trail: for reads that log a record view
+ * (CLN-12).
+ */
+export async function asStaffViewing<R>(actor: StaffMember, work: Work<R>): Promise<R> {
+  return withStaffAccess(appDb(), { actor, ip: await clientIp() }, work);
+}
+
 /** Who is acting and where from, for a server action that calls a staffService. */
 export async function serviceContext(): Promise<ServiceContext> {
   return { db: appDb(), actor: await requireStaff(), ip: await clientIp() };

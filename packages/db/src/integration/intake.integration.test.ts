@@ -811,7 +811,7 @@ describe('the submit pipeline under row level security', () => {
     });
   });
 
-  it('shows alerts and precautions to staff who treat patients at the centre only', async () => {
+  it('shows alerts to staff who treat patients at the centre, precautions to clinicians', async () => {
     await rolledBack(async (tx) => {
       const { physio, patientId, mine } = await visits(tx);
       // A draft version of its own: the CI database has no imported knowledge base here.
@@ -878,7 +878,9 @@ describe('the submit pipeline under row level security', () => {
           ...seedMember('physio.koramangala@clinicmx.test'),
           centreIds: [centreIds.koramangala],
         }),
-      ).toEqual({ alerts: 0, precautions: 0 });
+        // CLN-12: precautions are part of the patient record, read by clinicians at any centre;
+        // the alert itself stays with its centre's list.
+      ).toEqual({ alerts: 0, precautions: 1 });
       // No skipping the lifecycle (ALT-01): raised cannot close before a review.
       await becomeStaff(tx, physio);
       expect(

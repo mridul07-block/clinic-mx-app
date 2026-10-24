@@ -9,6 +9,14 @@ import { insertEpisode } from '../episodes';
 import type { StaffMember } from '../identity';
 import { startVisit } from '../my-patients';
 import {
+  episodePlan,
+  episodePrecautions,
+  logClinicalView,
+  patientAlertHistory,
+  signedNotesOf,
+} from '../patient-record';
+import { openRedFlagAlerts } from '../red-flag-alerts';
+import {
   appointment,
   auditEvent,
   consultation,
@@ -17,6 +25,8 @@ import {
   measure,
   planModality,
   planOfCare,
+  precaution,
+  redFlagAlert,
   specialTestResult,
   staffUser,
 } from '../schema';
@@ -49,6 +59,8 @@ function member(email: string): StaffMember {
 }
 const superAdmin = member('super.admin@clinicmx.test');
 const deskHsr = member('desk.hsr@clinicmx.test');
+const manager = member('manager@clinicmx.test');
+const finance = member('finance@clinicmx.test');
 const support = member('support.velyx@clinicmx.test');
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -175,7 +187,16 @@ async function setUp(tx: Tx) {
       kbVersionId,
       rows,
     });
-  return { consultant, colleague, elsewhere, consultationId, episodeId, appointmentId, sign };
+  return {
+    consultant,
+    colleague,
+    elsewhere,
+    patientId,
+    consultationId,
+    episodeId,
+    appointmentId,
+    sign,
+  };
 }
 
 describe('signing a consultation', () => {
@@ -365,15 +386,153 @@ describe('addenda', () => {
           '42501',
         );
       }
-      for (const outsider of [deskHsr, elsewhere]) {
-        await becomeStaff(tx, outsider);
-        expect(await consultationAddenda(tx, consultationId), outsider.email).toEqual([]);
-        expect(await consultationRecord(tx, consultationId), outsider.email).toBeUndefined();
+      // The desk reads none of it; another centre's clinicians do (CLN-12, below).
+      await becomeStaff(tx, deskHsr);
+      expect(await consultationAddenda(tx, consultationId)).toEqual([]);
+      expect(await consultationRecord(tx, consultationId)).toBeUndefined();
+      expect(
+        await tx.select().from(measure).where(eq(measure.consultationId, consultationId)),
+      ).toEqual([]);
+    });
+  });
+});
+
+// CLN-12 done when: the patient record shows the summary card, episodes, signed notes, documents
+// and alerts. Kickoff decision C1: clinicians read signed records at any centre, each open a
+// record view; operational lists keep their centre scope.
+describe('the patient record', () => {
+  /** A signed consultation at HSR Layout with an addendum, a precaution and a raised alert. */
+  async function signedAtHsr(tx: Tx) {
+    const setup = await setUp(tx);
+    expect(await setup.sign()).toBe('signed');
+    await addAddendum(tx, {
+      consultationId: setup.consultationId,
+      episodeId: setup.episodeId,
+      text: 'Corrected the side: right knee.',
+      authorId: setup.consultant.id,
+    });
+    await asOwner(tx);
+    const [kb] = await tx
+      .select({ id: consultation.kbVersionId })
+      .from(consultation)
+      .where(eq(consultation.id, setup.consultationId));
+    await tx.insert(precaution).values({
+      episodeId: setup.episodeId,
+      key: 'pregnancy',
+      label: 'Pregnancy',
+      source: 'health_form',
+      formVersion: 'test',
+    });
+    await tx.insert(redFlagAlert).values({
+      episodeId: setup.episodeId,
+      kbVersionId: kb?.id ?? '',
+      ruleKey: 'test.night_pain',
+      name: 'Night pain',
+      triage: 'urgent_medical_referral',
+      display: 'review',
+      action: 'Review today.',
+      signedOff: true,
+    });
+    return setup;
+  }
+
+  it('is read by clinicians at any centre, the Super Admin without the tick included', async () => {
+    await rolledBack(async (tx) => {
+      const { elsewhere, patientId, consultationId, episodeId, appointmentId } =
+        await signedAtHsr(tx);
+      for (const reader of [elsewhere, superAdmin]) {
+        await becomeStaff(tx, reader);
+        const [note] = await signedNotesOf(tx, patientId);
+        expect(note, reader.email).toMatchObject({
+          id: consultationId,
+          centreName: 'HSR Layout',
+          diagnosis: { conditionId: 'KNE-004', conditionName: 'Patellar Tendinopathy' },
+          addenda: [{ text: 'Corrected the side: right knee.' }],
+        });
+        expect(note?.signedByName, reader.email).toBeTruthy();
+        expect(note?.addenda[0]?.authorName, reader.email).toBeTruthy();
+        expect((await consultationRecord(tx, consultationId))?.centreName).toBe('HSR Layout');
+        const plan = await episodePlan(tx, episodeId);
+        expect(plan, reader.email).toMatchObject({
+          version: 1,
+          sessionsPerWeek: 2,
+          homeExercises: 1,
+        });
+        expect(plan?.treatingPhysioName, reader.email).toBeTruthy();
+        expect(await episodePrecautions(tx, episodeId)).toEqual([
+          { key: 'pregnancy', label: 'Pregnancy' },
+        ]);
+        expect(await patientAlertHistory(tx, patientId)).toEqual([
+          expect.objectContaining({ name: 'Night pain', status: 'raised', episodeId }),
+        ]);
+        // The visit behind the note opens too.
         expect(
-          await tx.select().from(measure).where(eq(measure.consultationId, consultationId)),
-          outsider.email,
-        ).toEqual([]);
+          await tx
+            .select({ id: appointment.id })
+            .from(appointment)
+            .where(eq(appointment.id, appointmentId)),
+        ).toHaveLength(1);
       }
+      // The alert list stays with the centres they work at.
+      await becomeStaff(tx, elsewhere);
+      expect((await openRedFlagAlerts(tx)).map((alert) => alert.episodeId)).not.toContain(
+        episodeId,
+      );
+    });
+  });
+
+  it('keeps drafts to the centre', async () => {
+    await rolledBack(async (tx) => {
+      const { elsewhere, patientId, consultationId } = await setUp(tx);
+      await becomeStaff(tx, elsewhere);
+      expect(await consultationRecord(tx, consultationId)).toBeUndefined();
+      expect(await signedNotesOf(tx, patientId)).toEqual([]);
+    });
+  });
+
+  it('keeps addenda to the centre, and gives everyone else nothing', async () => {
+    await rolledBack(async (tx) => {
+      const { elsewhere, patientId, consultationId, episodeId } = await signedAtHsr(tx);
+      await becomeStaff(tx, elsewhere);
+      expect(
+        await failure(tx, (sp) =>
+          addAddendum(sp, {
+            consultationId,
+            episodeId,
+            text: 'From Koramangala',
+            authorId: elsewhere.id,
+          }),
+        ),
+      ).toBe('42501');
+      for (const outsider of [deskHsr, manager, finance, support]) {
+        await becomeStaff(tx, outsider);
+        expect(await signedNotesOf(tx, patientId), outsider.email).toEqual([]);
+        expect(await episodePrecautions(tx, episodeId), outsider.email).toEqual([]);
+        expect(await patientAlertHistory(tx, patientId), outsider.email).toEqual([]);
+        expect(await episodePlan(tx, episodeId), outsider.email).toBeUndefined();
+      }
+    });
+  });
+
+  it('logs a record view as the clinician, and refuses one for anyone else', async () => {
+    await rolledBack(async (tx) => {
+      const { elsewhere, patientId } = await setUp(tx);
+      await becomeStaff(tx, elsewhere);
+      await logClinicalView(tx, 'patient', patientId);
+      await asOwner(tx);
+      const views = await tx
+        .select({ actor: auditEvent.actor, action: auditEvent.action })
+        .from(auditEvent)
+        .where(
+          and(
+            eq(auditEvent.entity, 'patient'),
+            eq(auditEvent.entityId, patientId),
+            eq(auditEvent.action, 'view'),
+          ),
+        );
+      expect(views).toEqual([{ actor: `staff:${elsewhere.id}`, action: 'view' }]);
+      await becomeStaff(tx, deskHsr);
+      expect(await failure(tx, (sp) => logClinicalView(sp, 'patient', patientId))).toBe('42501');
     });
   });
 });

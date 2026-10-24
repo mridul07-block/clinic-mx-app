@@ -1,13 +1,18 @@
 import {
+  appointment,
   consultation,
   createDb,
+  diagnosis,
   intakeResponse,
+  kbCondition,
   patientLink,
+  planOfCare,
+  precaution,
   systemActor,
   withActor,
 } from '@clinic-mx/db';
 import { currentHealthFormVersion, type HealthFormAnswers } from '@clinic-mx/schemas';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 
 // Reading consultations back for the CLN-02 end to end tests; removed with removeCalendarRows.
 
@@ -96,4 +101,98 @@ export async function signedRows(appointmentId: string) {
     from consultation c join appointment a on a.id = c.appointment_id
     where c.appointment_id = ${appointmentId}`);
   return row;
+}
+
+/**
+ * A signed consultation for the visit, as signing writes it (CLN-12 reads it on the patient
+ * record): signed by its physio now, with a working diagnosis on a knee condition of the newest
+ * knowledge base version, a plan of care, and a precaution on the visit's episode. Generated
+ * wording only; removed with removeCalendarRows and removePipelineRows.
+ */
+export async function signedConsultation(
+  appointmentId: string,
+  physioId: string,
+): Promise<{ consultationId: string; conditionName: string }> {
+  return withActor(db(), systemActor('tests'), async (tx) => {
+    const [visit] = await tx
+      .select({ episodeId: appointment.episodeId })
+      .from(appointment)
+      .where(eq(appointment.id, appointmentId));
+    const episodeId = visit?.episodeId;
+    if (!episodeId) throw new Error('The visit has no episode; call submittedWithAlert first.');
+    const [condition] = await tx
+      .select({
+        kbVersionId: kbCondition.kbVersionId,
+        conditionId: kbCondition.conditionId,
+        name: kbCondition.name,
+      })
+      .from(kbCondition)
+      .where(
+        and(
+          eq(kbCondition.homeRegion, 'knee'),
+          eq(
+            kbCondition.kbVersionId,
+            sql`(select id from kb_version order by number desc limit 1)`,
+          ),
+        ),
+      )
+      .orderBy(asc(kbCondition.conditionId))
+      .limit(1);
+    if (!condition) throw new Error('No knee condition; run kb:import.');
+    const now = new Date();
+    const [row] = await tx
+      .insert(consultation)
+      .values({
+        appointmentId,
+        episodeId,
+        physioId,
+        kbVersionId: condition.kbVersionId,
+        status: 'signed',
+        signedBy: physioId,
+        signedAt: now,
+      })
+      .returning({ id: consultation.id });
+    if (!row) throw new Error('The consultation was not recorded.');
+    await tx.insert(diagnosis).values({
+      consultationId: row.id,
+      episodeId,
+      kbVersionId: condition.kbVersionId,
+      conditionId: condition.conditionId,
+      movementDx: 'Dynamic valgus on step down',
+      irritability: 'moderate',
+      stage: 'subacute',
+      provisional: false,
+    });
+    await tx.insert(planOfCare).values({
+      episodeId,
+      consultationId: row.id,
+      version: 1,
+      goals: [{ text: 'Climb stairs without pain', patient: true }],
+      interventions: ['exercise'],
+      sessionsPerWeek: 2,
+      weeks: 6,
+      homeProgramme: [{ exercise: 'Step downs', dose: '3 x 10', note: '' }],
+      reviewDate: '2026-12-05',
+      treatingPhysioId: physioId,
+      createdBy: physioId,
+    });
+    await tx.insert(precaution).values({
+      episodeId,
+      key: 'pregnancy',
+      label: 'Pregnancy',
+      source: 'health_form',
+      formVersion: currentHealthFormVersion,
+    });
+    return { consultationId: row.id, conditionName: condition.name };
+  });
+}
+
+/** The record views of a patient's record by a staff member (CLN-12). */
+export async function recordViews(patientId: string, staffId: string): Promise<number> {
+  const [row] = await db().execute<{ views: number }>(
+    sql`select count(*)::int as views from audit_event
+      where entity = 'patient' and entity_id = ${patientId} and action = 'view'
+        and actor = ${`staff:${staffId}`}`,
+  );
+  return row?.views ?? 0;
 }

@@ -617,3 +617,11 @@ export {
   type SpecialTestEntry,
   type SpecialTestResult,
 } from './objective';
+export {
+  currentEpisode,
+  patientRecordTab,
+  patientRecordTabLabels,
+  patientRecordTabs,
+  worksAtCentre,
+  type PatientRecordTab,
+} from './patient-record';

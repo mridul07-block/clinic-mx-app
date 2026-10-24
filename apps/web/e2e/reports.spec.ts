@@ -58,7 +58,7 @@ test('the desk adds a photo, shrunk on the device; only a clinician opens it', a
   made.push(elsewhere.id);
   const clinician = await otherBrowser(browser);
   await signInWithCode(clinician, elsewhere.email, elsewhere.secret);
-  await clinician.goto(`/app/patients/${patient.id}`);
+  await clinician.goto(`/app/patients/${patient.id}?tab=documents`);
   const reports = clinician.getByTestId('patient-reports');
   await expect(reports.getByTestId('patient-report')).toHaveCount(1);
   await expect(reports).toContainText('Photo · staff');
@@ -74,7 +74,7 @@ test('the desk adds a photo, shrunk on the device; only a clinician opens it', a
   await clinician.context().close();
 
   // The desk sees no Reports on the record, and the file is not found for it.
-  await page.goto(`/app/patients/${patient.id}`);
+  await page.goto(`/app/patients/${patient.id}?tab=documents`);
   await expect(page.getByRole('heading', { name: patient.name })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Reports' })).toHaveCount(0);
   expect((await page.request.get(href)).status()).toBe(404);

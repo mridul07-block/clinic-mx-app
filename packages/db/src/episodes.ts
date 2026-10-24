@@ -5,7 +5,7 @@ import type {
   ScreeningRegion,
 } from '@clinic-mx/schemas';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { centre, episode } from './schema';
+import { episode } from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /**
@@ -19,7 +19,7 @@ export interface EpisodeEntry {
   id: string;
   patientId: string;
   centreId: string;
-  /** Null when the reader does not see that centre. */
+  /** Null when the reader neither sees that centre nor reads clinical records. */
   centreName: string | null;
   bodyRegion: ScreeningRegion | null;
   status: EpisodeStatus;
@@ -35,7 +35,8 @@ const columns = {
   id: episode.id,
   patientId: episode.patientId,
   centreId: episode.centreId,
-  centreName: centre.name,
+  // A clinician reads every centre's name on the record (CLN-12); others the centres they see.
+  centreName: sql<string | null>`internal.record_centre_name(${episode.centreId})`,
   bodyRegion: episode.bodyRegion,
   status: episode.status,
   pausedFrom: episode.pausedFrom,
@@ -51,7 +52,6 @@ export function episodesOf(db: DbOrTransaction, patientId: string): Promise<Epis
   return db
     .select(columns)
     .from(episode)
-    .leftJoin(centre, eq(centre.id, episode.centreId))
     .where(eq(episode.patientId, patientId))
     .orderBy(desc(episode.openedAt));
 }
@@ -61,11 +61,7 @@ export async function episodeRecord(
   db: DbOrTransaction,
   episodeId: string,
 ): Promise<EpisodeEntry | undefined> {
-  const [row] = await db
-    .select(columns)
-    .from(episode)
-    .leftJoin(centre, eq(centre.id, episode.centreId))
-    .where(eq(episode.id, episodeId));
+  const [row] = await db.select(columns).from(episode).where(eq(episode.id, episodeId));
   return row;
 }
 
