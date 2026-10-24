@@ -74,7 +74,7 @@ async function failure(tx: Tx, work: (sp: Tx) => Promise<unknown>): Promise<stri
 const sections = (notes: string) => ({
   subjective: { notes, confirmed: {} },
   screening: { notes: '', confirmed: {} },
-  objective: { notes: '' },
+  objective: { notes: '', region: '' as const, side: '' as const, measures: {}, tests: [] },
   assessment: { notes: '' },
   plan: { notes: '' },
 });

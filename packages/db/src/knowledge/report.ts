@@ -12,6 +12,7 @@ import {
 } from '@clinic-mx/schemas';
 import { baseName, type BuiltKnowledge, type Listing } from './build';
 import { mapColumns } from './columns';
+import type { BuiltObjective } from './objective';
 import type { RedFlags } from './red-flags';
 import type { Workbook } from './workbook';
 
@@ -67,6 +68,11 @@ export interface ImportReport {
   }[];
   /** Per workbook region: presentations and screening notes from its Red Flags sheet. */
   redFlagPresentations: Record<string, { presentations: number; notes: number }>;
+  /** CLN-05: per workbook region, measures by kind and special tests; what was not a measure. */
+  objective: {
+    regions: Record<string, Record<string, number>>;
+    skipped: { region: KnowledgeRegion; rowNumber: number; text: string; why: 'section' | 'row' }[];
+  };
 }
 
 const named = (l: Listing): Named => ({
@@ -123,6 +129,7 @@ export function buildReport(
   workbooks: Workbook[],
   built: BuiltKnowledge,
   redFlags: RedFlags,
+  objective: BuiltObjective,
 ): ImportReport {
   const { listings, conditions } = built;
   const byCondition = new Map<string, Listing[]>();
@@ -266,6 +273,21 @@ export function buildReport(
         ];
       }),
     ),
+    objective: {
+      regions: Object.fromEntries(
+        workbooks.map((w) => [
+          w.region,
+          {
+            ...count(
+              objective.measures.filter((m) => m.region === w.region),
+              (m) => m.kind,
+            ),
+            tests: objective.specialTests.filter((t) => t.region === w.region).length,
+          },
+        ]),
+      ),
+      skipped: objective.skipped,
+    },
   };
 }
 
@@ -417,6 +439,32 @@ export function reportMarkdown(report: ImportReport): string {
         knowledgeRegions[region as KnowledgeRegion].label,
         String(n.presentations),
         String(n.notes),
+      ]),
+    ),
+    '## Objective measures and special tests (CLN-05)',
+    'Each Progress Tracker section with a recognised header gives measures: LSI (involved and ' +
+      'uninvolved, Pass at the workbook target), deficit (range, banded), against a reference ' +
+      '(normal or target), a marker (one value and its direction) or a 0 to 3 grade. Each Special ' +
+      'Tests row gives a test (`docs/runbooks/knowledge-base.md`).',
+    table(
+      ['Workbook', 'LSI', 'Deficit', 'Reference', 'Marker', 'Grade', 'Special tests'],
+      Object.entries(report.objective.regions).map(([region, n]) => [
+        knowledgeRegions[region as KnowledgeRegion].label,
+        ...['lsi', 'deficit', 'reference', 'marker', 'grade', 'tests'].map((k) =>
+          String(n[k] ?? 0),
+        ),
+      ]),
+    ),
+    '### Not read as measures',
+    'Yes or no screens, ratios, readiness summaries and worded checks; they belong with clearance ' +
+      'and review.',
+    table(
+      ['Workbook', 'Row', 'What', 'Text'],
+      report.objective.skipped.map((s) => [
+        knowledgeRegions[s.region].label,
+        String(s.rowNumber),
+        s.why === 'section' ? 'Section' : 'Row',
+        s.text,
       ]),
     ),
     '## Condition IDs',

@@ -107,6 +107,46 @@ The Sign step shows it under "Before signing" with a link to Screening, or "Scre
 **CLN-09's sign service must refuse on any reason from `signingBlockers`**, computed on the server
 with the answers from `consultationIntake`. The page alone is not the gate.
 
+## Objective (CLN-05)
+
+PRD J3.4: side by side measures with an automatic deficit or LSI, special test rows, and 0 to 3
+quality ratings. Decisions (user, 24 October 2026):
+
+- The measures are each region's own, from its workbook's Progress Tracker, imported into the
+  knowledge base (`docs/runbooks/knowledge-base.md`).
+- The special tests are added from the region's Special Tests sheet.
+- The 0 to 3 ratings are built without definitions: no source gives them, so the line "Grade
+  definitions are awaiting the clinic." shows (DECISION CLN-05 in `docs/PROGRESS.md`).
+
+**Region and side.** The region defaults to Subjective's region's workbook (back is Lumbar spine
+and SIJ, neck is Cervical spine, wrist and hand is Forearm and wrist), and any of the 9 can be
+chosen. The involved side is Left or Right.
+
+**Measures,** under the workbook's section titles, in the workbook's words and units:
+
+- **LSI** (involved and uninvolved): "LSI 80% · Not yet", Pass at the workbook's target (0.9). A
+  timed hop is uninvolved over involved. The heel raise also needs 25 repetitions.
+- **Deficit** (range, involved and uninvolved): "Deficit 12 deg · Mild deficit", banded as each
+  workbook bands it.
+- **Against a reference:** one value with "Normal 80 deg" (Full, Mild deficit, Restricted) or
+  "Target 30 mmHg" (Pass, Not yet).
+- **Markers:** one value with its direction ("Lower is better").
+- **Grades:** 0, 1, 2 or 3 with the direction.
+
+`measureResult` (`packages/schemas/src/objective.ts`) does the workbook's arithmetic live. It shows
+nothing until both inputs are there, and never divides by zero.
+
+**Special tests:** "Add a test" lists the region's tests by category. Each added test shows its
+targets and "Positive finding: ...", a result (Positive, Negative or Not tested, as the Frontend
+Specification words it) and a one-line interpretation (up to 200 characters).
+
+**Storage.** Everything lives in `sections.objective` (region, side, measures by key, tests),
+autosaved with the draft. A measure emptied of values is no longer recorded. The page reads the
+measures and tests of the consultation's own knowledge base version (`knowledgeObjective`), so a
+later import never changes an open consultation. **When signing arrives (CLN-09), the signed values
+are written to the TAD's `measure` and `special_test_result` rows** for the baseline (J5.3) and
+the Progress tab.
+
 ## Autosave
 
 The screen adopts FND-08 (`docs/runbooks/autosave.md`): one draft per consultation (kind
@@ -141,13 +181,16 @@ Each save is an audited update (actor, before, after), one per autosave.
 | `apps/web/modules/my-patients/services.test.ts` | Start consultation opens the consultation; refused without the Consultant tick, before the health form, or before the knowledge base. |
 | `packages/schemas/src/consultations.test.ts`, `apps/web/lib/drafts/savers.test.ts` | Sections, steps, Back and Next; the saver's endpoint. |
 | `packages/schemas/src/screening.test.ts` | Region questions (knee, back, none), follow ups only after a confirmed yes, pregnancy only for a female patient, what the patient said, progress ignoring stale keys, the signing gate, answers checked against their items. |
+| `packages/schemas/src/objective.test.ts` | LSI, inverted LSI, heel raise count, deficit bands (absolute and not), reference and target, the Objective section and its limits. |
+| `packages/db/src/knowledge/build.test.ts` | Against the real workbooks: LSI targets, the timed hop, the heel raise, each workbook's bands, cervical references, joint position error at most, 10 grades, special tests with their categories; an unknown header stops the import. |
 | `packages/schemas/src/subjective.test.ts` | The form's fields and wording; sources; answers checked against their fields; Other shown only when ticked. |
-| `apps/web/e2e/consultation.spec.ts` | 360 px and desktop. Start consultation opens Subjective; notes save; Next pinned in view at 360 px, the stepper on desktop; a reload keeps the step and the notes; Back; Sign lists the sections; offline then reconnect saves; refused before the health form, then opens; the desk cannot open it. Subjective (CLN-03): the form's answers Patient reported, a blank one Not answered; edits to the complaint, pain and surgeries become Clinician confirmed with the patient's words beneath, untouched ones stay; the body chart on desktop; saved and kept through a reload; Sign counts them. Screening (CLN-04): a back pain form shows the back questions and pregnancy, no neck questions or follow ups, "0 of N"; Sign is blocked with "N left"; weight loss Yes adds the follow ups; the saddle Yes is marked changed; diabetes Confirmed; with all confirmed, Sign says "Screening complete."; kept through a reload. |
+| `apps/web/e2e/consultation.spec.ts` | 360 px and desktop. Start consultation opens Subjective; notes save; Next pinned in view at 360 px, the stepper on desktop; a reload keeps the step and the notes; Back; Sign lists the sections; offline then reconnect saves; refused before the health form, then opens; the desk cannot open it. Subjective (CLN-03): the form's answers Patient reported, a blank one Not answered; edits to the complaint, pain and surgeries become Clinician confirmed with the patient's words beneath, untouched ones stay; the body chart on desktop; saved and kept through a reload; Sign counts them. Screening (CLN-04): a back pain form shows the back questions and pregnancy, no neck questions or follow ups, "0 of N"; Sign is blocked with "N left"; weight loss Yes adds the follow ups; the saddle Yes is marked changed; diabetes Confirmed; with all confirmed, Sign says "Screening complete."; kept through a reload. Objective (CLN-05): a knee form defaults to Knee; quadriceps 32 and 40 "LSI 80% · Not yet", then 36 "LSI 90% · Pass"; the timed hop 2.4 and 2.2 "LSI 92% · Pass"; effusion grade 2; Lachman added Positive with its positive finding and an interpretation; saved, kept through a reload; Sign shows "4 recorded". |
 
 The database test also checks that the consultant reads their visit's submitted form, and another
 physio and the desk read nothing.
 
-Negative checks: when `screeningProgress` calls screening complete regardless, two screening unit tests
+Negative checks: with the LSI worked out the wrong way round, two objective unit tests fail
+(CLN-05). When `screeningProgress` calls screening complete regardless, two screening unit tests
 fail (CLN-04). When `consultant_health_form` does not check the physio, the "nobody else" database
 test fails (CLN-03). Without the `consultation_guard` trigger, the "keeps who, where and which version
 fixed" and "never changes once signed" database tests fail (CLN-02).

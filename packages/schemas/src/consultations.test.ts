@@ -15,7 +15,7 @@ describe('consultation sections', () => {
     expect(sections).toEqual({
       subjective: { notes: '', confirmed: {} },
       screening: { notes: '', confirmed: {} },
-      objective: { notes: '' },
+      objective: { notes: '', region: '', side: '', measures: {}, tests: [] },
       assessment: { notes: '' },
       plan: { notes: '' },
     });

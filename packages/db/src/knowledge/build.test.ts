@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { buildKnowledge, KnowledgeImportError, type ConditionIds } from './build';
 import { buildReport, reportMarkdown } from './report';
 import { readConditionIds, readReport, readRulesFile, WORKBOOK_FOLDER_PATH } from './paths';
+import { buildObjective } from './objective';
 import { buildRedFlags } from './red-flags';
 import { readWorkbooks, type Workbook } from './workbook';
 
@@ -112,7 +113,9 @@ describe('the knowledge base import', () => {
     expect(buildKnowledge(copy(), ids)).toEqual(first);
     expect(first.ids).toEqual(ids);
     const redFlags = buildRedFlags(workbooks, await readRulesFile());
-    expect(reportMarkdown(buildReport(workbooks, first, redFlags))).toBe(await readReport());
+    expect(reportMarkdown(buildReport(workbooks, first, redFlags, buildObjective(workbooks)))).toBe(
+      await readReport(),
+    );
   });
 
   it('stops on a row the ID file does not know, unless assigning', () => {
@@ -199,5 +202,92 @@ describe('the knowledge base import', () => {
       expect.stringContaining('unknown column "Signs"'),
       expect.stringContaining('no column for "features"'),
     ]);
+  });
+});
+
+// CLN-05: each workbook's measures (Progress Tracker) and special tests, read as the workbook's
+// formulas compute them; anything unknown stops the import.
+describe('the Objective’s measures and special tests', () => {
+  const measure = (key: string) => {
+    const found = buildObjective(workbooks).measures.find((m) => m.key === key);
+    if (!found) throw new Error(`no measure ${key}`);
+    return found;
+  };
+
+  it('reads LSI rows at the workbook’s target, a timed hop inverted, the heel raise’s count', () => {
+    expect(measure('knee.lsi.quadriceps')).toMatchObject({
+      name: 'Quadriceps',
+      unit: 'kg',
+      kind: 'lsi',
+      inverted: false,
+      rule: { kind: 'lsi', passAt: 0.9 },
+    });
+    expect(measure('knee.lsi.6_m_timed_hop')).toMatchObject({ unit: 'sec', inverted: true });
+    expect(measure('foot_ankle.lsi.single_leg_heel_raise_repetitions').rule).toEqual({
+      kind: 'lsi',
+      passAt: 0.9,
+      minInvolved: 25,
+    });
+  });
+
+  it('reads range deficits with each workbook’s bands, and values against a reference', () => {
+    expect(measure('elbow.deficit.flexion').rule).toEqual({
+      kind: 'deficit',
+      absolute: true,
+      okAt: 5,
+      mildAt: 15,
+      okWord: 'symmetrical',
+    });
+    expect(measure('foot_ankle.deficit.ankle_plantarflexion').rule).toMatchObject({
+      okAt: 1,
+      mildAt: 3,
+    });
+    expect(measure('cervical.reference.rotation_left').rule).toEqual({
+      kind: 'reference_deficit',
+      reference: 80,
+      okAt: 5,
+      mildAt: 20,
+      okWord: 'full',
+    });
+    expect(
+      measure('cervical.reference.joint_position_error_head_repositioning_eyes_closed').rule,
+    ).toEqual({ kind: 'reference_target', reference: 4.5, passWhen: 'at_most' });
+  });
+
+  it('reads markers with their direction, and the 0 to 3 items as grades', () => {
+    expect(measure('knee.marker.effusion_grade_0_3')).toMatchObject({
+      kind: 'grade',
+      unit: 'grade',
+      direction: 'Lower is better',
+    });
+    const grades = buildObjective(workbooks).measures.filter((m) => m.kind === 'grade');
+    expect(grades.every((m) => m.name.includes('(0-3)'))).toBe(true);
+    expect(grades.length).toBe(10);
+  });
+
+  it('reads each Special Tests row, keeping the category above when a row leaves it empty', () => {
+    const { specialTests } = buildObjective(workbooks);
+    const lachman = specialTests.find((t) => t.region === 'knee' && t.test.startsWith('Lachman'));
+    expect(lachman).toMatchObject({
+      category: 'Ligament',
+      targets: 'ACL',
+      positiveFinding: 'Increased anterior translation with a soft end-feel',
+    });
+    expect(specialTests.some((t) => t.region === 'bone_stress')).toBe(false);
+    expect(specialTests.every((t) => t.category !== '')).toBe(true);
+  });
+
+  it('stops on a header or formula it does not know', () => {
+    const books = copy();
+    const knee = books.find((w) => w.region === 'knee');
+    const header = knee?.tracker.find((row) => row.cells[0]?.text === 'Measure');
+    const quadriceps = knee?.tracker.find((row) => row.cells[0]?.text === 'Quadriceps');
+    if (!header?.cells[1] || !quadriceps?.cells[4]) throw new Error('no knee rows');
+    header.cells[1].text = 'Left';
+    quadriceps.cells[4].formula = 'B12*C12';
+    const problems = problemsOf(() => buildObjective(books));
+    expect(problems.some((p) => p.includes('the header "Left | Uninvolved" is not known'))).toBe(
+      true,
+    );
   });
 });

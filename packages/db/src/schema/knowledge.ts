@@ -1,6 +1,8 @@
 import {
   knowledgeRegionKeys,
   knowledgeVersionStatuses,
+  measureKinds,
+  type MeasureRule,
   onsets,
   redFlagTiers,
   redFlagTriages,
@@ -43,6 +45,8 @@ export const kbSexPredominance = pgEnum('kb_sex_predominance', sexPredominances)
 /** What a version was imported from: each workbook's file name and SHA-256. */
 export interface KnowledgeSource {
   files: { name: string; sha256: string }[];
+  /** The workbook sheets read (CLN-05 added Special Tests and the Progress Tracker). */
+  sheets?: string[];
 }
 
 export const kbVersion = pgTable(
@@ -214,5 +218,62 @@ export const kbRedFlagPresentation = pgTable(
       'kb_red_flag_presentation_kind',
       sql`${table.kind} = 'screening_note' or (${table.features} is not null and ${table.action} is not null)`,
     ),
+  ],
+).enableRLS();
+
+export const kbMeasureKind = pgEnum('kb_measure_kind', measureKinds);
+
+/**
+ * A measure of a workbook's Progress Tracker (CLN-05): what the Objective records, its unit, and
+ * how the workbook's formula reads it (LSI, deficit, against a reference, or a value with its
+ * direction; a 0 to 3 grade). Word for word from the workbook.
+ */
+export const kbMeasure = pgTable(
+  'kb_measure',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    region: kbRegion('region').notNull(),
+    /** Stable across versions while the row keeps its name, for example `knee.lsi.quadriceps`. */
+    key: text('key').notNull(),
+    section: text('section').notNull(),
+    name: text('name').notNull(),
+    unit: text('unit').notNull(),
+    kind: kbMeasureKind('kind').notNull(),
+    /** A timed test: LSI is uninvolved / involved. */
+    inverted: boolean('inverted').notNull(),
+    rule: jsonb('rule').$type<MeasureRule>().notNull(),
+    direction: text('direction'),
+    note: text('note'),
+    rowNumber: integer('row_number').notNull(),
+  },
+  (table) => [
+    unique('kb_measure_version_key').on(table.kbVersionId, table.key),
+    check('kb_measure_key', sql`${table.key} ~ '^[a-z_]+[.][a-z0-9_.]+$'`),
+  ],
+).enableRLS();
+
+/** A row of a workbook's Special Tests sheet (CLN-05), word for word. */
+export const kbSpecialTest = pgTable(
+  'kb_special_test',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    region: kbRegion('region').notNull(),
+    key: text('key').notNull(),
+    category: text('category').notNull(),
+    test: text('test').notNull(),
+    targets: text('targets').notNull(),
+    positiveFinding: text('positive_finding').notNull(),
+    clinicalNote: text('clinical_note').notNull(),
+    rowNumber: integer('row_number').notNull(),
+  },
+  (table) => [
+    unique('kb_special_test_version_key').on(table.kbVersionId, table.key),
+    check('kb_special_test_key', sql`${table.key} ~ '^[a-z_]+[.][a-z0-9_.]+$'`),
   ],
 ).enableRLS();

@@ -2,6 +2,7 @@ import 'server-only';
 import {
   consultationIntake,
   consultationRecord,
+  knowledgeObjective,
   saveConsultationSections,
   type ConsultationEntry,
   type StaffMember,
@@ -12,6 +13,8 @@ import {
   type ConsultationSections,
   type DraftSaveResponse,
   type HealthFormAnswers,
+  type KnowledgeMeasure,
+  type KnowledgeSpecialTest,
 } from '@clinic-mx/schemas';
 import { z } from 'zod';
 import { assertMay } from '../access/guard';
@@ -39,6 +42,8 @@ export interface ConsultationView extends Omit<ConsultationEntry, 'sections'> {
   sections: ConsultationSections;
   /** What the patient told us on the submitted health form (CLN-03); empty when none. */
   patientAnswers: HealthFormAnswers;
+  /** Every workbook's measures and special tests in the consultation's version (CLN-05). */
+  objectiveCatalog: { measures: KnowledgeMeasure[]; specialTests: KnowledgeSpecialTest[] };
 }
 
 /** The person's own consultation, or undefined when there is none they write. */
@@ -51,13 +56,18 @@ export async function loadConsultation(
   const read = await asStaff(actor, async (tx) => {
     const found = await consultationRecord(tx, consultationId);
     if (!found || found.physioId !== actor.id) return undefined;
-    return { found, intake: await consultationIntake(tx, found.appointmentId) };
+    return {
+      found,
+      intake: await consultationIntake(tx, found.appointmentId),
+      catalog: await knowledgeObjective(tx, found.kbVersionId),
+    };
   });
   if (!read) return undefined;
   return {
     ...read.found,
     sections: consultationSectionsSchema.parse(read.found.sections),
     patientAnswers: read.intake?.answers ?? {},
+    objectiveCatalog: read.catalog,
   };
 }
 

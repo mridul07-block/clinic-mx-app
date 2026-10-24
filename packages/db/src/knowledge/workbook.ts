@@ -5,14 +5,22 @@ import { knowledgeRegionKeys, knowledgeRegions, type KnowledgeRegion } from '@cl
 import ExcelJS from 'exceljs';
 
 /**
- * Reads two sheets of each of the nine workbooks: the Master Matrix (SET-05; each row that names a
- * condition is one listing) and Red Flags (SET-10; each row is one presentation). In both, row 1 is
- * the title, row 2 a note and row 3 the header. Cell text is kept word for word, with line endings
+ * Reads four sheets of each of the nine workbooks: the Master Matrix (SET-05; each row that names
+ * a condition is one listing), Red Flags (SET-10; each row is one presentation), Special Tests
+ * (CLN-05; each row is one test; the Bone Stress workbook has none) and the Progress Tracker
+ * (CLN-05; its measure sections, read with each cell's formula). In the first three, row 1 is the
+ * title, row 2 a note and row 3 the header. Cell text is kept word for word, with line endings
  * made `\n` and the ends trimmed.
  */
 
 export const MASTER_SHEET = 'Master Matrix';
 export const RED_FLAGS_SHEET = 'Red Flags';
+export const SPECIAL_TESTS_SHEET = 'Special Tests';
+export const TRACKER_SHEET = 'Progress Tracker';
+/** The sheets an import reads, recorded with its source so a new sheet makes a new version. */
+export const IMPORTED_SHEETS = [MASTER_SHEET, RED_FLAGS_SHEET, SPECIAL_TESTS_SHEET, TRACKER_SHEET];
+/** The Progress Tracker's columns A to G: name, two values, unit, result, status, note. */
+const TRACKER_WIDTH = 7;
 const HEADER_ROW = 3;
 
 export interface WorkbookRow {
@@ -29,12 +37,28 @@ export interface Sheet {
   rows: WorkbookRow[];
 }
 
-/** A workbook: its Master Matrix as `title`, `header` and `rows`, and its Red Flags sheet. */
+/** A Progress Tracker cell: its text (a formula's result) and its formula, if any. */
+export interface TrackerCell {
+  text: string;
+  formula?: string;
+}
+
+export interface TrackerRow {
+  rowNumber: number;
+  cells: TrackerCell[];
+}
+
+/**
+ * A workbook: its Master Matrix as `title`, `header` and `rows`, its Red Flags sheet, its Special
+ * Tests sheet when it has one, and its Progress Tracker's rows.
+ */
 export interface Workbook extends Sheet {
   region: KnowledgeRegion;
   fileName: string;
   sha256: string;
   redFlags: Sheet;
+  specialTests: Sheet | undefined;
+  tracker: TrackerRow[];
 }
 
 /** The text of a cell however Excel stored it: plain, rich text, a formula's result or a link. */
@@ -90,7 +114,25 @@ function readSheet(book: ExcelJS.Workbook, name: string, fileName: string): Shee
   return { title: headerText(cellText(sheet.getRow(1).getCell(1).value)), header, rows };
 }
 
-/** Reads one workbook's Master Matrix and Red Flags sheets. */
+/** Reads the Progress Tracker's rows with any text, columns A to G, each with its formula. */
+function readTracker(book: ExcelJS.Workbook, fileName: string): TrackerRow[] {
+  const sheet = book.getWorksheet(TRACKER_SHEET);
+  if (!sheet) throw new Error(`${fileName} has no "${TRACKER_SHEET}" sheet.`);
+  const rows: TrackerRow[] = [];
+  for (let rowNumber = 1; rowNumber <= sheet.rowCount; rowNumber++) {
+    const row = sheet.getRow(rowNumber);
+    const cells = Array.from({ length: TRACKER_WIDTH }, (_, i): TrackerCell => {
+      const cell = row.getCell(i + 1);
+      // `formula` translates a shared formula to this cell, as Excel would.
+      const formula = cell.type === ExcelJS.ValueType.Formula ? cell.formula : undefined;
+      return formula ? { text: cellText(cell.value), formula } : { text: cellText(cell.value) };
+    });
+    if (cells.some((cell) => cell.text !== '' || cell.formula)) rows.push({ rowNumber, cells });
+  }
+  return rows;
+}
+
+/** Reads one workbook's Master Matrix, Red Flags, Special Tests and Progress Tracker sheets. */
 export async function readWorkbook(
   folder: string,
   fileName: string,
@@ -106,6 +148,10 @@ export async function readWorkbook(
     sha256: createHash('sha256').update(bytes).digest('hex'),
     ...readSheet(book, MASTER_SHEET, fileName),
     redFlags: readSheet(book, RED_FLAGS_SHEET, fileName),
+    specialTests: book.getWorksheet(SPECIAL_TESTS_SHEET)
+      ? readSheet(book, SPECIAL_TESTS_SHEET, fileName)
+      : undefined,
+    tracker: readTracker(book, fileName),
   };
 }
 

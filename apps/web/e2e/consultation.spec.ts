@@ -317,3 +317,70 @@ test('Screening asks the region’s questions and each precaution; signing waits
   await page.goto(`${new URL(page.url()).pathname}?section=sign`);
   await expect(page.getByTestId('sign-gate')).toContainText('Screening complete.');
 });
+
+// CLN-05 done when: side by side measures with live LSI, special test rows, 0 to 3 ratings. The
+// measures and tests are the workbooks' own (imported with `kb:import --apply`). Decisions (user,
+// 24 October 2026): the region's list from the workbook; tests added from the region's list;
+// 0 to 3 without invented definitions.
+test('Objective takes the region’s measures with live LSI, a 0 to 3 rating and special tests', async ({
+  page,
+}) => {
+  const { physio, patient, visit } = await consultationToday({ submitted: true });
+  await submittedAnswers(visit.id, patient.id, { region: 'knee', sex: 'male' });
+  await signInWithCode(page, physio.email, physio.secret);
+  await startConsultation(page, patient.name);
+  await expect(stepTitle(page)).toHaveText('Subjective');
+  await page.goto(`${new URL(page.url()).pathname}?section=objective`);
+  await expect(stepTitle(page)).toHaveText('Objective');
+  await expect(page.getByLabel('Region')).toHaveValue('knee');
+  await page.getByText('Right', { exact: true }).click();
+
+  const measure = (key: string) => page.locator(`[data-testid="measure"][data-measure="${key}"]`);
+  const quadriceps = measure('knee.lsi.quadriceps');
+  await quadriceps.getByLabel('Involved', { exact: true }).fill('32');
+  await quadriceps.getByLabel('Uninvolved', { exact: true }).fill('40');
+  await expect(quadriceps.getByTestId('measure-result')).toHaveText(/LSI 80%\s*Not yet/);
+  await quadriceps.getByLabel('Involved', { exact: true }).fill('36');
+  await expect(quadriceps.getByTestId('measure-result')).toHaveText(/LSI 90%\s*Pass/);
+  // A timed hop: lower is better, so the LSI is uninvolved over involved.
+  const hop = measure('knee.lsi.6_m_timed_hop');
+  await hop.getByLabel('Involved', { exact: true }).fill('2.4');
+  await hop.getByLabel('Uninvolved', { exact: true }).fill('2.2');
+  await expect(hop.getByTestId('measure-result')).toHaveText(/LSI 92%\s*Pass/);
+  const effusion = measure('knee.marker.effusion_grade_0_3');
+  await expect(effusion).toContainText('Lower is better');
+  await expect(effusion).toContainText('Grade definitions are awaiting the clinic.');
+  await effusion.getByText('2', { exact: true }).click();
+  await expect(effusion.getByRole('radio', { name: '2' })).toBeChecked();
+
+  await page.getByLabel('Add a test').selectOption('knee.lachman_20_30_degrees_flexion');
+  const lachman = page.locator(
+    '[data-testid="special-test"][data-test="knee.lachman_20_30_degrees_flexion"]',
+  );
+  await expect(lachman).toContainText(
+    'Positive finding: Increased anterior translation with a soft end-feel',
+  );
+  await lachman.getByText('Positive', { exact: true }).click();
+  await lachman.getByLabel('Interpretation').fill('Soft end-feel, compare with the other side');
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await expect
+    .poll(async () => (await savedConsultation(visit.id))?.sections.objective)
+    .toMatchObject({
+      region: 'knee',
+      side: 'right',
+      measures: {
+        'knee.lsi.quadriceps': { involved: 36, uninvolved: 40 },
+        'knee.marker.effusion_grade_0_3': { value: 2 },
+      },
+      tests: [{ key: 'knee.lachman_20_30_degrees_flexion', result: 'positive' }],
+    });
+
+  await page.reload();
+  await expect(quadriceps.getByLabel('Involved', { exact: true })).toHaveValue('36');
+  await expect(quadriceps.getByTestId('measure-result')).toHaveText(/LSI 90%\s*Pass/);
+  await expect(lachman.getByRole('radio', { name: 'Positive' })).toBeChecked();
+  await page.goto(`${new URL(page.url()).pathname}?section=sign`);
+  await expect(page.getByTestId('sign-section').filter({ hasText: 'Objective' })).toContainText(
+    '4 recorded',
+  );
+});

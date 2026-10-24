@@ -8,6 +8,7 @@ import {
   writeConditionIds,
   writeReport,
 } from './paths';
+import { buildObjective } from './objective';
 import { buildRedFlags } from './red-flags';
 import { buildReport, reportMarkdown } from './report';
 import { readWorkbooks } from './workbook';
@@ -26,13 +27,15 @@ try {
   const built = buildKnowledge(workbooks, await readConditionIds(), { assign });
   if (assign) await writeConditionIds(built.ids);
   const redFlags = buildRedFlags(workbooks, await readRulesFile());
-  const report = buildReport(workbooks, built, redFlags);
+  const objective = buildObjective(workbooks);
+  const report = buildReport(workbooks, built, redFlags, objective);
   await writeReport(reportMarkdown(report));
   console.log(
     `Read ${report.totals.listings} rows: ${report.totals.conditions} conditions, ` +
       `${report.totals.merged} merged; ${built.assigned.length} IDs assigned; ` +
       `${built.unmatched.length} IDs matched no row; ${redFlags.rules.length} red flag rules, ` +
-      `${redFlags.presentations.length} red flag rows. Report: docs/knowledge-base/import-report.md`,
+      `${redFlags.presentations.length} red flag rows; ${objective.measures.length} measures, ` +
+      `${objective.specialTests.length} special tests. Report: docs/knowledge-base/import-report.md`,
   );
 
   if (apply) {
@@ -40,7 +43,9 @@ try {
     if (!url) throw new Error('DIRECT_DATABASE_URL is not set.');
     const { db, close } = createDb(url, { max: 1 });
     try {
-      const version = await db.transaction((tx) => applyKnowledge(tx, built, report, redFlags));
+      const version = await db.transaction((tx) =>
+        applyKnowledge(tx, built, report, redFlags, objective),
+      );
       console.log(`Recorded knowledge base version ${version.number} as a draft.`);
     } finally {
       await close();
