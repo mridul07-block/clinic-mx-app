@@ -69,6 +69,17 @@ describe('staffDetailsSchema', () => {
     });
   });
 
+  it('keeps credentials up to 120 characters, and none when left empty (ALT-05)', () => {
+    const typed = (credentials: string) =>
+      staffDetailsSchema.safeParse({ ...details, credentials });
+    expect(typed('  BPT, MPT (Ortho) ').data?.credentials).toBe('BPT, MPT (Ortho)');
+    expect(typed('   ').data?.credentials).toBeUndefined();
+    expect(typed('B'.repeat(120)).success).toBe(true);
+    expect(typed('B'.repeat(121)).error?.issues[0]?.message).toBe(
+      'Keep credentials under 120 characters.',
+    );
+  });
+
   it('always gives a physiotherapist the Treats patients tick (G5)', () => {
     expect(staffDetailsSchema.parse({ ...details, role: 'physiotherapist' }).treatsPatients).toBe(
       true,

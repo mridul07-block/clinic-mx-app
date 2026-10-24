@@ -5,6 +5,8 @@ import { useId, useState } from 'react';
 
 export interface StaffFieldDefaults {
   name: string;
+  /** Qualifications printed where they sign a document (ALT-05). */
+  credentials: string;
   role: StaffRole;
   treatsPatients: boolean;
   consultant: boolean;
@@ -57,6 +59,26 @@ export function StaffFields({ centres, defaults, fieldErrors = {}, roleLocked }:
           className="h-row w-full rounded-control border border-line-control bg-surface px-3 text-ink shadow-xs hover:border-ink-muted aria-invalid:border-danger pointer-coarse:h-row-touch"
         />
         {fieldError(`${id}-name-error`, fieldErrors.name)}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor={[id, 'credentials'].join('-')} className="font-medium text-ink">
+          Credentials <span className="font-normal text-ink-muted">(optional)</span>
+        </label>
+        <input
+          id={[id, 'credentials'].join('-')}
+          name="credentials"
+          defaultValue={defaults.credentials}
+          autoComplete="off"
+          maxLength={120}
+          aria-describedby={[id, 'credentials-helper'].join('-')}
+          aria-invalid={fieldErrors.credentials ? true : undefined}
+          className="h-row w-full rounded-control border border-line-control bg-surface px-3 text-ink shadow-xs hover:border-ink-muted aria-invalid:border-danger pointer-coarse:h-row-touch"
+        />
+        <p id={[id, 'credentials-helper'].join('-')} className="text-sm text-ink-muted">
+          Printed under their name where they sign a document, for example BPT, MPT (Ortho).
+        </p>
+        {fieldError([id, 'credentials-error'].join('-'), fieldErrors.credentials)}
       </div>
 
       <fieldset className="flex flex-col gap-1" disabled={roleLocked}>

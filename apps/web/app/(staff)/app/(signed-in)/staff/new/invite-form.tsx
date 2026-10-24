@@ -37,6 +37,7 @@ export function InviteForm({ centres }: { centres: { id: string; name: string }[
         fieldErrors={state.fieldErrors}
         defaults={{
           name: '',
+          credentials: '',
           role: 'front_desk',
           treatsPatients: false,
           consultant: false,

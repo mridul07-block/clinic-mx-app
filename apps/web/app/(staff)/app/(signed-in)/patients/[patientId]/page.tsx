@@ -22,6 +22,7 @@ import { FormMessage } from '../../../../../../components/forms';
 import { RecordTabs } from '../../../../../../components/record-tabs';
 import { Tag } from '../../../../../../components/tag';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
+import { documentsOfPatient } from '../../../../../../modules/documents/services';
 import { reportsOfPatient } from '../../../../../../modules/reports/services';
 import { asStaff } from '../../../../../../modules/access/staff-db';
 import { clinicalRecordOf } from '../../../../../../modules/patients/record';
@@ -31,6 +32,7 @@ import { GuardianForm, RemoveGuardianForm } from '../guardian-forms';
 import { LiftBlockForm } from '../lift-block-form';
 import { PatientForm } from '../patient-form';
 import { AlertsTab, EpisodeHeading, NotesTab, SummaryCard } from './clinical-record';
+import { DocumentList } from './document-list';
 import { ReportList } from './report-list';
 
 export const metadata: Metadata = { title: 'Patient · Clinic Mx' };
@@ -91,6 +93,7 @@ export default async function PatientPage({
     : undefined;
   const canLift = can(staff, 'bookings.lift_self_booking_block') && !staff.support;
   const reports = tab === 'documents' ? await reportsOfPatient(staff, patient.id) : [];
+  const documents = tab === 'documents' ? await documentsOfPatient(staff, patient.id) : [];
   const openAlerts = record?.alerts.filter((alert) => alert.status !== 'closed').length ?? 0;
   const actsOnAlerts = can(staff, 'red_flags.act') && !staff.support;
 
@@ -329,15 +332,20 @@ export default async function PatientPage({
       ) : null}
 
       {tab === 'documents' ? (
-        <section aria-labelledby="reports" className="flex flex-col gap-3">
-          <h2 id="reports" className="font-semibold text-ink">
-            Reports
-          </h2>
-          <ReportList reports={reports} />
-          <p className="text-sm text-ink-muted">
-            Consultation summaries and letters appear here once they are generated.
-          </p>
-        </section>
+        <>
+          <section aria-labelledby="documents" className="flex flex-col gap-3">
+            <h2 id="documents" className="font-semibold text-ink">
+              Documents
+            </h2>
+            <DocumentList documents={documents} />
+          </section>
+          <section aria-labelledby="reports" className="flex flex-col gap-3">
+            <h2 id="reports" className="font-semibold text-ink">
+              Reports
+            </h2>
+            <ReportList reports={reports} />
+          </section>
+        </>
       ) : null}
 
       {record && tab === 'alerts' ? (

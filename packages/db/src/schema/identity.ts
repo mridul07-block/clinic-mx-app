@@ -81,6 +81,8 @@ export const staffUser = pgTable(
      * only. It sees what the Super Admin sees, without ticks, so never clinical records.
      */
     velyxSupport: boolean('velyx_support').notNull().default(false),
+    /** Qualifications under their name where they sign a document (ALT-05); null for none. */
+    credentials: text('credentials'),
     /**
      * Decision G4: a consultant's consultation fee is a price item by their level (PRD section 7:
      * Consultation or Senior consultation); shown in their calendar column (SCH-05).

@@ -95,6 +95,16 @@ export const staffDetailsSchema = z
     treatsPatients: z.boolean(),
     consultant: z.boolean(),
     centreIds: z.array(z.guid()),
+    /**
+     * Qualifications printed under a clinician's name where they sign a document (ALT-05), for
+     * example "BPT, MPT (Ortho)"; empty for none.
+     */
+    credentials: z
+      .string()
+      .trim()
+      .max(120, { error: 'Keep credentials under 120 characters.' })
+      .transform((typed) => typed || undefined)
+      .optional(),
     /** The last day they can sign in, in IST; empty for no end date. */
     accessEndsOn: calendarDateSchema.optional(),
   })

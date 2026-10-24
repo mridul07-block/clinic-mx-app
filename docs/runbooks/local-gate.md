@@ -27,7 +27,7 @@ the commit; a merge waits for that line, as it waited for green CI. It resets th
 (the seed and the knowledge base import put back what the tests need) and changes the local staff
 password unless `CLINIC_MX_SEED_STAFF_PASSWORD` is set.
 
-The run takes about 30 to 40 minutes on the current laptop; the two end to end projects run one
+The run takes about 10 to 14 minutes on the current laptop; the two end to end projects run one
 after the other to stay within 8 GB.
 
 ## After a merge: `pnpm migrate:staging`

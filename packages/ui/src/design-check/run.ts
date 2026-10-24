@@ -18,9 +18,16 @@ const centreColoursFile = 'packages/schemas/src/centres.ts';
 /**
  * Files the raw colour rule skips: the tokens themselves, and mirrors checked against them below
  * (token values for non-CSS consumers, the seed's centre colours, and the centre colours a Super
- * Admin chooses from, SET-01).
+ * Admin chooses from, SET-01); and the brand logo's own colours, generated from its SVG for the
+ * PDF letterhead (ALT-05).
  */
-const rawColourAllowed = new Set([tokensFile, tokenValuesFile, seedFile, centreColoursFile]);
+const rawColourAllowed = new Set([
+  tokensFile,
+  tokenValuesFile,
+  seedFile,
+  centreColoursFile,
+  'apps/web/modules/documents/logo-paths.ts',
+]);
 
 /** Tests that name forbidden values on purpose, to prove the page or theme lacks them. */
 const testsOfTheRules = new Set([

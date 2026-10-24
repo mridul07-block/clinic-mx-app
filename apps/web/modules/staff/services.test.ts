@@ -67,6 +67,7 @@ const record = (values: Partial<StaffRecord> = {}): StaffRecord => ({
   role: 'front_desk',
   treatsPatients: false,
   consultant: false,
+  credentials: null,
   active: true,
   accessEndsAt: null,
   authUserId: 'auth-new',
