@@ -1,7 +1,7 @@
 import { istDate } from '@clinic-mx/schemas';
 import { expect, test, type Page } from '@playwright/test';
 import { removeCalendarRows, startedAppointment } from './calendar';
-import { savedConsultation } from './consultations';
+import { savedConsultation, submittedAnswers } from './consultations';
 import { removePipelineRows } from './intake';
 import { checkedIn, consultationTypeId, submittedWithAlert } from './my-patients';
 import { testPatient } from './patients';
@@ -171,4 +171,69 @@ test('no consultation before the health form, and nobody else opens one', async 
   await deskPage.goto(address);
   await expect(deskPage).toHaveURL(/\/app\/not-allowed/);
   await deskPage.context().close();
+});
+
+// CLN-03 done when: Patient reported fields switch to Clinician confirmed when edited. Decisions
+// (user, 24 October 2026): problem, activity, history and about fields; only an edit confirms; the
+// patient's words stay beneath.
+test('Subjective shows the health form as Patient reported; an edit makes it Clinician confirmed', async ({
+  page,
+}, testInfo) => {
+  const { physio, patient, visit } = await consultationToday({ submitted: true });
+  await submittedAnswers(visit.id, patient.id, {
+    region: 'knee',
+    complaint: 'Pain on the stairs',
+    pain_now: 6,
+    onset: 'gradual',
+    pain_site: ['right_knee_front'],
+  });
+  await signInWithCode(page, physio.email, physio.secret);
+  await startConsultation(page, patient.name);
+  await expect(stepTitle(page)).toHaveText('Subjective');
+
+  const field = (key: string) =>
+    page.locator(`[data-testid="subjective-field"][data-field="${key}"]`);
+  await expect(field('complaint')).toContainText('Patient reported');
+  await expect(page.getByLabel('Main complaint')).toHaveValue('Pain on the stairs');
+  await expect(page.getByLabel('Body region')).toHaveValue('knee');
+  await expect(field('surgeries')).toContainText('Not answered');
+
+  // Editing the complaint and the pain confirms them; the patient's words stay beneath.
+  await page.getByLabel('Main complaint').fill('Pain going down stairs, worse after running');
+  await expect(field('complaint')).toContainText('Clinician confirmed');
+  await expect(field('complaint')).toContainText('Patient reported: Pain on the stairs');
+  await page.getByLabel('Pain now').fill('4');
+  await expect(field('pain_now')).toContainText('Clinician confirmed');
+  await expect(field('pain_now')).toContainText('Patient reported: 6 out of 10');
+  await page.getByLabel('Surgeries').fill('Knee arthroscopy 2019');
+  await expect(field('surgeries')).toContainText('Patient reported: nothing');
+  // Untouched answers stay the patient's.
+  await expect(field('onset')).toContainText('Patient reported');
+  await expect(field('onset')).not.toContainText('Clinician confirmed');
+  if (testInfo.project.name === 'desktop') {
+    await field('pain_site')
+      .getByRole('checkbox', { name: 'Left knee, front' })
+      .check({ force: true });
+    await expect(field('pain_site')).toContainText('Clinician confirmed');
+  }
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await expect
+    .poll(async () => (await savedConsultation(visit.id))?.sections.subjective?.confirmed)
+    .toMatchObject({
+      complaint: 'Pain going down stairs, worse after running',
+      pain_now: 4,
+      surgeries: 'Knee arthroscopy 2019',
+    });
+
+  // After a reload the labels and values hold.
+  await page.reload();
+  await expect(page.getByLabel('Main complaint')).toHaveValue(
+    'Pain going down stairs, worse after running',
+  );
+  await expect(field('complaint')).toContainText('Clinician confirmed');
+  await expect(field('onset')).toContainText('Patient reported');
+  await page.goto(`${new URL(page.url()).pathname}?section=sign`);
+  await expect(page.getByTestId('sign-section').first()).toContainText(
+    testInfo.project.name === 'desktop' ? '4 confirmed' : '3 confirmed',
+  );
 });

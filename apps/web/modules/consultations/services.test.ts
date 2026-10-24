@@ -7,6 +7,7 @@ const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
   consultationRecord: vi.fn(),
+  consultationIntake: vi.fn(),
   saveConsultationSections: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
@@ -36,7 +37,7 @@ const record = (extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 const sections = {
-  subjective: { notes: 'Pain on stairs' },
+  subjective: { notes: 'Pain on stairs', confirmed: {} },
   screening: { notes: '' },
   objective: { notes: '' },
   assessment: { notes: '' },
@@ -53,6 +54,10 @@ describe('consultation', () => {
       (_db: Db, _context: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
     );
     db.consultationRecord.mockResolvedValue(record());
+    db.consultationIntake.mockResolvedValue({
+      formVersion: 'hf-3',
+      answers: { complaint: 'Pain' },
+    });
     db.saveConsultationSections.mockResolvedValue({ status: 'saved', version: 4 });
   });
 
@@ -60,6 +65,9 @@ describe('consultation', () => {
     const view = await loadConsultation(consultant(), consultationId);
     expect(view?.sections.subjective.notes).toBe('Saved before');
     expect(view?.sections.plan.notes).toBe('');
+    expect(view?.patientAnswers).toEqual({ complaint: 'Pain' });
+    db.consultationIntake.mockResolvedValue(undefined);
+    expect((await loadConsultation(consultant(), consultationId))?.patientAnswers).toEqual({});
     db.consultationRecord.mockResolvedValue(record({ physioId: 'someone-else' }));
     await expect(loadConsultation(consultant(), consultationId)).resolves.toBeUndefined();
     await expect(loadConsultation(consultant(), 'not-an-id')).resolves.toBeUndefined();

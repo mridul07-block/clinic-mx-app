@@ -344,6 +344,7 @@ export {
 } from './tasks';
 export {
   NoKnowledgeVersionError,
+  consultationIntake,
   consultationRecord,
   openConsultation,
   saveConsultationSections,

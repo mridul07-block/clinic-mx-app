@@ -50,6 +50,7 @@ export default async function ConsultationPage({
         serverValue={consultation.sections}
         serverVersion={consultation.version}
         signed={consultation.status === 'signed'}
+        patientAnswers={consultation.patientAnswers}
         initialStep={stepFromQuery(typeof section === 'string' ? section : undefined)}
       />
     </main>

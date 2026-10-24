@@ -41,6 +41,39 @@ sections as "Notes added" or "Nothing yet", each with Edit. The Sign and finish 
 (screening complete, CLN-04; the tick at signing, CLN-09) come with those tickets. Nothing here
 signs.
 
+## Subjective (CLN-03)
+
+What the patient told us on the health form, field by field, with a source label (Frontend
+Specification "Source label"). Decisions (user, 24 October 2026):
+
+- **Fields**, grouped as on the form, with the form's own wording (`subjectiveGroups`,
+  `packages/schemas/src/subjective.ts`):
+  - **The problem:** region, pain site (body chart), main complaint, onset, how it started,
+    duration, pain now, pain with activity, aggravating and easing factors;
+  - **Activity and goal:** activities (and Other, when ticked), level, hours per week, goals;
+  - **History:** previous injuries, surgeries, investigations, regular medicines;
+  - **About the patient:** occupation and dominant side.
+  
+  Warning signs and the health check belong to Screening (CLN-04).
+- **Labels:**
+  - "Patient reported" shows the patient's answer;
+  - "Not answered" means the patient left it empty;
+  - "Clinician confirmed" appears once the clinician changes the field, and only then. An untouched
+    answer stays Patient reported.
+- **The patient's words stay:** an edited field shows "Patient reported: …" (or "nothing")
+  beneath it.
+
+Only the clinician's changes are stored, in `sections.subjective.confirmed` (by field key), each
+checked against its field: a known choice, a whole number in range, text within its length, or
+known body chart zones. Empty means the clinician cleared it. The patient's answers are read live
+from the submitted health form, which never changes. Below the fields, "Other notes" is the
+section's notes box. Sign counts the confirmed fields ("3 confirmed").
+
+The answers reach the consultant through `internal.consultant_health_form(visit)`
+(`consultationIntake`, migration `consultation_subjective_rules`). It is a SECURITY DEFINER
+function that returns the submitted form only to the visit's own treating physio. Staff otherwise
+read only a few columns of `intake_response` (INT-11), so the front desk never sees the answers.
+
 ## Autosave
 
 The screen adopts FND-08 (`docs/runbooks/autosave.md`): one draft per consultation (kind
@@ -74,7 +107,12 @@ Each save is an audited update (actor, before, after), one per autosave.
 | `apps/web/modules/consultations/services.test.ts` | Own consultation only, every section; save at the version; conflict answers the saved sections; signed, someone else's, no tick, support refused. |
 | `apps/web/modules/my-patients/services.test.ts` | Start consultation opens the consultation; refused without the Consultant tick, before the health form, or before the knowledge base. |
 | `packages/schemas/src/consultations.test.ts`, `apps/web/lib/drafts/savers.test.ts` | Sections, steps, Back and Next; the saver's endpoint. |
-| `apps/web/e2e/consultation.spec.ts` | 360 px and desktop. Start consultation opens Subjective; notes save; Next pinned in view at 360 px, the stepper on desktop; a reload keeps the step and the notes; Back; Sign lists the sections; offline then reconnect saves; refused before the health form, then opens; the desk cannot open it. |
+| `packages/schemas/src/subjective.test.ts` | The form's fields and wording; sources; answers checked against their fields; Other shown only when ticked. |
+| `apps/web/e2e/consultation.spec.ts` | 360 px and desktop. Start consultation opens Subjective; notes save; Next pinned in view at 360 px, the stepper on desktop; a reload keeps the step and the notes; Back; Sign lists the sections; offline then reconnect saves; refused before the health form, then opens; the desk cannot open it. Subjective (CLN-03): the form's answers Patient reported, a blank one Not answered; edits to the complaint, pain and surgeries become Clinician confirmed with the patient's words beneath, untouched ones stay; the body chart on desktop; saved and kept through a reload; Sign counts them. |
 
-Negative check: without the `consultation_guard` trigger, the "keeps who, where and which version
+The database test also checks that the consultant reads their visit's submitted form, and another
+physio and the desk read nothing.
+
+Negative checks: when `consultant_health_form` does not check the physio, the "nobody else" database
+test fails (CLN-03). Without the `consultation_guard` trigger, the "keeps who, where and which version
 fixed" and "never changes once signed" database tests fail (CLN-02).

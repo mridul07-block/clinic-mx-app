@@ -1,8 +1,10 @@
 import { bodyChartViewLabels, bodyChartViews, bodyChartZones } from '@clinic-mx/schemas';
+import type { ChangeEvent } from 'react';
 
 // The body chart (INT-05, Frontend Specification §5): front and back outlines with a box to tick
 // for each zone. Plain checkboxes, so it works without scripts; each box is named for screen
-// readers ("Right knee, front"). On the front the patient's right is on the viewer's left.
+// readers ("Right knee, front"). On the front the patient's right is on the viewer's left. The
+// health form posts it as a form; the consultation (CLN-03) passes `onChange` to edit it in place.
 
 /** The outline, on the zones' 100 by 200 grid; the right side mirrors the left. */
 function Outline() {
@@ -36,10 +38,13 @@ export function BodyChart({
   name,
   chosen,
   describedBy,
+  onChange,
 }: {
   name: string;
   chosen: readonly string[];
   describedBy?: string;
+  /** Controlled: the zones after a box is ticked or cleared. */
+  onChange?: (zones: string[]) => void;
 }) {
   return (
     <div className="flex flex-col items-center gap-6" aria-describedby={describedBy}>
@@ -70,7 +75,18 @@ export function BodyChart({
                     type="checkbox"
                     name={name}
                     value={zone.key}
-                    defaultChecked={chosen.includes(zone.key)}
+                    {...(onChange
+                      ? {
+                          checked: chosen.includes(zone.key),
+                          onChange: (event: ChangeEvent<HTMLInputElement>) => {
+                            onChange(
+                              event.target.checked
+                                ? [...chosen, zone.key]
+                                : chosen.filter((key) => key !== zone.key),
+                            );
+                          },
+                        }
+                      : { defaultChecked: chosen.includes(zone.key) })}
                     aria-label={zone.label}
                     className="sr-only"
                   />

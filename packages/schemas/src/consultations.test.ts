@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   adjacentSteps,
+  confirmedCount,
+  sectionStarted,
   CONSULTATION_NOTES_MAX,
   consultationSectionsSchema,
   sectionHasNotes,
@@ -11,7 +13,7 @@ describe('consultation sections', () => {
   it('reads a new consultation as five empty sections', () => {
     const sections = consultationSectionsSchema.parse({});
     expect(sections).toEqual({
-      subjective: { notes: '' },
+      subjective: { notes: '', confirmed: {} },
       screening: { notes: '' },
       objective: { notes: '' },
       assessment: { notes: '' },
@@ -33,6 +35,40 @@ describe('consultation sections', () => {
   it('treats blank notes as nothing written', () => {
     const sections = consultationSectionsSchema.parse({ subjective: { notes: '  \n ' } });
     expect(sectionHasNotes(sections, 'subjective')).toBe(false);
+  });
+});
+
+describe('subjective answers the clinician changed (CLN-03)', () => {
+  it('keeps valid changes and counts them as started', () => {
+    const sections = consultationSectionsSchema.parse({
+      subjective: {
+        notes: '',
+        confirmed: {
+          complaint: 'Knee pain on stairs',
+          pain_now: 4,
+          onset: 'sudden',
+          pain_site: [],
+        },
+      },
+    });
+    expect(confirmedCount(sections)).toBe(4);
+    expect(sectionStarted(sections, 'subjective')).toBe(true);
+    expect(sectionStarted(sections, 'plan')).toBe(false);
+  });
+
+  it('reads a CLN-02 draft without changes', () => {
+    const sections = consultationSectionsSchema.parse({ subjective: { notes: 'Older draft' } });
+    expect(sections.subjective).toEqual({ notes: 'Older draft', confirmed: {} });
+  });
+
+  it('refuses unknown fields and answers that do not fit', () => {
+    const refused = (confirmed: Record<string, unknown>) =>
+      consultationSectionsSchema.safeParse({ subjective: { notes: '', confirmed } }).success;
+    expect(refused({ blood_group: 'O' })).toBe(false);
+    expect(refused({ pain_now: 11 })).toBe(false);
+    expect(refused({ onset: 'overnight' })).toBe(false);
+    expect(refused({ pain_site: ['not_a_zone'] })).toBe(false);
+    expect(refused({ complaint: 'x'.repeat(501) })).toBe(false);
   });
 });
 

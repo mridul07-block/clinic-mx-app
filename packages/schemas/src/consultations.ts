@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import type { HealthFormAnswer } from './health-form';
+import {
+  subjectiveField,
+  subjectiveFieldKeys,
+  validSubjectiveAnswer,
+  type SubjectiveFieldKey,
+} from './subjective';
 
 /**
  * The consultation (CLN-02, PRD J3.2, Frontend Specification "Consultation"): six steps in a
@@ -56,9 +63,40 @@ const sectionSchema = z
   })
   .default({ notes: '' });
 
+const answerSchema = z.union([
+  z.boolean(),
+  z.number(),
+  z.string().max(CONSULTATION_NOTES_MAX),
+  z.array(z.string().max(100)).max(100),
+]);
+
+const isSubjectiveKey = (key: string): key is SubjectiveFieldKey =>
+  (subjectiveFieldKeys as readonly string[]).includes(key);
+
+/**
+ * Subjective (CLN-03): the notes, and the health form answers the clinician changed, by field;
+ * a field not here shows what the patient reported.
+ */
+const subjectiveSchema = z
+  .object({
+    notes: sectionSchema.unwrap().shape.notes,
+    confirmed: z
+      .record(z.string(), answerSchema)
+      .default({})
+      .superRefine((confirmed, context) => {
+        for (const [key, answer] of Object.entries(confirmed)) {
+          if (!isSubjectiveKey(key) || !validSubjectiveAnswer(subjectiveField(key), answer)) {
+            context.addIssue({ code: 'custom', path: [key], message: 'Check this answer.' });
+          }
+        }
+      })
+      .transform((confirmed) => confirmed as Partial<Record<SubjectiveFieldKey, HealthFormAnswer>>),
+  })
+  .default({ notes: '', confirmed: {} });
+
 /** What the clinician has written in each section; a new consultation is `{}`. */
 export const consultationSectionsSchema = z.object({
-  subjective: sectionSchema,
+  subjective: subjectiveSchema,
   screening: sectionSchema,
   objective: sectionSchema,
   assessment: sectionSchema,
@@ -72,9 +110,19 @@ export function stepFromQuery(value: string | null | undefined): ConsultationSte
   return consultationSteps.find((step) => step === value) ?? 'subjective';
 }
 
-/** Whether the clinician has written anything in a section. */
+/** Whether the clinician has written notes in a section. */
 export function sectionHasNotes(sections: ConsultationSections, key: ConsultationSection): boolean {
   return sections[key].notes.trim().length > 0;
+}
+
+/** How many health form answers the clinician changed in Subjective (CLN-03). */
+export function confirmedCount(sections: ConsultationSections): number {
+  return Object.keys(sections.subjective.confirmed).length;
+}
+
+/** Whether a section holds anything the clinician wrote: notes, or changed answers. */
+export function sectionStarted(sections: ConsultationSections, key: ConsultationSection): boolean {
+  return sectionHasNotes(sections, key) || (key === 'subjective' && confirmedCount(sections) > 0);
 }
 
 /** The step before and after, for Back and Next; undefined at either end. */

@@ -2,11 +2,17 @@ import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
-import { consultationRecord, openConsultation, saveConsultationSections } from '../consultations';
+import {
+  consultationIntake,
+  consultationRecord,
+  openConsultation,
+  saveConsultationSections,
+} from '../consultations';
 import { insertEpisode } from '../episodes';
 import type { StaffMember } from '../identity';
 import { startVisit } from '../my-patients';
-import { appointment, auditEvent, consultation } from '../schema';
+import { insertPatientLink } from '../patient-links';
+import { appointment, auditEvent, consultation, intakeResponse } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import { becomeStaff, testPatient, testPhysio, typeId } from './fake-schedule';
 
@@ -66,7 +72,7 @@ async function failure(tx: Tx, work: (sp: Tx) => Promise<unknown>): Promise<stri
 }
 
 const sections = (notes: string) => ({
-  subjective: { notes },
+  subjective: { notes, confirmed: {} },
   screening: { notes: '' },
   objective: { notes: '' },
   assessment: { notes: '' },
@@ -117,7 +123,7 @@ async function setUp(tx: Tx) {
       })
       .returning({ id: appointment.id });
     if (!row) throw new Error('The appointment was not recorded.');
-    return { appointmentId: row.id, episodeId };
+    return { appointmentId: row.id, episodeId, patientId };
   };
   return { consultant, other, visit, versionId: version?.id ?? '' };
 }
@@ -269,6 +275,38 @@ describe('consultation', () => {
             .where(eq(consultation.id, id)),
         ),
       ).toBe('23514');
+    });
+  });
+
+  // CLN-03: Subjective shows what the patient told us on the health form.
+  it('lets the visit’s own consultant read its submitted health form, and nobody else', async () => {
+    await rolledBack(async (tx) => {
+      const { consultant, other, visit } = await setUp(tx);
+      const here = await visit(consultant.id);
+      const link = await insertPatientLink(tx, {
+        patientId: here.patientId,
+        purpose: 'health_form',
+        appointmentId: here.appointmentId,
+        expiresAt: new Date(Date.now() + 3600_000),
+      });
+      await tx.insert(intakeResponse).values({
+        appointmentId: here.appointmentId,
+        patientId: here.patientId,
+        patientLinkId: link.id,
+        formVersion: 'hf-3',
+        answers: { complaint: 'Pain on stairs', pain_now: 4 },
+        submittedAt: new Date(),
+      });
+
+      await becomeStaff(tx, consultant);
+      expect(await consultationIntake(tx, here.appointmentId)).toEqual({
+        formVersion: 'hf-3',
+        answers: { complaint: 'Pain on stairs', pain_now: 4 },
+      });
+      await becomeStaff(tx, other);
+      expect(await consultationIntake(tx, here.appointmentId)).toBeUndefined();
+      await becomeStaff(tx, deskHsr);
+      expect(await consultationIntake(tx, here.appointmentId)).toBeUndefined();
     });
   });
 });
