@@ -292,9 +292,12 @@ The summary PDF and WhatsApp message on signing (PRD J4.1) come with ALT-05 and 
 ## Addenda (CLN-09)
 
 A signed consultation opens read only, with "Signed by <name> on <date, time>. Changes are
-addenda." on every step, for its consultant and for clinicians (Treats patients tick) who see the
-episode's centre; CLN-12 links to it from the patient record. Sign shows the addenda (who, when,
-the text) and "Add addendum" (up to 5,000 characters). Addenda never change.
+addenda." on every step, for its consultant and for clinicians (the Super Admin, and staff with
+the Treats patients tick) at any centre (CLN-12, kickoff decision C1); the patient record's Notes
+link to it, and an open by anyone but its consultant is a record view
+(`docs/runbooks/patient-record.md`). Sign shows the addenda (who, when, the text) and "Add
+addendum" (up to 5,000 characters) for clinicians with the tick at the episode's centre, and for
+its consultant. Addenda never change.
 
 ## Autosave
 
@@ -320,8 +323,8 @@ Enforced twice. The service: only its own consultant opens or saves it; a signed
 | Velyx support never writes; nobody deletes; every change audited | Restrictive policies, `audit_change` |
 | Signed only by its own consultant, active with the Treats patients tick at that moment, changing only status, who and when | Policy `consultation_sign`, trigger `consultation_guard` (`internal.staff_treats`) |
 | The record's rows written only in the signing transaction (`signed_at = now()`), by the signer, on the consultation's episode and version; never updated or deleted | Policies `*_sign` (`internal.signing_consultation`); no update or delete policies |
-| The record, its addenda, its visit and its health form read by its consultant and clinicians at the episode's centre | `internal.reads_consultation`, `appointment_signed_consultation_read`, `consultant_health_form` |
-| Addenda added by clinicians with the tick now, on a signed consultation they read, as themselves | Policy `addendum_add` (`internal.adds_addendum`) |
+| The record, its addenda, its visit and its health form read by its consultant, clinicians at the episode's centre, and once signed clinicians at any centre (CLN-12) | `internal.reads_consultation`, `consultation_signed_record_read`, `appointment_signed_consultation_read`, `consultant_health_form` |
+| Addenda added by clinicians with the tick now, on a signed consultation at the episode's centre (or their own), as themselves | Policy `addendum_add` (`internal.adds_addendum`, replaced by `patient_record_rules`) |
 | A physio completes their own started visit only once its consultation is signed | Trigger `appointment_physio_change` |
 
 Each save is an audited update (actor, before, after), one per autosave.

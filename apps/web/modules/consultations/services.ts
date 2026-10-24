@@ -7,6 +7,8 @@ import {
   knowledgeAssessment,
   knowledgeObjective,
   knowledgePlan,
+  logClinicalView,
+  recordStaffName,
   saveConsultationSections,
   signConsultation,
   staffTreatsNow,
@@ -24,6 +26,7 @@ import {
   recordVersionSchema,
   signedRecord,
   signingBlockers,
+  worksAtCentre,
   type AssessmentCatalog,
   type AssessmentSettings,
   type ConsultationSections,
@@ -37,14 +40,15 @@ import {
 import { z } from 'zod';
 import { NotAllowedError } from '../access/guard';
 import { staffService } from '../access/service';
-import { asStaff } from '../access/staff-db';
+import { asStaffViewing } from '../access/staff-db';
 import { getSetting } from '../settings/settings';
 
 /**
  * The consultation (CLN-02, PRD J3.2): its own consultant writes it, section by section, saved by
  * autosave against its version (FND-08), and signs it (CLN-09): the Treats patients tick checked
  * at that moment, every gate passed, the record's rows written and the visit completed. A signed
- * one never changes; clinicians at its centre read it and add addenda (rule 5). Row level
+ * one never changes; clinicians read it at any centre (CLN-12, kickoff decision C1), each open by
+ * someone else logged as a record view, and those at its centre add addenda (rule 5). Row level
  * security and the rules migrations hold the same.
  */
 
@@ -120,9 +124,9 @@ async function recordContext(
 }
 
 /**
- * A consultation the person may open: their own as its consultant, or a signed one at a centre
- * they see when they read clinical records (CLN-09; the patient record shows it with CLN-12).
- * Undefined when there is none.
+ * A consultation the person may open: their own as its consultant, or a signed one when they read
+ * clinical records, at any centre (CLN-09, CLN-12); a signed one opened by anyone but its
+ * consultant is logged as a record view. Undefined when there is none.
  */
 export async function loadConsultation(
   actor: StaffMember,
@@ -132,15 +136,28 @@ export async function loadConsultation(
   const reads = can(actor, 'clinical.read');
   if (!writes && !reads) throw new NotAllowedError();
   if (!z.guid().safeParse(consultationId).success) return undefined;
-  const read = await asStaff(actor, async (tx) => {
+  const read = await asStaffViewing(actor, async (tx) => {
     const found = await consultationRecord(tx, consultationId);
     const own = found?.physioId === actor.id && writes;
     if (!found || !(own || (found.status === 'signed' && reads))) return undefined;
+    const sections = consultationSectionsSchema.parse(found.sections);
+    const context = await recordContext(tx, found, own ? actor.name : (found.signedByName ?? ''));
+    // Read at another centre, the plan's treating physio is not among that centre's physios.
+    const treating = sections.plan.treatingPhysioId;
+    if (treating && !context.treatingPhysios.some((physio) => physio.id === treating)) {
+      context.treatingPhysios.push({
+        id: treating,
+        name: (await recordStaffName(tx, treating)) ?? '',
+      });
+    }
+    const signed = found.status === 'signed';
+    if (signed && !own) await logClinicalView(tx, 'consultation', found.id);
     return {
       found,
       own,
-      context: await recordContext(tx, found, own ? actor.name : (found.signedByName ?? '')),
-      addenda: found.status === 'signed' ? await consultationAddenda(tx, found.id) : [],
+      sections,
+      context,
+      addenda: signed ? await consultationAddenda(tx, found.id) : [],
     };
   });
   if (!read) return undefined;
@@ -148,11 +165,16 @@ export async function loadConsultation(
   return {
     ...read.found,
     ...read.context,
-    sections: consultationSectionsSchema.parse(read.found.sections),
+    sections: read.sections,
     assessmentSettings: await assessmentSettings(),
     editable: read.own && !signed,
     addenda: read.addenda,
-    addsAddenda: signed && reads,
+    // As addendum_add allows: the Treats patients tick, at the episode's centre or on their own.
+    addsAddenda:
+      signed &&
+      actor.treatsPatients &&
+      !actor.support &&
+      (read.own || worksAtCentre(actor, read.found.centreId)),
   };
 }
 

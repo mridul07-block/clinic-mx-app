@@ -151,11 +151,10 @@ export function consultationAddenda(
       id: addendum.id,
       text: addendum.text,
       authorId: addendum.authorId,
-      authorName: staffUser.name,
+      authorName: sql<string>`coalesce(internal.record_staff_name(${addendum.authorId}), '')`,
       createdAt: addendum.createdAt,
     })
     .from(addendum)
-    .innerJoin(staffUser, eq(staffUser.id, addendum.authorId))
     .where(eq(addendum.consultationId, consultationId))
     .orderBy(asc(addendum.createdAt), asc(addendum.id));
 }

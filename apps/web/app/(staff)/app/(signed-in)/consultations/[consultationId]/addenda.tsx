@@ -19,16 +19,19 @@ export interface AddendumView {
 
 /**
  * A signed consultation's addenda (CLN-09, PRD J3.9): written after signing, never changed, each
- * with who wrote it and when; clinicians who read it add one here.
+ * with who wrote it and when; clinicians who may add one do it here, on the consultation or on the
+ * patient record's Notes (CLN-12, `patientId` given).
  */
 export function Addenda({
   consultationId,
   addenda,
   adds,
+  patientId,
 }: {
   consultationId: string;
   addenda: AddendumView[];
   adds: boolean;
+  patientId?: string;
 }) {
   const [state, action, pending] = useActionState(addAddendumAction, initialState);
   const fieldId = useId();
@@ -55,6 +58,7 @@ export function Addenda({
         // A fresh form after each addendum, so the box empties.
         <form key={addenda.length} action={action} className="flex flex-col gap-2">
           <input type="hidden" name="consultationId" value={consultationId} />
+          {patientId ? <input type="hidden" name="patientId" value={patientId} /> : null}
           <label htmlFor={fieldId} className="font-medium">
             Add addendum
           </label>

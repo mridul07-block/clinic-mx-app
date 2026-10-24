@@ -8,7 +8,6 @@ import { latestKnowledgeVersion } from './knowledge';
 import {
   appointment,
   appointmentType,
-  centre,
   consultation,
   patient,
   staffUser,
@@ -89,23 +88,21 @@ export async function consultationRecord(
       status: consultation.status,
       version: consultation.version,
       signedBy: consultation.signedBy,
-      signedByName: sql<
-        string | null
-      >`(select s.name from staff_user s where s.id = ${consultation.signedBy})`,
+      // Names through internal functions: a signed record is read at any centre (CLN-12).
+      signedByName: sql<string | null>`internal.record_staff_name(${consultation.signedBy})`,
       signedAt: consultation.signedAt,
       patientId: appointment.patientId,
       patientName: patient.name,
       opNumber: patient.opNumber,
       appointmentNumber: appointment.number,
       startsAt: appointment.startsAt,
-      centreId: centre.id,
-      centreName: centre.name,
+      centreId: appointment.centreId,
+      centreName: sql<string>`coalesce(internal.record_centre_name(${appointment.centreId}), '')`,
       typeName: appointmentType.name,
     })
     .from(consultation)
     .innerJoin(appointment, eq(appointment.id, consultation.appointmentId))
     .innerJoin(patient, eq(patient.id, appointment.patientId))
-    .innerJoin(centre, eq(centre.id, appointment.centreId))
     .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
     .where(eq(consultation.id, consultationId));
   return row;

@@ -34,6 +34,7 @@ test('a patient without an episode says how one opens; a physio reads the same l
   await page.goto(`/app/patients/${patient.id}`);
   await expect(page.getByText('No episodes yet. Booking a consultation opens one.')).toBeVisible();
   await testEpisode(patient.id, 'awaiting_consultation');
-  await page.reload();
+  // A clinician reads episodes on the record's Notes (CLN-12).
+  await page.goto(`/app/patients/${patient.id}?tab=notes`);
   await expect(page.getByTestId('episode')).toContainText('Awaiting consultation');
 });

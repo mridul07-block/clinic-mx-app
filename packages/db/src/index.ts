@@ -362,3 +362,16 @@ export {
   treatingPhysios,
   type ConsultationEntry,
 } from './consultations';
+export {
+  episodePlan,
+  episodePrecautions,
+  logClinicalView,
+  nextVisitOf,
+  patientAlertHistory,
+  recordStaffName,
+  signedNotesOf,
+  type AlertHistoryEntry,
+  type EpisodePlanEntry,
+  type NextVisitEntry,
+  type SignedNoteEntry,
+} from './patient-record';

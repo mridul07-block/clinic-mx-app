@@ -603,6 +603,13 @@
       "when": 1792859068750,
       "tag": "20261024162428_clinical_record_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1792866954179,
+      "tag": "20261024183554_patient_record_rules",
+      "breakpoints": true
     }
   ]
 }
