@@ -25,6 +25,8 @@ const sections = {
     reviewDate: '',
     questionnaires: null,
     treatingPhysioId: '',
+    investigations: '',
+    referral: '',
   },
 };
 

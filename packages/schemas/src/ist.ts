@@ -74,6 +74,12 @@ export function documentDate(instant: Date): string {
   return `${Number(day)} ${monthNames[Number(month) - 1] ?? ''} ${year}`;
 }
 
+/** A calendar date (YYYY-MM-DD) as documents print it (ALT-06), for example "5 Dec 2026". */
+export function documentCalendarDate(date: string): string {
+  const [year = '', month = '1', day = '1'] = date.split('-');
+  return `${Number(day)} ${monthNames[Number(month) - 1] ?? ''} ${year}`;
+}
+
 /** The IST time of an instant as documents print it (ALT-05), for example "4:05 PM". */
 export function documentTime(instant: Date): string {
   const shifted = new Date(instant.getTime() + IST_OFFSET_MS);

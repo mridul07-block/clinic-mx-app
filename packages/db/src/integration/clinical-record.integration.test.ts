@@ -4,6 +4,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
 import { addAddendum, consultationAddenda, signConsultation } from '../clinical-record';
+import { consultationSummaryFacts } from '../consultation-summary';
 import { consultationRecord, openConsultation } from '../consultations';
 import { insertEpisode } from '../episodes';
 import type { StaffMember } from '../identity';
@@ -21,6 +22,7 @@ import {
   auditEvent,
   consultation,
   diagnosis,
+  job,
   kbCondition,
   measure,
   planModality,
@@ -175,6 +177,8 @@ async function setUp(tx: Tx) {
       reviewDate: '2026-12-05',
       questionnaires: ['visa_p'],
       treatingPhysioId: consultant.id,
+      investigations: 'MRI of the right knee if no better in 4 weeks',
+      referral: '',
     },
   };
   const sign = (by: StaffMember = consultant, baseVersion = 1) =>
@@ -533,6 +537,93 @@ describe('the patient record', () => {
       expect(views).toEqual([{ actor: `staff:${elsewhere.id}`, action: 'view' }]);
       await becomeStaff(tx, deskHsr);
       expect(await failure(tx, (sp) => logClinicalView(sp, 'patient', patientId))).toBe('42501');
+    });
+  });
+});
+
+// ALT-06: signing queues the consultation summary and its message; each addendum the next
+// version. The database queues them (staff cannot add jobs), once per event.
+describe('the consultation summary', () => {
+  const queued = (tx: Tx, consultationId: string) =>
+    tx
+      .select({ kind: job.kind, key: job.idempotencyKey })
+      .from(job)
+      .where(sql`${job.payload} ->> 'consultationId' = ${consultationId}`)
+      .orderBy(job.idempotencyKey);
+
+  it('is queued on signing and on each addendum, never by staff themselves', async () => {
+    await rolledBack(async (tx) => {
+      const { consultant, consultationId, episodeId, sign } = await setUp(tx);
+      await asOwner(tx);
+      expect(await queued(tx, consultationId)).toEqual([]);
+      await becomeStaff(tx, consultant);
+      expect(await sign()).toBe('signed');
+      await asOwner(tx);
+      expect(await queued(tx, consultationId)).toEqual([
+        {
+          kind: 'documents.consultation_summary',
+          key: `consultation_summary:sign:${consultationId}`,
+        },
+        {
+          kind: 'whatsapp.consultation_summary',
+          key: `whatsapp.consultation_summary:${consultationId}`,
+        },
+      ]);
+      await becomeStaff(tx, consultant);
+      const { id: addendumId } = await addAddendum(tx, {
+        consultationId,
+        episodeId,
+        text: 'Seen again',
+        authorId: consultant.id,
+      });
+      // A change after signing (the visit's own updates) queues nothing more.
+      expect(
+        await failure(tx, (sp) =>
+          sp.insert(job).values({ kind: 'documents.consultation_summary', payload: {} }),
+        ),
+      ).toBe('42501');
+      await asOwner(tx);
+      expect((await queued(tx, consultationId)).map((row) => row.key)).toEqual([
+        `consultation_summary:addendum:${addendumId}`,
+        `consultation_summary:sign:${consultationId}`,
+        `whatsapp.consultation_summary:${consultationId}`,
+      ]);
+    });
+  });
+
+  it('reads what the summary prints from a signed consultation only', async () => {
+    await rolledBack(async (tx) => {
+      const { consultant, consultationId, patientId, sign } = await setUp(tx);
+      await asOwner(tx);
+      expect(await consultationSummaryFacts(tx, consultationId)).toBeUndefined();
+      await becomeStaff(tx, consultant);
+      expect(await sign()).toBe('signed');
+      await asOwner(tx);
+      await tx
+        .update(staffUser)
+        .set({ credentials: 'BPT, MPT (Ortho)' })
+        .where(eq(staffUser.id, consultant.id));
+      const facts = await consultationSummaryFacts(tx, consultationId);
+      expect(facts).toMatchObject({
+        patientId,
+        centreId: centreIds.hsrLayout,
+        signer: { name: consultant.name, credentials: 'BPT, MPT (Ortho)' },
+        diagnosis: {
+          conditionName: 'Patellar Tendinopathy',
+          movement: 'Quad dominance',
+          provisional: true,
+          categoryName: null,
+        },
+        plan: {
+          sessionsPerWeek: 2,
+          weeks: 6,
+          reviewDate: '2026-12-05',
+          investigations: 'MRI of the right knee if no better in 4 weeks',
+          referral: '',
+          modalities: ['laser'],
+        },
+        addenda: [],
+      });
     });
   });
 });

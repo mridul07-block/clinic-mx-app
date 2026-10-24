@@ -113,6 +113,8 @@ export async function signConsultation(
       reviewDate: rows.plan.reviewDate,
       questionnaires: rows.plan.questionnaires,
       treatingPhysioId: rows.plan.treatingPhysioId,
+      investigationsAdvised: rows.plan.investigations,
+      referralAdvised: rows.plan.referral,
       createdBy: request.by,
     })
     .returning({ id: planOfCare.id });

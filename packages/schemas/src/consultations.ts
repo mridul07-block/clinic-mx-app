@@ -195,6 +195,8 @@ const planSchema = z.object({ notes: sectionSchema.unwrap().shape.notes, ...plan
   reviewDate: '',
   questionnaires: null,
   treatingPhysioId: '',
+  investigations: '',
+  referral: '',
 });
 
 /** What the clinician has written in each section; a new consultation is `{}`. */

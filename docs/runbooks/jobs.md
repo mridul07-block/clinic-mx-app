@@ -30,7 +30,15 @@ names or phone numbers; `last_error` keeps only the error's name and message.
 
 Kinds so far: `system.ping`; `intake.submitted` (the health form submit pipeline, queued by the
 patient's submit; INT-10); `ai.preparation_sheet` (queued by that pipeline; does nothing until
-AI-01 to AI-03).
+AI-01 to AI-03); `whatsapp.no_show` (queued by the database when an appointment becomes No show;
+ALT-04; does nothing until the WhatsApp tickets); `documents.consultation_summary` (queued by the
+database on signing, key `consultation_summary:sign:<consultation id>`, and on each addendum,
+`consultation_summary:addendum:<addendum id>`; renders the summary's next version, recording the
+key on it so a rerun makes nothing; ALT-06); `whatsapp.consultation_summary` (queued on signing;
+does nothing until WA-06).
+
+End to end tests run the queue themselves: `apps/web/e2e/jobs.ts` posts to the tick with a test
+secret that `playwright.config.ts` gives the server.
 
 ## Setting up an environment
 

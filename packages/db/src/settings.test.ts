@@ -23,6 +23,7 @@ const stored: Settings = {
   'day.running_late_minutes': 15,
   'day.no_show_allowed_minutes': 25,
   'reports.max_file_mb': 4,
+  'documents.summary_prints_category': false,
   'billing.consultation_fee_timing': 'after_consultation',
   'packages.validity_months': 3,
   'packages.expiry_reminder_days': 14,

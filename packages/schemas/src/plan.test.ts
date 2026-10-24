@@ -175,6 +175,11 @@ describe('plan of care', () => {
     expect(bad({ reviewDate: '24/10/2026' })).toBe(false);
     expect(bad({ treatingPhysioId: 'someone' })).toBe(false);
     expect(bad({ goals: Array.from({ length: 21 }, () => ({ text: 'x' })) })).toBe(false);
+    // ALT-06: investigations and referral advice, up to 500 characters; none in older drafts.
+    expect(empty.plan).toMatchObject({ investigations: '', referral: '' });
+    expect(bad({ investigations: 'x'.repeat(500), referral: 'x'.repeat(500) })).toBe(true);
+    expect(bad({ investigations: 'x'.repeat(501) })).toBe(false);
+    expect(bad({ referral: 'x'.repeat(501) })).toBe(false);
   });
 
   it('takes only a catalog whose precautions are the health check’s', () => {

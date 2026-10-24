@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { TEST_JOBS_SECRET } from './e2e/jobs';
 
 const PORT = 3000;
 const isCI = Boolean(process.env.CI);
@@ -42,8 +43,10 @@ export default defineConfig({
     // Turns on the autosave test harness (/app/test-harness/...); never set on Vercel.
     // A stand-in browser DSN (FND-12): pages report errors to /monitoring, which the monitoring
     // test catches; organisation 0 does not exist, so anything else sent is refused by Sentry.
+    // A test value for the job tick (ALT-06: e2e/jobs.ts runs the queue); over any in .env.local.
     env: {
       CLINIC_MX_TEST_HARNESS: '1',
+      JOBS_SECRET: TEST_JOBS_SECRET,
       NEXT_PUBLIC_SENTRY_DSN: 'https://public@o0.ingest.de.sentry.io/0',
     },
     url: `http://localhost:${PORT}/api/health`,

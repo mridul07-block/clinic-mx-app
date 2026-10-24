@@ -1,5 +1,12 @@
 import { formatIndianPhone } from './centres';
+import { answerText, type HealthFormAnswer, type HealthFormAnswers } from './health-form';
 import type { Action } from './permissions';
+import {
+  subjectiveAnswered,
+  subjectiveField,
+  subjectiveValue,
+  type SubjectiveFieldKey,
+} from './subjective';
 
 /**
  * Generated documents (ALT-05, TAD section 9, Frontend Specification section 11): A4 PDFs on the
@@ -95,4 +102,53 @@ export function letterheadLines(centre: LetterheadCentre): string[] {
     ...(centre.address ? [centre.address] : []),
     ...(centre.phone ? [formatIndianPhone(centre.phone)] : []),
   ];
+}
+
+/**
+ * How often, as the consultation summary prints it (ALT-06): "2 sessions a week for 6 weeks";
+ * a part not set is left out, and nothing when neither is.
+ */
+export function summaryFrequency(sessionsPerWeek: number | null, weeks: number | null): string {
+  const sessions =
+    sessionsPerWeek === null
+      ? ''
+      : `${String(sessionsPerWeek)} ${sessionsPerWeek === 1 ? 'session' : 'sessions'} a week`;
+  const length = weeks === null ? '' : `${String(weeks)} ${weeks === 1 ? 'week' : 'weeks'}`;
+  if (sessions && length) return `${sessions} for ${length}`;
+  return sessions || (length ? `For ${length}` : '');
+}
+
+/** The complaint as Subjective holds it, in the order the summary prints it (ALT-06). */
+const complaintKeys = [
+  'complaint',
+  'onset',
+  'how_started',
+  'duration',
+  'pain_now',
+  'pain_activity',
+  'aggravating',
+  'easing',
+] as const satisfies readonly SubjectiveFieldKey[];
+
+/**
+ * The summary's "Primary complaints" rows (ALT-06): each answer as the clinician confirmed it, or
+ * as the patient gave it; the duration with its unit; answers left empty are left out.
+ */
+export function summaryComplaintRows(
+  confirmed: Readonly<Partial<Record<SubjectiveFieldKey, HealthFormAnswer>>>,
+  answers: HealthFormAnswers,
+): [string, string][] {
+  const text = (key: SubjectiveFieldKey): string => {
+    const value = subjectiveValue(key, confirmed, answers);
+    return value !== undefined && subjectiveAnswered(value)
+      ? answerText(subjectiveField(key), value)
+      : '';
+  };
+  return complaintKeys.flatMap((key): [string, string][] => {
+    const value =
+      key === 'duration' && text(key)
+        ? [text(key), text('duration_unit').toLowerCase()].join(' ').trim()
+        : text(key);
+    return value ? [[subjectiveField(key).label, value]] : [];
+  });
 }

@@ -96,6 +96,8 @@ const sections = (notes: string) => ({
     reviewDate: '',
     questionnaires: null,
     treatingPhysioId: '',
+    investigations: '',
+    referral: '',
   },
 });
 

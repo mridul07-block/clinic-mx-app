@@ -624,6 +624,20 @@
       "when": 1792876203319,
       "tag": "20261024211003_documents_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1792880328445,
+      "tag": "20261024221848_consultation_summary",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1792880329677,
+      "tag": "20261024221849_consultation_summary_rules",
+      "breakpoints": true
     }
   ]
 }

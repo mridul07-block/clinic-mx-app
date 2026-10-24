@@ -95,6 +95,7 @@ const sections = (extra: Record<string, unknown> = {}) =>
       goals: [{ text: 'Run 10 km again', patient: true }, { text: '  ' }],
       modalities: [{ key: 'laser' }],
       homeProgramme: [{ exercise: 'Spanish squat', dose: '5 x 45 s' }, { exercise: '' }],
+      investigations: '  MRI of the right knee if no better in 4 weeks ',
     },
     ...extra,
   });
@@ -133,6 +134,9 @@ describe('signed record', () => {
       reviewDate: '2026-12-05',
       questionnaires: ['visa_p'],
       treatingPhysioId: 'consultant',
+      // ALT-06: printed on the summary when filled.
+      investigations: 'MRI of the right knee if no better in 4 weeks',
+      referral: '',
     });
   });
 

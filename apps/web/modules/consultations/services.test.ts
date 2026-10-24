@@ -95,6 +95,8 @@ const sections = {
     reviewDate: '',
     questionnaires: null,
     treatingPhysioId: '',
+    investigations: '',
+    referral: '',
   },
 };
 const save = (actor = consultant()) =>

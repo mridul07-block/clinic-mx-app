@@ -79,6 +79,44 @@ react-pdf traps found while building it: a `lineHeight` on the page drops the fi
 unitless `lineHeight` is read against the font size in the same style (not an inherited one), so
 each text style carries `fontSize` and `lineHeight` together.
 
+## The consultation summary (ALT-06)
+
+PRD J4.1, Frontend Specification section 11, Blueprint Module 6: the signed record on the centre's
+letterhead, for the patient.
+
+**When.** Signing a consultation queues `documents.consultation_summary`; the queue renders version
+1. Each addendum queues the next version, which prints it (TAD section 9: a new version, never an
+overwrite). The database queues both (`internal.consultation_summary_jobs`,
+`internal.addendum_summary_job`), as staff cannot add jobs. Each job's key is recorded on the version
+it makes (`document.generation_key`), so a job that runs again makes nothing. The bundled WhatsApp
+message (`whatsapp.consultation_summary`, "Open My plan" and "Rate your visit") is queued on signing
+and sends nothing until WA-06.
+
+**What it prints**, in the specification's order; a section with nothing in it is left out
+(`summarySections` in `apps/web/modules/documents/consultation-summary.tsx`):
+
+| Section | From |
+| --- | --- |
+| Patient details | Name, age on the consultation date, sex, OP number (Plex Mono), date of consultation, centre |
+| Primary complaints | Subjective: main complaint, onset, how it started, duration, pain now and with activity, aggravating, easing; as confirmed, else as the patient gave it |
+| On examination | Objective: each measure recorded (both sides or the value) with the workbook's result and status; each special test with a result and its interpretation (Not tested is left out) |
+| On investigation | The investigations the patient reported |
+| Diagnosis | The four parts (tissue diagnosis, movement diagnosis, irritability, stage), "Provisional" when ticked |
+| Physiotherapy diagnosis | The coded category, only when `documents.summary_prints_category` is on (default off, DECISION 18) and the record has one |
+| Plan of treatment | Goals, interventions, modalities by name, frequency, the home programme |
+| Investigations plan, Referral plan | Plan's Investigations advised and Referral advised, when filled |
+| Review plan | The review date |
+| Addenda | Each addendum's date and time, author and text |
+| Sign off | The consultant's name, credentials and "Digitally signed" with the date and time |
+
+**Never printed** (Frontend Specification section 7: nothing internal or alarming for patients):
+section notes, screening and red flag items, precautions and modality reasons, sources, the
+questionnaires and knowledge base text.
+
+The job reads the record as the system, straight from the tables
+(`consultationSummaryFacts` in `packages/db/src/consultation-summary.ts`): the record's own read
+helpers need a staff member's claims, which a job does not have.
+
 ## Who opens what
 
 | Kind | Who | Where |

@@ -4,6 +4,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
 import {
+  documentByGenerationKey,
   documentFileOf,
   insertDocument,
   logDocumentView,
@@ -178,6 +179,26 @@ describe('document versions', () => {
         sourceId: summary.sourceId,
       });
       expect(await nextDocumentVersion(tx, 'consultation_summary', summary.sourceId)).toBe(3);
+      // ALT-06: what made a version is recorded once; a job that runs again cannot add another.
+      const key = ['consultation_summary:sign', summary.sourceId].join(':');
+      await tx.update(document).set({ generationKey: key }).where(eq(document.id, summary.id));
+      expect((await documentByGenerationKey(tx, key))?.id).toBe(summary.id);
+      expect(
+        await failure(tx, (sp) =>
+          insertDocument(sp, {
+            id: crypto.randomUUID(),
+            kind: 'consultation_summary',
+            patientId,
+            episodeId,
+            centreId: centreIds.hsrLayout,
+            sourceId: summary.sourceId,
+            version: 9,
+            filePath: [patientId, 'twice.pdf'].join('/'),
+            sizeBytes: 10,
+            generationKey: key,
+          }),
+        ),
+      ).toBe('23505');
       // A different kind of document from the same record starts at 1.
       expect(await nextDocumentVersion(tx, 'referral_letter', summary.sourceId)).toBe(1);
       expect(

@@ -376,6 +376,7 @@ export {
   type SignedNoteEntry,
 } from './patient-record';
 export {
+  documentByGenerationKey,
   documentFileOf,
   insertDocument,
   logDocumentView,
@@ -384,3 +385,9 @@ export {
   type DocumentEntry,
   type NewDocument,
 } from './documents';
+export {
+  CONSULTATION_SUMMARY_JOB,
+  CONSULTATION_SUMMARY_MESSAGE_JOB,
+  consultationSummaryFacts,
+  type ConsultationSummaryFacts,
+} from './consultation-summary';
