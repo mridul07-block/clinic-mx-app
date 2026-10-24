@@ -489,8 +489,10 @@ export {
   consultationStepLabels,
   consultationSteps,
   confirmedCount,
+  consultationScreening,
   sectionHasNotes,
   sectionStarted,
+  signingBlockers,
   stepFromQuery,
   type ConsultationSection,
   type ConsultationSections,
@@ -510,3 +512,15 @@ export {
   type SubjectiveFieldKey,
   type SubjectiveSource,
 } from './subjective';
+export {
+  isScreeningKey,
+  patientScreeningAnswer,
+  screeningAnswerText,
+  screeningItems,
+  screeningProgress,
+  screeningRegionOf,
+  validScreeningAnswer,
+  type ScreeningConfirmed,
+  type ScreeningItem,
+  type ScreeningProgress,
+} from './screening';

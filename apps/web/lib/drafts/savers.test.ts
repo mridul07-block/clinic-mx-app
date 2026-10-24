@@ -3,7 +3,7 @@ import { draftSavers } from './savers';
 
 const sections = {
   subjective: { notes: 'Pain on stairs', confirmed: {} },
-  screening: { notes: '' },
+  screening: { notes: '', confirmed: {} },
   objective: { notes: '' },
   assessment: { notes: '' },
   plan: { notes: '' },

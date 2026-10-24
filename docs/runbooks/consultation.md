@@ -74,6 +74,39 @@ The answers reach the consultant through `internal.consultant_health_form(visit)
 function that returns the submitted form only to the visit's own treating physio. Staff otherwise
 read only a few columns of `intake_response` (INT-11), so the front desk never sees the answers.
 
+## Screening (CLN-04)
+
+PRD J3.3: "Region specific red flag and precaution screening is mandatory; the record cannot be
+signed without it." Decisions (user, 24 October 2026):
+
+- **Each item is a deliberate check.** Nothing is preselected. Beside each item is what the patient
+  said ("Patient said: No", "3 kg", "Not answered"), and the clinician taps Yes or No (or enters the
+  number).
+- **Each precaution is its own item**, confirmed Yes or No. Pregnancy is listed only for a female
+  patient.
+- **A confirmation that differs from the patient** is recorded and tagged "Changed from the
+  patient's answer". CLN-11 (red flag found in consultation) adds the tier, On hold, the referral
+  letter and the safety advice.
+
+**The items** come from `screeningItems` in `packages/schemas/src/screening.ts`:
+- the framework's red flag questions for the region Subjective shows (the clinician's change, else
+  the patient's): the universal ones, plus the back or neck ones (`questionsFor`);
+- the weight loss follow-ups (how many kg, over how many months), asked once the clinician confirms
+  weight loss Yes;
+- then each health check condition, without "None of these".
+
+The wording is the framework's and the form's, as the patient saw it. Each item shows "Not
+confirmed", "Confirmed" (same as the patient) or "Changed from the patient's answer".
+Confirmations are stored in `sections.screening.confirmed` by item key (question keys and
+`precaution.<value>`), each checked against its item. A confirmation left on an item that is no
+longer asked (after a region change) is kept but not counted.
+
+**The gate:** `signingBlockers(sections, patientAnswers)` (`packages/schemas/src/consultations.ts`)
+gives "Signing needs every screening item confirmed: n left." until every item asked is confirmed.
+The Sign step shows it under "Before signing" with a link to Screening, or "Screening complete."
+**CLN-09's sign service must refuse on any reason from `signingBlockers`**, computed on the server
+with the answers from `consultationIntake`. The page alone is not the gate.
+
 ## Autosave
 
 The screen adopts FND-08 (`docs/runbooks/autosave.md`): one draft per consultation (kind
@@ -107,12 +140,14 @@ Each save is an audited update (actor, before, after), one per autosave.
 | `apps/web/modules/consultations/services.test.ts` | Own consultation only, every section; save at the version; conflict answers the saved sections; signed, someone else's, no tick, support refused. |
 | `apps/web/modules/my-patients/services.test.ts` | Start consultation opens the consultation; refused without the Consultant tick, before the health form, or before the knowledge base. |
 | `packages/schemas/src/consultations.test.ts`, `apps/web/lib/drafts/savers.test.ts` | Sections, steps, Back and Next; the saver's endpoint. |
+| `packages/schemas/src/screening.test.ts` | Region questions (knee, back, none), follow ups only after a confirmed yes, pregnancy only for a female patient, what the patient said, progress ignoring stale keys, the signing gate, answers checked against their items. |
 | `packages/schemas/src/subjective.test.ts` | The form's fields and wording; sources; answers checked against their fields; Other shown only when ticked. |
-| `apps/web/e2e/consultation.spec.ts` | 360 px and desktop. Start consultation opens Subjective; notes save; Next pinned in view at 360 px, the stepper on desktop; a reload keeps the step and the notes; Back; Sign lists the sections; offline then reconnect saves; refused before the health form, then opens; the desk cannot open it. Subjective (CLN-03): the form's answers Patient reported, a blank one Not answered; edits to the complaint, pain and surgeries become Clinician confirmed with the patient's words beneath, untouched ones stay; the body chart on desktop; saved and kept through a reload; Sign counts them. |
+| `apps/web/e2e/consultation.spec.ts` | 360 px and desktop. Start consultation opens Subjective; notes save; Next pinned in view at 360 px, the stepper on desktop; a reload keeps the step and the notes; Back; Sign lists the sections; offline then reconnect saves; refused before the health form, then opens; the desk cannot open it. Subjective (CLN-03): the form's answers Patient reported, a blank one Not answered; edits to the complaint, pain and surgeries become Clinician confirmed with the patient's words beneath, untouched ones stay; the body chart on desktop; saved and kept through a reload; Sign counts them. Screening (CLN-04): a back pain form shows the back questions and pregnancy, no neck questions or follow ups, "0 of N"; Sign is blocked with "N left"; weight loss Yes adds the follow ups; the saddle Yes is marked changed; diabetes Confirmed; with all confirmed, Sign says "Screening complete."; kept through a reload. |
 
 The database test also checks that the consultant reads their visit's submitted form, and another
 physio and the desk read nothing.
 
-Negative checks: when `consultant_health_form` does not check the physio, the "nobody else" database
+Negative checks: when `screeningProgress` calls screening complete regardless, two screening unit tests
+fail (CLN-04). When `consultant_health_form` does not check the physio, the "nobody else" database
 test fails (CLN-03). Without the `consultation_guard` trigger, the "keeps who, where and which version
 fixed" and "never changes once signed" database tests fail (CLN-02).

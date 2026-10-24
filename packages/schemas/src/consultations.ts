@@ -1,8 +1,15 @@
 import { z } from 'zod';
-import type { HealthFormAnswer } from './health-form';
+import type { HealthFormAnswer, HealthFormAnswers } from './health-form';
+import {
+  screeningProgress,
+  screeningRegionOf,
+  validScreeningAnswer,
+  type ScreeningConfirmed,
+} from './screening';
 import {
   subjectiveField,
   subjectiveFieldKeys,
+  subjectiveValue,
   validSubjectiveAnswer,
   type SubjectiveFieldKey,
 } from './subjective';
@@ -94,10 +101,31 @@ const subjectiveSchema = z
   })
   .default({ notes: '', confirmed: {} });
 
+/**
+ * Screening (CLN-04): the notes, and each item the clinician confirmed, by item key: yes or no, or
+ * a number.
+ */
+const screeningSchema = z
+  .object({
+    notes: sectionSchema.unwrap().shape.notes,
+    confirmed: z
+      .record(z.string(), z.union([z.boolean(), z.number()]))
+      .default({})
+      .superRefine((confirmed, context) => {
+        for (const [key, answer] of Object.entries(confirmed)) {
+          if (!validScreeningAnswer(key, answer)) {
+            context.addIssue({ code: 'custom', path: [key], message: 'Check this answer.' });
+          }
+        }
+      })
+      .transform((confirmed) => confirmed as ScreeningConfirmed),
+  })
+  .default({ notes: '', confirmed: {} });
+
 /** What the clinician has written in each section; a new consultation is `{}`. */
 export const consultationSectionsSchema = z.object({
   subjective: subjectiveSchema,
-  screening: sectionSchema,
+  screening: screeningSchema,
   objective: sectionSchema,
   assessment: sectionSchema,
   plan: sectionSchema,
@@ -115,14 +143,49 @@ export function sectionHasNotes(sections: ConsultationSections, key: Consultatio
   return sections[key].notes.trim().length > 0;
 }
 
-/** How many health form answers the clinician changed in Subjective (CLN-03). */
-export function confirmedCount(sections: ConsultationSections): number {
-  return Object.keys(sections.subjective.confirmed).length;
+/**
+ * How many answers the clinician changed in Subjective (CLN-03) or confirmed in Screening
+ * (CLN-04); none elsewhere.
+ */
+export function confirmedCount(sections: ConsultationSections, key: ConsultationSection): number {
+  if (key === 'subjective') return Object.keys(sections.subjective.confirmed).length;
+  if (key === 'screening') return Object.keys(sections.screening.confirmed).length;
+  return 0;
 }
 
-/** Whether a section holds anything the clinician wrote: notes, or changed answers. */
+/** Whether a section holds anything the clinician wrote: notes, or confirmed answers. */
 export function sectionStarted(sections: ConsultationSections, key: ConsultationSection): boolean {
-  return sectionHasNotes(sections, key) || (key === 'subjective' && confirmedCount(sections) > 0);
+  return sectionHasNotes(sections, key) || confirmedCount(sections, key) > 0;
+}
+
+/** The screening of this consultation: its region (as Subjective shows it) and progress. */
+export function consultationScreening(
+  sections: ConsultationSections,
+  patientAnswers: HealthFormAnswers,
+) {
+  const region = screeningRegionOf(
+    subjectiveValue('region', sections.subjective.confirmed, patientAnswers),
+  );
+  return {
+    region,
+    sex: patientAnswers.sex,
+    progress: screeningProgress(region, patientAnswers.sex, sections.screening.confirmed),
+  };
+}
+
+/**
+ * Why the consultation cannot be signed yet; empty when it can (CLN-04, PRD J3.3). The sign
+ * service (CLN-09) refuses on any reason here, with the health form's answers read on the server.
+ */
+export function signingBlockers(
+  sections: ConsultationSections,
+  patientAnswers: HealthFormAnswers,
+): string[] {
+  const { progress } = consultationScreening(sections, patientAnswers);
+  const left = progress.total - progress.confirmed;
+  return progress.complete
+    ? []
+    : [`Signing needs every screening item confirmed: ${String(left)} left.`];
 }
 
 /** The step before and after, for Back and Next; undefined at either end. */

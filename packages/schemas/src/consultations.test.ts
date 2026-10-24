@@ -14,7 +14,7 @@ describe('consultation sections', () => {
     const sections = consultationSectionsSchema.parse({});
     expect(sections).toEqual({
       subjective: { notes: '', confirmed: {} },
-      screening: { notes: '' },
+      screening: { notes: '', confirmed: {} },
       objective: { notes: '' },
       assessment: { notes: '' },
       plan: { notes: '' },
@@ -51,7 +51,7 @@ describe('subjective answers the clinician changed (CLN-03)', () => {
         },
       },
     });
-    expect(confirmedCount(sections)).toBe(4);
+    expect(confirmedCount(sections, 'subjective')).toBe(4);
     expect(sectionStarted(sections, 'subjective')).toBe(true);
     expect(sectionStarted(sections, 'plan')).toBe(false);
   });

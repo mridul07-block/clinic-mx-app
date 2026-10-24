@@ -1,4 +1,4 @@
-import { istDate } from '@clinic-mx/schemas';
+import { istDate, screeningItems } from '@clinic-mx/schemas';
 import { expect, test, type Page } from '@playwright/test';
 import { removeCalendarRows, startedAppointment } from './calendar';
 import { savedConsultation, submittedAnswers } from './consultations';
@@ -236,4 +236,84 @@ test('Subjective shows the health form as Patient reported; an edit makes it Cli
   await expect(page.getByTestId('sign-section').first()).toContainText(
     testInfo.project.name === 'desktop' ? '4 confirmed' : '3 confirmed',
   );
+});
+
+// CLN-04 done when: each screening item confirmed; signing impossible until complete. Decisions
+// (user, 24 October 2026): Yes or No tapped on each, nothing preselected; each precaution its own
+// item; a changed answer is recorded and marked (CLN-11 acts on it).
+test('Screening asks the region’s questions and each precaution; signing waits until all are confirmed', async ({
+  page,
+}) => {
+  const { physio, patient, visit } = await consultationToday({ submitted: true });
+  await submittedAnswers(visit.id, patient.id, {
+    region: 'back',
+    sex: 'female',
+    weight_loss: false,
+    back_saddle: false,
+    night_pain: false,
+    health_conditions: ['diabetes'],
+  });
+  const asked = screeningItems('back', 'female', {}).length;
+  await signInWithCode(page, physio.email, physio.secret);
+  await startConsultation(page, patient.name);
+  await page.getByTestId('step-actions').getByRole('link', { name: 'Next' }).click();
+  await expect(stepTitle(page)).toHaveText('Screening');
+
+  const item = (key: string) => page.locator(`[data-testid="screening-item"][data-item="${key}"]`);
+  const progress = page.getByTestId('screening-progress');
+  await expect(progress).toHaveText(`Region: Back · 0 of ${String(asked)} confirmed`);
+  await expect(item('back_saddle')).toContainText('Patient said: No');
+  await expect(item('back_saddle')).toContainText('Not confirmed');
+  await expect(item('back_saddle').getByRole('radio', { checked: true })).toHaveCount(0);
+  await expect(item('neck_dizziness')).toHaveCount(0);
+  await expect(item('weight_loss_kg')).toHaveCount(0);
+  await expect(item('precaution.pregnancy')).toBeVisible();
+  await expect(item('precaution.diabetes')).toContainText('Patient said: Yes');
+
+  // Signing waits.
+  await page.goto(`${new URL(page.url()).pathname}?section=sign`);
+  await expect(page.getByTestId('sign-gate')).toContainText(
+    `Signing needs every screening item confirmed: ${String(asked)} left.`,
+  );
+  await page.getByRole('link', { name: 'Go to Screening' }).click();
+  await expect(stepTitle(page)).toHaveText('Screening');
+
+  // Weight loss confirmed yes asks how much and over how long.
+  await item('weight_loss').getByText('Yes', { exact: true }).click();
+  await expect(item('weight_loss')).toContainText("Changed from the patient's answer");
+  await expect(item('weight_loss_kg')).toBeVisible();
+  await item('weight_loss_kg').getByRole('spinbutton').fill('3');
+  await item('weight_loss_months').getByRole('spinbutton').fill('2');
+  await item('back_saddle').getByText('Yes', { exact: true }).click();
+  await expect(item('back_saddle')).toContainText("Changed from the patient's answer");
+  await item('precaution.diabetes').getByText('Yes', { exact: true }).click();
+  await expect(item('precaution.diabetes')).toContainText('Confirmed');
+  await expect(progress).toHaveText(`Region: Back · 5 of ${String(asked + 2)} confirmed`);
+
+  // The rest: No to each question and precaution, 0 minutes of morning stiffness.
+  const keys = await page
+    .getByTestId('screening-item')
+    .evaluateAll((all) => all.map((row) => row.getAttribute('data-item') ?? ''));
+  for (const key of keys) {
+    const row = item(key);
+    if ((await row.getByText('Not confirmed').count()) === 0) continue;
+    if ((await row.getByRole('spinbutton').count()) > 0) {
+      await row.getByRole('spinbutton').fill('0');
+    } else {
+      await row.getByText('No', { exact: true }).click();
+    }
+  }
+  await expect(progress).toHaveText(
+    `Region: Back · ${String(asked + 2)} of ${String(asked + 2)} confirmed`,
+  );
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await expect
+    .poll(async () => (await savedConsultation(visit.id))?.sections.screening?.confirmed)
+    .toMatchObject({ back_saddle: true, weight_loss_kg: 3, 'precaution.diabetes': true });
+
+  await page.reload();
+  await expect(item('back_saddle')).toContainText("Changed from the patient's answer");
+  await expect(item('back_saddle').getByRole('radio', { name: 'Yes' })).toBeChecked();
+  await page.goto(`${new URL(page.url()).pathname}?section=sign`);
+  await expect(page.getByTestId('sign-gate')).toContainText('Screening complete.');
 });
