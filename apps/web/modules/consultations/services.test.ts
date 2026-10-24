@@ -123,6 +123,12 @@ describe('consultation', () => {
     expect(db.knowledgePlan).toHaveBeenCalledWith(fakeTx, 'kb-version-1');
     expect(db.treatingPhysios).toHaveBeenCalledWith(fakeTx, centreId);
     expect(view?.treatingPhysios).toEqual([{ id: consultant().id, name: 'Test Consultant' }]);
+    // A consultant not assigned to the centre is still offered, as the default.
+    db.treatingPhysios.mockResolvedValue([{ id: 'other', name: 'Another Physio' }]);
+    expect((await loadConsultation(consultant(), consultationId))?.treatingPhysios).toEqual([
+      { id: 'other', name: 'Another Physio' },
+      { id: consultant().id, name: 'Test Consultant' },
+    ]);
     expect(view?.planDefaults).toEqual({
       visitDate: '2026-10-24',
       reviewWeeks: 6,

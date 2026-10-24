@@ -105,7 +105,12 @@ export async function loadConsultation(
     assessmentCatalog: read.assessment,
     assessmentSettings: await assessmentSettings(),
     planCatalog: read.plan,
-    treatingPhysios: read.physios,
+    // The consultant is the default treating physio even where they are not assigned to the centre.
+    treatingPhysios: read.physios.some((physio) => physio.id === actor.id)
+      ? read.physios
+      : [...read.physios, { id: actor.id, name: actor.name }].sort((a, b) =>
+          a.name.localeCompare(b.name),
+        ),
     planDefaults: {
       visitDate: istDate(read.found.startsAt),
       reviewWeeks: await getSetting('clinical.review_weeks'),

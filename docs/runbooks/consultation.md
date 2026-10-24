@@ -241,7 +241,8 @@ suggested.
 - **Frequency:** sessions a week (1 to 7) and weeks (1 to 52).
 - **Review date:** defaults to the visit's date plus `clinical.review_weeks` (6); OUT-06 books it.
 - **Treating physio:** the active staff with the Treats patients tick at the visit's centre
-  (`treatingPhysios`), defaulting to the consultant.
+  (`treatingPhysios`), defaulting to the consultant, who is always offered even where not assigned
+  to that centre.
 
 **Storage.** Everything lives in `sections.plan`. `''` (review date, treating physio) and `null`
 (questionnaires) mean the default; `resolvedPlan` fills them in, on screen and for the sign service.
