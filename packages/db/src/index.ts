@@ -270,7 +270,7 @@ export {
   type CalendarRequest,
 } from './calendar';
 export { todayBoard, type TodayAppointment } from './today';
-export { myPatientsToday, startVisit, type MyPatientVisit } from './my-patients';
+export { myPatientsToday, startVisit, visitToStart, type MyPatientVisit } from './my-patients';
 export {
   checkInView,
   healthFormLink,
@@ -342,3 +342,10 @@ export {
   type TaskEntry,
   type TaskForUpdate,
 } from './tasks';
+export {
+  NoKnowledgeVersionError,
+  consultationRecord,
+  openConsultation,
+  saveConsultationSections,
+  type ConsultationEntry,
+} from './consultations';

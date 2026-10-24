@@ -1,4 +1,5 @@
 import {
+  consultationSectionsSchema,
   draftSaveResponseSchema,
   testHarnessNoteSchema,
   type DraftSaveResponse,
@@ -34,11 +35,19 @@ export const saveTestHarnessNote = jsonSaver(
   testHarnessNoteSchema,
 );
 
+/** A consultation's sections (CLN-02). */
+export const saveConsultationDraft = jsonSaver(
+  (id) => `/app/consultations/${encodeURIComponent(id)}/save`,
+  consultationSectionsSchema,
+);
+
 /**
  * Savers by draft kind, used to save drafts whose screen is closed. Each screen that autosaves
- * adds its kind here (CLN-02 adds the consultation sections).
+ * adds its kind here.
  */
 export const draftSavers: DraftSavers = {
+  consultation: (id) => (value, baseVersion) =>
+    saveConsultationDraft(id)(consultationSectionsSchema.parse(value), baseVersion),
   'test-harness-note': (id) => (value, baseVersion) =>
     saveTestHarnessNote(id)(testHarnessNoteSchema.parse(value), baseVersion),
 };

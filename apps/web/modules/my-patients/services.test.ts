@@ -8,11 +8,16 @@ const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
   appointmentRecord: vi.fn(),
+  visitToStart: vi.fn(),
+  openConsultation: vi.fn(),
   startVisit: vi.fn(),
   myPatientsToday: vi.fn(),
   contentVersion: vi.fn(() => 'v1'),
 }));
-vi.mock('@clinic-mx/db', () => db);
+const { NoKnowledgeVersionError } = vi.hoisted(() => ({
+  NoKnowledgeVersionError: class NoKnowledgeVersionError extends Error {},
+}));
+vi.mock('@clinic-mx/db', () => ({ ...db, NoKnowledgeVersionError }));
 vi.mock('../access/staff-db', () => ({
   asStaff: (_actor: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
 }));
@@ -38,13 +43,22 @@ const visit = (extra: Record<string, unknown> = {}) => ({
   physioId: physio().id,
   status: 'checked_in',
   startsAt: new Date(),
+  episodeId: '00000000-0000-4000-8000-000000000501',
+  typeKey: 'session',
   ...extra,
 });
+/** The appointment as the target check and Start read it. */
+const found = (value: ReturnType<typeof visit> | undefined) => {
+  db.appointmentRecord.mockResolvedValue(value);
+  db.visitToStart.mockResolvedValue(value);
+};
+const consultationId = '00000000-0000-4000-8000-000000000a01';
 
 // CLN-01: a treating physio's own visits today; Start marks their checked in visit In progress.
 describe('my patients today', () => {
   beforeEach(() => {
     for (const fn of Object.values(db)) fn.mockReset();
+    db.openConsultation.mockResolvedValue(consultationId);
     db.withStaffAccess.mockImplementation(
       (_db: Db, _context: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
     );
@@ -69,8 +83,9 @@ describe('my patients today', () => {
   });
 
   it('starts the physio’s own checked in visit, as them', async () => {
-    db.appointmentRecord.mockResolvedValue(visit());
-    await startVisit(context(), { appointmentId });
+    found(visit());
+    await expect(startVisit(context(), { appointmentId })).resolves.toEqual({});
+    expect(db.openConsultation).not.toHaveBeenCalled();
     expect(db.startVisit).toHaveBeenCalledWith(
       fakeTx,
       expect.objectContaining({ appointmentId, by: physio().id }),
@@ -78,8 +93,8 @@ describe('my patients today', () => {
   });
 
   it('refuses someone else’s visit, one not checked in, one started, and another day', async () => {
-    const refused = async (found: Record<string, unknown>, message: string) => {
-      db.appointmentRecord.mockResolvedValue(visit(found));
+    const refused = async (extra: Record<string, unknown>, message: string) => {
+      found(visit(extra));
       await expect(startVisit(context(), { appointmentId })).rejects.toThrow(message);
     };
     await refused(
@@ -92,9 +107,44 @@ describe('my patients today', () => {
       { startsAt: new Date(Date.now() - 2 * 24 * 3600_000) },
       'A visit is started on its own day.',
     );
-    db.appointmentRecord.mockResolvedValue(undefined);
+    found(undefined);
     await expect(startVisit(context(), { appointmentId })).rejects.toThrow(SchedulingError);
     expect(db.startVisit).not.toHaveBeenCalled();
+  });
+
+  // CLN-02: Start consultation opens the consultation, for a consultant once the form is in.
+  it('opens the consultation when a consultant starts one', async () => {
+    const consultant = physio({ consultant: true });
+    found(visit({ typeKey: 'consultation' }));
+    await expect(startVisit(context(consultant), { appointmentId })).resolves.toEqual({
+      consultationId,
+    });
+    expect(db.openConsultation).toHaveBeenCalledWith(fakeTx, {
+      appointmentId,
+      episodeId: '00000000-0000-4000-8000-000000000501',
+      physioId: consultant.id,
+    });
+  });
+
+  it('refuses a consultation without the Consultant tick or before the health form', async () => {
+    found(visit({ typeKey: 'consultation' }));
+    await expect(startVisit(context(), { appointmentId })).rejects.toThrow(
+      'Only a consultant starts a consultation.',
+    );
+    found(visit({ typeKey: 'consultation', episodeId: null }));
+    await expect(
+      startVisit(context(physio({ consultant: true })), { appointmentId }),
+    ).rejects.toThrow('The health form is needed before the consultation.');
+    expect(db.startVisit).not.toHaveBeenCalled();
+    expect(db.openConsultation).not.toHaveBeenCalled();
+  });
+
+  it('says so when the knowledge base is not loaded', async () => {
+    found(visit({ typeKey: 'consultation' }));
+    db.openConsultation.mockRejectedValue(new NoKnowledgeVersionError());
+    await expect(
+      startVisit(context(physio({ consultant: true })), { appointmentId }),
+    ).rejects.toThrow('The knowledge base is not loaded yet.');
   });
 
   it('refuses those without the tick, and Velyx support, who only reads', async () => {

@@ -1,0 +1,5581 @@
+{
+  "id": "a77bde3a-c9cf-4640-8e92-9fa1fe17f041",
+  "prevId": "38bf17b3-f078-4bb3-a050-8b76a97037de",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.centre": {
+      "name": "centre",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointment_prefix": {
+          "name": "appointment_prefix",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "treadmills": {
+          "name": "treadmills",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "map_link": {
+          "name": "map_link",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "colour": {
+          "name": "colour",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "centre_colour_active_key": {
+          "name": "centre_colour_active_key",
+          "columns": [
+            {
+              "expression": "colour",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "\"centre\".\"active\"",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "centre_name_unique": {
+          "name": "centre_name_unique",
+          "columns": [
+            "name"
+          ],
+          "nullsNotDistinct": false
+        },
+        "centre_code_unique": {
+          "name": "centre_code_unique",
+          "columns": [
+            "code"
+          ],
+          "nullsNotDistinct": false
+        },
+        "centre_appointment_prefix_unique": {
+          "name": "centre_appointment_prefix_unique",
+          "columns": [
+            "appointment_prefix"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "centre_colour_hex": {
+          "name": "centre_colour_hex",
+          "value": "\"centre\".\"colour\" ~ '^#[0-9A-F]{6}$'"
+        },
+        "centre_code_letters": {
+          "name": "centre_code_letters",
+          "value": "\"centre\".\"code\" ~ '^[A-Z]{2,4}$'"
+        },
+        "centre_appointment_prefix_letters": {
+          "name": "centre_appointment_prefix_letters",
+          "value": "\"centre\".\"appointment_prefix\" ~ '^[A-Z]{2,4}$'"
+        },
+        "centre_treadmills": {
+          "name": "centre_treadmills",
+          "value": "\"centre\".\"treadmills\" >= 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.staff_user": {
+      "name": "staff_user",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "auth_user_id": {
+          "name": "auth_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "staff_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "treats_patients": {
+          "name": "treats_patients",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "consultant": {
+          "name": "consultant",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "access_ends_at": {
+          "name": "access_ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "velyx_support": {
+          "name": "velyx_support",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "consultation_price_item_id": {
+          "name": "consultation_price_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "staff_user_email_lower_key": {
+          "name": "staff_user_email_lower_key",
+          "columns": [
+            {
+              "expression": "lower(\"email\")",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "staff_user_consultation_price_item_id_price_item_id_fk": {
+          "name": "staff_user_consultation_price_item_id_price_item_id_fk",
+          "tableFrom": "staff_user",
+          "columnsFrom": [
+            "consultation_price_item_id"
+          ],
+          "tableTo": "price_item",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "staff_user_auth_user_id_unique": {
+          "name": "staff_user_auth_user_id_unique",
+          "columns": [
+            "auth_user_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "staff_user_consultant_treats": {
+          "name": "staff_user_consultant_treats",
+          "value": "not \"staff_user\".\"consultant\" or \"staff_user\".\"treats_patients\""
+        },
+        "staff_user_physio_treats": {
+          "name": "staff_user_physio_treats",
+          "value": "\"staff_user\".\"role\" <> 'physiotherapist' or \"staff_user\".\"treats_patients\""
+        },
+        "staff_user_support_super_admin": {
+          "name": "staff_user_support_super_admin",
+          "value": "not \"staff_user\".\"velyx_support\" or (\"staff_user\".\"role\" = 'super_admin' and not \"staff_user\".\"treats_patients\")"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.staff_user_centre": {
+      "name": "staff_user_centre",
+      "schema": "",
+      "columns": {
+        "staff_user_id": {
+          "name": "staff_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "centre_id": {
+          "name": "centre_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "staff_user_centre_centre_id_idx": {
+          "name": "staff_user_centre_centre_id_idx",
+          "columns": [
+            {
+              "expression": "centre_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "staff_user_centre_staff_user_id_staff_user_id_fk": {
+          "name": "staff_user_centre_staff_user_id_staff_user_id_fk",
+          "tableFrom": "staff_user_centre",
+          "columnsFrom": [
+            "staff_user_id"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "staff_user_centre_centre_id_centre_id_fk": {
+          "name": "staff_user_centre_centre_id_centre_id_fk",
+          "tableFrom": "staff_user_centre",
+          "columnsFrom": [
+            "centre_id"
+          ],
+          "tableTo": "centre",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "staff_user_centre_staff_user_id_centre_id_pk": {
+          "name": "staff_user_centre_staff_user_id_centre_id_pk",
+          "columns": [
+            "staff_user_id",
+            "centre_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.centre_sequence": {
+      "name": "centre_sequence",
+      "schema": "",
+      "columns": {
+        "centre_id": {
+          "name": "centre_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "centre_sequence_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_value": {
+          "name": "last_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "centre_sequence_centre_id_centre_id_fk": {
+          "name": "centre_sequence_centre_id_centre_id_fk",
+          "tableFrom": "centre_sequence",
+          "columnsFrom": [
+            "centre_id"
+          ],
+          "tableTo": "centre",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "centre_sequence_centre_id_kind_pk": {
+          "name": "centre_sequence_centre_id_kind_pk",
+          "columns": [
+            "centre_id",
+            "kind"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "centre_sequence_positive": {
+          "name": "centre_sequence_positive",
+          "value": "\"centre_sequence\".\"last_value\" >= 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.guardian": {
+      "name": "guardian",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "relationship": {
+          "name": "relationship",
+          "type": "guardian_relationship",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "removed_at": {
+          "name": "removed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "guardian_patient_idx": {
+          "name": "guardian_patient_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "guardian_patient_id_patient_id_fk": {
+          "name": "guardian_patient_id_patient_id_fk",
+          "tableFrom": "guardian",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "tableTo": "patient",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "guardian_phone_e164": {
+          "name": "guardian_phone_e164",
+          "value": "\"guardian\".\"phone\" ~ '^\\+91[1-9][0-9]{9}$'"
+        },
+        "guardian_name_present": {
+          "name": "guardian_name_present",
+          "value": "btrim(\"guardian\".\"name\") <> ''"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.patient": {
+      "name": "patient",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date_of_birth": {
+          "name": "date_of_birth",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sex": {
+          "name": "sex",
+          "type": "patient_sex",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "occupation": {
+          "name": "occupation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "op_number": {
+          "name": "op_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "registered_centre_id": {
+          "name": "registered_centre_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "patient_phone_idx": {
+          "name": "patient_phone_idx",
+          "columns": [
+            {
+              "expression": "phone",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "patient_name_idx": {
+          "name": "patient_name_idx",
+          "columns": [
+            {
+              "expression": "lower(\"name\")",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "patient_registered_centre_id_centre_id_fk": {
+          "name": "patient_registered_centre_id_centre_id_fk",
+          "tableFrom": "patient",
+          "columnsFrom": [
+            "registered_centre_id"
+          ],
+          "tableTo": "centre",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "patient_op_number_unique": {
+          "name": "patient_op_number_unique",
+          "columns": [
+            "op_number"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "patient_phone_e164": {
+          "name": "patient_phone_e164",
+          "value": "\"patient\".\"phone\" ~ '^\\+91[1-9][0-9]{9}$'"
+        },
+        "patient_name_present": {
+          "name": "patient_name_present",
+          "value": "btrim(\"patient\".\"name\") <> ''"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.job": {
+      "name": "job",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "run_at": {
+          "name": "run_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "status": {
+          "name": "status",
+          "type": "job_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'queued'"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "claimed_at": {
+          "name": "claimed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "job_due_idx": {
+          "name": "job_due_idx",
+          "columns": [
+            {
+              "expression": "run_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "where": "\"job\".\"status\" = 'queued'",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "job_idempotency_key_unique": {
+          "name": "job_idempotency_key_unique",
+          "columns": [
+            "idempotency_key"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "job_attempts_not_negative": {
+          "name": "job_attempts_not_negative",
+          "value": "\"job\".\"attempts\" >= 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.task": {
+      "name": "task",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "priority": {
+          "name": "priority",
+          "type": "task_priority",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'normal'"
+        },
+        "status": {
+          "name": "status",
+          "type": "task_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'open'"
+        },
+        "assignee_role": {
+          "name": "assignee_role",
+          "type": "staff_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "assignee_staff_user_id": {
+          "name": "assignee_staff_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "taken_at": {
+          "name": "taken_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "centre_id": {
+          "name": "centre_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "episode_id": {
+          "name": "episode_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "due_at": {
+          "name": "due_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decision": {
+          "name": "decision",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closed_by": {
+          "name": "closed_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "task_open_role_idx": {
+          "name": "task_open_role_idx",
+          "columns": [
+            {
+              "expression": "assignee_role",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "where": "\"task\".\"status\" = 'open'",
+          "concurrently": false
+        },
+        "task_open_assignee_idx": {
+          "name": "task_open_assignee_idx",
+          "columns": [
+            {
+              "expression": "assignee_staff_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "where": "\"task\".\"status\" = 'open'",
+          "concurrently": false
+        },
+        "task_closed_at_idx": {
+          "name": "task_closed_at_idx",
+          "columns": [
+            {
+              "expression": "closed_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "task_open_appointment_idx": {
+          "name": "task_open_appointment_idx",
+          "columns": [
+            {
+              "expression": "(\"details\" ->> 'appointmentId')",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "where": "\"task\".\"status\" = 'open'",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "task_assignee_staff_user_id_staff_user_id_fk": {
+          "name": "task_assignee_staff_user_id_staff_user_id_fk",
+          "tableFrom": "task",
+          "columnsFrom": [
+            "assignee_staff_user_id"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "task_centre_id_centre_id_fk": {
+          "name": "task_centre_id_centre_id_fk",
+          "tableFrom": "task",
+          "columnsFrom": [
+            "centre_id"
+          ],
+          "tableTo": "centre",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "task_patient_id_patient_id_fk": {
+          "name": "task_patient_id_patient_id_fk",
+          "tableFrom": "task",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "tableTo": "patient",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "task_episode_id_episode_id_fk": {
+          "name": "task_episode_id_episode_id_fk",
+          "tableFrom": "task",
+          "columnsFrom": [
+            "episode_id"
+          ],
+          "tableTo": "episode",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "task_closed_by_staff_user_id_fk": {
+          "name": "task_closed_by_staff_user_id_fk",
+          "tableFrom": "task",
+          "columnsFrom": [
+            "closed_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "task_has_assignee": {
+          "name": "task_has_assignee",
+          "value": "\"task\".\"assignee_role\" is not null or \"task\".\"assignee_staff_user_id\" is not null"
+        },
+        "task_closed_with_decision": {
+          "name": "task_closed_with_decision",
+          "value": "\"task\".\"status\" <> 'closed' or (\"task\".\"decision\" is not null and \"task\".\"closed_at\" is not null)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.audit_event": {
+      "name": "audit_event",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "actor": {
+          "name": "actor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "audit_action",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity": {
+          "name": "entity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "before": {
+          "name": "before",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "after": {
+          "name": "after",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "at": {
+          "name": "at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "ip": {
+          "name": "ip",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "audit_event_entity_idx": {
+          "name": "audit_event_entity_idx",
+          "columns": [
+            {
+              "expression": "entity",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "entity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "audit_event_actor_idx": {
+          "name": "audit_event_actor_idx",
+          "columns": [
+            {
+              "expression": "actor",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "audit_event_actor_format": {
+          "name": "audit_event_actor_format",
+          "value": "\"audit_event\".\"actor\" ~ '^(staff|patient):[0-9a-f-]{36}$|^system:[a-z0-9._-]+$'"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.setting": {
+      "name": "setting",
+      "schema": "",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "setting_key_format": {
+          "name": "setting_key_format",
+          "value": "\"setting\".\"key\" ~ '^[a-z]+[.][a-z0-9_]+$'"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.support_grant": {
+      "name": "support_grant",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "granted_by": {
+          "name": "granted_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "support_grant_ends_at_idx": {
+          "name": "support_grant_ends_at_idx",
+          "columns": [
+            {
+              "expression": "ends_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "support_grant_granted_by_staff_user_id_fk": {
+          "name": "support_grant_granted_by_staff_user_id_fk",
+          "tableFrom": "support_grant",
+          "columnsFrom": [
+            "granted_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "support_grant_window": {
+          "name": "support_grant_window",
+          "value": "\"support_grant\".\"ends_at\" > \"support_grant\".\"starts_at\""
+        },
+        "support_grant_reason": {
+          "name": "support_grant_reason",
+          "value": "length(trim(\"support_grant\".\"reason\")) > 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.patient_link": {
+      "name": "patient_link",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "patient_link_purpose",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointment_id": {
+          "name": "appointment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "episode_id": {
+          "name": "episode_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "patient_link_patient_idx": {
+          "name": "patient_link_patient_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "purpose",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "patient_link_patient_id_patient_id_fk": {
+          "name": "patient_link_patient_id_patient_id_fk",
+          "tableFrom": "patient_link",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "tableTo": "patient",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "patient_link_one_subject": {
+          "name": "patient_link_one_subject",
+          "value": "num_nonnulls(\"patient_link\".\"appointment_id\", \"patient_link\".\"episode_id\") = 1"
+        },
+        "patient_link_subject_fits": {
+          "name": "patient_link_subject_fits",
+          "value": "(\"patient_link\".\"purpose\" <> 'health_form' or \"patient_link\".\"appointment_id\" is not null)\n        and (\"patient_link\".\"purpose\" not in ('questionnaire', 'my_plan') or \"patient_link\".\"episode_id\" is not null)"
+        },
+        "patient_link_window": {
+          "name": "patient_link_window",
+          "value": "\"patient_link\".\"expires_at\" > \"patient_link\".\"created_at\""
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.kiosk_device": {
+      "name": "kiosk_device",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "centre_id": {
+          "name": "centre_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "stopped_at": {
+          "name": "stopped_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stopped_by": {
+          "name": "stopped_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "current_link_id": {
+          "name": "current_link_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "current_since": {
+          "name": "current_since",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "kiosk_device_centre_idx": {
+          "name": "kiosk_device_centre_idx",
+          "columns": [
+            {
+              "expression": "centre_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "kiosk_device_centre_id_centre_id_fk": {
+          "name": "kiosk_device_centre_id_centre_id_fk",
+          "tableFrom": "kiosk_device",
+          "columnsFrom": [
+            "centre_id"
+          ],
+          "tableTo": "centre",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "kiosk_device_created_by_staff_user_id_fk": {
+          "name": "kiosk_device_created_by_staff_user_id_fk",
+          "tableFrom": "kiosk_device",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "kiosk_device_stopped_by_staff_user_id_fk": {
+          "name": "kiosk_device_stopped_by_staff_user_id_fk",
+          "tableFrom": "kiosk_device",
+          "columnsFrom": [
+            "stopped_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "kiosk_device_current_link_id_patient_link_id_fk": {
+          "name": "kiosk_device_current_link_id_patient_link_id_fk",
+          "tableFrom": "kiosk_device",
+          "columnsFrom": [
+            "current_link_id"
+          ],
+          "tableTo": "patient_link",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "kiosk_device_token_hash_unique": {
+          "name": "kiosk_device_token_hash_unique",
+          "columns": [
+            "token_hash"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "kiosk_device_name": {
+          "name": "kiosk_device_name",
+          "value": "length(trim(\"kiosk_device\".\"name\")) between 1 and 60"
+        },
+        "kiosk_device_token_hash": {
+          "name": "kiosk_device_token_hash",
+          "value": "\"kiosk_device\".\"token_hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "kiosk_device_stopped": {
+          "name": "kiosk_device_stopped",
+          "value": "(\"kiosk_device\".\"stopped_at\" is null) = (\"kiosk_device\".\"stopped_by\" is null)\n        and (\"kiosk_device\".\"stopped_at\" is null or \"kiosk_device\".\"current_link_id\" is null)"
+        },
+        "kiosk_device_current": {
+          "name": "kiosk_device_current",
+          "value": "(\"kiosk_device\".\"current_link_id\" is null) = (\"kiosk_device\".\"current_since\" is null)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.rate_limit": {
+      "name": "rate_limit",
+      "schema": "",
+      "columns": {
+        "bucket": {
+          "name": "bucket",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key_hash": {
+          "name": "key_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "window_start": {
+          "name": "window_start",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hits": {
+          "name": "hits",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "rate_limit_bucket_key_hash_window_start_pk": {
+          "name": "rate_limit_bucket_key_hash_window_start_pk",
+          "columns": [
+            "bucket",
+            "key_hash",
+            "window_start"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "rate_limit_key_hash": {
+          "name": "rate_limit_key_hash",
+          "value": "\"rate_limit\".\"key_hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "rate_limit_hits": {
+          "name": "rate_limit_hits",
+          "value": "\"rate_limit\".\"hits\" > 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.discount_preset": {
+      "name": "discount_preset",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "discount_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "percent": {
+          "name": "percent",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount_paise": {
+          "name": "amount_paise",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "discount_preset_name_lower_key": {
+          "name": "discount_preset_name_lower_key",
+          "columns": [
+            {
+              "expression": "lower(\"name\")",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "discount_preset_name": {
+          "name": "discount_preset_name",
+          "value": "length(trim(name)) between 1 and 60"
+        },
+        "discount_preset_amount": {
+          "name": "discount_preset_amount",
+          "value": "(\"discount_preset\".\"kind\" = 'percent' and \"discount_preset\".\"percent\" between 1 and 100 and \"discount_preset\".\"amount_paise\" is null)\n        or (\"discount_preset\".\"kind\" = 'flat' and \"discount_preset\".\"amount_paise\" > 0 and \"discount_preset\".\"percent\" is null)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.package_type": {
+      "name": "package_type",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sessions": {
+          "name": "sessions",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_paise": {
+          "name": "price_paise",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "package_type_name_lower_key": {
+          "name": "package_type_name_lower_key",
+          "columns": [
+            {
+              "expression": "lower(\"name\")",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "package_type_name": {
+          "name": "package_type_name",
+          "value": "length(trim(name)) between 1 and 60"
+        },
+        "package_type_sessions": {
+          "name": "package_type_sessions",
+          "value": "\"package_type\".\"sessions\" >= 1"
+        },
+        "package_type_price": {
+          "name": "package_type_price",
+          "value": "\"package_type\".\"price_paise\" > 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.package_type_item": {
+      "name": "package_type_item",
+      "schema": "",
+      "columns": {
+        "package_type_id": {
+          "name": "package_type_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_item_id": {
+          "name": "price_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "package_type_item_price_item_idx": {
+          "name": "package_type_item_price_item_idx",
+          "columns": [
+            {
+              "expression": "price_item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "package_type_item_package_type_id_package_type_id_fk": {
+          "name": "package_type_item_package_type_id_package_type_id_fk",
+          "tableFrom": "package_type_item",
+          "columnsFrom": [
+            "package_type_id"
+          ],
+          "tableTo": "package_type",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "package_type_item_price_item_id_price_item_id_fk": {
+          "name": "package_type_item_price_item_id_price_item_id_fk",
+          "tableFrom": "package_type_item",
+          "columnsFrom": [
+            "price_item_id"
+          ],
+          "tableTo": "price_item",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "package_type_item_package_type_id_price_item_id_pk": {
+          "name": "package_type_item_package_type_id_price_item_id_pk",
+          "columns": [
+            "package_type_id",
+            "price_item_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.price_item": {
+      "name": "price_item",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_paise": {
+          "name": "amount_paise",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "price_item_label_lower_key": {
+          "name": "price_item_label_lower_key",
+          "columns": [
+            {
+              "expression": "lower(\"label\")",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "price_item_key_unique": {
+          "name": "price_item_key_unique",
+          "columns": [
+            "key"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "price_item_key": {
+          "name": "price_item_key",
+          "value": "\"price_item\".\"key\" ~ '^[a-z][a-z0-9_]*$'"
+        },
+        "price_item_label": {
+          "name": "price_item_label",
+          "value": "length(trim(label)) between 1 and 60"
+        },
+        "price_item_amount": {
+          "name": "price_item_amount",
+          "value": "\"price_item\".\"amount_paise\" > 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.appointment_type": {
+      "name": "appointment_type",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "minutes": {
+          "name": "minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "needs_consultant": {
+          "name": "needs_consultant",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "machine": {
+          "name": "machine",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "appointment_type_name_lower_key": {
+          "name": "appointment_type_name_lower_key",
+          "columns": [
+            {
+              "expression": "lower(\"name\")",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "appointment_type_key_unique": {
+          "name": "appointment_type_key_unique",
+          "columns": [
+            "key"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "appointment_type_machine": {
+          "name": "appointment_type_machine",
+          "value": "\"appointment_type\".\"machine\" is null or \"appointment_type\".\"machine\" in ('zero_gravity_treadmill')"
+        },
+        "appointment_type_key": {
+          "name": "appointment_type_key",
+          "value": "\"appointment_type\".\"key\" ~ '^[a-z][a-z0-9_]*$'"
+        },
+        "appointment_type_name": {
+          "name": "appointment_type_name",
+          "value": "length(trim(\"appointment_type\".\"name\")) between 1 and 60"
+        },
+        "appointment_type_minutes": {
+          "name": "appointment_type_minutes",
+          "value": "\"appointment_type\".\"minutes\" > 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.physio_appointment_length": {
+      "name": "physio_appointment_length",
+      "schema": "",
+      "columns": {
+        "staff_user_id": {
+          "name": "staff_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointment_type_id": {
+          "name": "appointment_type_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "minutes": {
+          "name": "minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "physio_appointment_length_type_idx": {
+          "name": "physio_appointment_length_type_idx",
+          "columns": [
+            {
+              "expression": "appointment_type_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "physio_appointment_length_staff_user_id_staff_user_id_fk": {
+          "name": "physio_appointment_length_staff_user_id_staff_user_id_fk",
+          "tableFrom": "physio_appointment_length",
+          "columnsFrom": [
+            "staff_user_id"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "physio_appointment_length_appointment_type_id_appointment_type_id_fk": {
+          "name": "physio_appointment_length_appointment_type_id_appointment_type_id_fk",
+          "tableFrom": "physio_appointment_length",
+          "columnsFrom": [
+            "appointment_type_id"
+          ],
+          "tableTo": "appointment_type",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "physio_appointment_length_staff_user_id_appointment_type_id_pk": {
+          "name": "physio_appointment_length_staff_user_id_appointment_type_id_pk",
+          "columns": [
+            "staff_user_id",
+            "appointment_type_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "physio_appointment_length_minutes": {
+          "name": "physio_appointment_length_minutes",
+          "value": "\"physio_appointment_length\".\"minutes\" > 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.roster": {
+      "name": "roster",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "staff_user_id": {
+          "name": "staff_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "centre_id": {
+          "name": "centre_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_from": {
+          "name": "effective_from",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "weekly": {
+          "name": "weekly",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "roster_centre_idx": {
+          "name": "roster_centre_idx",
+          "columns": [
+            {
+              "expression": "centre_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "roster_staff_user_id_staff_user_id_fk": {
+          "name": "roster_staff_user_id_staff_user_id_fk",
+          "tableFrom": "roster",
+          "columnsFrom": [
+            "staff_user_id"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "roster_centre_id_centre_id_fk": {
+          "name": "roster_centre_id_centre_id_fk",
+          "tableFrom": "roster",
+          "columnsFrom": [
+            "centre_id"
+          ],
+          "tableTo": "centre",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "roster_created_by_staff_user_id_fk": {
+          "name": "roster_created_by_staff_user_id_fk",
+          "tableFrom": "roster",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "roster_version_key": {
+          "name": "roster_version_key",
+          "columns": [
+            "staff_user_id",
+            "centre_id",
+            "effective_from"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "roster_weekly_week": {
+          "name": "roster_weekly_week",
+          "value": "jsonb_typeof(\"roster\".\"weekly\") = 'array' and jsonb_array_length(\"roster\".\"weekly\") = 7"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.staff_leave": {
+      "name": "staff_leave",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "staff_user_id": {
+          "name": "staff_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "all_day": {
+          "name": "all_day",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "leave_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requested_by": {
+          "name": "requested_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "decided_by": {
+          "name": "decided_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decided_at": {
+          "name": "decided_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decline_reason": {
+          "name": "decline_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "staff_leave_staff_idx": {
+          "name": "staff_leave_staff_idx",
+          "columns": [
+            {
+              "expression": "staff_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "staff_leave_staff_user_id_staff_user_id_fk": {
+          "name": "staff_leave_staff_user_id_staff_user_id_fk",
+          "tableFrom": "staff_leave",
+          "columnsFrom": [
+            "staff_user_id"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "staff_leave_requested_by_staff_user_id_fk": {
+          "name": "staff_leave_requested_by_staff_user_id_fk",
+          "tableFrom": "staff_leave",
+          "columnsFrom": [
+            "requested_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "staff_leave_decided_by_staff_user_id_fk": {
+          "name": "staff_leave_decided_by_staff_user_id_fk",
+          "tableFrom": "staff_leave",
+          "columnsFrom": [
+            "decided_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "staff_leave_span": {
+          "name": "staff_leave_span",
+          "value": "\"staff_leave\".\"ends_at\" > \"staff_leave\".\"starts_at\""
+        },
+        "staff_leave_note": {
+          "name": "staff_leave_note",
+          "value": "\"staff_leave\".\"note\" is null or length(\"staff_leave\".\"note\") <= 200"
+        },
+        "staff_leave_decided": {
+          "name": "staff_leave_decided",
+          "value": "(\"staff_leave\".\"status\" <> 'requested' or \"staff_leave\".\"decided_by\" is null)\n        and (\"staff_leave\".\"status\" not in ('approved', 'declined') or \"staff_leave\".\"decided_by\" is not null)\n        and (\"staff_leave\".\"decided_by\" is null) = (\"staff_leave\".\"decided_at\" is null)"
+        },
+        "staff_leave_declined": {
+          "name": "staff_leave_declined",
+          "value": "(\"staff_leave\".\"status\" = 'declined') = (\"staff_leave\".\"decline_reason\" is not null)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.kb_condition": {
+      "name": "kb_condition",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "kb_version_id": {
+          "name": "kb_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "condition_id": {
+          "name": "condition_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "synonyms": {
+          "name": "synonyms",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "home_region": {
+          "name": "home_region",
+          "type": "kb_region",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "kb_condition_kb_version_id_kb_version_id_fk": {
+          "name": "kb_condition_kb_version_id_kb_version_id_fk",
+          "tableFrom": "kb_condition",
+          "columnsFrom": [
+            "kb_version_id"
+          ],
+          "tableTo": "kb_version",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "kb_condition_version_condition_key": {
+          "name": "kb_condition_version_condition_key",
+          "columns": [
+            "kb_version_id",
+            "condition_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "kb_condition_id": {
+          "name": "kb_condition_id",
+          "value": "\"kb_condition\".\"condition_id\" ~ '^[A-Z]{3}-[0-9]{3}$'"
+        },
+        "kb_condition_name": {
+          "name": "kb_condition_name",
+          "value": "length(trim(\"kb_condition\".\"name\")) >= 1"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.kb_condition_listing": {
+      "name": "kb_condition_listing",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "kb_version_id": {
+          "name": "kb_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "condition_id": {
+          "name": "condition_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "region": {
+          "name": "region",
+          "type": "kb_region",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "row_number": {
+          "name": "row_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subregion": {
+          "name": "subregion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "age_min": {
+          "name": "age_min",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "age_max": {
+          "name": "age_max",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "age_text": {
+          "name": "age_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "onsets": {
+          "name": "onsets",
+          "type": "kb_onset[]",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::kb_onset[]"
+        },
+        "onset_text": {
+          "name": "onset_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sex": {
+          "name": "sex",
+          "type": "kb_sex_predominance",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sex_text": {
+          "name": "sex_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "activity_tags": {
+          "name": "activity_tags",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "activity_text": {
+          "name": "activity_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "red_flag_tier": {
+          "name": "red_flag_tier",
+          "type": "kb_red_flag_tier",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "red_flag_text": {
+          "name": "red_flag_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "risk_class": {
+          "name": "risk_class",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "symptoms": {
+          "name": "symptoms",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discriminating_question": {
+          "name": "discriminating_question",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tests_imaging": {
+          "name": "tests_imaging",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "biomechanical_cause": {
+          "name": "biomechanical_cause",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "kb_condition_listing_condition_idx": {
+          "name": "kb_condition_listing_condition_idx",
+          "columns": [
+            {
+              "expression": "kb_version_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "condition_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "kb_condition_listing_kb_version_id_kb_version_id_fk": {
+          "name": "kb_condition_listing_kb_version_id_kb_version_id_fk",
+          "tableFrom": "kb_condition_listing",
+          "columnsFrom": [
+            "kb_version_id"
+          ],
+          "tableTo": "kb_version",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "kb_condition_listing_condition_fkey": {
+          "name": "kb_condition_listing_condition_fkey",
+          "tableFrom": "kb_condition_listing",
+          "columnsFrom": [
+            "kb_version_id",
+            "condition_id"
+          ],
+          "tableTo": "kb_condition",
+          "columnsTo": [
+            "kb_version_id",
+            "condition_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "kb_condition_listing_row_key": {
+          "name": "kb_condition_listing_row_key",
+          "columns": [
+            "kb_version_id",
+            "region",
+            "row_number"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "kb_condition_listing_age": {
+          "name": "kb_condition_listing_age",
+          "value": "\"kb_condition_listing\".\"age_min\" is null or \"kb_condition_listing\".\"age_max\" is null or \"kb_condition_listing\".\"age_min\" <= \"kb_condition_listing\".\"age_max\""
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.kb_red_flag_presentation": {
+      "name": "kb_red_flag_presentation",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "kb_version_id": {
+          "name": "kb_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "region": {
+          "name": "region",
+          "type": "kb_region",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "row_number": {
+          "name": "row_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "kb_red_flag_row_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "presentation": {
+          "name": "presentation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "features": {
+          "name": "features",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "why": {
+          "name": "why",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "kb_red_flag_presentation_kb_version_id_kb_version_id_fk": {
+          "name": "kb_red_flag_presentation_kb_version_id_kb_version_id_fk",
+          "tableFrom": "kb_red_flag_presentation",
+          "columnsFrom": [
+            "kb_version_id"
+          ],
+          "tableTo": "kb_version",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "kb_red_flag_presentation_row_key": {
+          "name": "kb_red_flag_presentation_row_key",
+          "columns": [
+            "kb_version_id",
+            "region",
+            "row_number"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "kb_red_flag_presentation_kind": {
+          "name": "kb_red_flag_presentation_kind",
+          "value": "\"kb_red_flag_presentation\".\"kind\" = 'screening_note' or (\"kb_red_flag_presentation\".\"features\" is not null and \"kb_red_flag_presentation\".\"action\" is not null)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.kb_red_flag_rule": {
+      "name": "kb_red_flag_rule",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "kb_version_id": {
+          "name": "kb_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rule_key": {
+          "name": "rule_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "regions": {
+          "name": "regions",
+          "type": "screening_region[]",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::screening_region[]"
+        },
+        "trigger": {
+          "name": "trigger",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "triage": {
+          "name": "triage",
+          "type": "red_flag_triage",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "signed_off": {
+          "name": "signed_off",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "kb_red_flag_rule_kb_version_id_kb_version_id_fk": {
+          "name": "kb_red_flag_rule_kb_version_id_kb_version_id_fk",
+          "tableFrom": "kb_red_flag_rule",
+          "columnsFrom": [
+            "kb_version_id"
+          ],
+          "tableTo": "kb_version",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "kb_red_flag_rule_version_key": {
+          "name": "kb_red_flag_rule_version_key",
+          "columns": [
+            "kb_version_id",
+            "rule_key"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "kb_red_flag_rule_key": {
+          "name": "kb_red_flag_rule_key",
+          "value": "\"kb_red_flag_rule\".\"rule_key\" ~ '^[a-z][a-z0-9_.]*$'"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.kb_version": {
+      "name": "kb_version",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "number": {
+          "name": "number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "kb_version_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "report": {
+          "name": "report",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "approved_by": {
+          "name": "approved_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approved_at": {
+          "name": "approved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "kb_version_approved_by_staff_user_id_fk": {
+          "name": "kb_version_approved_by_staff_user_id_fk",
+          "tableFrom": "kb_version",
+          "columnsFrom": [
+            "approved_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "kb_version_number_unique": {
+          "name": "kb_version_number_unique",
+          "columns": [
+            "number"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "kb_version_number": {
+          "name": "kb_version_number",
+          "value": "\"kb_version\".\"number\" >= 1"
+        },
+        "kb_version_approved": {
+          "name": "kb_version_approved",
+          "value": "(\"kb_version\".\"status\" = 'approved') = (\"kb_version\".\"approved_by\" is not null and \"kb_version\".\"approved_at\" is not null)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.episode": {
+      "name": "episode",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "centre_id": {
+          "name": "centre_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "body_region": {
+          "name": "body_region",
+          "type": "screening_region",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "episode_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'intake_pending'"
+        },
+        "paused_from": {
+          "name": "paused_from",
+          "type": "episode_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "opened_at": {
+          "name": "opened_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discharge_reason": {
+          "name": "discharge_reason",
+          "type": "discharge_reason",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discharge_note": {
+          "name": "discharge_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "linked_episode_id": {
+          "name": "linked_episode_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "episode_patient_idx": {
+          "name": "episode_patient_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "episode_centre_status_idx": {
+          "name": "episode_centre_status_idx",
+          "columns": [
+            {
+              "expression": "centre_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "episode_patient_id_patient_id_fk": {
+          "name": "episode_patient_id_patient_id_fk",
+          "tableFrom": "episode",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "tableTo": "patient",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "episode_centre_id_centre_id_fk": {
+          "name": "episode_centre_id_centre_id_fk",
+          "tableFrom": "episode",
+          "columnsFrom": [
+            "centre_id"
+          ],
+          "tableTo": "centre",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "episode_linked_episode_id_episode_id_fk": {
+          "name": "episode_linked_episode_id_episode_id_fk",
+          "tableFrom": "episode",
+          "columnsFrom": [
+            "linked_episode_id"
+          ],
+          "tableTo": "episode",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "episode_discharged_closed": {
+          "name": "episode_discharged_closed",
+          "value": "(\"episode\".\"status\" = 'discharged') = (\"episode\".\"closed_at\" is not null and \"episode\".\"discharge_reason\" is not null)"
+        },
+        "episode_other_note": {
+          "name": "episode_other_note",
+          "value": "\"episode\".\"discharge_reason\" is distinct from 'other' or btrim(coalesce(\"episode\".\"discharge_note\", '')) <> ''"
+        },
+        "episode_paused_from": {
+          "name": "episode_paused_from",
+          "value": "(\"episode\".\"status\" in ('on_hold', 'lost_to_follow_up')) = (\"episode\".\"paused_from\" is not null)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.appointment": {
+      "name": "appointment",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "number": {
+          "name": "number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "centre_id": {
+          "name": "centre_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "physio_id": {
+          "name": "physio_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointment_type_id": {
+          "name": "appointment_type_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "episode_id": {
+          "name": "episode_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "appointment_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'booked'"
+        },
+        "channel": {
+          "name": "channel",
+          "type": "booking_channel",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "booked_by": {
+          "name": "booked_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "machine": {
+          "name": "machine",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "machine_unit": {
+          "name": "machine_unit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "confirmed_at": {
+          "name": "confirmed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_reason": {
+          "name": "change_reason",
+          "type": "appointment_change_reason",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "changed_at": {
+          "name": "changed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "changed_by": {
+          "name": "changed_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rescheduled_from_id": {
+          "name": "rescheduled_from_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "arrived_at": {
+          "name": "arrived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checked_in_by": {
+          "name": "checked_in_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "no_show_at": {
+          "name": "no_show_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "no_show_by": {
+          "name": "no_show_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_by": {
+          "name": "started_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "appointment_centre_physio_start_idx": {
+          "name": "appointment_centre_physio_start_idx",
+          "columns": [
+            {
+              "expression": "centre_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "physio_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "appointment_patient_start_idx": {
+          "name": "appointment_patient_start_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "appointment_patient_id_patient_id_fk": {
+          "name": "appointment_patient_id_patient_id_fk",
+          "tableFrom": "appointment",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "tableTo": "patient",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "appointment_centre_id_centre_id_fk": {
+          "name": "appointment_centre_id_centre_id_fk",
+          "tableFrom": "appointment",
+          "columnsFrom": [
+            "centre_id"
+          ],
+          "tableTo": "centre",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "appointment_physio_id_staff_user_id_fk": {
+          "name": "appointment_physio_id_staff_user_id_fk",
+          "tableFrom": "appointment",
+          "columnsFrom": [
+            "physio_id"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "appointment_appointment_type_id_appointment_type_id_fk": {
+          "name": "appointment_appointment_type_id_appointment_type_id_fk",
+          "tableFrom": "appointment",
+          "columnsFrom": [
+            "appointment_type_id"
+          ],
+          "tableTo": "appointment_type",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "appointment_episode_id_episode_id_fk": {
+          "name": "appointment_episode_id_episode_id_fk",
+          "tableFrom": "appointment",
+          "columnsFrom": [
+            "episode_id"
+          ],
+          "tableTo": "episode",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "appointment_booked_by_staff_user_id_fk": {
+          "name": "appointment_booked_by_staff_user_id_fk",
+          "tableFrom": "appointment",
+          "columnsFrom": [
+            "booked_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "appointment_changed_by_staff_user_id_fk": {
+          "name": "appointment_changed_by_staff_user_id_fk",
+          "tableFrom": "appointment",
+          "columnsFrom": [
+            "changed_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "appointment_rescheduled_from_id_appointment_id_fk": {
+          "name": "appointment_rescheduled_from_id_appointment_id_fk",
+          "tableFrom": "appointment",
+          "columnsFrom": [
+            "rescheduled_from_id"
+          ],
+          "tableTo": "appointment",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "appointment_checked_in_by_staff_user_id_fk": {
+          "name": "appointment_checked_in_by_staff_user_id_fk",
+          "tableFrom": "appointment",
+          "columnsFrom": [
+            "checked_in_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "appointment_no_show_by_staff_user_id_fk": {
+          "name": "appointment_no_show_by_staff_user_id_fk",
+          "tableFrom": "appointment",
+          "columnsFrom": [
+            "no_show_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "appointment_started_by_staff_user_id_fk": {
+          "name": "appointment_started_by_staff_user_id_fk",
+          "tableFrom": "appointment",
+          "columnsFrom": [
+            "started_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "appointment_number_unique": {
+          "name": "appointment_number_unique",
+          "columns": [
+            "number"
+          ],
+          "nullsNotDistinct": false
+        },
+        "appointment_rescheduled_from_id_unique": {
+          "name": "appointment_rescheduled_from_id_unique",
+          "columns": [
+            "rescheduled_from_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "appointment_span": {
+          "name": "appointment_span",
+          "value": "\"appointment\".\"ends_at\" > \"appointment\".\"starts_at\""
+        },
+        "appointment_staff_booked_by": {
+          "name": "appointment_staff_booked_by",
+          "value": "\"appointment\".\"channel\" = 'whatsapp' or \"appointment\".\"booked_by\" is not null"
+        },
+        "appointment_machine": {
+          "name": "appointment_machine",
+          "value": "\"appointment\".\"machine\" is null or \"appointment\".\"machine\" in ('zero_gravity_treadmill')"
+        },
+        "appointment_change": {
+          "name": "appointment_change",
+          "value": "(\"appointment\".\"status\" in ('cancelled', 'rescheduled')) = (\"appointment\".\"change_reason\" is not null and \"appointment\".\"changed_at\" is not null and \"appointment\".\"changed_by\" is not null) and (\"appointment\".\"change_reason\" is null) = (\"appointment\".\"changed_at\" is null) and (\"appointment\".\"change_reason\" is null) = (\"appointment\".\"changed_by\" is null)"
+        },
+        "appointment_arrived": {
+          "name": "appointment_arrived",
+          "value": "(\"appointment\".\"status\" <> 'checked_in' or \"appointment\".\"arrived_at\" is not null) and (\"appointment\".\"arrived_at\" is null) = (\"appointment\".\"checked_in_by\" is null)"
+        },
+        "appointment_no_show": {
+          "name": "appointment_no_show",
+          "value": "(\"appointment\".\"status\" = 'no_show') = (\"appointment\".\"no_show_at\" is not null) and (\"appointment\".\"no_show_at\" is null) = (\"appointment\".\"no_show_by\" is null)"
+        },
+        "appointment_started": {
+          "name": "appointment_started",
+          "value": "(\"appointment\".\"status\" <> 'in_progress' or \"appointment\".\"started_at\" is not null) and (\"appointment\".\"started_at\" is null) = (\"appointment\".\"started_by\" is null)"
+        },
+        "appointment_machine_unit": {
+          "name": "appointment_machine_unit",
+          "value": "(\"appointment\".\"machine\" is null) = (\"appointment\".\"machine_unit\" is null) and (\"appointment\".\"machine_unit\" is null or \"appointment\".\"machine_unit\" >= 1)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.booking_counter": {
+      "name": "booking_counter",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reschedules": {
+          "name": "reschedules",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "no_shows": {
+          "name": "no_shows",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "lifted_at": {
+          "name": "lifted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lifted_by": {
+          "name": "lifted_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "booking_counter_patient_id_patient_id_fk": {
+          "name": "booking_counter_patient_id_patient_id_fk",
+          "tableFrom": "booking_counter",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "tableTo": "patient",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "booking_counter_lifted_by_staff_user_id_fk": {
+          "name": "booking_counter_lifted_by_staff_user_id_fk",
+          "tableFrom": "booking_counter",
+          "columnsFrom": [
+            "lifted_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "booking_counter_patient_id_unique": {
+          "name": "booking_counter_patient_id_unique",
+          "columns": [
+            "patient_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "booking_counter_counts": {
+          "name": "booking_counter_counts",
+          "value": "\"booking_counter\".\"reschedules\" >= 0 and \"booking_counter\".\"no_shows\" >= 0"
+        },
+        "booking_counter_lifted": {
+          "name": "booking_counter_lifted",
+          "value": "(\"booking_counter\".\"lifted_at\" is null) = (\"booking_counter\".\"lifted_by\" is null)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.slot_hold": {
+      "name": "slot_hold",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "holder": {
+          "name": "holder",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "centre_id": {
+          "name": "centre_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "physio_id": {
+          "name": "physio_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointment_type_id": {
+          "name": "appointment_type_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "machine": {
+          "name": "machine",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "machine_unit": {
+          "name": "machine_unit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "slot_hold_physio_start_idx": {
+          "name": "slot_hold_physio_start_idx",
+          "columns": [
+            {
+              "expression": "physio_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "slot_hold_expires_idx": {
+          "name": "slot_hold_expires_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "slot_hold_centre_id_centre_id_fk": {
+          "name": "slot_hold_centre_id_centre_id_fk",
+          "tableFrom": "slot_hold",
+          "columnsFrom": [
+            "centre_id"
+          ],
+          "tableTo": "centre",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "slot_hold_physio_id_staff_user_id_fk": {
+          "name": "slot_hold_physio_id_staff_user_id_fk",
+          "tableFrom": "slot_hold",
+          "columnsFrom": [
+            "physio_id"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "slot_hold_appointment_type_id_appointment_type_id_fk": {
+          "name": "slot_hold_appointment_type_id_appointment_type_id_fk",
+          "tableFrom": "slot_hold",
+          "columnsFrom": [
+            "appointment_type_id"
+          ],
+          "tableTo": "appointment_type",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "slot_hold_holder_unique": {
+          "name": "slot_hold_holder_unique",
+          "columns": [
+            "holder"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "slot_hold_span": {
+          "name": "slot_hold_span",
+          "value": "\"slot_hold\".\"ends_at\" > \"slot_hold\".\"starts_at\""
+        },
+        "slot_hold_machine": {
+          "name": "slot_hold_machine",
+          "value": "\"slot_hold\".\"machine\" is null or \"slot_hold\".\"machine\" in ('zero_gravity_treadmill')"
+        },
+        "slot_hold_machine_unit": {
+          "name": "slot_hold_machine_unit",
+          "value": "(\"slot_hold\".\"machine\" is null) = (\"slot_hold\".\"machine_unit\" is null) and (\"slot_hold\".\"machine_unit\" is null or \"slot_hold\".\"machine_unit\" >= 1)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.patient_report": {
+      "name": "patient_report",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointment_id": {
+          "name": "appointment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "file_path": {
+          "name": "file_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_type": {
+          "name": "content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "uploaded_by": {
+          "name": "uploaded_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "patient_link_id": {
+          "name": "patient_link_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "patient_report_patient_idx": {
+          "name": "patient_report_patient_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "patient_report_patient_id_patient_id_fk": {
+          "name": "patient_report_patient_id_patient_id_fk",
+          "tableFrom": "patient_report",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "tableTo": "patient",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "patient_report_appointment_id_appointment_id_fk": {
+          "name": "patient_report_appointment_id_appointment_id_fk",
+          "tableFrom": "patient_report",
+          "columnsFrom": [
+            "appointment_id"
+          ],
+          "tableTo": "appointment",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "patient_report_uploaded_by_staff_user_id_fk": {
+          "name": "patient_report_uploaded_by_staff_user_id_fk",
+          "tableFrom": "patient_report",
+          "columnsFrom": [
+            "uploaded_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "patient_report_patient_link_id_patient_link_id_fk": {
+          "name": "patient_report_patient_link_id_patient_link_id_fk",
+          "tableFrom": "patient_report",
+          "columnsFrom": [
+            "patient_link_id"
+          ],
+          "tableTo": "patient_link",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "patient_report_file_path_unique": {
+          "name": "patient_report_file_path_unique",
+          "columns": [
+            "file_path"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "patient_report_content_type": {
+          "name": "patient_report_content_type",
+          "value": "\"patient_report\".\"content_type\" in ('image/jpeg', 'image/png', 'application/pdf')"
+        },
+        "patient_report_size": {
+          "name": "patient_report_size",
+          "value": "\"patient_report\".\"size_bytes\" > 0"
+        },
+        "patient_report_uploader": {
+          "name": "patient_report_uploader",
+          "value": "(\"patient_report\".\"uploaded_by\" is null) <> (\"patient_report\".\"patient_link_id\" is null)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.intake_response": {
+      "name": "intake_response",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "appointment_id": {
+          "name": "appointment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patient_link_id": {
+          "name": "patient_link_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "form_version": {
+          "name": "form_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "answers": {
+          "name": "answers",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "done_screens": {
+          "name": "done_screens",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "episode_id": {
+          "name": "episode_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "assisted_by": {
+          "name": "assisted_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "intake_response_appointment_id_appointment_id_fk": {
+          "name": "intake_response_appointment_id_appointment_id_fk",
+          "tableFrom": "intake_response",
+          "columnsFrom": [
+            "appointment_id"
+          ],
+          "tableTo": "appointment",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "intake_response_patient_id_patient_id_fk": {
+          "name": "intake_response_patient_id_patient_id_fk",
+          "tableFrom": "intake_response",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "tableTo": "patient",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "intake_response_episode_id_episode_id_fk": {
+          "name": "intake_response_episode_id_episode_id_fk",
+          "tableFrom": "intake_response",
+          "columnsFrom": [
+            "episode_id"
+          ],
+          "tableTo": "episode",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "intake_response_assisted_by_staff_user_id_fk": {
+          "name": "intake_response_assisted_by_staff_user_id_fk",
+          "tableFrom": "intake_response",
+          "columnsFrom": [
+            "assisted_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "intake_response_appointment_id_unique": {
+          "name": "intake_response_appointment_id_unique",
+          "columns": [
+            "appointment_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.consent_record": {
+      "name": "consent_record",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointment_id": {
+          "name": "appointment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "episode_id": {
+          "name": "episode_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "patient_link_id": {
+          "name": "patient_link_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stage": {
+          "name": "stage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "statement_key": {
+          "name": "statement_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "statement_version": {
+          "name": "statement_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "accepted": {
+          "name": "accepted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "signed_at": {
+          "name": "signed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "signature_kind": {
+          "name": "signature_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "signature_file": {
+          "name": "signature_file",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "typed_name": {
+          "name": "typed_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "signer": {
+          "name": "signer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "guardian_id": {
+          "name": "guardian_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "modality": {
+          "name": "modality",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "consent_record_appointment_idx": {
+          "name": "consent_record_appointment_idx",
+          "columns": [
+            {
+              "expression": "appointment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "statement_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "consent_record_patient_id_patient_id_fk": {
+          "name": "consent_record_patient_id_patient_id_fk",
+          "tableFrom": "consent_record",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "tableTo": "patient",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "consent_record_appointment_id_appointment_id_fk": {
+          "name": "consent_record_appointment_id_appointment_id_fk",
+          "tableFrom": "consent_record",
+          "columnsFrom": [
+            "appointment_id"
+          ],
+          "tableTo": "appointment",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "consent_record_episode_id_episode_id_fk": {
+          "name": "consent_record_episode_id_episode_id_fk",
+          "tableFrom": "consent_record",
+          "columnsFrom": [
+            "episode_id"
+          ],
+          "tableTo": "episode",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "consent_record_guardian_id_guardian_id_fk": {
+          "name": "consent_record_guardian_id_guardian_id_fk",
+          "tableFrom": "consent_record",
+          "columnsFrom": [
+            "guardian_id"
+          ],
+          "tableTo": "guardian",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "consent_record_stage": {
+          "name": "consent_record_stage",
+          "value": "\"consent_record\".\"stage\" in ('A', 'B')"
+        },
+        "consent_record_signer": {
+          "name": "consent_record_signer",
+          "value": "\"consent_record\".\"signer\" in ('patient', 'guardian')"
+        },
+        "consent_record_guardian": {
+          "name": "consent_record_guardian",
+          "value": "(\"consent_record\".\"signer\" = 'guardian') = (\"consent_record\".\"guardian_id\" is not null)"
+        },
+        "consent_record_signature": {
+          "name": "consent_record_signature",
+          "value": "case when \"consent_record\".\"accepted\" then\n        (\"consent_record\".\"signature_kind\" = 'drawn' and \"consent_record\".\"signature_file\" is not null and \"consent_record\".\"typed_name\" is null)\n        or (\"consent_record\".\"signature_kind\" = 'typed' and \"consent_record\".\"typed_name\" is not null and \"consent_record\".\"signature_file\" is null)\n      else \"consent_record\".\"signature_kind\" is null and \"consent_record\".\"signature_file\" is null and \"consent_record\".\"typed_name\" is null end"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.notification": {
+      "name": "notification",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "staff_user_id": {
+          "name": "staff_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "notification_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointment_id": {
+          "name": "appointment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "episode_id": {
+          "name": "episode_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "notification_staff_idx": {
+          "name": "notification_staff_idx",
+          "columns": [
+            {
+              "expression": "staff_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "notification_staff_user_id_staff_user_id_fk": {
+          "name": "notification_staff_user_id_staff_user_id_fk",
+          "tableFrom": "notification",
+          "columnsFrom": [
+            "staff_user_id"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "notification_appointment_id_appointment_id_fk": {
+          "name": "notification_appointment_id_appointment_id_fk",
+          "tableFrom": "notification",
+          "columnsFrom": [
+            "appointment_id"
+          ],
+          "tableTo": "appointment",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "notification_episode_id_episode_id_fk": {
+          "name": "notification_episode_id_episode_id_fk",
+          "tableFrom": "notification",
+          "columnsFrom": [
+            "episode_id"
+          ],
+          "tableTo": "episode",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "notification_once": {
+          "name": "notification_once",
+          "columns": [
+            "staff_user_id",
+            "kind",
+            "appointment_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.precaution": {
+      "name": "precaution",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "episode_id": {
+          "name": "episode_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "intake_response_id": {
+          "name": "intake_response_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "form_version": {
+          "name": "form_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "precaution_episode_id_episode_id_fk": {
+          "name": "precaution_episode_id_episode_id_fk",
+          "tableFrom": "precaution",
+          "columnsFrom": [
+            "episode_id"
+          ],
+          "tableTo": "episode",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "precaution_intake_response_id_intake_response_id_fk": {
+          "name": "precaution_intake_response_id_intake_response_id_fk",
+          "tableFrom": "precaution",
+          "columnsFrom": [
+            "intake_response_id"
+          ],
+          "tableTo": "intake_response",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "precaution_episode_key": {
+          "name": "precaution_episode_key",
+          "columns": [
+            "episode_id",
+            "key"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "precaution_source": {
+          "name": "precaution_source",
+          "value": "\"precaution\".\"source\" in ('health_form')"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.red_flag_alert": {
+      "name": "red_flag_alert",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "episode_id": {
+          "name": "episode_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointment_id": {
+          "name": "appointment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kb_version_id": {
+          "name": "kb_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rule_key": {
+          "name": "rule_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "triage": {
+          "name": "triage",
+          "type": "red_flag_triage",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display": {
+          "name": "display",
+          "type": "alert_display",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "signed_off": {
+          "name": "signed_off",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "red_flag_alert_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'raised'"
+        },
+        "raised_at": {
+          "name": "raised_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "reviewed_by": {
+          "name": "reviewed_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewed_at": {
+          "name": "reviewed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "referred_to": {
+          "name": "referred_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "referred_by": {
+          "name": "referred_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "referred_at": {
+          "name": "referred_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decision": {
+          "name": "decision",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closed_by": {
+          "name": "closed_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "red_flag_alert_episode_idx": {
+          "name": "red_flag_alert_episode_idx",
+          "columns": [
+            {
+              "expression": "episode_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "red_flag_alert_status_idx": {
+          "name": "red_flag_alert_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "display",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "red_flag_alert_episode_id_episode_id_fk": {
+          "name": "red_flag_alert_episode_id_episode_id_fk",
+          "tableFrom": "red_flag_alert",
+          "columnsFrom": [
+            "episode_id"
+          ],
+          "tableTo": "episode",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "red_flag_alert_appointment_id_appointment_id_fk": {
+          "name": "red_flag_alert_appointment_id_appointment_id_fk",
+          "tableFrom": "red_flag_alert",
+          "columnsFrom": [
+            "appointment_id"
+          ],
+          "tableTo": "appointment",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "red_flag_alert_kb_version_id_kb_version_id_fk": {
+          "name": "red_flag_alert_kb_version_id_kb_version_id_fk",
+          "tableFrom": "red_flag_alert",
+          "columnsFrom": [
+            "kb_version_id"
+          ],
+          "tableTo": "kb_version",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "red_flag_alert_reviewed_by_staff_user_id_fk": {
+          "name": "red_flag_alert_reviewed_by_staff_user_id_fk",
+          "tableFrom": "red_flag_alert",
+          "columnsFrom": [
+            "reviewed_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "red_flag_alert_referred_by_staff_user_id_fk": {
+          "name": "red_flag_alert_referred_by_staff_user_id_fk",
+          "tableFrom": "red_flag_alert",
+          "columnsFrom": [
+            "referred_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "red_flag_alert_closed_by_staff_user_id_fk": {
+          "name": "red_flag_alert_closed_by_staff_user_id_fk",
+          "tableFrom": "red_flag_alert",
+          "columnsFrom": [
+            "closed_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "red_flag_alert_episode_rule": {
+          "name": "red_flag_alert_episode_rule",
+          "columns": [
+            "episode_id",
+            "rule_key"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.consultation": {
+      "name": "consultation",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "appointment_id": {
+          "name": "appointment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "episode_id": {
+          "name": "episode_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "physio_id": {
+          "name": "physio_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kb_version_id": {
+          "name": "kb_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sections": {
+          "name": "sections",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "status": {
+          "name": "status",
+          "type": "consultation_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "signed_by": {
+          "name": "signed_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "signed_at": {
+          "name": "signed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "consultation_appointment_id_appointment_id_fk": {
+          "name": "consultation_appointment_id_appointment_id_fk",
+          "tableFrom": "consultation",
+          "columnsFrom": [
+            "appointment_id"
+          ],
+          "tableTo": "appointment",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "consultation_episode_id_episode_id_fk": {
+          "name": "consultation_episode_id_episode_id_fk",
+          "tableFrom": "consultation",
+          "columnsFrom": [
+            "episode_id"
+          ],
+          "tableTo": "episode",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "consultation_physio_id_staff_user_id_fk": {
+          "name": "consultation_physio_id_staff_user_id_fk",
+          "tableFrom": "consultation",
+          "columnsFrom": [
+            "physio_id"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "consultation_kb_version_id_kb_version_id_fk": {
+          "name": "consultation_kb_version_id_kb_version_id_fk",
+          "tableFrom": "consultation",
+          "columnsFrom": [
+            "kb_version_id"
+          ],
+          "tableTo": "kb_version",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "consultation_signed_by_staff_user_id_fk": {
+          "name": "consultation_signed_by_staff_user_id_fk",
+          "tableFrom": "consultation",
+          "columnsFrom": [
+            "signed_by"
+          ],
+          "tableTo": "staff_user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "consultation_appointment_id_unique": {
+          "name": "consultation_appointment_id_unique",
+          "columns": [
+            "appointment_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "consultation_signed": {
+          "name": "consultation_signed",
+          "value": "(\"consultation\".\"status\" = 'signed') = (\"consultation\".\"signed_at\" is not null) and (\"consultation\".\"signed_at\" is null) = (\"consultation\".\"signed_by\" is null)"
+        }
+      },
+      "isRLSEnabled": true
+    }
+  },
+  "enums": {
+    "public.staff_role": {
+      "name": "staff_role",
+      "schema": "public",
+      "values": [
+        "super_admin",
+        "centre_manager",
+        "front_desk",
+        "physiotherapist",
+        "finance"
+      ]
+    },
+    "public.centre_sequence_kind": {
+      "name": "centre_sequence_kind",
+      "schema": "public",
+      "values": [
+        "op_number",
+        "appointment"
+      ]
+    },
+    "public.guardian_relationship": {
+      "name": "guardian_relationship",
+      "schema": "public",
+      "values": [
+        "mother",
+        "father",
+        "legal_guardian",
+        "other_relative"
+      ]
+    },
+    "public.patient_sex": {
+      "name": "patient_sex",
+      "schema": "public",
+      "values": [
+        "female",
+        "male",
+        "other"
+      ]
+    },
+    "public.job_status": {
+      "name": "job_status",
+      "schema": "public",
+      "values": [
+        "queued",
+        "running",
+        "done",
+        "failed"
+      ]
+    },
+    "public.task_priority": {
+      "name": "task_priority",
+      "schema": "public",
+      "values": [
+        "urgent",
+        "high",
+        "normal"
+      ]
+    },
+    "public.task_status": {
+      "name": "task_status",
+      "schema": "public",
+      "values": [
+        "open",
+        "closed"
+      ]
+    },
+    "public.audit_action": {
+      "name": "audit_action",
+      "schema": "public",
+      "values": [
+        "insert",
+        "update",
+        "delete",
+        "view",
+        "sign_in",
+        "sign_out",
+        "password_change",
+        "two_step_on",
+        "two_step_reset",
+        "staff_invited",
+        "invite_link_created",
+        "support_request"
+      ]
+    },
+    "public.patient_link_purpose": {
+      "name": "patient_link_purpose",
+      "schema": "public",
+      "values": [
+        "health_form",
+        "consent",
+        "questionnaire",
+        "feedback",
+        "my_plan"
+      ]
+    },
+    "public.discount_kind": {
+      "name": "discount_kind",
+      "schema": "public",
+      "values": [
+        "percent",
+        "flat"
+      ]
+    },
+    "public.leave_status": {
+      "name": "leave_status",
+      "schema": "public",
+      "values": [
+        "requested",
+        "approved",
+        "declined",
+        "cancelled"
+      ]
+    },
+    "public.kb_onset": {
+      "name": "kb_onset",
+      "schema": "public",
+      "values": [
+        "sudden",
+        "gradual",
+        "recurrent",
+        "subacute"
+      ]
+    },
+    "public.kb_red_flag_row_kind": {
+      "name": "kb_red_flag_row_kind",
+      "schema": "public",
+      "values": [
+        "presentation",
+        "screening_note"
+      ]
+    },
+    "public.kb_red_flag_tier": {
+      "name": "kb_red_flag_tier",
+      "schema": "public",
+      "values": [
+        "none",
+        "screen",
+        "conditional",
+        "red_flag",
+        "not_stated"
+      ]
+    },
+    "public.kb_region": {
+      "name": "kb_region",
+      "schema": "public",
+      "values": [
+        "shoulder",
+        "elbow",
+        "forearm_wrist",
+        "hip",
+        "knee",
+        "foot_ankle",
+        "cervical",
+        "lumbar_sij",
+        "bone_stress"
+      ]
+    },
+    "public.kb_sex_predominance": {
+      "name": "kb_sex_predominance",
+      "schema": "public",
+      "values": [
+        "male",
+        "female",
+        "equal"
+      ]
+    },
+    "public.kb_version_status": {
+      "name": "kb_version_status",
+      "schema": "public",
+      "values": [
+        "draft",
+        "approved"
+      ]
+    },
+    "public.red_flag_triage": {
+      "name": "red_flag_triage",
+      "schema": "public",
+      "values": [
+        "immediate_emergency",
+        "urgent_medical_referral",
+        "urgent_imaging",
+        "specialist_referral",
+        "monitor_with_caution"
+      ]
+    },
+    "public.screening_region": {
+      "name": "screening_region",
+      "schema": "public",
+      "values": [
+        "back",
+        "neck",
+        "shoulder",
+        "elbow",
+        "wrist_hand",
+        "hip",
+        "knee",
+        "foot_ankle"
+      ]
+    },
+    "public.discharge_reason": {
+      "name": "discharge_reason",
+      "schema": "public",
+      "values": [
+        "goals_achieved",
+        "independent_management",
+        "referred_on",
+        "patient_choice",
+        "financial_or_logistical",
+        "lost_to_follow_up",
+        "other"
+      ]
+    },
+    "public.episode_status": {
+      "name": "episode_status",
+      "schema": "public",
+      "values": [
+        "intake_pending",
+        "awaiting_consultation",
+        "on_hold",
+        "plan_proposed",
+        "active",
+        "under_review",
+        "discharged",
+        "lost_to_follow_up"
+      ]
+    },
+    "public.appointment_change_reason": {
+      "name": "appointment_change_reason",
+      "schema": "public",
+      "values": [
+        "patient",
+        "clinic"
+      ]
+    },
+    "public.appointment_status": {
+      "name": "appointment_status",
+      "schema": "public",
+      "values": [
+        "booked",
+        "confirmed",
+        "checked_in",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "rescheduled",
+        "no_show"
+      ]
+    },
+    "public.booking_channel": {
+      "name": "booking_channel",
+      "schema": "public",
+      "values": [
+        "whatsapp",
+        "front_desk",
+        "walk_in"
+      ]
+    },
+    "public.alert_display": {
+      "name": "alert_display",
+      "schema": "public",
+      "values": [
+        "emergency",
+        "review",
+        "information"
+      ]
+    },
+    "public.notification_kind": {
+      "name": "notification_kind",
+      "schema": "public",
+      "values": [
+        "health_form_submitted",
+        "red_flag_emergency"
+      ]
+    },
+    "public.red_flag_alert_status": {
+      "name": "red_flag_alert_status",
+      "schema": "public",
+      "values": [
+        "raised",
+        "reviewed",
+        "referred",
+        "closed"
+      ]
+    },
+    "public.consultation_status": {
+      "name": "consultation_status",
+      "schema": "public",
+      "values": [
+        "draft",
+        "signed"
+      ]
+    }
+  },
+  "schemas": {},
+  "views": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
