@@ -84,6 +84,7 @@ export default async function StaffMemberPage({
               roleLocked={self}
               defaults={{
                 name: member.name,
+                credentials: member.credentials ?? '',
                 role: member.role,
                 treatsPatients: member.treatsPatients,
                 consultant: member.consultant,

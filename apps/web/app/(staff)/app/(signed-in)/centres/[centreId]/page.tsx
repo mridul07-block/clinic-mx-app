@@ -58,6 +58,23 @@ export default async function CentrePage({
         </span>
       </div>
       {notice ? <FormMessage tone="info">{notice}</FormMessage> : null}
+      <section className="flex flex-col gap-1.5" aria-labelledby="letterhead-heading">
+        <h2 id="letterhead-heading" className="font-semibold text-ink">
+          Letterhead
+        </h2>
+        <p className="text-sm text-ink-secondary">
+          Documents from this centre are printed on its letterhead, with the address and phone
+          below. Anything not filled in yet is left off.
+        </p>
+        <a
+          href={`/app/centres/${centre.id}/letterhead`}
+          target="_blank"
+          rel="noopener"
+          className="min-h-11 self-start py-2.5 font-medium text-ink underline underline-offset-2"
+        >
+          Preview letterhead (PDF)
+        </a>
+      </section>
       {staff.support ? (
         <>
           <FormMessage tone="info">Velyx support access is read only.</FormMessage>

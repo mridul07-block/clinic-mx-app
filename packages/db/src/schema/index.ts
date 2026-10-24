@@ -21,3 +21,4 @@ export * from './consent';
 export * from './clinical';
 export * from './consultations';
 export * from './clinical-record';
+export * from './documents';

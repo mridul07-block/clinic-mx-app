@@ -18,8 +18,8 @@ Decisions (user, 24 October 2026):
   address. Anyone without `clinical.read` (Front Desk, Centre Manager, Finance, support) sees
   Overview only, as before, whatever the address asks for. The Progress tab joins with the outcome
   tickets.
-- **Documents.** The report photos and scans (ALT-08). Consultation summaries and letters join
-  when ALT-05, ALT-06 and ALT-07 generate them.
+- **Documents.** Generated documents (ALT-05, `docs/runbooks/documents.md`): each with its
+  newest version and the earlier ones; then the report photos and scans (ALT-08).
 - **Addenda.** Each signed note on Notes opens to its addenda and "Add addendum" (the CLN-09
   component). Adding one keeps CLN-09's rule: the Treats patients tick, at the episode's centre or
   on one's own note. A clinician at another centre reads the addenda without the form.
@@ -30,7 +30,7 @@ Decisions (user, 24 October 2026):
 | --- | --- |
 | Overview | For clinicians, the summary card first. Then the contact details (or the edit form), episodes for those without clinical access, self booking, guardians and "Also on this mobile" |
 | Notes | Each episode (region, status, centre, dates, discharge reason) with its signed notes, newest first: "Consultation · date, time · consultant", the diagnosis, "Open note" (the read-only consultation) and "Addenda (n)" |
-| Documents | Reports, then "Consultation summaries and letters appear here once they are generated." |
+| Documents | Documents (each with its newest version to open and "Earlier versions"; until one is generated, "Consultation summaries and letters appear here once they are generated."), then Reports |
 | Alerts | The patient's red flag alerts at every centre, open first: rule, triage, status, lifecycle (raised, reviewed, referred, closed, who and when), decision; "Open in Alerts" for an open one the reader acts on at its centre |
 
 The Alerts tab shows a count of open alerts, in amber.

@@ -19,7 +19,7 @@ import {
 /** What a staff form shows after a post (IAM-06). */
 export interface StaffFormState {
   error?: string;
-  /** Messages by field: name, email, role, consultant, centreIds, accessEndsOn. */
+  /** Messages by field: name, credentials, email, role, consultant, centreIds, accessEndsOn. */
   fieldErrors?: Record<string, string>;
   notice?: string;
   /** An invite link to show once, when the email was not sent or a link was asked for. */
@@ -36,6 +36,7 @@ const text = (form: FormData, name: string) => {
 function detailsFrom(form: FormData) {
   return {
     name: text(form, 'name'),
+    credentials: text(form, 'credentials'),
     role: text(form, 'role'),
     treatsPatients: form.get('treatsPatients') === 'on',
     consultant: form.get('consultant') === 'on',

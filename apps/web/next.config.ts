@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: { bodySizeLimit: '5mb' },
   },
+  // The PDF fonts are read from disk when a document is rendered (ALT-05): ship them with the
+  // functions that render, the letterhead preview and the jobs that generate documents.
+  outputFileTracingIncludes: {
+    '/app/centres/[centreId]/letterhead': ['./modules/documents/fonts/*'],
+    '/api/jobs/tick': ['./modules/documents/fonts/*'],
+  },
   env: {
     // The service worker URL carries the build's commit, so each deployment updates it.
     NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA ?? 'local',

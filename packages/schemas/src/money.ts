@@ -45,6 +45,11 @@ export function rupeesText(paise: number): string {
     : `${sign}${whole}.${String(fraction).padStart(2, '0')}`;
 }
 
+/** A whole number with Indian grouping, for counts on documents: 1,00,000. */
+export function indianNumber(value: number): string {
+  return grouping.format(value);
+}
+
 /** An amount in paise as people read it: ₹1,500, ₹1,500.50 or ₹18,40,000. */
 export function formatRupees(paise: number): string {
   const text = rupeesText(paise);

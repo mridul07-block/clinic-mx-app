@@ -9,6 +9,9 @@ export {
   endOfIstDay,
   formatIstDate,
   formatIstDateTime,
+  documentDate,
+  documentDateTime,
+  documentTime,
   addDays,
   isoWeekday,
   istDate,
@@ -286,7 +289,20 @@ export {
   type SignatureKind,
 } from './consent';
 export { keyFromName } from './keys';
-export { MAX_PAISE, formatRupees, rupeesSchema, rupeesText } from './money';
+export { MAX_PAISE, formatRupees, indianNumber, rupeesSchema, rupeesText } from './money';
+export {
+  CLINIC_NAME,
+  documentFileName,
+  documentKindAccess,
+  documentKindLabels,
+  documentKinds,
+  documentReadAtAnyCentre,
+  documentSeries,
+  letterheadLines,
+  type DocumentKind,
+  type DocumentVersionEntry,
+  type LetterheadCentre,
+} from './documents';
 export {
   discountKinds,
   discountPresetActiveSchema,

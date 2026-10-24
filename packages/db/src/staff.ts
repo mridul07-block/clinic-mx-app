@@ -57,6 +57,8 @@ export interface StaffRecord {
   authUserId: string | null;
   velyxSupport: boolean;
   centreIds: string[];
+  /** Qualifications printed where they sign a document (ALT-05). */
+  credentials: string | null;
   /** A consultant's consultation fee, a price item (decision G4, SCH-05). */
   consultationPriceItemId: string | null;
 }
@@ -78,6 +80,7 @@ export async function staffRecord(
       accessEndsAt: staffUser.accessEndsAt,
       authUserId: staffUser.authUserId,
       velyxSupport: staffUser.velyxSupport,
+      credentials: staffUser.credentials,
       consultationPriceItemId: staffUser.consultationPriceItemId,
       centreIds: sql<string[]>`array(
         select a.centre_id::text from public.staff_user_centre a
@@ -105,6 +108,7 @@ const detailColumns = (details: StaffDetails) => ({
   role: details.role,
   treatsPatients: details.treatsPatients,
   consultant: details.consultant,
+  credentials: details.credentials ?? null,
   accessEndsAt: details.accessEndsOn ? endOfIstDay(details.accessEndsOn) : null,
 });
 

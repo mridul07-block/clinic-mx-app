@@ -375,3 +375,12 @@ export {
   type NextVisitEntry,
   type SignedNoteEntry,
 } from './patient-record';
+export {
+  documentFileOf,
+  insertDocument,
+  logDocumentView,
+  nextDocumentVersion,
+  patientDocuments,
+  type DocumentEntry,
+  type NewDocument,
+} from './documents';

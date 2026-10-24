@@ -52,6 +52,41 @@ export function formatIstDateTime(instant: Date): string {
   return `${part('day')} ${part('month')} ${part('year')}, ${part('hour')}:${part('minute')} IST`;
 }
 
+// Written out rather than taken from Intl, which gives "Sept" in some builds (design/README.md).
+const monthNames = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
+/** The IST date of an instant as documents print it (ALT-05), for example "28 Sep 2026". */
+export function documentDate(instant: Date): string {
+  const [year = '', month = '1', day = '1'] = istDate(instant).split('-');
+  return `${Number(day)} ${monthNames[Number(month) - 1] ?? ''} ${year}`;
+}
+
+/** The IST time of an instant as documents print it (ALT-05), for example "4:05 PM". */
+export function documentTime(instant: Date): string {
+  const shifted = new Date(instant.getTime() + IST_OFFSET_MS);
+  const hours = shifted.getUTCHours();
+  const minutes = String(shifted.getUTCMinutes()).padStart(2, '0');
+  return `${hours % 12 || 12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`;
+}
+
+/** Both, for example "28 Sep 2026, 4:05 PM". */
+export function documentDateTime(instant: Date): string {
+  return `${documentDate(instant)}, ${documentTime(instant)}`;
+}
+
 /** The instant a calendar day in IST starts: its midnight IST, in UTC. */
 export function startOfIstDay(date: string): Date {
   return new Date(endOfIstDay(date).getTime() - 24 * 60 * 60 * 1000);
