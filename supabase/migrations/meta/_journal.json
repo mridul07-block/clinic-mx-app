@@ -547,6 +547,20 @@
       "when": 1792838600424,
       "tag": "20261024104320_consultation_subjective_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1792845844532,
+      "tag": "20261024124404_kb_measures",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1792845845771,
+      "tag": "20261024124405_kb_measures_rules",
+      "breakpoints": true
     }
   ]
 }

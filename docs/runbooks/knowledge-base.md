@@ -38,6 +38,8 @@ rules.
 | `kb_condition_listing` | workbook row per version | the region (workbook) and row; the subregion (Region column); age, onset, sex, activity tags and red flag tier as read, each beside its text; the discriminating question, tests and imaging, symptoms and biomechanical cause; every other column word for word in `details` |
 | `kb_red_flag_rule` | rule per version (SET-10) | the rules the health form submit runs, from `packages/db/src/knowledge/red-flag-rules.json` (`docs/runbooks/red-flags.md`) |
 | `kb_red_flag_presentation` | Red Flags sheet row per version (SET-10) | each workbook's red flag presentations (features, action, why it cannot wait) and its screening notes, word for word |
+| `kb_measure` | Progress Tracker measure per version (CLN-05) | key (`knee.lsi.quadriceps`), section title, name and unit word for word, kind, how its formula reads it (rule), direction, note |
+| `kb_special_test` | Special Tests row per version (CLN-05) | key, category, test, targets, positive finding, clinical note, word for word |
 
 A version is never edited in place. Clinical records will store the version they used, so a later
 version never changes what a past record meant.
@@ -56,6 +58,37 @@ version never changes what a past record meant.
 Each workbook names its columns its own way. `packages/db/src/knowledge/columns.ts` maps every
 header to one key, and an unknown header stops the import, so a renamed column is never silently
 dropped.
+
+## Measures and special tests (CLN-05)
+
+The consultation's Objective records each region's measures and adds its special tests, both from
+the workbooks (user decisions 24 October 2026). `packages/db/src/knowledge/objective.ts` reads them.
+
+**Progress Tracker.** Each section is a title row, then a header row, then its rows. The header
+and each row's formulas decide the kind:
+
+| Header | Formulas | Kind |
+| --- | --- | --- |
+| Involved, Uninvolved | `B/C` (`C/B` for a timed test, "lower time is better"); PASS at the target (the sheet's "LSI target threshold (editable)" or a figure; the heel raise also needs a count) | LSI |
+| Involved, Uninvolved | `C-B` or `ABS(C-B)`; SYMMETRICAL, MILD DEFICIT or RESTRICTED at the row's two bands | Deficit |
+| Measured, Normal ref | `C-B`; FULL, MILD DEFICIT or RESTRICTED | Reference (deficit from the normal) |
+| Achieved or Measured, Target | PASS when at least (or at most) the target | Reference (target) |
+| Baseline, Current | none needed | Marker, with its direction; a "(0-3)" row with unit "grade" is a 0 to 3 rating |
+
+- **Not measures:** sections without such a header (yes or no screens, ratios, readiness
+  summaries) and rows without a unit, with a computed value, or with no formula beside two values
+  (worded checks). The report lists them.
+- **Stops the import:** a header or a formula that matches none of these. Nothing is guessed.
+- **Keys:** `<region>.<kind>.<name>`. A clash takes its section, and one that remains stops the
+  import.
+
+**Special Tests.** The header is "Category | Test | Targets (Knee: Target Structure) | Positive
+Finding | Clinical Note". A row without a category keeps the one above. Keys are
+`<region>.<test>`; a clash takes the category. The Bone Stress workbook has no such sheet.
+
+**What a new sheet means for versions.** A version's source now records the sheets read
+(`sheets`). An import that reads more sheets from the same files is a new version (the first one
+after CLN-05), and the same files and sheets twice is refused as before.
 
 ## Condition IDs
 

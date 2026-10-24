@@ -13,7 +13,10 @@ import {
   sectionStarted,
   signingBlockers,
   stepFromQuery,
+  knowledgeRegionOfScreening,
   type HealthFormAnswers,
+  type KnowledgeMeasure,
+  type KnowledgeSpecialTest,
   type ConsultationSection,
   type ConsultationSections,
   type ConsultationStep,
@@ -25,6 +28,7 @@ import { ConflictNotice } from '../../../../../../lib/drafts/conflict-notice';
 import { SaveStatus } from '../../../../../../lib/drafts/save-status';
 import { saveConsultationDraft } from '../../../../../../lib/drafts/savers';
 import { useAutosave } from '../../../../../../lib/drafts/use-autosave';
+import { ObjectiveInputs } from './objective-inputs';
 import { ScreeningItems } from './screening-items';
 import { SubjectiveFields } from './subjective-fields';
 
@@ -46,6 +50,7 @@ export function ConsultationStepper({
   signed,
   initialStep,
   patientAnswers,
+  objectiveCatalog,
 }: {
   id: string;
   serverValue: ConsultationSections;
@@ -54,6 +59,8 @@ export function ConsultationStepper({
   initialStep: ConsultationStep;
   /** The submitted health form's answers, for Subjective (CLN-03). */
   patientAnswers: HealthFormAnswers;
+  /** The workbooks' measures and special tests in this consultation's version (CLN-05). */
+  objectiveCatalog: { measures: KnowledgeMeasure[]; specialTests: KnowledgeSpecialTest[] };
 }) {
   const save = useMemo(() => saveConsultationDraft(id), [id]);
   const draft = useAutosave({ kind: 'consultation', id, serverValue, serverVersion, save });
@@ -197,6 +204,19 @@ export function ConsultationStepper({
             }}
           />
         ) : null}
+        {step === 'objective' ? (
+          <ObjectiveInputs
+            objective={sections.objective}
+            catalog={objectiveCatalog}
+            defaultRegion={
+              screening.region ? knowledgeRegionOfScreening[screening.region] : undefined
+            }
+            readOnly={signed}
+            onChange={(objective) => {
+              draft.setValue({ ...sections, objective });
+            }}
+          />
+        ) : null}
         {isSection(step) ? (
           <label className="flex flex-col gap-1.5">
             <span className="font-medium">{step === 'subjective' ? 'Other notes' : 'Notes'}</span>
@@ -259,7 +279,11 @@ export function ConsultationStepper({
                       <Tag tone={written ? 'done' : 'neutral'}>
                         {written ? 'Notes added' : 'Nothing yet'}
                       </Tag>
-                      {changed > 0 ? <Tag tone="done">{`${String(changed)} confirmed`}</Tag> : null}
+                      {changed > 0 ? (
+                        <Tag tone="done">
+                          {`${String(changed)} ${key === 'objective' ? 'recorded' : 'confirmed'}`}
+                        </Tag>
+                      ) : null}
                     </span>
                     <a
                       href={hrefOf(key)}

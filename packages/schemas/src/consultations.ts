@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import type { HealthFormAnswer, HealthFormAnswers } from './health-form';
+import { knowledgeRegionKeys } from './knowledge';
+import { measureEntrySchema, specialTestEntrySchema } from './objective';
 import {
   screeningProgress,
   screeningRegionOf,
@@ -122,11 +124,41 @@ const screeningSchema = z
   })
   .default({ notes: '', confirmed: {} });
 
+/**
+ * Objective (CLN-05): the workbook (region) whose measures and special tests are used, the
+ * involved side, each measure entered by its knowledge base key, and the special tests added.
+ */
+const objectiveSchema = z
+  .object({
+    notes: sectionSchema.unwrap().shape.notes,
+    region: z.union([z.enum(knowledgeRegionKeys), z.literal('')]).default(''),
+    side: z.enum(['left', 'right', '']).default(''),
+    measures: z
+      .record(
+        z
+          .string()
+          .regex(/^[a-z_]+\.[a-z0-9_.]+$/)
+          .max(120),
+        measureEntrySchema,
+      )
+      .default({})
+      .refine((measures) => Object.keys(measures).length <= 300, 'Too many measures.'),
+    tests: z
+      .array(specialTestEntrySchema)
+      .max(100)
+      .default([])
+      .refine(
+        (tests) => new Set(tests.map((test) => test.key)).size === tests.length,
+        'Each test is added once.',
+      ),
+  })
+  .default({ notes: '', region: '', side: '', measures: {}, tests: [] });
+
 /** What the clinician has written in each section; a new consultation is `{}`. */
 export const consultationSectionsSchema = z.object({
   subjective: subjectiveSchema,
   screening: screeningSchema,
-  objective: sectionSchema,
+  objective: objectiveSchema,
   assessment: sectionSchema,
   plan: sectionSchema,
 });
@@ -144,12 +176,19 @@ export function sectionHasNotes(sections: ConsultationSections, key: Consultatio
 }
 
 /**
- * How many answers the clinician changed in Subjective (CLN-03) or confirmed in Screening
- * (CLN-04); none elsewhere.
+ * How many answers the clinician changed in Subjective (CLN-03), confirmed in Screening (CLN-04),
+ * or recorded in Objective (CLN-05: measures entered and tests added); none elsewhere.
  */
 export function confirmedCount(sections: ConsultationSections, key: ConsultationSection): number {
   if (key === 'subjective') return Object.keys(sections.subjective.confirmed).length;
   if (key === 'screening') return Object.keys(sections.screening.confirmed).length;
+  if (key === 'objective') {
+    const entered = Object.values(sections.objective.measures).filter(
+      (entry) =>
+        entry.involved !== undefined || entry.uninvolved !== undefined || entry.value !== undefined,
+    ).length;
+    return entered + sections.objective.tests.length;
+  }
   return 0;
 }
 

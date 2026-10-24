@@ -8,6 +8,7 @@ const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
   consultationRecord: vi.fn(),
   consultationIntake: vi.fn(),
+  knowledgeObjective: vi.fn(),
   saveConsultationSections: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
@@ -31,6 +32,7 @@ const context = (actor = consultant()) => ({ db: {} as Db, actor });
 const record = (extra: Record<string, unknown> = {}) => ({
   id: consultationId,
   physioId: consultant().id,
+  kbVersionId: 'kb-version-1',
   status: 'draft',
   version: 3,
   sections: { subjective: { notes: 'Saved before' } },
@@ -39,7 +41,7 @@ const record = (extra: Record<string, unknown> = {}) => ({
 const sections = {
   subjective: { notes: 'Pain on stairs', confirmed: {} },
   screening: { notes: '', confirmed: {} },
-  objective: { notes: '' },
+  objective: { notes: '', region: '' as const, side: '' as const, measures: {}, tests: [] },
   assessment: { notes: '' },
   plan: { notes: '' },
 };
@@ -58,6 +60,7 @@ describe('consultation', () => {
       formVersion: 'hf-3',
       answers: { complaint: 'Pain' },
     });
+    db.knowledgeObjective.mockResolvedValue({ measures: [], specialTests: [] });
     db.saveConsultationSections.mockResolvedValue({ status: 'saved', version: 4 });
   });
 
@@ -66,6 +69,8 @@ describe('consultation', () => {
     expect(view?.sections.subjective.notes).toBe('Saved before');
     expect(view?.sections.plan.notes).toBe('');
     expect(view?.patientAnswers).toEqual({ complaint: 'Pain' });
+    expect(view?.objectiveCatalog).toEqual({ measures: [], specialTests: [] });
+    expect(db.knowledgeObjective).toHaveBeenCalledWith(fakeTx, 'kb-version-1');
     db.consultationIntake.mockResolvedValue(undefined);
     expect((await loadConsultation(consultant(), consultationId))?.patientAnswers).toEqual({});
     db.consultationRecord.mockResolvedValue(record({ physioId: 'someone-else' }));

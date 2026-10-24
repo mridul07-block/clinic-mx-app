@@ -4,7 +4,7 @@ import { draftSavers } from './savers';
 const sections = {
   subjective: { notes: 'Pain on stairs', confirmed: {} },
   screening: { notes: '', confirmed: {} },
-  objective: { notes: '' },
+  objective: { notes: '', region: '' as const, side: '' as const, measures: {}, tests: [] },
   assessment: { notes: '' },
   plan: { notes: '' },
 };

@@ -3,15 +3,19 @@ import { setAuditContext, systemActor } from '../audit';
 import {
   kbCondition,
   kbConditionListing,
+  kbMeasure,
   kbRedFlagPresentation,
   kbRedFlagRule,
+  kbSpecialTest,
   kbVersion,
   type KnowledgeSource,
 } from '../schema';
 import type { DbOrTransaction } from '../versioned';
 import type { BuiltKnowledge } from './build';
+import type { BuiltObjective } from './objective';
 import type { RedFlags } from './red-flags';
 import type { ImportReport } from './report';
+import { IMPORTED_SHEETS } from './workbook';
 
 /** The audit actor every import writes as. */
 export const KB_IMPORT_ACTOR = systemActor('kb-import');
@@ -24,12 +28,15 @@ export class AlreadyImportedError extends Error {
   }
 }
 
+// The same files read for the same sheets: a sheet added to the import (CLN-05) makes a new version.
 const sameSource = (a: KnowledgeSource, b: KnowledgeSource) =>
-  JSON.stringify(a.files) === JSON.stringify(b.files);
+  JSON.stringify(a.files) === JSON.stringify(b.files) &&
+  JSON.stringify(a.sheets ?? []) === JSON.stringify(b.sheets ?? []);
 
 /**
  * Records the built knowledge base as the next version, a draft, inside the caller's transaction
- * and audited as `system:kb-import`: conditions, listings, red flag rules and presentations.
+ * and audited as `system:kb-import`: conditions, listings, red flag rules and presentations, and
+ * the Objective's measures and special tests (CLN-05).
  * Refuses when the latest version came from the same files (the workbooks and the rules file).
  * Returns the new version's number and id.
  */
@@ -38,6 +45,7 @@ export async function applyKnowledge(
   built: BuiltKnowledge,
   report: ImportReport,
   redFlags: RedFlags,
+  objective: BuiltObjective,
 ): Promise<{ id: string; number: number }> {
   await setAuditContext(tx, { actor: KB_IMPORT_ACTOR });
   const source: KnowledgeSource = {
@@ -45,6 +53,7 @@ export async function applyKnowledge(
       ...report.files.map((f) => ({ name: f.fileName, sha256: f.sha256 })),
       redFlags.rulesFile,
     ],
+    sheets: IMPORTED_SHEETS,
   };
   const [latest] = await tx
     .select({ number: kbVersion.number, source: kbVersion.source })
@@ -93,5 +102,11 @@ export async function applyKnowledge(
       why: row.kind === 'presentation' ? row.why : null,
     })),
   );
+  await tx
+    .insert(kbMeasure)
+    .values(objective.measures.map((measure) => ({ ...measure, kbVersionId: version.id })));
+  await tx
+    .insert(kbSpecialTest)
+    .values(objective.specialTests.map((test) => ({ ...test, kbVersionId: version.id })));
   return { id: version.id, number };
 }

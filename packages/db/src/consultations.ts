@@ -14,6 +14,8 @@ export interface ConsultationEntry {
   appointmentId: string;
   episodeId: string;
   physioId: string;
+  /** The knowledge base version the consultation keeps (rule 4). */
+  kbVersionId: string;
   sections: Record<string, unknown>;
   status: ConsultationStatus;
   version: number;
@@ -69,6 +71,7 @@ export async function consultationRecord(
       appointmentId: consultation.appointmentId,
       episodeId: consultation.episodeId,
       physioId: consultation.physioId,
+      kbVersionId: consultation.kbVersionId,
       sections: consultation.sections,
       status: consultation.status,
       version: consultation.version,

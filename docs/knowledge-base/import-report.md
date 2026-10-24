@@ -487,6 +487,47 @@ Each Red Flags sheet, word for word: reference for the clinician screening check
 | Lumbar spine and SIJ | 12 | 6 |
 | Bone stress, cartilage and meniscus | 8 | 0 |
 
+## Objective measures and special tests (CLN-05)
+
+Each Progress Tracker section with a recognised header gives measures: LSI (involved and uninvolved, Pass at the workbook target), deficit (range, banded), against a reference (normal or target), a marker (one value and its direction) or a 0 to 3 grade. Each Special Tests row gives a test (`docs/runbooks/knowledge-base.md`).
+
+| Workbook | LSI | Deficit | Reference | Marker | Grade | Special tests |
+| --- | --- | --- | --- | --- | --- | --- |
+| Shoulder | 4 | 5 | 0 | 4 | 2 | 30 |
+| Elbow | 8 | 4 | 0 | 4 | 2 | 30 |
+| Forearm and wrist | 4 | 5 | 0 | 6 | 0 | 30 |
+| Hip and groin | 7 | 5 | 0 | 5 | 1 | 31 |
+| Knee | 9 | 0 | 0 | 5 | 2 | 20 |
+| Foot and ankle | 8 | 4 | 0 | 5 | 1 | 30 |
+| Cervical spine | 0 | 0 | 12 | 6 | 0 | 36 |
+| Lumbar spine and SIJ | 0 | 0 | 6 | 9 | 0 | 37 |
+| Bone stress, cartilage and meniscus | 5 | 0 | 0 | 3 | 2 | 0 |
+
+### Not read as measures
+
+Yes or no screens, ratios, readiness summaries and worded checks; they belong with clearance and review.
+
+| Workbook | Row | What | Text |
+| --- | --- | --- | --- |
+| Shoulder | 18 | Section | OVERHEAD ATHLETE — GIRD & TOTAL ROTATIONAL ARC |
+| Shoulder | 32 | Row | ER:IR RATIO — involved side |
+| Shoulder | 43 | Section | RETURN-TO-SPORT / OVERHEAD-WORK READINESS |
+| Elbow | 16 | Row | Terminal extension END-FEEL |
+| Elbow | 41 | Section | RETURN-TO-SPORT / WORK READINESS |
+| Forearm and wrist | 25 | Section | NERVE & STRUCTURAL CHECKS |
+| Forearm and wrist | 40 | Section | RETURN-TO-SPORT / WORK READINESS |
+| Hip and groin | 30 | Row | ADDUCTION:ABDUCTION RATIO — involved |
+| Hip and groin | 41 | Section | RETURN-TO-SPORT / FUNCTION READINESS |
+| Knee | 35 | Section | RETURN-TO-SPORT READINESS SUMMARY |
+| Foot and ankle | 20 | Row | Does the heel INVERT during the raise? |
+| Foot and ankle | 44 | Section | RETURN-TO-SPORT / WORK READINESS |
+| Cervical spine | 10 | Section | NEUROLOGICAL & VASCULAR SCREEN — COMPLETE THIS FIRST |
+| Cervical spine | 46 | Section | DISCHARGE / RETURN READINESS |
+| Lumbar spine and SIJ | 10 | Section | RED FLAG SCREEN — COMPLETE THIS FIRST, EVERY TIME |
+| Lumbar spine and SIJ | 45 | Section | DISCHARGE READINESS |
+| Bone stress, cartilage and meniscus | 10 | Section | ENTRY GATES — ALL MUST READ YES BEFORE IMPACT LOADING BEGINS |
+| Bone stress, cartilage and meniscus | 34 | Section | RETURN-TO-SPORT READINESS |
+
 ## Condition IDs
 
 0 new IDs assigned in this run; every ID in the file matched a row.

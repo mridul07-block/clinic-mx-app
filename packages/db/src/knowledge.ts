@@ -1,9 +1,12 @@
+import type { KnowledgeMeasure, KnowledgeSpecialTest } from '@clinic-mx/schemas';
 import { asc, desc, eq } from 'drizzle-orm';
 import {
   kbCondition,
   kbConditionListing,
+  kbMeasure,
   kbRedFlagPresentation,
   kbRedFlagRule,
+  kbSpecialTest,
   kbVersion,
 } from './schema';
 import type { DbOrTransaction } from './versioned';
@@ -96,4 +99,45 @@ export function redFlagPresentations(
     .from(kbRedFlagPresentation)
     .where(eq(kbRedFlagPresentation.kbVersionId, versionId))
     .orderBy(asc(kbRedFlagPresentation.region), asc(kbRedFlagPresentation.rowNumber));
+}
+
+/**
+ * The Objective's knowledge in a version (CLN-05): every workbook's measures and special tests, in
+ * workbook row order, for the consultation that stores that version. Read under row level
+ * security: those who view the knowledge base.
+ */
+export async function knowledgeObjective(
+  db: DbOrTransaction,
+  versionId: string,
+): Promise<{ measures: KnowledgeMeasure[]; specialTests: KnowledgeSpecialTest[] }> {
+  const measures = await db
+    .select({
+      key: kbMeasure.key,
+      region: kbMeasure.region,
+      section: kbMeasure.section,
+      name: kbMeasure.name,
+      unit: kbMeasure.unit,
+      kind: kbMeasure.kind,
+      inverted: kbMeasure.inverted,
+      rule: kbMeasure.rule,
+      direction: kbMeasure.direction,
+      note: kbMeasure.note,
+    })
+    .from(kbMeasure)
+    .where(eq(kbMeasure.kbVersionId, versionId))
+    .orderBy(asc(kbMeasure.region), asc(kbMeasure.rowNumber));
+  const specialTests = await db
+    .select({
+      key: kbSpecialTest.key,
+      region: kbSpecialTest.region,
+      category: kbSpecialTest.category,
+      test: kbSpecialTest.test,
+      targets: kbSpecialTest.targets,
+      positiveFinding: kbSpecialTest.positiveFinding,
+      clinicalNote: kbSpecialTest.clinicalNote,
+    })
+    .from(kbSpecialTest)
+    .where(eq(kbSpecialTest.kbVersionId, versionId))
+    .orderBy(asc(kbSpecialTest.region), asc(kbSpecialTest.rowNumber));
+  return { measures, specialTests };
 }
