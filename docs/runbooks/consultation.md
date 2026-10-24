@@ -147,6 +147,53 @@ later import never changes an open consultation. **When signing arrives (CLN-09)
 are written to the TAD's `measure` and `special_test_result` rows** for the baseline (J5.3) and
 the Progress tab.
 
+## Assessment (CLN-06)
+
+PRD J3.6: a four part working diagnosis (tissue diagnosis from the knowledge base, movement
+diagnosis, irritability suggested from pain, stage from duration) and the client's diagnosis
+category, coded automatically. The parts are the client's Consultation SOP v2 §10.1 ("A diagnosis
+missing any of these components is incomplete"). Decisions (user, 24 October 2026):
+
+- **Tissue diagnosis:** one knowledge base condition. Anything outside the knowledge base goes in
+  Notes.
+- **Movement diagnosis:** one line of text (200 characters). The chosen condition's "Underlying
+  biomechanical cause" from each workbook that lists it shows beneath as a reference.
+- **Irritability:** suggested from the worse of Pain now and Pain with activity (the clinician's
+  value where Subjective changed it).
+- **Category:** the client's 44 categories are knowledge data. A condition mapped to one codes it
+  automatically; until the client's mapping arrives (SET-12) the clinician picks it.
+
+**Search.** "Tissue diagnosis" is a combobox over the consultation's version: every word typed must
+appear in the name, a synonym, a workbook's name for it or the ID (case and accents ignored).
+Conditions the Objective's workbook lists come first, then names starting with the first word; at
+most 20. Arrow keys, Enter and Escape work; the chosen condition shows as a card with Change (and
+"Keep ..." to go back).
+
+**Suggestions, never chosen for the clinician** (rule 3), each marked "Suggested" with its reason:
+
+| Part | Suggested from | Bands (settings) |
+| --- | --- | --- |
+| Irritability (High, Moderate, Low) | The worse of Pain now and Pain with activity, "worst 7/10 (pain with activity)" | Above `assessment.irritability_high_above` (5) High; below `assessment.irritability_low_below` (3) Low; else Moderate |
+| Stage (Acute, Subacute, Chronic, Reactive, Degenerative) | Duration and its unit in weeks (days / 7; months 365.25 / 12 days; years 365.25 days), "6 weeks" | Under `assessment.acute_weeks_below` (3) Acute; over `assessment.chronic_weeks_above` (12) Chronic; else Subacute. Reactive and Degenerative are never suggested |
+
+The settings are placeholders from the SOP until the client confirms them (DECISION CLN-06 in
+`docs/PROGRESS.md`). So 3 months (13 weeks) reads Chronic. The SOP's clinical features for each
+irritability level show beneath it, word for word.
+
+**Provisional** is ticked by default: the confirmed diagnosis is the one at review or discharge
+(TAD "learning label").
+
+**Signing.** `signingBlockers` now also lists "The working diagnosis needs its four parts: tissue,
+movement, irritability and stage." until all four are in; each reason links to its section. The
+category is not required while the mapping is pending. Sign shows "n of 4 parts".
+
+**Storage.** Everything lives in `sections.assessment` (condition ID, movement, irritability, stage,
+category code, provisional), autosaved with the draft; older drafts read with empty parts. The
+page reads the consultation's own version (`knowledgeAssessment`) and the settings once, so it works
+offline. **When signing arrives (CLN-09), the TAD's `diagnosis` row is written** with the version;
+the sign service checks the condition and category exist in that version and takes a mapped
+category from the knowledge base.
+
 ## Autosave
 
 The screen adopts FND-08 (`docs/runbooks/autosave.md`): one draft per consultation (kind
@@ -181,10 +228,12 @@ Each save is an audited update (actor, before, after), one per autosave.
 | `apps/web/modules/my-patients/services.test.ts` | Start consultation opens the consultation; refused without the Consultant tick, before the health form, or before the knowledge base. |
 | `packages/schemas/src/consultations.test.ts`, `apps/web/lib/drafts/savers.test.ts` | Sections, steps, Back and Next; the saver's endpoint. |
 | `packages/schemas/src/screening.test.ts` | Region questions (knee, back, none), follow ups only after a confirmed yes, pregnancy only for a female patient, what the patient said, progress ignoring stale keys, the signing gate, answers checked against their items. |
+| `packages/schemas/src/assessment.test.ts` | Irritability bands at 2/3 and 5/6 from the worse score, settings honoured; durations in weeks and the stage at 3 and 12 weeks; the clinician's Subjective answers first; search by name, synonym and ID with the Objective's workbook first; the four parts, old drafts, limits and the signing reason; the categories file shape. |
+| `packages/db/src/knowledge/categories.test.ts` | The committed file: 44 categories in order, none mapped; a mapping to an unknown condition or category, or a repeated code, stops the import. |
 | `packages/schemas/src/objective.test.ts` | LSI, inverted LSI, heel raise count, deficit bands (absolute and not), reference and target, the Objective section and its limits. |
 | `packages/db/src/knowledge/build.test.ts` | Against the real workbooks: LSI targets, the timed hop, the heel raise, each workbook's bands, cervical references, joint position error at most, 10 grades, special tests with their categories; an unknown header stops the import. |
 | `packages/schemas/src/subjective.test.ts` | The form's fields and wording; sources; answers checked against their fields; Other shown only when ticked. |
-| `apps/web/e2e/consultation.spec.ts` | 360 px and desktop. Start consultation opens Subjective; notes save; Next pinned in view at 360 px, the stepper on desktop; a reload keeps the step and the notes; Back; Sign lists the sections; offline then reconnect saves; refused before the health form, then opens; the desk cannot open it. Subjective (CLN-03): the form's answers Patient reported, a blank one Not answered; edits to the complaint, pain and surgeries become Clinician confirmed with the patient's words beneath, untouched ones stay; the body chart on desktop; saved and kept through a reload; Sign counts them. Screening (CLN-04): a back pain form shows the back questions and pregnancy, no neck questions or follow ups, "0 of N"; Sign is blocked with "N left"; weight loss Yes adds the follow ups; the saddle Yes is marked changed; diabetes Confirmed; with all confirmed, Sign says "Screening complete."; kept through a reload. Objective (CLN-05): a knee form defaults to Knee; quadriceps 32 and 40 "LSI 80% · Not yet", then 36 "LSI 90% · Pass"; the timed hop 2.4 and 2.2 "LSI 92% · Pass"; effusion grade 2; Lachman added Positive with its positive finding and an interpretation; saved, kept through a reload; Sign shows "4 recorded". |
+| `apps/web/e2e/consultation.spec.ts` | 360 px and desktop. Start consultation opens Subjective; notes save; Next pinned in view at 360 px, the stepper on desktop; a reload keeps the step and the notes; Back; Sign lists the sections; offline then reconnect saves; refused before the health form, then opens; the desk cannot open it. Subjective (CLN-03): the form's answers Patient reported, a blank one Not answered; edits to the complaint, pain and surgeries become Clinician confirmed with the patient's words beneath, untouched ones stay; the body chart on desktop; saved and kept through a reload; Sign counts them. Screening (CLN-04): a back pain form shows the back questions and pregnancy, no neck questions or follow ups, "0 of N"; Sign is blocked with "N left"; weight loss Yes adds the follow ups; the saddle Yes is marked changed; diabetes Confirmed; with all confirmed, Sign no longer names screening but still waits for the working diagnosis; kept through a reload. Objective (CLN-05): a knee form defaults to Knee; quadriceps 32 and 40 "LSI 80% · Not yet", then 36 "LSI 90% · Pass"; the timed hop 2.4 and 2.2 "LSI 92% · Pass"; effusion grade 2; Lachman added Positive with its positive finding and an interpretation; saved, kept through a reload; Sign shows "4 recorded". Assessment (CLN-06): Sign's "Go to Assessment"; "patellar tend" lists Patellar Tendinopathy (KNE-004, Knee) first and Enter chooses it; the Knee workbook's cause shows; with pain 4 now and 7 with activity, High is suggested and nothing selected, Moderate chosen; 6 weeks suggests Subacute, chosen; category Knee - PFPS; Provisional ticked; saved, kept through a reload; Change with no match keeps the condition; Sign shows "4 of 4 parts" and no diagnosis reason. |
 
 The database test also checks that the consultant reads their visit's submitted form, and another
 physio and the desk read nothing.

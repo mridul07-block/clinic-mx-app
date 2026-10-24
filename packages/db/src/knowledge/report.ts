@@ -12,6 +12,7 @@ import {
 } from '@clinic-mx/schemas';
 import { baseName, type BuiltKnowledge, type Listing } from './build';
 import { mapColumns } from './columns';
+import type { BuiltCategories } from './categories';
 import type { BuiltObjective } from './objective';
 import type { RedFlags } from './red-flags';
 import type { Workbook } from './workbook';
@@ -73,6 +74,12 @@ export interface ImportReport {
     regions: Record<string, Record<string, number>>;
     skipped: { region: KnowledgeRegion; rowNumber: number; text: string; why: 'section' | 'row' }[];
   };
+  /** CLN-06: the client's diagnosis categories file and how many conditions it maps. */
+  categories: {
+    file: { name: string; sha256: string };
+    names: string[];
+    mapped: number;
+  };
 }
 
 const named = (l: Listing): Named => ({
@@ -130,6 +137,7 @@ export function buildReport(
   built: BuiltKnowledge,
   redFlags: RedFlags,
   objective: BuiltObjective,
+  categories: BuiltCategories,
 ): ImportReport {
   const { listings, conditions } = built;
   const byCondition = new Map<string, Listing[]>();
@@ -287,6 +295,11 @@ export function buildReport(
         ]),
       ),
       skipped: objective.skipped,
+    },
+    categories: {
+      file: categories.file,
+      names: categories.categories.map((category) => category.name),
+      mapped: Object.keys(categories.mapping).length,
     },
   };
 }
@@ -467,6 +480,14 @@ export function reportMarkdown(report: ImportReport): string {
         s.text,
       ]),
     ),
+    '## Diagnosis categories (CLN-06)',
+    `${report.categories.names.length} categories from ` +
+      `\`packages/db/src/knowledge/${report.categories.file.name}\` ` +
+      `(SHA-256 ${report.categories.file.sha256.slice(0, 12)}), the client's "Physiotherapeutic ` +
+      `diagnosis" list word for word; ${report.categories.mapped} of ${report.totals.conditions} ` +
+      'conditions mapped to one (the client’s mapping arrives with SET-12; until then the ' +
+      'clinician picks the category in Assessment).',
+    report.categories.names.map((name) => `- ${cell(name)}`).join('\n'),
     '## Condition IDs',
     `${report.assigned} new IDs assigned in this run; ` +
       (report.unmatched.length === 0

@@ -91,9 +91,10 @@ describe('the gate', () => {
     const patient = { region: 'knee', sex: 'male' };
     const empty = consultationSectionsSchema.parse({});
     const total = screeningItems('knee', 'male', {}).length;
-    expect(signingBlockers(empty, patient)).toEqual([
-      `Signing needs every screening item confirmed: ${String(total)} left.`,
-    ]);
+    expect(signingBlockers(empty, patient)[0]).toEqual({
+      section: 'screening',
+      reason: `Signing needs every screening item confirmed: ${String(total)} left.`,
+    });
     const confirmed = Object.fromEntries(
       screeningItems('knee', 'male', {}).map((item) => [
         item.key,
@@ -101,7 +102,9 @@ describe('the gate', () => {
       ]),
     );
     const done = consultationSectionsSchema.parse({ screening: { notes: '', confirmed } });
-    expect(signingBlockers(done, patient)).toEqual([]);
+    expect(signingBlockers(done, patient).map((blocker) => blocker.section)).toEqual([
+      'assessment',
+    ]);
   });
 
   it('takes only answers that fit their item', () => {

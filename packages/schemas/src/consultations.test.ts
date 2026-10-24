@@ -16,7 +16,15 @@ describe('consultation sections', () => {
       subjective: { notes: '', confirmed: {} },
       screening: { notes: '', confirmed: {} },
       objective: { notes: '', region: '', side: '', measures: {}, tests: [] },
-      assessment: { notes: '' },
+      assessment: {
+        notes: '',
+        conditionId: '',
+        movement: '',
+        irritability: '',
+        stage: '',
+        categoryCode: '',
+        provisional: true,
+      },
       plan: { notes: '' },
     });
   });

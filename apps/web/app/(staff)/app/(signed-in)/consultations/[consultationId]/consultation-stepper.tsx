@@ -1,8 +1,10 @@
 'use client';
 
 import {
+  ASSESSMENT_PART_COUNT,
   CONSULTATION_NOTES_MAX,
   adjacentSteps,
+  assessmentSuggestions,
   confirmedCount,
   consultationScreening,
   consultationSections,
@@ -14,6 +16,8 @@ import {
   signingBlockers,
   stepFromQuery,
   knowledgeRegionOfScreening,
+  type AssessmentCatalog,
+  type AssessmentSettings,
   type HealthFormAnswers,
   type KnowledgeMeasure,
   type KnowledgeSpecialTest,
@@ -28,6 +32,7 @@ import { ConflictNotice } from '../../../../../../lib/drafts/conflict-notice';
 import { SaveStatus } from '../../../../../../lib/drafts/save-status';
 import { saveConsultationDraft } from '../../../../../../lib/drafts/savers';
 import { useAutosave } from '../../../../../../lib/drafts/use-autosave';
+import { AssessmentInputs } from './assessment-inputs';
 import { ObjectiveInputs } from './objective-inputs';
 import { ScreeningItems } from './screening-items';
 import { SubjectiveFields } from './subjective-fields';
@@ -51,6 +56,8 @@ export function ConsultationStepper({
   initialStep,
   patientAnswers,
   objectiveCatalog,
+  assessmentCatalog,
+  assessmentSettings,
 }: {
   id: string;
   serverValue: ConsultationSections;
@@ -61,6 +68,10 @@ export function ConsultationStepper({
   patientAnswers: HealthFormAnswers;
   /** The workbooks' measures and special tests in this consultation's version (CLN-05). */
   objectiveCatalog: { measures: KnowledgeMeasure[]; specialTests: KnowledgeSpecialTest[] };
+  /** The version's conditions and the client's diagnosis categories (CLN-06). */
+  assessmentCatalog: AssessmentCatalog;
+  /** The thresholds Assessment's suggestions use (CLN-06). */
+  assessmentSettings: AssessmentSettings;
 }) {
   const save = useMemo(() => saveConsultationDraft(id), [id]);
   const draft = useAutosave({ kind: 'consultation', id, serverValue, serverVersion, save });
@@ -71,6 +82,9 @@ export function ConsultationStepper({
   }, [draft.value, serverValue]);
   const screening = consultationScreening(sections, patientAnswers);
   const blockers = signingBlockers(sections, patientAnswers);
+  const objectiveRegion =
+    sections.objective.region ||
+    (screening.region ? knowledgeRegionOfScreening[screening.region] : undefined);
   const [step, setStep] = useState(initialStep);
   const heading = useRef<HTMLHeadingElement>(null);
   const moved = useRef(false);
@@ -217,6 +231,23 @@ export function ConsultationStepper({
             }}
           />
         ) : null}
+        {step === 'assessment' ? (
+          <AssessmentInputs
+            assessment={sections.assessment}
+            catalog={assessmentCatalog}
+            suggestions={assessmentSuggestions(
+              sections.subjective.confirmed,
+              patientAnswers,
+              assessmentSettings,
+            )}
+            settings={assessmentSettings}
+            region={objectiveRegion}
+            readOnly={signed}
+            onChange={(assessment) => {
+              draft.setValue({ ...sections, assessment });
+            }}
+          />
+        ) : null}
         {isSection(step) ? (
           <label className="flex flex-col gap-1.5">
             <span className="font-medium">{step === 'subjective' ? 'Other notes' : 'Notes'}</span>
@@ -247,20 +278,20 @@ export function ConsultationStepper({
             >
               <p className="font-medium">Before signing</p>
               {blockers.length > 0 ? (
-                <>
-                  {blockers.map((reason) => (
-                    <p key={reason}>{reason}</p>
-                  ))}
-                  <a
-                    href={hrefOf('screening')}
-                    onClick={go('screening')}
-                    className="text-sm underline underline-offset-2"
-                  >
-                    Go to Screening
-                  </a>
-                </>
+                blockers.map(({ section, reason }) => (
+                  <p key={section} className="flex flex-col items-start gap-0.5">
+                    <span>{reason}</span>
+                    <a
+                      href={hrefOf(section)}
+                      onClick={go(section)}
+                      className="text-sm underline underline-offset-2"
+                    >
+                      Go to {consultationStepLabels[section]}
+                    </a>
+                  </p>
+                ))
               ) : (
-                <p>Screening complete.</p>
+                <p>Screening complete and the working diagnosis has its four parts.</p>
               )}
             </div>
             <p className="text-ink-secondary">Check each section before signing.</p>
@@ -281,7 +312,9 @@ export function ConsultationStepper({
                       </Tag>
                       {changed > 0 ? (
                         <Tag tone="done">
-                          {`${String(changed)} ${key === 'objective' ? 'recorded' : 'confirmed'}`}
+                          {key === 'assessment'
+                            ? `${String(changed)} of ${String(ASSESSMENT_PART_COUNT)} parts`
+                            : `${String(changed)} ${key === 'objective' ? 'recorded' : 'confirmed'}`}
                         </Tag>
                       ) : null}
                     </span>

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ASSESSMENT_PART_COUNT, assessmentFields, assessmentParts } from './assessment';
 import type { HealthFormAnswer, HealthFormAnswers } from './health-form';
 import { knowledgeRegionKeys } from './knowledge';
 import { measureEntrySchema, specialTestEntrySchema } from './objective';
@@ -154,12 +155,29 @@ const objectiveSchema = z
   })
   .default({ notes: '', region: '', side: '', measures: {}, tests: [] });
 
+/**
+ * Assessment (CLN-06): the four part working diagnosis (a knowledge base condition, the movement
+ * diagnosis, irritability and stage), the client's diagnosis category, and whether it is
+ * provisional.
+ */
+const assessmentSchema = z
+  .object({ notes: sectionSchema.unwrap().shape.notes, ...assessmentFields })
+  .default({
+    notes: '',
+    conditionId: '',
+    movement: '',
+    irritability: '',
+    stage: '',
+    categoryCode: '',
+    provisional: true,
+  });
+
 /** What the clinician has written in each section; a new consultation is `{}`. */
 export const consultationSectionsSchema = z.object({
   subjective: subjectiveSchema,
   screening: screeningSchema,
   objective: objectiveSchema,
-  assessment: sectionSchema,
+  assessment: assessmentSchema,
   plan: sectionSchema,
 });
 
@@ -177,7 +195,8 @@ export function sectionHasNotes(sections: ConsultationSections, key: Consultatio
 
 /**
  * How many answers the clinician changed in Subjective (CLN-03), confirmed in Screening (CLN-04),
- * or recorded in Objective (CLN-05: measures entered and tests added); none elsewhere.
+ * recorded in Objective (CLN-05: measures entered and tests added) or filled in Assessment
+ * (CLN-06: the four parts); none elsewhere.
  */
 export function confirmedCount(sections: ConsultationSections, key: ConsultationSection): number {
   if (key === 'subjective') return Object.keys(sections.subjective.confirmed).length;
@@ -189,6 +208,7 @@ export function confirmedCount(sections: ConsultationSections, key: Consultation
     ).length;
     return entered + sections.objective.tests.length;
   }
+  if (key === 'assessment') return assessmentParts(sections.assessment);
   return 0;
 }
 
@@ -212,19 +232,39 @@ export function consultationScreening(
   };
 }
 
+/** A reason the consultation cannot be signed yet, and the section that resolves it. */
+export interface SigningBlocker {
+  section: ConsultationSection;
+  reason: string;
+}
+
 /**
- * Why the consultation cannot be signed yet; empty when it can (CLN-04, PRD J3.3). The sign
- * service (CLN-09) refuses on any reason here, with the health form's answers read on the server.
+ * Why the consultation cannot be signed yet; empty when it can: every screening item confirmed
+ * (CLN-04, PRD J3.3) and the working diagnosis complete (CLN-06, SOP v2 §10.1 "A diagnosis missing
+ * any of these components is incomplete"). The sign service (CLN-09) refuses on any reason here,
+ * with the health form's answers read on the server.
  */
 export function signingBlockers(
   sections: ConsultationSections,
   patientAnswers: HealthFormAnswers,
-): string[] {
+): SigningBlocker[] {
+  const blockers: SigningBlocker[] = [];
   const { progress } = consultationScreening(sections, patientAnswers);
   const left = progress.total - progress.confirmed;
-  return progress.complete
-    ? []
-    : [`Signing needs every screening item confirmed: ${String(left)} left.`];
+  if (!progress.complete) {
+    blockers.push({
+      section: 'screening',
+      reason: `Signing needs every screening item confirmed: ${String(left)} left.`,
+    });
+  }
+  if (assessmentParts(sections.assessment) < ASSESSMENT_PART_COUNT) {
+    blockers.push({
+      section: 'assessment',
+      reason:
+        'The working diagnosis needs its four parts: tissue, movement, irritability and stage.',
+    });
+  }
+  return blockers;
 }
 
 /** The step before and after, for Back and Next; undefined at either end. */

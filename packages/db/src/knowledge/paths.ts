@@ -10,10 +10,17 @@ export const ID_FILE_PATH = join(import.meta.dirname, 'condition-ids.json');
 export const REPORT_FILE_PATH = join(repo, 'docs', 'knowledge-base', 'import-report.md');
 export const RULES_FILE_NAME = 'red-flag-rules.json';
 export const RULES_FILE_PATH = join(import.meta.dirname, RULES_FILE_NAME);
+export const CATEGORIES_FILE_NAME = 'diagnosis-categories.json';
+export const CATEGORIES_FILE_PATH = join(import.meta.dirname, CATEGORIES_FILE_NAME);
 
 /** The committed red flag rules file, as written (SET-10). */
 export function readRulesFile(): Promise<string> {
   return readFile(RULES_FILE_PATH, 'utf8');
+}
+
+/** The committed diagnosis categories file, as written (CLN-06). */
+export function readCategoriesFile(): Promise<string> {
+  return readFile(CATEGORIES_FILE_PATH, 'utf8');
 }
 
 /** The committed ID file; empty before the first import. */

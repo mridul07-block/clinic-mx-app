@@ -561,6 +561,20 @@
       "when": 1792845845771,
       "tag": "20261024124405_kb_measures_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1792849760305,
+      "tag": "20261024134920_kb_diagnosis_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1792849761626,
+      "tag": "20261024134921_kb_diagnosis_categories_rules",
+      "breakpoints": true
     }
   ]
 }

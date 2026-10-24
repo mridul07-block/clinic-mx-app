@@ -2,6 +2,7 @@ import 'server-only';
 import {
   consultationIntake,
   consultationRecord,
+  knowledgeAssessment,
   knowledgeObjective,
   saveConsultationSections,
   type ConsultationEntry,
@@ -10,6 +11,8 @@ import {
 import {
   consultationSectionsSchema,
   recordVersionSchema,
+  type AssessmentCatalog,
+  type AssessmentSettings,
   type ConsultationSections,
   type DraftSaveResponse,
   type HealthFormAnswers,
@@ -20,6 +23,7 @@ import { z } from 'zod';
 import { assertMay } from '../access/guard';
 import { staffService } from '../access/service';
 import { asStaff } from '../access/staff-db';
+import { getSetting } from '../settings/settings';
 
 /**
  * The consultation (CLN-02, PRD J3.2): its own consultant writes it, section by section, saved by
@@ -44,6 +48,22 @@ export interface ConsultationView extends Omit<ConsultationEntry, 'sections'> {
   patientAnswers: HealthFormAnswers;
   /** Every workbook's measures and special tests in the consultation's version (CLN-05). */
   objectiveCatalog: { measures: KnowledgeMeasure[]; specialTests: KnowledgeSpecialTest[] };
+  /** The version's conditions and the client's diagnosis categories (CLN-06). */
+  assessmentCatalog: AssessmentCatalog;
+  /** The thresholds Assessment's suggestions use (CLN-06). */
+  assessmentSettings: AssessmentSettings;
+}
+
+/** The `assessment.*` settings, as the suggestions take them. */
+async function assessmentSettings(): Promise<AssessmentSettings> {
+  const [irritabilityHighAbove, irritabilityLowBelow, acuteWeeksBelow, chronicWeeksAbove] =
+    await Promise.all([
+      getSetting('assessment.irritability_high_above'),
+      getSetting('assessment.irritability_low_below'),
+      getSetting('assessment.acute_weeks_below'),
+      getSetting('assessment.chronic_weeks_above'),
+    ]);
+  return { irritabilityHighAbove, irritabilityLowBelow, acuteWeeksBelow, chronicWeeksAbove };
 }
 
 /** The person's own consultation, or undefined when there is none they write. */
@@ -60,6 +80,7 @@ export async function loadConsultation(
       found,
       intake: await consultationIntake(tx, found.appointmentId),
       catalog: await knowledgeObjective(tx, found.kbVersionId),
+      assessment: await knowledgeAssessment(tx, found.kbVersionId),
     };
   });
   if (!read) return undefined;
@@ -68,6 +89,8 @@ export async function loadConsultation(
     sections: consultationSectionsSchema.parse(read.found.sections),
     patientAnswers: read.intake?.answers ?? {},
     objectiveCatalog: read.catalog,
+    assessmentCatalog: read.assessment,
+    assessmentSettings: await assessmentSettings(),
   };
 }
 

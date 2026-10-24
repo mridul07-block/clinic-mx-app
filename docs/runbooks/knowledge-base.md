@@ -90,6 +90,22 @@ Finding | Clinical Note". A row without a category keeps the one above. Keys are
 (`sheets`). An import that reads more sheets from the same files is a new version (the first one
 after CLN-05), and the same files and sheets twice is refused as before.
 
+## Diagnosis categories (CLN-06)
+
+The client's "Physiotherapeutic diagnosis" list (in `docs/1 Movementology Clinical Management
+Softwear (1).docx`) is committed word for word as
+`packages/db/src/knowledge/diagnosis-categories.json`: 44 categories, each with a stable code made
+from its name once (`knee_pfps` for "Knee - PFPS"; the client's spelling is kept in the name).
+`conditions` maps condition IDs to codes and is empty until the client's mapping arrives (SET-12).
+
+- The import checks the file (`categories.ts`): codes unique and lowercase, every mapped ID a
+  condition in the workbooks, every mapped code a category. Any problem stops the import.
+- Each version stores the categories (`kb_diagnosis_category`) and each condition's mapped code
+  (`kb_condition.category_code`, a foreign key to the version's categories).
+- The file's SHA-256 is part of the version's source, so editing it (SET-12's mapping, a renamed
+  category) makes a new version, as the rules file does. Never change a code once used: signed
+  diagnoses store it.
+
 ## Condition IDs
 
 `packages/db/src/knowledge/condition-ids.json` maps `region|name as written` to an ID. The prefix

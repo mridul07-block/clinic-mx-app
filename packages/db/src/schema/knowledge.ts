@@ -75,6 +75,30 @@ export const kbVersion = pgTable(
   ],
 ).enableRLS();
 
+/**
+ * The client's diagnosis categories (CLN-06, PRD J3.6 "the client's diagnosis category is coded
+ * automatically"): its "Physiotherapeutic diagnosis" list word for word, from the committed
+ * `diagnosis-categories.json`, each with a stable code.
+ */
+export const kbDiagnosisCategory = pgTable(
+  'kb_diagnosis_category',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    /** Stable across versions, for example `knee_pfps`. */
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    /** The list's order. */
+    sort: integer('sort').notNull(),
+  },
+  (table) => [
+    unique('kb_diagnosis_category_version_code_key').on(table.kbVersionId, table.code),
+    check('kb_diagnosis_category_code', sql`${table.code} ~ '^[a-z][a-z0-9_]*$'`),
+  ],
+).enableRLS();
+
 export const kbCondition = pgTable(
   'kb_condition',
   {
@@ -91,9 +115,16 @@ export const kbCondition = pgTable(
       .default(sql`'{}'::text[]`),
     /** The workbook whose prefix the ID carries. */
     homeRegion: kbRegion('home_region').notNull(),
+    /** The client's category for it (CLN-06), once mapped in the categories file (SET-12). */
+    categoryCode: text('category_code'),
   },
   (table) => [
     unique('kb_condition_version_condition_key').on(table.kbVersionId, table.conditionId),
+    foreignKey({
+      name: 'kb_condition_category_fkey',
+      columns: [table.kbVersionId, table.categoryCode],
+      foreignColumns: [kbDiagnosisCategory.kbVersionId, kbDiagnosisCategory.code],
+    }),
     check('kb_condition_id', sql`${table.conditionId} ~ '^[A-Z]{3}-[0-9]{3}$'`),
     check('kb_condition_name', sql`length(trim(${table.name})) >= 1`),
   ],

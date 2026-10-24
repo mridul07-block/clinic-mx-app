@@ -1,0 +1,182 @@
+{
+  "source": "docs/1 Movementology Clinical Management Softwear (1).docx, the \"Physiotherapeutic diagnosis\" list, word for word",
+  "categories": [
+    {
+      "code": "chronic_pain",
+      "name": "Chronic pain"
+    },
+    {
+      "code": "elbow_post_operative_rehabilitation",
+      "name": "Elbow - Post Operative rehabilitation"
+    },
+    {
+      "code": "elbow_stiff_elbow",
+      "name": "Elbow - Stiff elbow"
+    },
+    {
+      "code": "elbow_instability",
+      "name": "Elbow- Instability"
+    },
+    {
+      "code": "elbow_tendon_pathology",
+      "name": "Elbow- Tendon pathology"
+    },
+    {
+      "code": "foot_and_ankle_foot_pathologies",
+      "name": "Foot & Ankle - Foot pathologies"
+    },
+    {
+      "code": "foot_and_ankle_instabilities",
+      "name": "Foot & Ankle - Instabilities"
+    },
+    {
+      "code": "foot_and_ankle_ligaments_injuries",
+      "name": "Foot & Ankle - Ligaments injuries"
+    },
+    {
+      "code": "foot_and_ankle_lower_leg_pathologies",
+      "name": "Foot & Ankle - Lower leg pathologies"
+    },
+    {
+      "code": "foot_and_ankle_tendon_pathologies",
+      "name": "Foot & Ankle - Tendon pathologies"
+    },
+    {
+      "code": "health_related_fitness",
+      "name": "Health Related Fitness"
+    },
+    {
+      "code": "hip_instabilities",
+      "name": "Hip - Instabilities"
+    },
+    {
+      "code": "hip_impingement",
+      "name": "Hip- Impingement"
+    },
+    {
+      "code": "hip_post_of_operative_rehabilitation",
+      "name": "Hip- Post of Operative Rehabilitation"
+    },
+    {
+      "code": "hip_tendon_pathologies",
+      "name": "Hip- Tendon pathologies"
+    },
+    {
+      "code": "knee_acl_conservative_rehabilitation",
+      "name": "Knee - ACL conservative rehabilitation"
+    },
+    {
+      "code": "knee_acl_post_operative_rehabilitation",
+      "name": "Knee - ACL Post operative rehabilitation"
+    },
+    {
+      "code": "knee_degenerative",
+      "name": "Knee - Degenerative"
+    },
+    {
+      "code": "knee_meniscus_rehabilitation",
+      "name": "Knee - Meniscus Rehabilitation"
+    },
+    {
+      "code": "knee_pfps",
+      "name": "Knee - PFPS"
+    },
+    {
+      "code": "knee_post_operative_rehabilitation",
+      "name": "Knee - Post Operative Rehabilitation"
+    },
+    {
+      "code": "knee_others",
+      "name": "Knee- Others"
+    },
+    {
+      "code": "mechanical_dysfunction",
+      "name": "Mechanical dysfunction"
+    },
+    {
+      "code": "neurological_impairments",
+      "name": "Neurological impairments"
+    },
+    {
+      "code": "non_specific_pain",
+      "name": "Non specific pain"
+    },
+    {
+      "code": "shoulder_impingement",
+      "name": "Shoulder - Impingement"
+    },
+    {
+      "code": "shoulder_instability",
+      "name": "Shoulder - Instability"
+    },
+    {
+      "code": "shoulder_post_operative_rehabilitation",
+      "name": "Shoulder - Post Operative Rehabilitation"
+    },
+    {
+      "code": "shoulder_rotator_cuff_pathology",
+      "name": "Shoulder - Rotator cuff pathology"
+    },
+    {
+      "code": "shoulder_stiff_shoulder",
+      "name": "Shoulder - Stiff shoulder"
+    },
+    {
+      "code": "spine_lower_back_dysfunction",
+      "name": "Spine - Lower back dysfunction"
+    },
+    {
+      "code": "spine_neck_lower_cervical_dysfunction",
+      "name": "Spine - neck - Lower cervical Dysfunction"
+    },
+    {
+      "code": "spine_neck_upper_cervical_dysfunction",
+      "name": "Spine - Neck - Upper cervical dysfunction"
+    },
+    {
+      "code": "spine_si_and_pelvic_dysfunction",
+      "name": "Spine - SI & Pelvic dysfunction"
+    },
+    {
+      "code": "spine_thoracic_dysfunction",
+      "name": "Spine - Thoracic dysfunction"
+    },
+    {
+      "code": "spine_thoracic_lumbar_dysfunction",
+      "name": "Spine - Thoracic lumbar dysfunction"
+    },
+    {
+      "code": "sports_injuries_ligaments_and_cartilage",
+      "name": "Sports Injuries - Ligaments & Cartilage"
+    },
+    {
+      "code": "sports_injuries_tendon",
+      "name": "Sports Injuries - Tendon"
+    },
+    {
+      "code": "sports_injuries_muscle",
+      "name": "Sports Injuries -Muscle"
+    },
+    {
+      "code": "sports_performance_enhancement",
+      "name": "Sports performance enhancement"
+    },
+    {
+      "code": "wrist_instabilities",
+      "name": "Wrist - Instabilities"
+    },
+    {
+      "code": "wrist_post_operative_rehabilitation",
+      "name": "Wrist - Post Operative rehabilitation"
+    },
+    {
+      "code": "wrist_soft_tissue_injuries",
+      "name": "Wrist - Soft tissue injuries"
+    },
+    {
+      "code": "wrist_stiffness",
+      "name": "Wrist - Stiffness"
+    }
+  ],
+  "conditions": {}
+}

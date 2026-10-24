@@ -9,9 +9,19 @@ const db = vi.hoisted(() => ({
   consultationRecord: vi.fn(),
   consultationIntake: vi.fn(),
   knowledgeObjective: vi.fn(),
+  knowledgeAssessment: vi.fn(),
   saveConsultationSections: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
+const settings: Record<string, number> = {
+  'assessment.irritability_high_above': 5,
+  'assessment.irritability_low_below': 3,
+  'assessment.acute_weeks_below': 3,
+  'assessment.chronic_weeks_above': 12,
+};
+vi.mock('../settings/settings', () => ({
+  getSetting: (key: string) => Promise.resolve(settings[key]),
+}));
 vi.mock('../access/staff-db', () => ({
   asStaff: (_actor: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
 }));
@@ -42,7 +52,15 @@ const sections = {
   subjective: { notes: 'Pain on stairs', confirmed: {} },
   screening: { notes: '', confirmed: {} },
   objective: { notes: '', region: '' as const, side: '' as const, measures: {}, tests: [] },
-  assessment: { notes: '' },
+  assessment: {
+    notes: '',
+    conditionId: 'KNE-001',
+    movement: 'Dynamic valgus',
+    irritability: 'moderate' as const,
+    stage: 'subacute' as const,
+    categoryCode: '',
+    provisional: true,
+  },
   plan: { notes: '' },
 };
 const save = (actor = consultant()) =>
@@ -61,6 +79,7 @@ describe('consultation', () => {
       answers: { complaint: 'Pain' },
     });
     db.knowledgeObjective.mockResolvedValue({ measures: [], specialTests: [] });
+    db.knowledgeAssessment.mockResolvedValue({ conditions: [], categories: [] });
     db.saveConsultationSections.mockResolvedValue({ status: 'saved', version: 4 });
   });
 
@@ -71,6 +90,15 @@ describe('consultation', () => {
     expect(view?.patientAnswers).toEqual({ complaint: 'Pain' });
     expect(view?.objectiveCatalog).toEqual({ measures: [], specialTests: [] });
     expect(db.knowledgeObjective).toHaveBeenCalledWith(fakeTx, 'kb-version-1');
+    expect(view?.assessmentCatalog).toEqual({ conditions: [], categories: [] });
+    expect(db.knowledgeAssessment).toHaveBeenCalledWith(fakeTx, 'kb-version-1');
+    expect(view?.assessmentSettings).toEqual({
+      irritabilityHighAbove: 5,
+      irritabilityLowBelow: 3,
+      acuteWeeksBelow: 3,
+      chronicWeeksAbove: 12,
+    });
+    expect(view?.sections.assessment.provisional).toBe(true);
     db.consultationIntake.mockResolvedValue(undefined);
     expect((await loadConsultation(consultant(), consultationId))?.patientAnswers).toEqual({});
     db.consultationRecord.mockResolvedValue(record({ physioId: 'someone-else' }));
