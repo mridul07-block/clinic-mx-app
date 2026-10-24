@@ -71,7 +71,7 @@ export function SubjectiveFields({
               const source = subjectiveSource(key, confirmed, patientAnswers);
               const value = subjectiveValue(key, confirmed, patientAnswers);
               const original = patientAnswers[key];
-              const id = `subjective-${key}`;
+              const id = ['subjective', key].join('-');
               return (
                 <div
                   key={key}
