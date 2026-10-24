@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Paragraph, Section, Table } from './letterhead';
 import { renderPdf } from './render';
 import { LetterheadSample } from './sample';
 
@@ -23,4 +24,29 @@ describe('renderPdf', () => {
     // The fonts are embedded, not referenced.
     expect(text).toContain('/FontFile2');
   }, 20_000);
+});
+
+// ALT-06 (seen on staging): a heading alone at the foot of a page, a table's header repeated above
+// its row on the next. A section's heading now stays with its first block; with a table, inside
+// its first rows.
+describe('Section', () => {
+  type Node = { type: unknown; props: { wrap?: boolean; heading?: unknown; children?: unknown } };
+  const blocks = (heading: string, first: React.ReactElement) =>
+    (Section({ heading, children: [first, <Paragraph key="more">More</Paragraph>] }) as Node).props
+      .children as [Node, Node[]];
+
+  it('keeps a table’s heading with its header and first row', () => {
+    const [lead] = blocks(
+      'Addenda',
+      <Table key="t" columns={[{ label: 'Added' }]} rows={[['1 Oct']]} />,
+    );
+    expect(lead.type).toBe(Table);
+    expect(lead.props.heading).toBeTruthy();
+  });
+
+  it('keeps any other heading with the block after it', () => {
+    const [lead, rest] = blocks('Review plan', <Paragraph key="p">6 Dec 2026</Paragraph>);
+    expect(lead.props.wrap).toBe(false);
+    expect(rest).toHaveLength(1);
+  });
 });
