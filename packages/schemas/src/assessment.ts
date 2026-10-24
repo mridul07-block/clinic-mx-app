@@ -159,8 +159,16 @@ export interface AssessmentCondition {
   homeRegion: KnowledgeRegion;
   /** The client's category for it, once mapped (SET-12); null until then. */
   categoryCode: string | null;
-  /** Each workbook's row for it: its name there and its "Underlying biomechanical cause". */
-  listings: { region: KnowledgeRegion; name: string; biomechanicalCause: string | null }[];
+  /**
+   * Each workbook's row for it: its name there, its "Underlying biomechanical cause" and its
+   * "Physiotherapy specific exercise" (the Plan's home programme reference, CLN-07).
+   */
+  listings: {
+    region: KnowledgeRegion;
+    name: string;
+    biomechanicalCause: string | null;
+    specificExercise: string | null;
+  }[];
 }
 
 export interface DiagnosisCategory {

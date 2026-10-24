@@ -4,6 +4,13 @@ import type { HealthFormAnswer, HealthFormAnswers } from './health-form';
 import { knowledgeRegionKeys } from './knowledge';
 import { measureEntrySchema, specialTestEntrySchema } from './objective';
 import {
+  modalitiesNeedingReason,
+  planFields,
+  planParts,
+  precautionsInForce,
+  type PlanCatalog,
+} from './plan';
+import {
   screeningProgress,
   screeningRegionOf,
   validScreeningAnswer,
@@ -172,13 +179,31 @@ const assessmentSchema = z
     provisional: true,
   });
 
+/**
+ * Plan (CLN-07): goals, interventions, modalities (each with a reason when kept despite a
+ * precaution), frequency, the home programme, the review date, questionnaires and the treating
+ * physio; '' and null stand for the defaults `resolvedPlan` fills in.
+ */
+const planSchema = z.object({ notes: sectionSchema.unwrap().shape.notes, ...planFields }).default({
+  notes: '',
+  goals: [],
+  interventions: [],
+  modalities: [],
+  sessionsPerWeek: null,
+  weeks: null,
+  homeProgramme: [],
+  reviewDate: '',
+  questionnaires: null,
+  treatingPhysioId: '',
+});
+
 /** What the clinician has written in each section; a new consultation is `{}`. */
 export const consultationSectionsSchema = z.object({
   subjective: subjectiveSchema,
   screening: screeningSchema,
   objective: objectiveSchema,
   assessment: assessmentSchema,
-  plan: sectionSchema,
+  plan: planSchema,
 });
 
 export type ConsultationSections = z.infer<typeof consultationSectionsSchema>;
@@ -195,8 +220,8 @@ export function sectionHasNotes(sections: ConsultationSections, key: Consultatio
 
 /**
  * How many answers the clinician changed in Subjective (CLN-03), confirmed in Screening (CLN-04),
- * recorded in Objective (CLN-05: measures entered and tests added) or filled in Assessment
- * (CLN-06: the four parts); none elsewhere.
+ * recorded in Objective (CLN-05: measures entered and tests added), or filled in Assessment
+ * (CLN-06: the four parts) and Plan (CLN-07: its parts).
  */
 export function confirmedCount(sections: ConsultationSections, key: ConsultationSection): number {
   if (key === 'subjective') return Object.keys(sections.subjective.confirmed).length;
@@ -209,7 +234,7 @@ export function confirmedCount(sections: ConsultationSections, key: Consultation
     return entered + sections.objective.tests.length;
   }
   if (key === 'assessment') return assessmentParts(sections.assessment);
-  return 0;
+  return planParts(sections.plan);
 }
 
 /** Whether a section holds anything the clinician wrote: notes, or confirmed answers. */
@@ -240,13 +265,16 @@ export interface SigningBlocker {
 
 /**
  * Why the consultation cannot be signed yet; empty when it can: every screening item confirmed
- * (CLN-04, PRD J3.3) and the working diagnosis complete (CLN-06, SOP v2 §10.1 "A diagnosis missing
- * any of these components is incomplete"). The sign service (CLN-09) refuses on any reason here,
- * with the health form's answers read on the server.
+ * (CLN-04, PRD J3.3), the working diagnosis complete (CLN-06, SOP v2 §10.1 "A diagnosis missing
+ * any of these components is incomplete"), and a reason for each modality kept despite one of the
+ * patient's precautions (CLN-07, user decision 24 October 2026). The sign service (CLN-09) refuses
+ * on any reason here, with the health form's answers and the version's plan catalog read on the
+ * server.
  */
 export function signingBlockers(
   sections: ConsultationSections,
   patientAnswers: HealthFormAnswers,
+  context: { planCatalog: PlanCatalog },
 ): SigningBlocker[] {
   const blockers: SigningBlocker[] = [];
   const { progress } = consultationScreening(sections, patientAnswers);
@@ -262,6 +290,17 @@ export function signingBlockers(
       section: 'assessment',
       reason:
         'The working diagnosis needs its four parts: tissue, movement, irritability and stage.',
+    });
+  }
+  const unexplained = modalitiesNeedingReason(
+    sections.plan,
+    context.planCatalog,
+    precautionsInForce(sections.screening.confirmed, patientAnswers),
+  );
+  if (unexplained.length > 0) {
+    blockers.push({
+      section: 'plan',
+      reason: `Give a reason for each modality kept despite a precaution: ${unexplained.join(', ')}.`,
     });
   }
   return blockers;

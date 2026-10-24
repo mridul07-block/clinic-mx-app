@@ -88,10 +88,11 @@ describe('the gate', () => {
   });
 
   it('blocks signing until screening is complete', () => {
+    const noCatalog = { planCatalog: { modalities: [], questionnaires: [] } };
     const patient = { region: 'knee', sex: 'male' };
     const empty = consultationSectionsSchema.parse({});
     const total = screeningItems('knee', 'male', {}).length;
-    expect(signingBlockers(empty, patient)[0]).toEqual({
+    expect(signingBlockers(empty, patient, noCatalog)[0]).toEqual({
       section: 'screening',
       reason: `Signing needs every screening item confirmed: ${String(total)} left.`,
     });
@@ -102,7 +103,7 @@ describe('the gate', () => {
       ]),
     );
     const done = consultationSectionsSchema.parse({ screening: { notes: '', confirmed } });
-    expect(signingBlockers(done, patient).map((blocker) => blocker.section)).toEqual([
+    expect(signingBlockers(done, patient, noCatalog).map((blocker) => blocker.section)).toEqual([
       'assessment',
     ]);
   });

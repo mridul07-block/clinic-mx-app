@@ -1,10 +1,12 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildKnowledge, KnowledgeImportError, type ConditionIds } from './build';
 import { buildCategories } from './categories';
+import { buildPlanCatalog } from './plan-catalog';
 import { buildReport, reportMarkdown } from './report';
 import {
   readCategoriesFile,
   readConditionIds,
+  readPlanCatalogFile,
   readReport,
   readRulesFile,
   WORKBOOK_FOLDER_PATH,
@@ -123,7 +125,14 @@ describe('the knowledge base import', () => {
     const categories = buildCategories(await readCategoriesFile(), first);
     expect(
       reportMarkdown(
-        buildReport(workbooks, first, redFlags, buildObjective(workbooks), categories),
+        buildReport(
+          workbooks,
+          first,
+          redFlags,
+          buildObjective(workbooks),
+          categories,
+          buildPlanCatalog(await readPlanCatalogFile()),
+        ),
       ),
     ).toBe(await readReport());
   });

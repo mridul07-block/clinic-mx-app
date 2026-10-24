@@ -1,4 +1,4 @@
-import { istDate, screeningItems } from '@clinic-mx/schemas';
+import { addDays, istDate, screeningItems } from '@clinic-mx/schemas';
 import { expect, test, type Page } from '@playwright/test';
 import { removeCalendarRows, startedAppointment } from './calendar';
 import { savedConsultation, submittedAnswers } from './consultations';
@@ -470,5 +470,102 @@ test('Assessment takes a knowledge base condition, the suggested irritability an
   await expect(gate).not.toContainText('working diagnosis needs');
   await expect(page.getByTestId('sign-section').filter({ hasText: 'Assessment' })).toContainText(
     '4 of 4 parts',
+  );
+});
+
+// CLN-07 done when: goals, interventions, modalities with precaution warnings, frequency, home
+// programme, reviews, questionnaires, treating physio. Decisions (user, 24 October 2026): precaution
+// links drafted from the client's documents; a reason to keep a warned modality, signing waits for
+// it; home programme typed for now; questionnaires suggested from the diagnosis.
+test('Plan warns about a modality against the patient’s precautions and keeps the whole plan', async ({
+  page,
+}) => {
+  const { physio, patient, visit } = await consultationToday({ submitted: true });
+  await submittedAnswers(visit.id, patient.id, {
+    region: 'knee',
+    sex: 'female',
+    goals: 'Run 10 km again',
+    health_conditions: ['pregnancy', 'bleeding'],
+  });
+  await signInWithCode(page, physio.email, physio.secret);
+  await startConsultation(page, patient.name);
+  await expect(stepTitle(page)).toHaveText('Subjective');
+  const path = new URL(page.url()).pathname;
+  await page.goto(`${path}?section=assessment`);
+  await page.getByRole('combobox', { name: 'Tissue diagnosis' }).fill('patellar tend');
+  await page.getByRole('combobox', { name: 'Tissue diagnosis' }).press('Enter');
+  await expect(page.getByTestId('chosen-condition')).toContainText('Patellar Tendinopathy');
+  await page.getByRole('link', { name: 'Next' }).click();
+  await expect(stepTitle(page)).toHaveText('Plan');
+
+  // Goals, the patient's own first.
+  await expect(page.getByText('Patient’s goals:')).toBeVisible();
+  await page.getByRole('button', { name: 'Add as a goal' }).click();
+  await expect(page.getByLabel('Goal 1', { exact: true })).toHaveValue('Run 10 km again');
+  await expect(page.getByTestId('goal').first().getByLabel('Patient’s goal')).toBeChecked();
+  await page.getByRole('button', { name: 'Add a goal' }).click();
+  await page.getByLabel('Goal 2', { exact: true }).fill('Full squat without pain');
+  await page.getByRole('checkbox', { name: 'Exercise', exact: true }).check();
+
+  // Radial shockwave against pregnancy and a bleeding disorder.
+  const shockwave = page.locator('[data-testid="modality"][data-modality="radial_shockwave"]');
+  await shockwave.getByLabel('Radial Shockwave (RSW)').check();
+  const warning = shockwave.getByTestId('modality-warning');
+  await expect(warning).toContainText('Patient ticked: Pregnancy / breastfeeding');
+  await expect(warning).toContainText('Patient ticked: Bleeding disorder or blood thinners');
+  await expect(warning).toContainText('Awaiting clinical sign-off.');
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await page.goto(`${path}?section=sign`);
+  const gate = page.getByTestId('sign-gate');
+  await expect(gate).toContainText(
+    'Give a reason for each modality kept despite a precaution: Radial Shockwave (RSW).',
+  );
+  await gate.getByRole('link', { name: 'Go to Plan' }).click();
+  await expect(stepTitle(page)).toHaveText('Plan');
+  await warning.getByLabel('Reason to keep it').fill('Low energy, away from the abdomen');
+
+  // Frequency, home programme, review, questionnaires, treating physio.
+  await page.getByLabel('Sessions a week').fill('2');
+  await page.getByLabel('Weeks', { exact: true }).fill('6');
+  await page.getByRole('button', { name: 'Add an exercise' }).click();
+  const exercise = page.getByTestId('exercise').first();
+  await exercise.getByLabel('Exercise', { exact: true }).fill('Spanish squat isometric');
+  await exercise.getByLabel('Dose', { exact: true }).fill('5 x 45 s, daily');
+  const review = addDays(istDate(visit.startsAt), 42);
+  await expect(page.getByLabel('Review date')).toHaveValue(review);
+  const questionnaires = page.getByTestId('questionnaires');
+  await expect(questionnaires.getByRole('checkbox', { name: /VISA-P.*Suggested/ })).toBeChecked();
+  await expect(questionnaires.getByRole('checkbox', { name: /^KOOS/ })).not.toBeChecked();
+  await questionnaires.getByRole('checkbox', { name: /^KOOS/ }).check();
+  await expect(page.getByLabel('Treating physio')).toHaveValue(physio.id);
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await expect
+    .poll(async () => (await savedConsultation(visit.id))?.sections.plan)
+    .toMatchObject({
+      goals: [
+        { text: 'Run 10 km again', patient: true },
+        { text: 'Full squat without pain', patient: false },
+      ],
+      interventions: ['exercise'],
+      modalities: [{ key: 'radial_shockwave', reason: 'Low energy, away from the abdomen' }],
+      sessionsPerWeek: 2,
+      weeks: 6,
+      homeProgramme: [{ exercise: 'Spanish squat isometric', dose: '5 x 45 s, daily', note: '' }],
+      reviewDate: '',
+      questionnaires: ['visa_p', 'koos'],
+      treatingPhysioId: '',
+    });
+
+  await page.reload();
+  await expect(page.getByLabel('Goal 2', { exact: true })).toHaveValue('Full squat without pain');
+  await expect(warning.getByLabel('Reason to keep it')).toHaveValue(
+    'Low energy, away from the abdomen',
+  );
+  await expect(page.getByLabel('Sessions a week')).toHaveValue('2');
+  await expect(questionnaires.getByRole('checkbox', { name: /^KOOS/ })).toBeChecked();
+  await page.goto(`${path}?section=sign`);
+  await expect(gate).not.toContainText('Give a reason');
+  await expect(page.getByTestId('sign-section').filter({ hasText: 'Plan' })).toContainText(
+    '5 of 5 parts',
   );
 });

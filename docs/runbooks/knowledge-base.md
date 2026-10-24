@@ -106,6 +106,23 @@ from its name once (`knee_pfps` for "Knee - PFPS"; the client's spelling is kept
   category) makes a new version, as the rules file does. Never change a code once used: signed
   diagnoses store it.
 
+## Plan catalog (CLN-07)
+
+`packages/db/src/knowledge/plan-catalog.json` holds what the consultation's Plan offers:
+
+- **Modalities:** the Blueprint's six Part B modalities and the software document's Dry needling
+  and Zero Gravity Treadmill. Keys follow the price master where one exists (`radial_shockwave`).
+  Each lists the Health check precautions it warns about, with the source of each link, and
+  `signedOff: false` until the client's clinical lead signs the links off (DECISION CLN-07).
+- **Questionnaires:** Blueprint Module 8's outcome measure library word for word (19 instruments),
+  each with the workbooks it is for (Elbow / wrist–hand is Elbow and Forearm and wrist; PSFS is for
+  any region) and its "Use for". Items and scoring arrive with SET-08.
+
+The import checks it (`plan-catalog.ts`): known precaution keys and regions, no repeated keys or
+links; any problem stops the import. Each version stores `kb_modality` and `kb_questionnaire`. The
+file's SHA-256 is part of the version's source, so changing a link or signing one off makes a new
+version. Never change a key once used: plans store it.
+
 ## Condition IDs
 
 `packages/db/src/knowledge/condition-ids.json` maps `region|name as written` to an ID. The prefix

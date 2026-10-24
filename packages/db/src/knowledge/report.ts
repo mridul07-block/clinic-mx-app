@@ -2,6 +2,7 @@ import {
   activityTagVocabulary,
   activityTags,
   knowledgeRegions,
+  precautionLabels,
   redFlagTierLabels,
   redFlagTiers,
   redFlagTriageLabels,
@@ -14,6 +15,7 @@ import { baseName, type BuiltKnowledge, type Listing } from './build';
 import { mapColumns } from './columns';
 import type { BuiltCategories } from './categories';
 import type { BuiltObjective } from './objective';
+import type { BuiltPlanCatalog } from './plan-catalog';
 import type { RedFlags } from './red-flags';
 import type { Workbook } from './workbook';
 
@@ -80,6 +82,12 @@ export interface ImportReport {
     names: string[];
     mapped: number;
   };
+  /** CLN-07: the plan catalog file, its modalities' precaution links and its questionnaires. */
+  planCatalog: {
+    file: { name: string; sha256: string };
+    modalities: { name: string; precautions: string[]; signedOff: boolean }[];
+    questionnaires: { name: string; regions: string; useFor: string }[];
+  };
 }
 
 const named = (l: Listing): Named => ({
@@ -138,6 +146,7 @@ export function buildReport(
   redFlags: RedFlags,
   objective: BuiltObjective,
   categories: BuiltCategories,
+  planCatalog: BuiltPlanCatalog,
 ): ImportReport {
   const { listings, conditions } = built;
   const byCondition = new Map<string, Listing[]>();
@@ -300,6 +309,24 @@ export function buildReport(
       file: categories.file,
       names: categories.categories.map((category) => category.name),
       mapped: Object.keys(categories.mapping).length,
+    },
+    planCatalog: {
+      file: planCatalog.file,
+      modalities: planCatalog.modalities.map((m) => ({
+        name: m.name,
+        precautions: m.precautions.map(
+          (p) => `${precautionLabels[p.precaution] ?? p.precaution} (${p.source})`,
+        ),
+        signedOff: m.signedOff,
+      })),
+      questionnaires: planCatalog.questionnaires.map((q) => ({
+        name: q.name,
+        regions:
+          q.regions.length === 0
+            ? 'Any region'
+            : q.regions.map((r) => knowledgeRegions[r].label).join(', '),
+        useFor: q.useFor,
+      })),
     },
   };
 }
@@ -488,6 +515,25 @@ export function reportMarkdown(report: ImportReport): string {
       'conditions mapped to one (the client’s mapping arrives with SET-12; until then the ' +
       'clinician picks the category in Assessment).',
     report.categories.names.map((name) => `- ${cell(name)}`).join('\n'),
+    '## Plan catalog (CLN-07)',
+    `${report.planCatalog.modalities.length} modalities and ${report.planCatalog.questionnaires.length} ` +
+      `questionnaires from \`packages/db/src/knowledge/${report.planCatalog.file.name}\` ` +
+      `(SHA-256 ${report.planCatalog.file.sha256.slice(0, 12)}). A modality warns in the plan when ` +
+      'the patient has a precaution it lists; the links are drafted from the Blueprint’s Part B ' +
+      'statements and the Consultation SOP v2 §12.3 and await clinical sign-off ' +
+      '(`docs/runbooks/consultation.md`).',
+    table(
+      ['Modality', 'Warns about', 'Signed off'],
+      report.planCatalog.modalities.map((m) => [
+        m.name,
+        m.precautions.length > 0 ? m.precautions.join('; ') : 'Nothing',
+        m.signedOff ? 'Yes' : 'Awaiting clinical sign-off',
+      ]),
+    ),
+    table(
+      ['Questionnaire', 'For', 'Use for'],
+      report.planCatalog.questionnaires.map((q) => [q.name, q.regions, q.useFor]),
+    ),
     '## Condition IDs',
     `${report.assigned} new IDs assigned in this run; ` +
       (report.unmatched.length === 0

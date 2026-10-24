@@ -194,6 +194,61 @@ offline. **When signing arrives (CLN-09), the TAD's `diagnosis` row is written**
 the sign service checks the condition and category exist in that version and takes a mapped
 category from the knowledge base.
 
+## Plan (CLN-07)
+
+PRD J3.7: goals (the patient's own among them), interventions, modalities checked against
+precautions, frequency, home programme, review dates and outcome questionnaires; the ticket adds the
+treating physio. Decisions (user, 24 October 2026):
+
+- **Precaution links** are drafted from the client's documents into the plan catalog (knowledge
+  data, `docs/runbooks/knowledge-base.md`), each citing its source and marked "Awaiting clinical
+  sign-off":
+
+  | Modality | Warns about | Source |
+  | --- | --- | --- |
+  | Electrotherapy (US, IFT, TENS, EMS, combination) | Implant, pregnancy | Blueprint Part B statement |
+  | PEMF | Implant, pregnancy | Blueprint Part B statement |
+  | Radial and Focused Shockwave | Bleeding, pregnancy, cancer, chronic infection | Blueprint Part B (RSW) and SOP v2 §12.3 |
+  | Spinal DSO traction | Osteoporosis | Blueprint Part B statement |
+  | Laser, Dry needling, Zero Gravity Treadmill | Nothing | No source names one |
+
+- **A warned modality** shows an amber Precaution block with each precaution, who said so ("Patient
+  ticked" or "Confirmed" in Screening) and the source. Keeping it needs a one-line "Reason to keep
+  it"; signing waits for one.
+- **Home programme:** rows typed by the physio (exercise, dose, note), with the condition's
+  "Physiotherapy specific exercise" from its workbooks beneath. Knee and Bone Stress have no such
+  column. Picking from the exercise library with videos comes with SET-07.
+- **Questionnaires:** the Objective workbook's instruments and PSFS (Blueprint Module 8). Those
+  whose "Use for" names the chosen condition are ticked and marked "Suggested" until the clinician
+  changes the list.
+
+**Precautions in force** (`precautionsInForce`): each one the clinician confirmed yes in Screening,
+and each one the patient ticked that the clinician has not answered. A Screening "No" clears the
+patient's tick.
+
+**Questionnaire suggestion** (`suggestedQuestionnaires`): the "Use for" is split into terms at
+commas and slashes. A term matches when each of its words is in the condition's name or synonyms
+(case and accents ignored; words of 5 letters or more compare on their first 5, so "meniscus" meets
+"Meniscal"). Patellar Tendinopathy suggests VISA-P; a meniscal tear suggests KOOS; PSFS is never
+suggested.
+
+**The rest:**
+
+- **Goals:** up to 20 lines. "Add as a goal" copies the patient's goals (Subjective's value) as a
+  row marked "Patient's goal".
+- **Interventions:** Exercise, Manual therapy, Movement retraining, Technology-assisted
+  interventions (the Blueprint's treatment note).
+- **Frequency:** sessions a week (1 to 7) and weeks (1 to 52).
+- **Review date:** defaults to the visit's date plus `clinical.review_weeks` (6); OUT-06 books it.
+- **Treating physio:** the active staff with the Treats patients tick at the visit's centre
+  (`treatingPhysios`), defaulting to the consultant.
+
+**Storage.** Everything lives in `sections.plan`. `''` (review date, treating physio) and `null`
+(questionnaires) mean the default; `resolvedPlan` fills them in, on screen and for the sign service.
+**When signing arrives (CLN-09), the TAD's `plan_of_care` and `plan_modality` rows are written**
+from the resolved plan; Part B consent (BIL) reads the planned modalities. Sign shows "n of 5 parts"
+(goals, interventions, modalities, frequency, home programme).
+
 ## Autosave
 
 The screen adopts FND-08 (`docs/runbooks/autosave.md`): one draft per consultation (kind
@@ -229,11 +284,13 @@ Each save is an audited update (actor, before, after), one per autosave.
 | `packages/schemas/src/consultations.test.ts`, `apps/web/lib/drafts/savers.test.ts` | Sections, steps, Back and Next; the saver's endpoint. |
 | `packages/schemas/src/screening.test.ts` | Region questions (knee, back, none), follow ups only after a confirmed yes, pregnancy only for a female patient, what the patient said, progress ignoring stale keys, the signing gate, answers checked against their items. |
 | `packages/schemas/src/assessment.test.ts` | Irritability bands at 2/3 and 5/6 from the worse score, settings honoured; durations in weeks and the stage at 3 and 12 weeks; the clinician's Subjective answers first; search by name, synonym and ID with the Objective's workbook first; the four parts, old drafts, limits and the signing reason; the categories file shape. |
+| `packages/schemas/src/plan.test.ts` | Precautions in force (a Screening confirmation over the patient's tick, pregnancy only for a female patient); warnings and the reason to keep a modality; the signing reason; questionnaires offered and suggested (VISA-P, KOOS, Kujala, none for PSFS); defaults resolved; parts, old drafts and limits; the catalog file shape. |
+| `packages/db/src/knowledge/plan-catalog.test.ts` | The committed catalog: 8 modalities with their links (PEMF, shockwave, traction, laser), 19 questionnaires, QuickDASH for elbow and wrist; repeated keys, repeated or unknown precautions stop the import. |
 | `packages/db/src/knowledge/categories.test.ts` | The committed file: 44 categories in order, none mapped; a mapping to an unknown condition or category, or a repeated code, stops the import. |
 | `packages/schemas/src/objective.test.ts` | LSI, inverted LSI, heel raise count, deficit bands (absolute and not), reference and target, the Objective section and its limits. |
 | `packages/db/src/knowledge/build.test.ts` | Against the real workbooks: LSI targets, the timed hop, the heel raise, each workbook's bands, cervical references, joint position error at most, 10 grades, special tests with their categories; an unknown header stops the import. |
 | `packages/schemas/src/subjective.test.ts` | The form's fields and wording; sources; answers checked against their fields; Other shown only when ticked. |
-| `apps/web/e2e/consultation.spec.ts` | 360 px and desktop. Start consultation opens Subjective; notes save; Next pinned in view at 360 px, the stepper on desktop; a reload keeps the step and the notes; Back; Sign lists the sections; offline then reconnect saves; refused before the health form, then opens; the desk cannot open it. Subjective (CLN-03): the form's answers Patient reported, a blank one Not answered; edits to the complaint, pain and surgeries become Clinician confirmed with the patient's words beneath, untouched ones stay; the body chart on desktop; saved and kept through a reload; Sign counts them. Screening (CLN-04): a back pain form shows the back questions and pregnancy, no neck questions or follow ups, "0 of N"; Sign is blocked with "N left"; weight loss Yes adds the follow ups; the saddle Yes is marked changed; diabetes Confirmed; with all confirmed, Sign no longer names screening but still waits for the working diagnosis; kept through a reload. Objective (CLN-05): a knee form defaults to Knee; quadriceps 32 and 40 "LSI 80% · Not yet", then 36 "LSI 90% · Pass"; the timed hop 2.4 and 2.2 "LSI 92% · Pass"; effusion grade 2; Lachman added Positive with its positive finding and an interpretation; saved, kept through a reload; Sign shows "4 recorded". Assessment (CLN-06): Sign's "Go to Assessment"; "patellar tend" lists Patellar Tendinopathy (KNE-004, Knee) first and Enter chooses it; the Knee workbook's cause shows; with pain 4 now and 7 with activity, High is suggested and nothing selected, Moderate chosen; 6 weeks suggests Subacute, chosen; category Knee - PFPS; Provisional ticked; saved, kept through a reload; Change with no match keeps the condition; Sign shows "4 of 4 parts" and no diagnosis reason. |
+| `apps/web/e2e/consultation.spec.ts` | 360 px and desktop. Start consultation opens Subjective; notes save; Next pinned in view at 360 px, the stepper on desktop; a reload keeps the step and the notes; Back; Sign lists the sections; offline then reconnect saves; refused before the health form, then opens; the desk cannot open it. Subjective (CLN-03): the form's answers Patient reported, a blank one Not answered; edits to the complaint, pain and surgeries become Clinician confirmed with the patient's words beneath, untouched ones stay; the body chart on desktop; saved and kept through a reload; Sign counts them. Screening (CLN-04): a back pain form shows the back questions and pregnancy, no neck questions or follow ups, "0 of N"; Sign is blocked with "N left"; weight loss Yes adds the follow ups; the saddle Yes is marked changed; diabetes Confirmed; with all confirmed, Sign no longer names screening but still waits for the working diagnosis; kept through a reload. Objective (CLN-05): a knee form defaults to Knee; quadriceps 32 and 40 "LSI 80% · Not yet", then 36 "LSI 90% · Pass"; the timed hop 2.4 and 2.2 "LSI 92% · Pass"; effusion grade 2; Lachman added Positive with its positive finding and an interpretation; saved, kept through a reload; Sign shows "4 recorded". Assessment (CLN-06): Sign's "Go to Assessment"; "patellar tend" lists Patellar Tendinopathy (KNE-004, Knee) first and Enter chooses it; the Knee workbook's cause shows; with pain 4 now and 7 with activity, High is suggested and nothing selected, Moderate chosen; 6 weeks suggests Subacute, chosen; category Knee - PFPS; Provisional ticked; saved, kept through a reload; Change with no match keeps the condition; Sign shows "4 of 4 parts" and no diagnosis reason. Plan (CLN-07): with pregnancy and a bleeding disorder ticked, the patient's goal added and a second goal; Exercise; Radial Shockwave warns about both, "Awaiting clinical sign-off"; Sign waits for a reason and "Go to Plan" returns; the reason, 2 a week for 6 weeks, an exercise and dose; the review date is the visit plus 6 weeks; VISA-P ticked and Suggested, KOOS added; the consultant is the treating physio; saved, kept through a reload; Sign shows "5 of 5 parts". |
 
 The database test also checks that the consultant reads their visit's submitted form, and another
 physio and the desk read nothing.

@@ -3,13 +3,16 @@ import type {
   AssessmentCondition,
   KnowledgeMeasure,
   KnowledgeSpecialTest,
+  PlanCatalog,
 } from '@clinic-mx/schemas';
-import { asc, desc, eq } from 'drizzle-orm';
+import { asc, desc, eq, sql } from 'drizzle-orm';
 import {
   kbCondition,
   kbConditionListing,
   kbDiagnosisCategory,
   kbMeasure,
+  kbModality,
+  kbQuestionnaire,
   kbRedFlagPresentation,
   kbRedFlagRule,
   kbSpecialTest,
@@ -175,6 +178,9 @@ export async function knowledgeAssessment(
       region: kbConditionListing.region,
       name: kbConditionListing.name,
       biomechanicalCause: kbConditionListing.biomechanicalCause,
+      specificExercise: sql<
+        string | null
+      >`${kbConditionListing.details} -> 'specific_exercise' ->> 'text'`,
     })
     .from(kbConditionListing)
     .where(eq(kbConditionListing.kbVersionId, versionId))
@@ -195,4 +201,33 @@ export async function knowledgeAssessment(
     })),
     categories,
   };
+}
+
+/**
+ * The Plan's knowledge in a version (CLN-07): the modalities with the precautions each warns
+ * about, and the outcome questionnaires, in the catalog's order. Read under row level security:
+ * those who view the knowledge base.
+ */
+export async function knowledgePlan(db: DbOrTransaction, versionId: string): Promise<PlanCatalog> {
+  const modalities = await db
+    .select({
+      key: kbModality.key,
+      name: kbModality.name,
+      precautions: kbModality.precautions,
+      signedOff: kbModality.signedOff,
+    })
+    .from(kbModality)
+    .where(eq(kbModality.kbVersionId, versionId))
+    .orderBy(asc(kbModality.sort));
+  const questionnaires = await db
+    .select({
+      key: kbQuestionnaire.key,
+      name: kbQuestionnaire.name,
+      regions: kbQuestionnaire.regions,
+      useFor: kbQuestionnaire.useFor,
+    })
+    .from(kbQuestionnaire)
+    .where(eq(kbQuestionnaire.kbVersionId, versionId))
+    .orderBy(asc(kbQuestionnaire.sort));
+  return { modalities, questionnaires };
 }

@@ -575,6 +575,20 @@
       "when": 1792849761626,
       "tag": "20261024134921_kb_diagnosis_categories_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1792852791214,
+      "tag": "20261024143951_kb_plan_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1792852792623,
+      "tag": "20261024143952_kb_plan_catalog_rules",
+      "breakpoints": true
     }
   ]
 }

@@ -223,6 +223,7 @@ export {
   knowledgeListings,
   knowledgeAssessment,
   knowledgeObjective,
+  knowledgePlan,
   latestKnowledgeVersion,
   redFlagPresentations,
   redFlagRules,
@@ -350,5 +351,6 @@ export {
   consultationRecord,
   openConsultation,
   saveConsultationSections,
+  treatingPhysios,
   type ConsultationEntry,
 } from './consultations';

@@ -54,6 +54,9 @@ export default async function ConsultationPage({
         objectiveCatalog={consultation.objectiveCatalog}
         assessmentCatalog={consultation.assessmentCatalog}
         assessmentSettings={consultation.assessmentSettings}
+        planCatalog={consultation.planCatalog}
+        treatingPhysios={consultation.treatingPhysios}
+        planDefaults={consultation.planDefaults}
         initialStep={stepFromQuery(typeof section === 'string' ? section : undefined)}
       />
     </main>

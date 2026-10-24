@@ -10,6 +10,8 @@ const db = vi.hoisted(() => ({
   consultationIntake: vi.fn(),
   knowledgeObjective: vi.fn(),
   knowledgeAssessment: vi.fn(),
+  knowledgePlan: vi.fn(),
+  treatingPhysios: vi.fn(),
   saveConsultationSections: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
@@ -18,6 +20,7 @@ const settings: Record<string, number> = {
   'assessment.irritability_low_below': 3,
   'assessment.acute_weeks_below': 3,
   'assessment.chronic_weeks_above': 12,
+  'clinical.review_weeks': 6,
 };
 vi.mock('../settings/settings', () => ({
   getSetting: (key: string) => Promise.resolve(settings[key]),
@@ -39,8 +42,12 @@ const consultant = (extra: Partial<StaffMember> = {}): StaffMember => ({
   ...extra,
 });
 const context = (actor = consultant()) => ({ db: {} as Db, actor });
+const centreId = '00000000-0000-4000-8000-000000000101';
 const record = (extra: Record<string, unknown> = {}) => ({
   id: consultationId,
+  centreId,
+  // 10:00 IST on 24 October 2026.
+  startsAt: new Date('2026-10-24T04:30:00Z'),
   physioId: consultant().id,
   kbVersionId: 'kb-version-1',
   status: 'draft',
@@ -61,7 +68,18 @@ const sections = {
     categoryCode: '',
     provisional: true,
   },
-  plan: { notes: '' },
+  plan: {
+    notes: '',
+    goals: [],
+    interventions: [],
+    modalities: [],
+    sessionsPerWeek: null,
+    weeks: null,
+    homeProgramme: [],
+    reviewDate: '',
+    questionnaires: null,
+    treatingPhysioId: '',
+  },
 };
 const save = (actor = consultant()) =>
   saveConsultation(context(actor), { consultationId, value: sections, baseVersion: 3 });
@@ -80,6 +98,8 @@ describe('consultation', () => {
     });
     db.knowledgeObjective.mockResolvedValue({ measures: [], specialTests: [] });
     db.knowledgeAssessment.mockResolvedValue({ conditions: [], categories: [] });
+    db.knowledgePlan.mockResolvedValue({ modalities: [], questionnaires: [] });
+    db.treatingPhysios.mockResolvedValue([{ id: consultant().id, name: 'Test Consultant' }]);
     db.saveConsultationSections.mockResolvedValue({ status: 'saved', version: 4 });
   });
 
@@ -99,6 +119,15 @@ describe('consultation', () => {
       chronicWeeksAbove: 12,
     });
     expect(view?.sections.assessment.provisional).toBe(true);
+    // CLN-07: the plan catalog, who can treat at the centre, and the plan's defaults.
+    expect(db.knowledgePlan).toHaveBeenCalledWith(fakeTx, 'kb-version-1');
+    expect(db.treatingPhysios).toHaveBeenCalledWith(fakeTx, centreId);
+    expect(view?.treatingPhysios).toEqual([{ id: consultant().id, name: 'Test Consultant' }]);
+    expect(view?.planDefaults).toEqual({
+      visitDate: '2026-10-24',
+      reviewWeeks: 6,
+      consultantId: consultant().id,
+    });
     db.consultationIntake.mockResolvedValue(undefined);
     expect((await loadConsultation(consultant(), consultationId))?.patientAnswers).toEqual({});
     db.consultationRecord.mockResolvedValue(record({ physioId: 'someone-else' }));

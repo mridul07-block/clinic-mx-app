@@ -7,12 +7,13 @@ import {
   consultationRecord,
   openConsultation,
   saveConsultationSections,
+  treatingPhysios,
 } from '../consultations';
 import { insertEpisode } from '../episodes';
 import type { StaffMember } from '../identity';
 import { startVisit } from '../my-patients';
 import { insertPatientLink } from '../patient-links';
-import { appointment, auditEvent, consultation, intakeResponse } from '../schema';
+import { appointment, auditEvent, consultation, intakeResponse, staffUser } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import { becomeStaff, testPatient, testPhysio, typeId } from './fake-schedule';
 
@@ -84,7 +85,18 @@ const sections = (notes: string) => ({
     categoryCode: '',
     provisional: true,
   },
-  plan: { notes: '' },
+  plan: {
+    notes: '',
+    goals: [],
+    interventions: [],
+    modalities: [],
+    sessionsPerWeek: null,
+    weeks: null,
+    homeProgramme: [],
+    reviewDate: '',
+    questionnaires: null,
+    treatingPhysioId: '',
+  },
 });
 
 /** Consultants at HSR Layout, a knowledge base version, and checked in consultations with a form. */
@@ -315,6 +327,33 @@ describe('consultation', () => {
       expect(await consultationIntake(tx, here.appointmentId)).toBeUndefined();
       await becomeStaff(tx, deskHsr);
       expect(await consultationIntake(tx, here.appointmentId)).toBeUndefined();
+    });
+  });
+
+  // CLN-07: the plan's treating physio is someone who treats patients at the visit's centre.
+  it('lists the active staff who treat patients at a centre, never support', async () => {
+    await rolledBack(async (tx) => {
+      const here = await testPhysio(tx, {
+        centreIds: [centreIds.hsrLayout],
+        createdBy: superAdmin.id,
+      });
+      const elsewhere = await testPhysio(tx, {
+        centreIds: [centreIds.koramangala],
+        createdBy: superAdmin.id,
+      });
+      const gone = await testPhysio(tx, {
+        centreIds: [centreIds.hsrLayout],
+        createdBy: superAdmin.id,
+      });
+      await tx.update(staffUser).set({ active: false }).where(eq(staffUser.id, gone.id));
+      await becomeStaff(tx, here);
+      const ids = (await treatingPhysios(tx, centreIds.hsrLayout)).map((p) => p.id);
+      expect(ids).toContain(here.id);
+      expect(ids).toContain(member('physio.hsr@clinicmx.test').id);
+      expect(ids).not.toContain(elsewhere.id);
+      expect(ids).not.toContain(gone.id);
+      expect(ids).not.toContain(support.id);
+      expect(ids).not.toContain(deskHsr.id);
     });
   });
 });
