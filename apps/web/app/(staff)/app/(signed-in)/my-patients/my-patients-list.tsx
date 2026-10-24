@@ -12,6 +12,7 @@ import {
 import { toneByAppointmentStatus, type Tone } from '@clinic-mx/ui';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { secondaryButtonClass } from '../../../../../components/forms';
 import { Tag } from '../../../../../components/tag';
 import { LIVE_HEADER } from '../../../../../lib/live';
 import { shownStatus, shownStatusLabels, stripClass, timeOf } from '../calendar/calendar-block';
@@ -206,6 +207,15 @@ export function MyPatientsList({
                     label={startLabel(visit.typeKey)}
                     patientName={visit.patientName}
                   />
+                ) : visit.status === 'in_progress' && visit.consultationId ? (
+                  <Link
+                    href={`/app/consultations/${visit.consultationId}`}
+                    data-testid="open-consultation"
+                    aria-label={`Open consultation for ${visit.patientName}`}
+                    className={`${secondaryButtonClass} md:w-auto`}
+                  >
+                    Open consultation
+                  </Link>
                 ) : null}
               </li>
             );

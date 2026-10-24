@@ -1,0 +1,99 @@
+import type { ConsultationSections, ConsultationStatus } from '@clinic-mx/schemas';
+import { eq } from 'drizzle-orm';
+import { latestKnowledgeVersion } from './knowledge';
+import { appointment, appointmentType, centre, consultation, patient } from './schema';
+import { updateVersioned, type DbOrTransaction, type VersionedResult } from './versioned';
+
+/** A consultation as its screen shows it (CLN-02). */
+export interface ConsultationEntry {
+  id: string;
+  appointmentId: string;
+  episodeId: string;
+  physioId: string;
+  sections: Record<string, unknown>;
+  status: ConsultationStatus;
+  version: number;
+  patientId: string;
+  patientName: string;
+  opNumber: string;
+  appointmentNumber: string;
+  startsAt: Date;
+  centreName: string;
+  typeName: string;
+}
+
+export class NoKnowledgeVersionError extends Error {
+  constructor() {
+    super('The knowledge base has no version yet');
+    this.name = 'NoKnowledgeVersionError';
+  }
+}
+
+/**
+ * Opens the consultation of a visit, or finds the one already open (one per appointment), with
+ * today's knowledge base version (rule 4). The service checks it is the consultant's own visit
+ * on its episode; row level security and the rules migration check it too.
+ */
+export async function openConsultation(
+  tx: DbOrTransaction,
+  open: { appointmentId: string; episodeId: string; physioId: string },
+): Promise<string> {
+  const version = await latestKnowledgeVersion(tx);
+  if (!version) throw new NoKnowledgeVersionError();
+  const [created] = await tx
+    .insert(consultation)
+    .values({ ...open, kbVersionId: version.id })
+    .onConflictDoNothing({ target: consultation.appointmentId })
+    .returning({ id: consultation.id });
+  if (created) return created.id;
+  const [existing] = await tx
+    .select({ id: consultation.id })
+    .from(consultation)
+    .where(eq(consultation.appointmentId, open.appointmentId));
+  if (!existing) throw new Error('The consultation was not recorded.');
+  return existing.id;
+}
+
+/** One consultation with its patient and visit, or undefined when not found (or not readable). */
+export async function consultationRecord(
+  db: DbOrTransaction,
+  consultationId: string,
+): Promise<ConsultationEntry | undefined> {
+  const [row] = await db
+    .select({
+      id: consultation.id,
+      appointmentId: consultation.appointmentId,
+      episodeId: consultation.episodeId,
+      physioId: consultation.physioId,
+      sections: consultation.sections,
+      status: consultation.status,
+      version: consultation.version,
+      patientId: appointment.patientId,
+      patientName: patient.name,
+      opNumber: patient.opNumber,
+      appointmentNumber: appointment.number,
+      startsAt: appointment.startsAt,
+      centreName: centre.name,
+      typeName: appointmentType.name,
+    })
+    .from(consultation)
+    .innerJoin(appointment, eq(appointment.id, consultation.appointmentId))
+    .innerJoin(patient, eq(patient.id, appointment.patientId))
+    .innerJoin(centre, eq(centre.id, appointment.centreId))
+    .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
+    .where(eq(consultation.id, consultationId));
+  return row;
+}
+
+/** Saves the sections only at `baseVersion` (FND-08); a conflict answers with what is saved. */
+export function saveConsultationSections(
+  tx: DbOrTransaction,
+  consultationId: string,
+  baseVersion: number,
+  sections: ConsultationSections,
+): Promise<VersionedResult<typeof consultation.$inferSelect>> {
+  return updateVersioned(tx, consultation, consultationId, baseVersion, {
+    sections,
+    updatedAt: new Date(),
+  });
+}

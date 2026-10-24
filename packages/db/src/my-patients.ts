@@ -6,7 +6,7 @@ import {
 } from '@clinic-mx/schemas';
 import { and, asc, desc, eq, gte, inArray, lt, notInArray, sql } from 'drizzle-orm';
 import { partAConsentDeclined } from './consent';
-import { appointment, appointmentType, centre, patient, patientLink } from './schema';
+import { appointment, appointmentType, centre, consultation, patient, patientLink } from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /** A visit on a physio's My patients today (CLN-01). */
@@ -26,6 +26,8 @@ export interface MyPatientVisit {
   typeKey: string;
   typeName: string;
   episodeId: string | null;
+  /** The consultation Start consultation opened (CLN-02), for Open consultation. */
+  consultationId: string | null;
   /** The latest health form link, for the form status; none when none was sent. */
   healthForm: { expiresAt: Date; revokedAt: Date | null; completedAt: Date | null } | undefined;
   consentDeclined: boolean;
@@ -61,6 +63,7 @@ export async function myPatientsToday(
       typeKey: appointmentType.key,
       typeName: appointmentType.name,
       episodeId: appointment.episodeId,
+      consultationId: consultation.id,
       consentDeclined: partAConsentDeclined(appointment.id),
       openAlerts: sql<number>`(select count(*)::int from red_flag_alert r where ${openAlerts})`,
       alertDisplays: sql<AlertDisplay[]>`coalesce(
@@ -72,6 +75,7 @@ export async function myPatientsToday(
     .innerJoin(patient, eq(patient.id, appointment.patientId))
     .innerJoin(centre, eq(centre.id, appointment.centreId))
     .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
+    .leftJoin(consultation, eq(consultation.appointmentId, appointment.id))
     .where(
       and(
         eq(appointment.physioId, query.staffId),
@@ -112,6 +116,36 @@ export async function myPatientsToday(
       },
     };
   });
+}
+
+/** What Start needs to know about a visit (CLN-01, CLN-02), or undefined when not found. */
+export async function visitToStart(
+  db: DbOrTransaction,
+  appointmentId: string,
+): Promise<
+  | {
+      id: string;
+      physioId: string;
+      status: AppointmentStatus;
+      startsAt: Date;
+      episodeId: string | null;
+      typeKey: string;
+    }
+  | undefined
+> {
+  const [row] = await db
+    .select({
+      id: appointment.id,
+      physioId: appointment.physioId,
+      status: appointment.status,
+      startsAt: appointment.startsAt,
+      episodeId: appointment.episodeId,
+      typeKey: appointmentType.key,
+    })
+    .from(appointment)
+    .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
+    .where(eq(appointment.id, appointmentId));
+  return row;
 }
 
 /**

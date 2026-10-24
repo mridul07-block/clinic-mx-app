@@ -370,6 +370,8 @@ export async function temporaryWithCode(
   role: 'super_admin' | 'support' | 'finance' | 'physiotherapist' | 'centre_manager',
   /** Centres to assign, by name (SET-04 signs in a Centre Manager and a physio at HSR Layout). */
   centreNames: string[] = [],
+  /** A physio with the Consultant tick (CLN-02 consultations). */
+  options: { consultant?: boolean } = {},
 ) {
   const suffix = crypto.randomUUID().slice(0, 8);
   const label = {
@@ -397,6 +399,7 @@ export async function temporaryWithCode(
         role: role === 'support' ? 'super_admin' : role,
         velyxSupport: role === 'support',
         treatsPatients: role === 'physiotherapist',
+        consultant: role === 'physiotherapist' && options.consultant === true,
         authUserId: data.user.id,
       })
       .returning({ id: staffUser.id });

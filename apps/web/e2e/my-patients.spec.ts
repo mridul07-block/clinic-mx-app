@@ -22,7 +22,7 @@ test('the physio lands on their visits in time order, starts one, and sees a che
   page,
   browser,
 }) => {
-  const physio = await temporaryWithCode('physiotherapist', ['HSR Layout']);
+  const physio = await temporaryWithCode('physiotherapist', ['HSR Layout'], { consultant: true });
   physios.push(physio.id);
   const [late, here, later] = [await testPatient(), await testPatient(), await testPatient()];
   const lateVisit = await startedAppointment(physio.id, late.id, 20, { minutes: 5 });
@@ -59,8 +59,12 @@ test('the physio lands on their visits in time order, starts one, and sees a che
   await row(here.name)
     .getByRole('button', { name: `Start consultation for ${here.name}` })
     .click();
+  // Start consultation opens the consultation (CLN-02); back on the list it is with them.
+  await expect(page).toHaveURL(/\/app\/consultations\/[0-9a-f-]+$/);
+  await page.getByRole('link', { name: 'My patients today' }).click();
   await expect(row(here.name)).toContainText(/With you since \d\d:\d\d/);
   await expect(row(here.name).getByRole('button')).toHaveCount(0);
+  await expect(row(here.name).getByTestId('open-consultation')).toHaveText('Open consultation');
 
   // The desk checks the later patient in: it shows here without a reload.
   await checkedIn(laterVisit.id, desk.id);

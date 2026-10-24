@@ -4,6 +4,7 @@ import {
   bookAppointment,
   centre,
   changeAppointment,
+  consultation,
   createDb,
   job,
   priceItem,
@@ -175,6 +176,8 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
     const theirs = sql`(select id::text from appointment where physio_id in ${physioIds})`;
     await tx.delete(task).where(sql`${task.details} ->> 'appointmentId' in ${theirs}`);
     await tx.delete(job).where(sql`${job.payload} ->> 'appointmentId' in ${theirs}`);
+    // The consultations their visits opened (CLN-02).
+    await tx.delete(consultation).where(inArray(consultation.physioId, physioIds));
     await tx.delete(appointment).where(inArray(appointment.physioId, physioIds));
     await tx.delete(slotHold).where(inArray(slotHold.physioId, physioIds));
     await tx.delete(roster).where(inArray(roster.staffUserId, physioIds));

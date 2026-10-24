@@ -479,3 +479,18 @@ export {
   type TakeTaskInput,
   type TaskPriority,
 } from './tasks';
+export {
+  CONSULTATION_NOTES_MAX,
+  adjacentSteps,
+  consultationSections,
+  consultationSectionsSchema,
+  consultationStatuses,
+  consultationStepLabels,
+  consultationSteps,
+  sectionHasNotes,
+  stepFromQuery,
+  type ConsultationSection,
+  type ConsultationSections,
+  type ConsultationStatus,
+  type ConsultationStep,
+} from './consultations';

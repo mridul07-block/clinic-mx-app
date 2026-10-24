@@ -52,3 +52,8 @@ sign out, so a shared front desk tablet never shows another person's draft.
 - End to end (`apps/web/e2e/autosave.spec.ts`, 360 px and desktop) against the test harness at
   `/app/test-harness/autosave`. The harness page and `/api/test-harness/*` answer 404 unless
   `CLINIC_MX_TEST_HARNESS=1`, which only the Playwright web server sets. Never set it on Vercel.
+
+## Screens that autosave
+
+- The consultation (CLN-02): kind `consultation`, one draft for all its sections, saved by
+  `PUT /app/consultations/<id>/save`. See `docs/runbooks/consultation.md`.

@@ -526,6 +526,20 @@
       "when": 1792800127882,
       "tag": "20261024000207_my_patients_today_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1792834710981,
+      "tag": "20261024093830_consultation",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1792834712306,
+      "tag": "20261024093832_consultation_rules",
+      "breakpoints": true
     }
   ]
 }

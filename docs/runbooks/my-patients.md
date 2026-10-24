@@ -35,8 +35,11 @@ Decisions (user, 24 October 2026):
 `startVisit` (`apps/web/modules/my-patients/services.ts`): the appointment's own physio, Checked in,
 on its IST day; it becomes In progress with `started_at` and `started_by`, audited as them. Messages:
 "Check the patient in first.", "This visit has started already.", "Only the physio of this
-appointment can start it.", "A visit is started on its own day.". There is no undo; CLN-02 (the
-consultation) and SES-03 (the session note) open their screens from here.
+appointment can start it.", "A visit is started on its own day.". There is no undo. Start
+consultation also opens the consultation and goes to it (CLN-02, `docs/runbooks/consultation.md`):
+it needs the Consultant tick and the submitted health form ("The health form is needed before the
+consultation. The front desk can open it on the tablet."); the started row then shows "Open
+consultation". SES-03 (the session note) opens from Start session.
 
 Enforced twice. The database (migration `my_patients_today_rules`):
 
@@ -60,7 +63,7 @@ header (never counted as activity); only a changed list comes back.
 | `packages/db/src/integration/my-patients.integration.test.ts` | Under row level security as a physio: own visits in order, without cancelled or another physio's; form submitted, consent declined, one open alert (a closed one left out). Start as them, stamped and audited. Refused: the desk starting it, before check in, another day, any other change, another physio (reaches nothing), going back from In progress. |
 | `apps/web/modules/my-patients/services.test.ts` | The tick; own visit, checked in, not started, today; support reads only. |
 | `packages/schemas/src/my-patients.test.ts` | Start labels, form status, loudest alert. |
-| `apps/web/e2e/my-patients.spec.ts` | 360 px and desktop. A temporary physio lands on the list: Running late with Form Not sent, Here with Form Submitted and 1 open alert, Booked, in time order; Start consultation shows "With you since"; a check in shows without a reload; the desk's Today shows In progress; the desk cannot open the page. A physio with nobody booked is told so. |
+| `apps/web/e2e/my-patients.spec.ts` | 360 px and desktop. A temporary physio lands on the list: Running late with Form Not sent, Here with Form Submitted and 1 open alert, Booked, in time order; Start consultation opens the consultation, and back on the list shows "With you since" and Open consultation; a check in shows without a reload; the desk's Today shows In progress; the desk cannot open the page. A physio with nobody booked is told so. |
 
 Negative check: without the `appointment_physio_change` trigger, the "any other change" database
 test failed (CLN-01).

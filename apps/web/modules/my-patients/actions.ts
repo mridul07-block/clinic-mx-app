@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { serviceContext } from '../access/staff-db';
@@ -17,13 +18,19 @@ const text = (form: FormData, name: string) => {
   return typeof value === 'string' ? value : '';
 };
 
-/** Starts the visit; the list shows it In progress, and refusals become messages. */
+/**
+ * Starts the visit: a consultation opens its screen (CLN-02); a session shows In progress on the
+ * list. Refusals become messages.
+ */
 export async function startVisitAction(
   _state: StartVisitState,
   form: FormData,
 ): Promise<StartVisitState> {
+  let consultationId: string | undefined;
   try {
-    await startVisit(await serviceContext(), { appointmentId: text(form, 'appointmentId') });
+    ({ consultationId } = await startVisit(await serviceContext(), {
+      appointmentId: text(form, 'appointmentId'),
+    }));
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { error: error.issues[0]?.message ?? 'That could not be read.' };
@@ -35,5 +42,6 @@ export async function startVisitAction(
     throw error;
   }
   revalidatePath('/app/my-patients');
+  if (consultationId) redirect(`/app/consultations/${consultationId}`);
   return {};
 }
