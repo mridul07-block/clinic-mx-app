@@ -1,7 +1,9 @@
 import { createDb } from '../client';
 import { AlreadyImportedError, applyKnowledge } from './apply';
 import { buildKnowledge, KnowledgeImportError } from './build';
+import { buildCategories } from './categories';
 import {
+  readCategoriesFile,
   readConditionIds,
   readRulesFile,
   WORKBOOK_FOLDER_PATH,
@@ -28,14 +30,17 @@ try {
   if (assign) await writeConditionIds(built.ids);
   const redFlags = buildRedFlags(workbooks, await readRulesFile());
   const objective = buildObjective(workbooks);
-  const report = buildReport(workbooks, built, redFlags, objective);
+  const categories = buildCategories(await readCategoriesFile(), built);
+  const report = buildReport(workbooks, built, redFlags, objective, categories);
   await writeReport(reportMarkdown(report));
   console.log(
     `Read ${report.totals.listings} rows: ${report.totals.conditions} conditions, ` +
       `${report.totals.merged} merged; ${built.assigned.length} IDs assigned; ` +
       `${built.unmatched.length} IDs matched no row; ${redFlags.rules.length} red flag rules, ` +
       `${redFlags.presentations.length} red flag rows; ${objective.measures.length} measures, ` +
-      `${objective.specialTests.length} special tests. Report: docs/knowledge-base/import-report.md`,
+      `${objective.specialTests.length} special tests; ${categories.categories.length} diagnosis ` +
+      `categories, ${Object.keys(categories.mapping).length} conditions mapped. ` +
+      'Report: docs/knowledge-base/import-report.md',
   );
 
   if (apply) {
@@ -44,7 +49,7 @@ try {
     const { db, close } = createDb(url, { max: 1 });
     try {
       const version = await db.transaction((tx) =>
-        applyKnowledge(tx, built, report, redFlags, objective),
+        applyKnowledge(tx, built, report, redFlags, objective, categories),
       );
       console.log(`Recorded knowledge base version ${version.number} as a draft.`);
     } finally {

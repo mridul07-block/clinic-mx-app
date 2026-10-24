@@ -4,6 +4,7 @@ import { claimsForStaff } from '../access';
 import { createDb } from '../client';
 import type { StaffMember } from '../identity';
 import {
+  knowledgeAssessment,
   knowledgeConditions,
   knowledgeListings,
   knowledgeObjective,
@@ -13,12 +14,18 @@ import {
 } from '../knowledge';
 import { AlreadyImportedError, applyKnowledge, KB_IMPORT_ACTOR } from '../knowledge/apply';
 import { buildKnowledge, type BuiltKnowledge } from '../knowledge/build';
-import { readConditionIds, readRulesFile, WORKBOOK_FOLDER_PATH } from '../knowledge/paths';
+import { buildCategories, type BuiltCategories } from '../knowledge/categories';
+import {
+  readCategoriesFile,
+  readConditionIds,
+  readRulesFile,
+  WORKBOOK_FOLDER_PATH,
+} from '../knowledge/paths';
 import { buildObjective, type BuiltObjective } from '../knowledge/objective';
 import { buildRedFlags, type RedFlags } from '../knowledge/red-flags';
 import { buildReport, type ImportReport } from '../knowledge/report';
 import { readWorkbooks } from '../knowledge/workbook';
-import { auditEvent, kbCondition, kbMeasure, kbVersion } from '../schema';
+import { auditEvent, kbCondition, kbDiagnosisCategory, kbMeasure, kbVersion } from '../schema';
 import { seedStaff, seedStaffCentres } from '../seed/data';
 
 // SET-05 done when: the workbooks are imported as a knowledge base version with stable condition
@@ -92,13 +99,15 @@ let built: BuiltKnowledge;
 let report: ImportReport;
 let redFlags: RedFlags;
 let objective: BuiltObjective;
+let categories: BuiltCategories;
 
 beforeAll(async () => {
   const workbooks = await readWorkbooks(WORKBOOK_FOLDER_PATH);
   built = buildKnowledge(workbooks, await readConditionIds());
   redFlags = buildRedFlags(workbooks, await readRulesFile());
   objective = buildObjective(workbooks);
-  report = buildReport(workbooks, built, redFlags, objective);
+  categories = buildCategories(await readCategoriesFile(), built);
+  report = buildReport(workbooks, built, redFlags, objective, categories);
   // A source no real import has, so a version this database already holds never refuses it.
   report = { ...report, files: report.files.map((f) => ({ ...f, sha256: `${f.sha256}0` })) };
   redFlags = {
@@ -111,7 +120,7 @@ describe('the knowledge base import', () => {
   it('records the next version as a draft, audited as the import', async () => {
     await rolledBack(async (tx) => {
       const before = (await latestKnowledgeVersion(tx))?.number ?? 0;
-      const version = await applyKnowledge(tx, built, report, redFlags, objective);
+      const version = await applyKnowledge(tx, built, report, redFlags, objective, categories);
       expect(version.number).toBe(before + 1);
       expect(await latestKnowledgeVersion(tx)).toMatchObject({
         id: version.id,
@@ -148,6 +157,7 @@ describe('the knowledge base import', () => {
       expect(audited).toEqual([
         { entity: 'kb_condition', n: 345 },
         { entity: 'kb_condition_listing', n: 354 },
+        { entity: 'kb_diagnosis_category', n: 44 },
         { entity: 'kb_measure', n: 143 },
         { entity: 'kb_red_flag_presentation', n: 136 },
         { entity: 'kb_red_flag_rule', n: 20 },
@@ -159,7 +169,14 @@ describe('the knowledge base import', () => {
 
   it('stores the red flag rules as written, and a changed rules file makes a new version', async () => {
     await rolledBack(async (tx) => {
-      const { id, number } = await applyKnowledge(tx, built, report, redFlags, objective);
+      const { id, number } = await applyKnowledge(
+        tx,
+        built,
+        report,
+        redFlags,
+        objective,
+        categories,
+      );
       const cauda = (await redFlagRules(tx, id)).find((r) => r.ruleKey === 'back.cauda_equina');
       expect(cauda).toMatchObject({
         regions: ['back'],
@@ -174,22 +191,24 @@ describe('the knowledge base import', () => {
       });
       expect(lumbar.filter((p) => p.kind === 'screening_note')).toHaveLength(6);
       const edited = { ...redFlags, rulesFile: { ...redFlags.rulesFile, sha256: 'edited' } };
-      expect((await applyKnowledge(tx, built, report, edited, objective)).number).toBe(number + 1);
+      expect((await applyKnowledge(tx, built, report, edited, objective, categories)).number).toBe(
+        number + 1,
+      );
     });
   });
 
   it('refuses the same workbooks twice', async () => {
     await rolledBack(async (tx) => {
-      const { number } = await applyKnowledge(tx, built, report, redFlags, objective);
-      await expect(applyKnowledge(tx, built, report, redFlags, objective)).rejects.toEqual(
-        new AlreadyImportedError(number),
-      );
+      const { number } = await applyKnowledge(tx, built, report, redFlags, objective, categories);
+      await expect(
+        applyKnowledge(tx, built, report, redFlags, objective, categories),
+      ).rejects.toEqual(new AlreadyImportedError(number));
     });
   });
 
   it('is read by the Super Admin, Centre Managers and physiotherapists only', async () => {
     await rolledBack(async (tx) => {
-      const { id } = await applyKnowledge(tx, built, report, redFlags, objective);
+      const { id } = await applyKnowledge(tx, built, report, redFlags, objective, categories);
       for (const reader of [superAdmin, manager, physio, support]) {
         await becomes(tx, reader);
         expect((await knowledgeConditions(tx, id)).length, reader.email).toBe(345);
@@ -200,6 +219,16 @@ describe('the knowledge base import', () => {
         const read = await knowledgeObjective(tx, id);
         expect(read.measures.length, reader.email).toBe(143);
         expect(read.specialTests.length, reader.email).toBe(244);
+        // CLN-06: the Assessment's conditions, with each workbook's row, and the categories.
+        const assessment = await knowledgeAssessment(tx, id);
+        expect(assessment.conditions.length, reader.email).toBe(345);
+        expect(assessment.categories.length, reader.email).toBe(44);
+        expect(
+          assessment.conditions
+            .find((c) => c.conditionId === 'SHO-026')
+            ?.listings.map((l) => l.region),
+          reader.email,
+        ).toEqual(['shoulder', 'cervical']);
         expect((await latestKnowledgeVersion(tx))?.id, reader.email).toBe(id);
       }
       for (const outsider of [desk, finance]) {
@@ -211,6 +240,10 @@ describe('the knowledge base import', () => {
           measures: [],
           specialTests: [],
         });
+        expect(await knowledgeAssessment(tx, id), outsider.email).toEqual({
+          conditions: [],
+          categories: [],
+        });
         expect(await latestKnowledgeVersion(tx), outsider.email).toBeUndefined();
       }
     });
@@ -218,7 +251,7 @@ describe('the knowledge base import', () => {
 
   it('is written by nobody signed in, the Super Admin and support included', async () => {
     await rolledBack(async (tx) => {
-      const { id } = await applyKnowledge(tx, built, report, redFlags, objective);
+      const { id } = await applyKnowledge(tx, built, report, redFlags, objective, categories);
       for (const writer of [superAdmin, support, physio]) {
         await becomes(tx, writer);
         expect(
@@ -244,6 +277,12 @@ describe('the knowledge base import', () => {
           .where(eq(kbMeasure.kbVersionId, id))
           .returning({ id: kbMeasure.id });
         expect(measure, writer.email).toEqual([]);
+        const category = await tx
+          .update(kbDiagnosisCategory)
+          .set({ name: 'Changed' })
+          .where(eq(kbDiagnosisCategory.kbVersionId, id))
+          .returning({ id: kbDiagnosisCategory.id });
+        expect(category, writer.email).toEqual([]);
         // Approval arrives with SET-06; until then nobody signed in can approve a version.
         const approved = await tx
           .update(kbVersion)

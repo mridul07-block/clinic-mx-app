@@ -221,6 +221,7 @@ export {
 export {
   knowledgeConditions,
   knowledgeListings,
+  knowledgeAssessment,
   knowledgeObjective,
   latestKnowledgeVersion,
   redFlagPresentations,

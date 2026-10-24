@@ -5,7 +5,15 @@ const sections = {
   subjective: { notes: 'Pain on stairs', confirmed: {} },
   screening: { notes: '', confirmed: {} },
   objective: { notes: '', region: '' as const, side: '' as const, measures: {}, tests: [] },
-  assessment: { notes: '' },
+  assessment: {
+    notes: '',
+    conditionId: '',
+    movement: '',
+    irritability: '' as const,
+    stage: '' as const,
+    categoryCode: '',
+    provisional: true,
+  },
   plan: { notes: '' },
 };
 

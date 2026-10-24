@@ -528,6 +528,55 @@ Yes or no screens, ratios, readiness summaries and worded checks; they belong wi
 | Bone stress, cartilage and meniscus | 10 | Section | ENTRY GATES — ALL MUST READ YES BEFORE IMPACT LOADING BEGINS |
 | Bone stress, cartilage and meniscus | 34 | Section | RETURN-TO-SPORT READINESS |
 
+## Diagnosis categories (CLN-06)
+
+44 categories from `packages/db/src/knowledge/diagnosis-categories.json` (SHA-256 a0ea48f0fe8a), the client's "Physiotherapeutic diagnosis" list word for word; 0 of 345 conditions mapped to one (the client’s mapping arrives with SET-12; until then the clinician picks the category in Assessment).
+
+- Chronic pain
+- Elbow - Post Operative rehabilitation
+- Elbow - Stiff elbow
+- Elbow- Instability
+- Elbow- Tendon pathology
+- Foot & Ankle - Foot pathologies
+- Foot & Ankle - Instabilities
+- Foot & Ankle - Ligaments injuries
+- Foot & Ankle - Lower leg pathologies
+- Foot & Ankle - Tendon pathologies
+- Health Related Fitness
+- Hip - Instabilities
+- Hip- Impingement
+- Hip- Post of Operative Rehabilitation
+- Hip- Tendon pathologies
+- Knee - ACL conservative rehabilitation
+- Knee - ACL Post operative rehabilitation
+- Knee - Degenerative
+- Knee - Meniscus Rehabilitation
+- Knee - PFPS
+- Knee - Post Operative Rehabilitation
+- Knee- Others
+- Mechanical dysfunction
+- Neurological impairments
+- Non specific pain
+- Shoulder - Impingement
+- Shoulder - Instability
+- Shoulder - Post Operative Rehabilitation
+- Shoulder - Rotator cuff pathology
+- Shoulder - Stiff shoulder
+- Spine - Lower back dysfunction
+- Spine - neck - Lower cervical Dysfunction
+- Spine - Neck - Upper cervical dysfunction
+- Spine - SI & Pelvic dysfunction
+- Spine - Thoracic dysfunction
+- Spine - Thoracic lumbar dysfunction
+- Sports Injuries - Ligaments & Cartilage
+- Sports Injuries - Tendon
+- Sports Injuries -Muscle
+- Sports performance enhancement
+- Wrist - Instabilities
+- Wrist - Post Operative rehabilitation
+- Wrist - Soft tissue injuries
+- Wrist - Stiffness
+
 ## Condition IDs
 
 0 new IDs assigned in this run; every ID in the file matched a row.

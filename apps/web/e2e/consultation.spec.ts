@@ -315,7 +315,11 @@ test('Screening asks the region’s questions and each precaution; signing waits
   await expect(item('back_saddle')).toContainText("Changed from the patient's answer");
   await expect(item('back_saddle').getByRole('radio', { name: 'Yes' })).toBeChecked();
   await page.goto(`${new URL(page.url()).pathname}?section=sign`);
-  await expect(page.getByTestId('sign-gate')).toContainText('Screening complete.');
+  // Screening no longer holds signing back; the working diagnosis still does (CLN-06).
+  await expect(page.getByTestId('sign-gate')).not.toContainText('screening item');
+  await expect(page.getByTestId('sign-gate')).toContainText(
+    'The working diagnosis needs its four parts',
+  );
 });
 
 // CLN-05 done when: side by side measures with live LSI, special test rows, 0 to 3 ratings. The
@@ -382,5 +386,89 @@ test('Objective takes the region’s measures with live LSI, a 0 to 3 rating and
   await page.goto(`${new URL(page.url()).pathname}?section=sign`);
   await expect(page.getByTestId('sign-section').filter({ hasText: 'Objective' })).toContainText(
     '4 recorded',
+  );
+});
+
+// CLN-06 done when: condition search from the knowledge base; movement diagnosis; irritability
+// suggested; stage from duration; category coded. Decisions (user, 24 October 2026): irritability
+// from the worse pain score; the client's categories picked until SET-12 maps them; the
+// workbook's biomechanical cause beside the movement diagnosis; one knowledge base condition.
+test('Assessment takes a knowledge base condition, the suggested irritability and stage, and the category', async ({
+  page,
+}) => {
+  const { physio, patient, visit } = await consultationToday({ submitted: true });
+  await submittedAnswers(visit.id, patient.id, {
+    region: 'knee',
+    sex: 'male',
+    pain_now: 4,
+    pain_activity: 7,
+    duration: 6,
+    duration_unit: 'weeks',
+  });
+  await signInWithCode(page, physio.email, physio.secret);
+  await startConsultation(page, patient.name);
+  await expect(stepTitle(page)).toHaveText('Subjective');
+  await page.goto(`${new URL(page.url()).pathname}?section=sign`);
+  const gate = page.getByTestId('sign-gate');
+  await expect(gate).toContainText('The working diagnosis needs its four parts');
+  await gate.getByRole('link', { name: 'Go to Assessment' }).click();
+  await expect(stepTitle(page)).toHaveText('Assessment');
+
+  // The tissue diagnosis from the knowledge base, the knee workbook's conditions first.
+  const search = page.getByRole('combobox', { name: 'Tissue diagnosis' });
+  await search.fill('patellar tend');
+  const options = page.getByRole('option');
+  await expect(options.first()).toContainText('Patellar Tendinopathy');
+  await expect(options.first()).toContainText('KNE-004 · Knee');
+  await search.press('Enter');
+  await expect(page.getByTestId('chosen-condition')).toContainText('Patellar Tendinopathy');
+  await expect(page.getByTestId('biomechanical-cause').first()).toContainText(
+    'From the Knee workbook:',
+  );
+  await page.getByLabel('Movement diagnosis').fill('Quad dominance with poor hip control');
+
+  // Suggested, never chosen: the worse score is 7 with activity, 6 weeks is Subacute.
+  const irritability = page.getByTestId('irritability');
+  await expect(irritability).toContainText('Suggested from pain: worst 7/10 (pain with activity)');
+  await expect(irritability.getByRole('radio', { name: /High.*Suggested/ })).toBeVisible();
+  await expect(irritability.getByRole('radio', { checked: true })).toHaveCount(0);
+  await irritability.getByText('Moderate', { exact: true }).click();
+  const stage = page.getByTestId('stage');
+  await expect(stage).toContainText('Suggested from duration: 6 weeks');
+  await expect(stage.getByRole('radio', { name: /Subacute.*Suggested/ })).toBeVisible();
+  await expect(stage.getByRole('radio', { checked: true })).toHaveCount(0);
+  await stage.locator('label').filter({ hasText: 'Subacute' }).click();
+
+  // The client's category, picked until its mapping arrives (SET-12).
+  await page.getByLabel('Diagnosis category').selectOption({ label: 'Knee - PFPS' });
+  await expect(page.getByLabel('Provisional diagnosis')).toBeChecked();
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await expect
+    .poll(async () => (await savedConsultation(visit.id))?.sections.assessment)
+    .toMatchObject({
+      conditionId: 'KNE-004',
+      movement: 'Quad dominance with poor hip control',
+      irritability: 'moderate',
+      stage: 'subacute',
+      categoryCode: 'knee_pfps',
+      provisional: true,
+    });
+
+  await page.reload();
+  await expect(page.getByTestId('chosen-condition')).toContainText('Patellar Tendinopathy');
+  await expect(irritability.getByRole('radio', { name: /Moderate/ })).toBeChecked();
+  await expect(stage.getByRole('radio', { name: /Subacute/ })).toBeChecked();
+  await expect(page.getByLabel('Diagnosis category')).toHaveValue('knee_pfps');
+  // Change keeps the condition until another is chosen.
+  await page.getByRole('button', { name: 'Change' }).click();
+  await page.getByRole('combobox', { name: 'Tissue diagnosis' }).fill('no such condition');
+  await expect(page.getByText('No condition matches.')).toBeVisible();
+  await page.getByRole('button', { name: 'Keep Patellar Tendinopathy' }).click();
+  await expect(page.getByTestId('chosen-condition')).toContainText('Patellar Tendinopathy');
+
+  await page.goto(`${new URL(page.url()).pathname}?section=sign`);
+  await expect(gate).not.toContainText('working diagnosis needs');
+  await expect(page.getByTestId('sign-section').filter({ hasText: 'Assessment' })).toContainText(
+    '4 of 4 parts',
   );
 });

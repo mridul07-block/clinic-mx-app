@@ -1,7 +1,14 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildKnowledge, KnowledgeImportError, type ConditionIds } from './build';
+import { buildCategories } from './categories';
 import { buildReport, reportMarkdown } from './report';
-import { readConditionIds, readReport, readRulesFile, WORKBOOK_FOLDER_PATH } from './paths';
+import {
+  readCategoriesFile,
+  readConditionIds,
+  readReport,
+  readRulesFile,
+  WORKBOOK_FOLDER_PATH,
+} from './paths';
 import { buildObjective } from './objective';
 import { buildRedFlags } from './red-flags';
 import { readWorkbooks, type Workbook } from './workbook';
@@ -113,9 +120,12 @@ describe('the knowledge base import', () => {
     expect(buildKnowledge(copy(), ids)).toEqual(first);
     expect(first.ids).toEqual(ids);
     const redFlags = buildRedFlags(workbooks, await readRulesFile());
-    expect(reportMarkdown(buildReport(workbooks, first, redFlags, buildObjective(workbooks)))).toBe(
-      await readReport(),
-    );
+    const categories = buildCategories(await readCategoriesFile(), first);
+    expect(
+      reportMarkdown(
+        buildReport(workbooks, first, redFlags, buildObjective(workbooks), categories),
+      ),
+    ).toBe(await readReport());
   });
 
   it('stops on a row the ID file does not know, unless assigning', () => {

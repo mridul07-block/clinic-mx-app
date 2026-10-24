@@ -86,6 +86,31 @@ export const settingDefinitions = {
       'PRD section 10 decision 6 (placeholder: 60 minutes, from the Red Flag Screening Framework §12)',
     description: 'Morning stiffness lasting at least this many minutes raises a red flag (SET-10).',
   },
+  'assessment.irritability_high_above': {
+    schema: z.int().min(0).max(10),
+    source:
+      'Consultation SOP v2 §10.2 (placeholder: HIGH is pain >5/10) and user decision 24 October 2026 (CLN-06)',
+    description:
+      'Worst pain (0 to 10) above this suggests High irritability in the consultation (CLN-06).',
+  },
+  'assessment.irritability_low_below': {
+    schema: z.int().min(0).max(10),
+    source:
+      'Consultation SOP v2 §10.2 (placeholder: LOW is pain <3/10) and user decision 24 October 2026 (CLN-06)',
+    description:
+      'Worst pain (0 to 10) below this suggests Low irritability; between the two is Moderate (CLN-06).',
+  },
+  'assessment.acute_weeks_below': {
+    schema: z.int().positive(),
+    source: 'Consultation SOP v2 §10.1 (placeholder: Acute is <3 weeks) (CLN-06)',
+    description: 'A duration under this many weeks suggests the Acute stage (CLN-06).',
+  },
+  'assessment.chronic_weeks_above': {
+    schema: z.int().positive(),
+    source: 'Consultation SOP v2 §10.1 (placeholder: Chronic is >12 weeks) (CLN-06)',
+    description:
+      'A duration over this many weeks suggests the Chronic stage; between the two is Subacute (CLN-06).',
+  },
   'patients.adult_age_years': {
     schema: z.int().positive(),
     source: 'PRD J2.7: under 18 opens a guardian section',

@@ -3,6 +3,7 @@ import { setAuditContext, systemActor } from '../audit';
 import {
   kbCondition,
   kbConditionListing,
+  kbDiagnosisCategory,
   kbMeasure,
   kbRedFlagPresentation,
   kbRedFlagRule,
@@ -12,6 +13,7 @@ import {
 } from '../schema';
 import type { DbOrTransaction } from '../versioned';
 import type { BuiltKnowledge } from './build';
+import type { BuiltCategories } from './categories';
 import type { BuiltObjective } from './objective';
 import type { RedFlags } from './red-flags';
 import type { ImportReport } from './report';
@@ -20,11 +22,13 @@ import { IMPORTED_SHEETS } from './workbook';
 /** The audit actor every import writes as. */
 export const KB_IMPORT_ACTOR = systemActor('kb-import');
 
-/** The latest version was imported from these very files (workbooks and rules). */
+/** The latest version was imported from these very files (workbooks, rules and categories). */
 export class AlreadyImportedError extends Error {
   override name = 'AlreadyImportedError';
   constructor(readonly number: number) {
-    super(`These workbooks and rules are already imported as knowledge base version ${number}.`);
+    super(
+      `These workbooks, rules and categories are already imported as knowledge base version ${number}.`,
+    );
   }
 }
 
@@ -35,9 +39,11 @@ const sameSource = (a: KnowledgeSource, b: KnowledgeSource) =>
 
 /**
  * Records the built knowledge base as the next version, a draft, inside the caller's transaction
- * and audited as `system:kb-import`: conditions, listings, red flag rules and presentations, and
- * the Objective's measures and special tests (CLN-05).
- * Refuses when the latest version came from the same files (the workbooks and the rules file).
+ * and audited as `system:kb-import`: conditions, listings, red flag rules and presentations, the
+ * Objective's measures and special tests (CLN-05), and the diagnosis categories with each
+ * condition's mapped category (CLN-06).
+ * Refuses when the latest version came from the same files (the workbooks, the rules file and the
+ * categories file).
  * Returns the new version's number and id.
  */
 export async function applyKnowledge(
@@ -46,12 +52,14 @@ export async function applyKnowledge(
   report: ImportReport,
   redFlags: RedFlags,
   objective: BuiltObjective,
+  categories: BuiltCategories,
 ): Promise<{ id: string; number: number }> {
   await setAuditContext(tx, { actor: KB_IMPORT_ACTOR });
   const source: KnowledgeSource = {
     files: [
       ...report.files.map((f) => ({ name: f.fileName, sha256: f.sha256 })),
       redFlags.rulesFile,
+      categories.file,
     ],
     sheets: IMPORTED_SHEETS,
   };
@@ -75,8 +83,15 @@ export async function applyKnowledge(
   if (!version) throw new Error('The knowledge base version was not recorded.');
 
   await tx
-    .insert(kbCondition)
-    .values(built.conditions.map((condition) => ({ ...condition, kbVersionId: version.id })));
+    .insert(kbDiagnosisCategory)
+    .values(categories.categories.map((category) => ({ ...category, kbVersionId: version.id })));
+  await tx.insert(kbCondition).values(
+    built.conditions.map((condition) => ({
+      ...condition,
+      categoryCode: categories.mapping[condition.conditionId] ?? null,
+      kbVersionId: version.id,
+    })),
+  );
   await tx.insert(kbConditionListing).values(
     built.listings.map(({ agePlain: _agePlain, ...listing }) => ({
       ...listing,

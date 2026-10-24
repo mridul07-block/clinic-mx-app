@@ -1,8 +1,14 @@
-import type { KnowledgeMeasure, KnowledgeSpecialTest } from '@clinic-mx/schemas';
+import type {
+  AssessmentCatalog,
+  AssessmentCondition,
+  KnowledgeMeasure,
+  KnowledgeSpecialTest,
+} from '@clinic-mx/schemas';
 import { asc, desc, eq } from 'drizzle-orm';
 import {
   kbCondition,
   kbConditionListing,
+  kbDiagnosisCategory,
   kbMeasure,
   kbRedFlagPresentation,
   kbRedFlagRule,
@@ -140,4 +146,53 @@ export async function knowledgeObjective(
     .where(eq(kbSpecialTest.kbVersionId, versionId))
     .orderBy(asc(kbSpecialTest.region), asc(kbSpecialTest.rowNumber));
   return { measures, specialTests };
+}
+
+/**
+ * The Assessment's knowledge in a version (CLN-06): every condition with its synonyms, mapped
+ * category and each workbook's row for it (its name there and its biomechanical cause), and the
+ * client's diagnosis categories in their order. Read under row level security: those who view
+ * the knowledge base.
+ */
+export async function knowledgeAssessment(
+  db: DbOrTransaction,
+  versionId: string,
+): Promise<AssessmentCatalog> {
+  const conditions = await db
+    .select({
+      conditionId: kbCondition.conditionId,
+      name: kbCondition.name,
+      synonyms: kbCondition.synonyms,
+      homeRegion: kbCondition.homeRegion,
+      categoryCode: kbCondition.categoryCode,
+    })
+    .from(kbCondition)
+    .where(eq(kbCondition.kbVersionId, versionId))
+    .orderBy(asc(kbCondition.name));
+  const listings = await db
+    .select({
+      conditionId: kbConditionListing.conditionId,
+      region: kbConditionListing.region,
+      name: kbConditionListing.name,
+      biomechanicalCause: kbConditionListing.biomechanicalCause,
+    })
+    .from(kbConditionListing)
+    .where(eq(kbConditionListing.kbVersionId, versionId))
+    .orderBy(asc(kbConditionListing.region), asc(kbConditionListing.rowNumber));
+  const categories = await db
+    .select({ code: kbDiagnosisCategory.code, name: kbDiagnosisCategory.name })
+    .from(kbDiagnosisCategory)
+    .where(eq(kbDiagnosisCategory.kbVersionId, versionId))
+    .orderBy(asc(kbDiagnosisCategory.sort));
+  const byCondition = new Map<string, AssessmentCondition['listings']>();
+  for (const { conditionId, ...listing } of listings) {
+    byCondition.set(conditionId, [...(byCondition.get(conditionId) ?? []), listing]);
+  }
+  return {
+    conditions: conditions.map((condition) => ({
+      ...condition,
+      listings: byCondition.get(condition.conditionId) ?? [],
+    })),
+    categories,
+  };
 }
