@@ -429,6 +429,7 @@ export {
   type TodayFilter,
   type TodayGroup,
 } from './today';
+export { loudestAlert, startLabel, startVisitSchema, visitFormStatus } from './my-patients';
 export {
   PRECAUTIONS_FIELD,
   intakeAge,

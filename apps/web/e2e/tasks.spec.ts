@@ -1,5 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
-import { centreId, signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
+import {
+  centreId,
+  physioLanded,
+  signIn,
+  signInWithCode,
+  temporaryDesk,
+  temporaryWithCode,
+} from './staff';
 import { makeTasks, removeTasks, taskTrail } from './tasks';
 
 // ALT-03 done when: tasks by urgency; closing requires a recorded decision. Decisions (user, 24
@@ -106,6 +113,7 @@ test('a physio does not see the front desk’s tasks', async ({ page }) => {
   if (made1) made.push(made1.id);
   const physio = await temporaryWithCode('physiotherapist', ['HSR Layout']);
   await signInWithCode(page, physio.email, physio.secret);
+  await physioLanded(page);
   await page.getByTestId('home-tasks').click();
   await expect(page.getByRole('heading', { name: 'Tasks', level: 1 })).toBeVisible();
   await expect(card(page, title)).toHaveCount(0);

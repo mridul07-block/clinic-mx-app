@@ -420,6 +420,15 @@ export async function signInWithCode(page: Page, email: string, secret: string) 
   await expect(page).not.toHaveURL(/\/app\/two-step/);
 }
 
+/**
+ * Physios land on My patients today (CLN-01): wait for it, so nothing interrupts the landing,
+ * then go on to Home, where the links are.
+ */
+export async function physioLanded(page: Page, then: string = '/app') {
+  await expect(page.getByRole('heading', { name: 'My patients today', exact: true })).toBeVisible();
+  await page.goto(then);
+}
+
 /** Ends any support access still on, as a test clean up (IAM-08). */
 export async function endSupportAccessForTests() {
   await withActor(testDb(), systemActor('tests'), (tx) =>

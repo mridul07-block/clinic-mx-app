@@ -70,7 +70,8 @@ test('a role that requires it sets up an authenticator app at first sign in', as
   await page.getByRole('button', { name: 'Verify' }).click();
   await expect(page.getByText('That code did not work.')).toBeVisible();
   await enterCode(page, secret);
-  await expect(page).toHaveURL(/\/app$/);
+  // A physiotherapist lands on My patients today (CLN-01).
+  await expect(page).toHaveURL(/\/app\/my-patients$/);
   await expect(page.getByText(`Signed in as ${name}`)).toBeVisible();
 
   // The QR code is drawn in the page: the browser still never called Supabase.
