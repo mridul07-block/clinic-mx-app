@@ -99,7 +99,8 @@ function holds(condition: HealthFormCondition, answers: HealthFormAnswers): bool
   return typeof answer === 'string' && condition.in.includes(answer);
 }
 
-const allHold = (
+/** Whether every condition holds on these answers (also the consultation's Subjective, CLN-03). */
+export const allHold = (
   conditions: readonly HealthFormCondition[] | undefined,
   answers: HealthFormAnswers,
 ) => (conditions ?? []).every((condition) => holds(condition, answers));

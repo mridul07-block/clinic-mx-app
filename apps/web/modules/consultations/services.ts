@@ -1,5 +1,6 @@
 import 'server-only';
 import {
+  consultationIntake,
   consultationRecord,
   saveConsultationSections,
   type ConsultationEntry,
@@ -10,6 +11,7 @@ import {
   recordVersionSchema,
   type ConsultationSections,
   type DraftSaveResponse,
+  type HealthFormAnswers,
 } from '@clinic-mx/schemas';
 import { z } from 'zod';
 import { assertMay } from '../access/guard';
@@ -35,6 +37,8 @@ export class ConsultationError extends Error {
 
 export interface ConsultationView extends Omit<ConsultationEntry, 'sections'> {
   sections: ConsultationSections;
+  /** What the patient told us on the submitted health form (CLN-03); empty when none. */
+  patientAnswers: HealthFormAnswers;
 }
 
 /** The person's own consultation, or undefined when there is none they write. */
@@ -44,9 +48,17 @@ export async function loadConsultation(
 ): Promise<ConsultationView | undefined> {
   assertMay(actor, 'consultant_records.write');
   if (!z.guid().safeParse(consultationId).success) return undefined;
-  const found = await asStaff(actor, (tx) => consultationRecord(tx, consultationId));
-  if (!found || found.physioId !== actor.id) return undefined;
-  return { ...found, sections: consultationSectionsSchema.parse(found.sections) };
+  const read = await asStaff(actor, async (tx) => {
+    const found = await consultationRecord(tx, consultationId);
+    if (!found || found.physioId !== actor.id) return undefined;
+    return { found, intake: await consultationIntake(tx, found.appointmentId) };
+  });
+  if (!read) return undefined;
+  return {
+    ...read.found,
+    sections: consultationSectionsSchema.parse(read.found.sections),
+    patientAnswers: read.intake?.answers ?? {},
+  };
 }
 
 export const saveConsultationSchema = z.object({

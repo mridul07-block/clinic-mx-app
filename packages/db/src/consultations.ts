@@ -1,5 +1,9 @@
-import type { ConsultationSections, ConsultationStatus } from '@clinic-mx/schemas';
-import { eq } from 'drizzle-orm';
+import type {
+  ConsultationSections,
+  ConsultationStatus,
+  HealthFormAnswers,
+} from '@clinic-mx/schemas';
+import { eq, sql } from 'drizzle-orm';
 import { latestKnowledgeVersion } from './knowledge';
 import { appointment, appointmentType, centre, consultation, patient } from './schema';
 import { updateVersioned, type DbOrTransaction, type VersionedResult } from './versioned';
@@ -96,4 +100,19 @@ export function saveConsultationSections(
     sections,
     updatedAt: new Date(),
   });
+}
+
+/**
+ * The submitted health form of a visit (CLN-03): what the patient told us, for Subjective. Only
+ * the visit's own treating physio gets it (`internal.consultant_health_form`); undefined
+ * otherwise, or when none was submitted.
+ */
+export async function consultationIntake(
+  db: DbOrTransaction,
+  appointmentId: string,
+): Promise<{ formVersion: string; answers: HealthFormAnswers } | undefined> {
+  const [row] = await db.execute<{ form_version: string; answers: HealthFormAnswers }>(
+    sql`select form_version, answers from internal.consultant_health_form(${appointmentId})`,
+  );
+  return row && { formVersion: row.form_version, answers: row.answers };
 }

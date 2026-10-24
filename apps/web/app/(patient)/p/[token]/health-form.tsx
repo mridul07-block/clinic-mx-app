@@ -12,7 +12,7 @@ import {
 } from 'react';
 import { shrinkPhotos } from '../../../../lib/shrink-photo';
 import { saveScreenAction, type HealthFormState } from '../../../../modules/intake/actions';
-import { BodyChart } from './body-chart';
+import { BodyChart } from '../../../../components/body-chart';
 import { patientPrimaryClass, patientSecondaryClass } from './patient-ui';
 
 // A health form screen (INT-04, INT-05, Frontend Specification §7): one topic, a stepper, Yes / No

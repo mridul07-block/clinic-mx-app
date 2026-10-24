@@ -3,11 +3,15 @@
 import {
   CONSULTATION_NOTES_MAX,
   adjacentSteps,
+  confirmedCount,
   consultationSections,
+  consultationSectionsSchema,
   consultationStepLabels,
   consultationSteps,
   sectionHasNotes,
+  sectionStarted,
   stepFromQuery,
+  type HealthFormAnswers,
   type ConsultationSection,
   type ConsultationSections,
   type ConsultationStep,
@@ -19,6 +23,7 @@ import { ConflictNotice } from '../../../../../../lib/drafts/conflict-notice';
 import { SaveStatus } from '../../../../../../lib/drafts/save-status';
 import { saveConsultationDraft } from '../../../../../../lib/drafts/savers';
 import { useAutosave } from '../../../../../../lib/drafts/use-autosave';
+import { SubjectiveFields } from './subjective-fields';
 
 const isSection = (step: ConsultationStep): step is ConsultationSection =>
   (consultationSections as readonly string[]).includes(step);
@@ -37,15 +42,23 @@ export function ConsultationStepper({
   serverVersion,
   signed,
   initialStep,
+  patientAnswers,
 }: {
   id: string;
   serverValue: ConsultationSections;
   serverVersion: number;
   signed: boolean;
   initialStep: ConsultationStep;
+  /** The submitted health form's answers, for Subjective (CLN-03). */
+  patientAnswers: HealthFormAnswers;
 }) {
   const save = useMemo(() => saveConsultationDraft(id), [id]);
   const draft = useAutosave({ kind: 'consultation', id, serverValue, serverVersion, save });
+  // A draft kept on the device from before CLN-03 lacks the newer fields; read it as today's shape.
+  const sections = useMemo(() => {
+    const read = consultationSectionsSchema.safeParse(draft.value);
+    return read.success ? read.data : serverValue;
+  }, [draft.value, serverValue]);
   const [step, setStep] = useState(initialStep);
   const heading = useRef<HTMLHeadingElement>(null);
   const moved = useRef(false);
@@ -84,7 +97,7 @@ export function ConsultationStepper({
         <ol className="flex flex-col gap-1">
           {consultationSteps.map((key, index) => {
             const current = key === step;
-            const written = isSection(key) && sectionHasNotes(draft.value, key);
+            const written = isSection(key) && sectionStarted(sections, key);
             return (
               <li key={key}>
                 <a
@@ -144,15 +157,34 @@ export function ConsultationStepper({
           <ConflictNotice keepMine={draft.keepMine} takeSaved={draft.takeSaved} />
         ) : null}
 
+        {step === 'subjective' ? (
+          <SubjectiveFields
+            confirmed={sections.subjective.confirmed}
+            patientAnswers={patientAnswers}
+            readOnly={signed}
+            onChange={(key, answer) => {
+              draft.setValue({
+                ...sections,
+                subjective: {
+                  ...sections.subjective,
+                  confirmed: { ...sections.subjective.confirmed, [key]: answer },
+                },
+              });
+            }}
+          />
+        ) : null}
         {isSection(step) ? (
           <label className="flex flex-col gap-1.5">
-            <span className="font-medium">Notes</span>
+            <span className="font-medium">{step === 'subjective' ? 'Other notes' : 'Notes'}</span>
             <textarea
-              value={draft.value[step].notes}
+              value={sections[step].notes}
               readOnly={signed}
               maxLength={CONSULTATION_NOTES_MAX}
               onChange={(event) => {
-                draft.setValue({ ...draft.value, [step]: { notes: event.target.value } });
+                draft.setValue({
+                  ...sections,
+                  [step]: { ...sections[step], notes: event.target.value },
+                });
               }}
               rows={10}
               className="w-full rounded-control border border-line-control bg-surface px-3 py-2 text-md shadow-xs hover:border-ink-muted"
@@ -163,7 +195,8 @@ export function ConsultationStepper({
             <p className="text-ink-secondary">Check each section before signing.</p>
             <ul className="flex flex-col divide-y divide-line rounded-panel border border-line">
               {consultationSections.map((key) => {
-                const written = sectionHasNotes(draft.value, key);
+                const written = sectionHasNotes(sections, key);
+                const changed = key === 'subjective' ? confirmedCount(sections) : 0;
                 return (
                   <li
                     key={key}
@@ -175,6 +208,7 @@ export function ConsultationStepper({
                       <Tag tone={written ? 'done' : 'neutral'}>
                         {written ? 'Notes added' : 'Nothing yet'}
                       </Tag>
+                      {changed > 0 ? <Tag tone="done">{`${String(changed)} confirmed`}</Tag> : null}
                     </span>
                     <a
                       href={hrefOf(key)}

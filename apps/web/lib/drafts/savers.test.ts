@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { draftSavers } from './savers';
 
 const sections = {
-  subjective: { notes: 'Pain on stairs' },
+  subjective: { notes: 'Pain on stairs', confirmed: {} },
   screening: { notes: '' },
   objective: { notes: '' },
   assessment: { notes: '' },
