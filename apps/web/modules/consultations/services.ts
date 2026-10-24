@@ -1,68 +1,83 @@
 import 'server-only';
 import {
+  addAddendum,
+  consultationAddenda,
   consultationIntake,
   consultationRecord,
   knowledgeAssessment,
   knowledgeObjective,
   knowledgePlan,
   saveConsultationSections,
+  signConsultation,
+  staffTreatsNow,
   treatingPhysios,
+  type AddendumEntry,
   type ConsultationEntry,
+  type DbOrTransaction,
   type StaffMember,
 } from '@clinic-mx/db';
 import {
+  addendumSchema,
+  can,
   consultationSectionsSchema,
   istDate,
   recordVersionSchema,
+  signedRecord,
+  signingBlockers,
   type AssessmentCatalog,
   type AssessmentSettings,
   type ConsultationSections,
   type DraftSaveResponse,
   type HealthFormAnswers,
-  type PlanCatalog,
-  type PlanDefaults,
   type KnowledgeMeasure,
   type KnowledgeSpecialTest,
+  type PlanCatalog,
+  type PlanDefaults,
 } from '@clinic-mx/schemas';
 import { z } from 'zod';
-import { assertMay } from '../access/guard';
+import { NotAllowedError } from '../access/guard';
 import { staffService } from '../access/service';
 import { asStaff } from '../access/staff-db';
 import { getSetting } from '../settings/settings';
 
 /**
  * The consultation (CLN-02, PRD J3.2): its own consultant writes it, section by section, saved by
- * autosave against its version (FND-08). Nobody else edits it, and a signed one refuses every
- * save: changes are addenda (rule 5). Row level security and the rules migration hold the same.
+ * autosave against its version (FND-08), and signs it (CLN-09): the Treats patients tick checked
+ * at that moment, every gate passed, the record's rows written and the visit completed. A signed
+ * one never changes; clinicians at its centre read it and add addenda (rule 5). Row level
+ * security and the rules migrations hold the same.
  */
 
 /** A refusal the person reads; the endpoint answers it as not found or refused. */
 export class ConsultationError extends Error {
   constructor(
     message: string,
-    readonly reason: 'not_found' | 'signed',
+    readonly reason: 'not_found' | 'signed' | 'refused' | 'stale',
   ) {
     super(message);
     this.name = 'ConsultationError';
   }
 }
 
-export interface ConsultationView extends Omit<ConsultationEntry, 'sections'> {
-  sections: ConsultationSections;
-  /** What the patient told us on the submitted health form (CLN-03); empty when none. */
+/** What a consultation is read and signed against: the patient's answers and its version. */
+interface RecordContext {
   patientAnswers: HealthFormAnswers;
-  /** Every workbook's measures and special tests in the consultation's version (CLN-05). */
   objectiveCatalog: { measures: KnowledgeMeasure[]; specialTests: KnowledgeSpecialTest[] };
-  /** The version's conditions and the client's diagnosis categories (CLN-06). */
   assessmentCatalog: AssessmentCatalog;
+  planCatalog: PlanCatalog;
+  treatingPhysios: { id: string; name: string }[];
+  planDefaults: PlanDefaults;
+}
+
+export interface ConsultationView extends Omit<ConsultationEntry, 'sections'>, RecordContext {
+  sections: ConsultationSections;
   /** The thresholds Assessment's suggestions use (CLN-06). */
   assessmentSettings: AssessmentSettings;
-  /** The version's modalities and questionnaires (CLN-07). */
-  planCatalog: PlanCatalog;
-  /** Who can be the treating physio at the visit's centre (CLN-07). */
-  treatingPhysios: { id: string; name: string }[];
-  /** What the plan's '' and null stand for (CLN-07). */
-  planDefaults: PlanDefaults;
+  /** Whether the person writes it: its own consultant, while a draft. */
+  editable: boolean;
+  /** Addenda, oldest first, and whether the person may add one (CLN-09). */
+  addenda: AddendumEntry[];
+  addsAddenda: boolean;
 }
 
 /** The `assessment.*` settings, as the suggestions take them. */
@@ -77,45 +92,67 @@ async function assessmentSettings(): Promise<AssessmentSettings> {
   return { irritabilityHighAbove, irritabilityLowBelow, acuteWeeksBelow, chronicWeeksAbove };
 }
 
-/** The person's own consultation, or undefined when there is none they write. */
+/** The intake, the version's catalogs, who may treat, and the plan's defaults. */
+async function recordContext(
+  tx: DbOrTransaction,
+  found: ConsultationEntry,
+  consultantName: string,
+): Promise<RecordContext> {
+  const intake = await consultationIntake(tx, found.appointmentId);
+  const physios = await treatingPhysios(tx, found.centreId);
+  return {
+    patientAnswers: intake?.answers ?? {},
+    objectiveCatalog: await knowledgeObjective(tx, found.kbVersionId),
+    assessmentCatalog: await knowledgeAssessment(tx, found.kbVersionId),
+    planCatalog: await knowledgePlan(tx, found.kbVersionId),
+    // The consultant is the default treating physio even where they are not assigned to the centre.
+    treatingPhysios: physios.some((physio) => physio.id === found.physioId)
+      ? physios
+      : [...physios, { id: found.physioId, name: consultantName }].sort((a, b) =>
+          a.name.localeCompare(b.name),
+        ),
+    planDefaults: {
+      visitDate: istDate(found.startsAt),
+      reviewWeeks: await getSetting('clinical.review_weeks'),
+      consultantId: found.physioId,
+    },
+  };
+}
+
+/**
+ * A consultation the person may open: their own as its consultant, or a signed one at a centre
+ * they see when they read clinical records (CLN-09; the patient record shows it with CLN-12).
+ * Undefined when there is none.
+ */
 export async function loadConsultation(
   actor: StaffMember,
   consultationId: string,
 ): Promise<ConsultationView | undefined> {
-  assertMay(actor, 'consultant_records.write');
+  const writes = can(actor, 'consultant_records.write');
+  const reads = can(actor, 'clinical.read');
+  if (!writes && !reads) throw new NotAllowedError();
   if (!z.guid().safeParse(consultationId).success) return undefined;
   const read = await asStaff(actor, async (tx) => {
     const found = await consultationRecord(tx, consultationId);
-    if (!found || found.physioId !== actor.id) return undefined;
+    const own = found?.physioId === actor.id && writes;
+    if (!found || !(own || (found.status === 'signed' && reads))) return undefined;
     return {
       found,
-      intake: await consultationIntake(tx, found.appointmentId),
-      catalog: await knowledgeObjective(tx, found.kbVersionId),
-      assessment: await knowledgeAssessment(tx, found.kbVersionId),
-      plan: await knowledgePlan(tx, found.kbVersionId),
-      physios: await treatingPhysios(tx, found.centreId),
+      own,
+      context: await recordContext(tx, found, own ? actor.name : (found.signedByName ?? '')),
+      addenda: found.status === 'signed' ? await consultationAddenda(tx, found.id) : [],
     };
   });
   if (!read) return undefined;
+  const signed = read.found.status === 'signed';
   return {
     ...read.found,
+    ...read.context,
     sections: consultationSectionsSchema.parse(read.found.sections),
-    patientAnswers: read.intake?.answers ?? {},
-    objectiveCatalog: read.catalog,
-    assessmentCatalog: read.assessment,
     assessmentSettings: await assessmentSettings(),
-    planCatalog: read.plan,
-    // The consultant is the default treating physio even where they are not assigned to the centre.
-    treatingPhysios: read.physios.some((physio) => physio.id === actor.id)
-      ? read.physios
-      : [...read.physios, { id: actor.id, name: actor.name }].sort((a, b) =>
-          a.name.localeCompare(b.name),
-        ),
-    planDefaults: {
-      visitDate: istDate(read.found.startsAt),
-      reviewWeeks: await getSetting('clinical.review_weeks'),
-      consultantId: read.found.physioId,
-    },
+    editable: read.own && !signed,
+    addenda: read.addenda,
+    addsAddenda: signed && reads,
   };
 }
 
@@ -144,5 +181,84 @@ export const saveConsultation = staffService({
       version: saved.version,
       value: consultationSectionsSchema.parse(saved.row.sections),
     };
+  },
+});
+
+export const signConsultationSchema = z.object({
+  consultationId: z.guid(),
+  baseVersion: recordVersionSchema,
+});
+
+/**
+ * Signs the person's own draft at the version they saw (CLN-09, PRD J3.9): the Treats patients
+ * tick read now, every gate passed on the server, everything it names still in its knowledge
+ * base version; then the record's rows are written and the visit completed, in one transaction.
+ */
+export const signConsultationService = staffService({
+  action: 'consultant_records.sign',
+  input: signConsultationSchema,
+  run: async (tx, input, actor): Promise<{ status: 'signed' }> => {
+    const found = await consultationRecord(tx, input.consultationId);
+    if (!found || found.physioId !== actor.id) {
+      throw new ConsultationError('That consultation was not found.', 'not_found');
+    }
+    if (found.status === 'signed') {
+      throw new ConsultationError('This consultation is signed. Changes are addenda.', 'signed');
+    }
+    if (!(await staffTreatsNow(tx, actor.id))) {
+      throw new ConsultationError('Signing needs the Treats patients tick.', 'refused');
+    }
+    if (found.version !== input.baseVersion) {
+      throw new ConsultationError('Your latest changes are still saving. Try again.', 'stale');
+    }
+    const context = await recordContext(tx, found, actor.name);
+    const sections = consultationSectionsSchema.parse(found.sections);
+    const reasons = [
+      ...signingBlockers(sections, context.patientAnswers, {
+        planCatalog: context.planCatalog,
+        specialTests: context.objectiveCatalog.specialTests,
+      }).map((blocker) => blocker.reason),
+    ];
+    const { problems, rows } = signedRecord(sections, {
+      ...context,
+      treatingPhysioIds: context.treatingPhysios.map((physio) => physio.id),
+    });
+    reasons.push(...problems);
+    if (reasons.length > 0) throw new ConsultationError(reasons.join(' '), 'refused');
+    const signed = await signConsultation(tx, {
+      consultationId: found.id,
+      baseVersion: input.baseVersion,
+      by: actor.id,
+      episodeId: found.episodeId,
+      appointmentId: found.appointmentId,
+      kbVersionId: found.kbVersionId,
+      rows,
+    });
+    if (signed === 'stale') {
+      throw new ConsultationError('Your latest changes are still saving. Try again.', 'stale');
+    }
+    return { status: 'signed' };
+  },
+});
+
+/** Adds an addendum to a signed consultation (CLN-09): clinicians with the tick, at its centre. */
+export const addAddendumService = staffService({
+  action: 'clinical.read',
+  input: addendumSchema,
+  run: async (tx, input, actor): Promise<{ id: string }> => {
+    const found = await consultationRecord(tx, input.consultationId);
+    if (!found) throw new ConsultationError('That consultation was not found.', 'not_found');
+    if (found.status !== 'signed') {
+      throw new ConsultationError('Addenda are added once the consultation is signed.', 'refused');
+    }
+    if (!(await staffTreatsNow(tx, actor.id))) {
+      throw new ConsultationError('Adding an addendum needs the Treats patients tick.', 'refused');
+    }
+    return addAddendum(tx, {
+      consultationId: found.id,
+      episodeId: found.episodeId,
+      text: input.text,
+      authorId: actor.id,
+    });
   },
 });

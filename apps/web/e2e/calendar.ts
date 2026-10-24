@@ -176,7 +176,23 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
     const theirs = sql`(select id::text from appointment where physio_id in ${physioIds})`;
     await tx.delete(task).where(sql`${task.details} ->> 'appointmentId' in ${theirs}`);
     await tx.delete(job).where(sql`${job.payload} ->> 'appointmentId' in ${theirs}`);
-    // The consultations their visits opened (CLN-02).
+    // What signing their consultations wrote (CLN-09), then the consultations (CLN-02).
+    const consultations = sql`(select id from consultation where physio_id in ${physioIds})`;
+    await tx.execute(
+      sql`delete from plan_modality where plan_of_care_id in
+        (select id from plan_of_care where consultation_id in ${consultations})`,
+    );
+    for (const table of [
+      'plan_of_care',
+      'diagnosis',
+      'special_test_result',
+      'measure',
+      'addendum',
+    ]) {
+      await tx.execute(
+        sql`delete from ${sql.identifier(table)} where consultation_id in ${consultations}`,
+      );
+    }
     await tx.delete(consultation).where(inArray(consultation.physioId, physioIds));
     await tx.delete(appointment).where(inArray(appointment.physioId, physioIds));
     await tx.delete(slotHold).where(inArray(slotHold.physioId, physioIds));

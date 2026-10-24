@@ -152,6 +152,16 @@ export class DraftController<T> {
     }
   }
 
+  /**
+   * Saves what is left and waits for it: the version now saved, or undefined while changes stay
+   * unsaved (offline, failed or in conflict). Signing (CLN-09) signs only what is saved.
+   */
+  async saveNow(): Promise<number | undefined> {
+    await this.flush();
+    await this.settled();
+    return this.dirty || this.state.status === 'conflict' ? undefined : this.baseVersion;
+  }
+
   dispose(): void {
     this.disposed = true;
     clearTimeout(this.timer);

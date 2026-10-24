@@ -1,7 +1,7 @@
 import { addDays, istDate, screeningItems } from '@clinic-mx/schemas';
 import { expect, test, type Page } from '@playwright/test';
 import { removeCalendarRows, startedAppointment } from './calendar';
-import { savedConsultation, submittedAnswers } from './consultations';
+import { draftSections, savedConsultation, signedRows, submittedAnswers } from './consultations';
 import { removePipelineRows } from './intake';
 import { checkedIn, consultationTypeId, submittedWithAlert } from './my-patients';
 import { testPatient } from './patients';
@@ -568,4 +568,105 @@ test('Plan warns about a modality against the patient’s precautions and keeps 
   await expect(page.getByTestId('sign-section').filter({ hasText: 'Plan' })).toContainText(
     '5 of 5 parts',
   );
+});
+
+// CLN-09 done when: signing requires the Treats patients tick; later changes only as addenda.
+// Decisions (user, 24 October 2026): signing completes the visit; a special test needs a result;
+// addenda on the signed consultation by clinicians at its centre; a confirm step. The draft is
+// written ready to sign, so the test does not fill every screening item on screen.
+test('Sign and finish locks the consultation, completes the visit, and colleagues add addenda', async ({
+  page,
+  browser,
+}) => {
+  const { physio, patient, visit } = await consultationToday({ submitted: true });
+  await submittedAnswers(visit.id, patient.id, { region: 'knee', sex: 'male' });
+  await signInWithCode(page, physio.email, physio.secret);
+  await startConsultation(page, patient.name);
+  await expect(stepTitle(page)).toHaveText('Subjective');
+  const path = new URL(page.url()).pathname;
+  const confirmed = Object.fromEntries(
+    screeningItems('knee', 'male', {}).map((item) => [
+      item.key,
+      item.input === 'number' ? 0 : false,
+    ]),
+  );
+  await draftSections(visit.id, {
+    screening: { notes: '', confirmed },
+    objective: {
+      region: 'knee',
+      side: 'right',
+      measures: { 'knee.lsi.quadriceps': { involved: 32, uninvolved: 40 } },
+      tests: [{ key: 'knee.lachman_20_30_degrees_flexion', interpretation: '' }],
+    },
+    assessment: {
+      conditionId: 'KNE-004',
+      movement: 'Quad dominance',
+      irritability: 'moderate',
+      stage: 'subacute',
+    },
+    plan: { modalities: [{ key: 'laser' }], sessionsPerWeek: 2, weeks: 6 },
+  });
+
+  // A special test without a result holds signing back.
+  await page.goto(`${path}?section=sign`);
+  const gate = page.getByTestId('sign-gate');
+  await expect(gate).toContainText(
+    'Choose a result for each special test added: Lachman (20-30 degrees flexion).',
+  );
+  await expect(page.getByRole('button', { name: 'Sign and finish' })).toBeDisabled();
+  await gate.getByRole('link', { name: 'Go to Objective' }).click();
+  await page
+    .locator('[data-testid="special-test"][data-test="knee.lachman_20_30_degrees_flexion"]')
+    .getByText('Negative', { exact: true })
+    .click();
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+
+  // Sign and finish, then confirm.
+  await page.goto(`${path}?section=sign`);
+  await expect(gate).toContainText('every special test has a result');
+  await page.getByRole('button', { name: 'Sign and finish' }).click();
+  const confirm = page.getByTestId('sign-confirm');
+  await expect(confirm).toContainText(
+    'Signing locks this consultation. Later changes are addenda.',
+  );
+  await confirm.getByRole('button', { name: 'Sign', exact: true }).click();
+  await page.waitForURL(/\/app\/my-patients$/);
+  await expect
+    .poll(() => signedRows(visit.id))
+    .toEqual({
+      status: 'signed',
+      visit: 'completed',
+      measures: 2,
+      tests: 1,
+      diagnoses: 1,
+      plans: 1,
+      modalities: 1,
+    });
+
+  // Locked: read only, signed by the consultant; changes are addenda.
+  await page.goto(`${path}?section=assessment`);
+  await expect(page.getByTestId('signed-banner')).toContainText(`Signed by ${physio.name} on`);
+  await expect(page.getByLabel('Movement diagnosis')).toHaveAttribute('readonly', '');
+  await page.goto(`${path}?section=sign`);
+  await expect(page.getByRole('button', { name: 'Sign and finish' })).toHaveCount(0);
+  await page.getByLabel('Add addendum').fill('Corrected: the right knee is the involved side.');
+  await page.getByRole('button', { name: 'Add addendum' }).click();
+  const addenda = page.getByTestId('addendum');
+  await expect(addenda).toHaveCount(1);
+  await expect(addenda.first()).toContainText(physio.name);
+  await expect(addenda.first()).toContainText('Corrected: the right knee is the involved side.');
+
+  // A colleague at the centre reads it and adds one too.
+  const colleague = await temporaryWithCode('physiotherapist', ['HSR Layout']);
+  physios.push(colleague.id);
+  const context = await browser.newContext(test.info().project.use);
+  const other = await context.newPage();
+  await signInWithCode(other, colleague.email, colleague.secret);
+  await other.goto(`${path}?section=sign`);
+  await expect(other.getByTestId('signed-banner')).toContainText(`Signed by ${physio.name}`);
+  await other.getByLabel('Add addendum').fill('Seen by a colleague.');
+  await other.getByRole('button', { name: 'Add addendum' }).click();
+  await expect(other.getByTestId('addendum')).toHaveCount(2);
+  await expect(other.getByTestId('addendum').nth(1)).toContainText(colleague.name);
+  await context.close();
 });
