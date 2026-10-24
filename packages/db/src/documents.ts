@@ -40,6 +40,8 @@ export interface NewDocument {
   version: number;
   filePath: string;
   sizeBytes: number;
+  /** What made it, so making it again is skipped (ALT-06: the job's idempotency key). */
+  generationKey?: string;
 }
 
 /**
@@ -48,6 +50,18 @@ export interface NewDocument {
  */
 export async function insertDocument(db: DbOrTransaction, values: NewDocument): Promise<void> {
   await db.insert(document).values(values);
+}
+
+/** The document a generation key already made, if any (ALT-06). */
+export async function documentByGenerationKey(
+  db: DbOrTransaction,
+  generationKey: string,
+): Promise<{ id: string; version: number } | undefined> {
+  const [row] = await db
+    .select({ id: document.id, version: document.version })
+    .from(document)
+    .where(eq(document.generationKey, generationKey));
+  return row;
 }
 
 /** A patient's documents the reader may open, newest first. */

@@ -36,6 +36,8 @@ describe('consultation sections', () => {
         reviewDate: '',
         questionnaires: null,
         treatingPhysioId: '',
+        investigations: '',
+        referral: '',
       },
     });
   });

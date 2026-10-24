@@ -42,6 +42,11 @@ export const document = pgTable(
     /** Within the `documents` bucket: `<patient id>/<document id>.pdf`. */
     filePath: text('file_path').notNull().unique(),
     sizeBytes: integer('size_bytes').notNull(),
+    /**
+     * What made this version (ALT-06): the job's idempotency key, so a job that runs twice
+     * makes one version, not two. Null for a document made any other way.
+     */
+    generationKey: text('generation_key').unique(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

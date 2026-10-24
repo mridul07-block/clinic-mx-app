@@ -6,6 +6,8 @@ import {
   documentReadAtAnyCentre,
   documentSeries,
   letterheadLines,
+  summaryComplaintRows,
+  summaryFrequency,
 } from './documents';
 import { documentDate, documentDateTime, documentTime } from './ist';
 import { indianNumber } from './money';
@@ -60,6 +62,37 @@ describe('documents', () => {
       'Movementology Clinics',
       'Whitefield',
     ]);
+  });
+});
+
+describe('consultation summary wording (ALT-06)', () => {
+  it('words the frequency, leaving out what is not set', () => {
+    expect(summaryFrequency(2, 6)).toBe('2 sessions a week for 6 weeks');
+    expect(summaryFrequency(1, 1)).toBe('1 session a week for 1 week');
+    expect(summaryFrequency(3, null)).toBe('3 sessions a week');
+    expect(summaryFrequency(null, 4)).toBe('For 4 weeks');
+    expect(summaryFrequency(null, null)).toBe('');
+  });
+
+  it('prints the complaint as confirmed, or as the patient gave it, without empty answers', () => {
+    const rows = summaryComplaintRows(
+      { complaint: 'Knee pain on stairs', pain_now: 4 },
+      {
+        complaint: 'Knee hurts',
+        onset: 'gradual',
+        duration: 6,
+        duration_unit: 'weeks',
+        pain_now: 6,
+        how_started: '',
+      },
+    );
+    expect(rows).toEqual([
+      ['Main complaint', 'Knee pain on stairs'],
+      ['Onset', 'Gradual (slow)'],
+      ['Duration', '6 weeks'],
+      ['Pain now', '4 out of 10'],
+    ]);
+    expect(summaryComplaintRows({}, {})).toEqual([]);
   });
 });
 

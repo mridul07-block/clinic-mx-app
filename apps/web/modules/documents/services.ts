@@ -31,6 +31,8 @@ export interface DocumentRequest {
   centreId: string;
   /** The record it is built from (a signed consultation, a paid bill); its versions share it. */
   sourceId: string;
+  /** What asked for it, so asking again makes nothing (ALT-06: the job's idempotency key). */
+  generationKey?: string;
   build: (meta: { version: number; generatedAt: Date }) => ReactElement<DocumentProps>;
 }
 
@@ -66,6 +68,7 @@ export async function generateDocument(
       version,
       filePath,
       sizeBytes: bytes.byteLength,
+      ...(request.generationKey ? { generationKey: request.generationKey } : {}),
     });
   } catch (error) {
     await store.remove([filePath]);

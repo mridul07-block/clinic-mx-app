@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { removeCalendarRows, startedAppointment } from './calendar';
 import { draftSections, savedConsultation, signedRows, submittedAnswers } from './consultations';
 import { removePipelineRows } from './intake';
+import { runDueJobs } from './jobs';
 import { checkedIn, consultationTypeId, submittedWithAlert } from './my-patients';
 import { testPatient } from './patients';
 import { signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
@@ -668,5 +669,105 @@ test('Sign and finish locks the consultation, completes the visit, and colleague
   await other.getByRole('button', { name: 'Add addendum' }).click();
   await expect(other.getByTestId('addendum')).toHaveCount(2);
   await expect(other.getByTestId('addendum').nth(1)).toContainText(colleague.name);
+  await context.close();
+});
+
+// ALT-06 done when: signing generates the summary PDF on the centre's letterhead (its message is
+// queued for the WhatsApp tickets); an addendum generates the next version. Decisions (user, 25
+// October 2026): Investigations advised and Referral advised on Plan, printed when filled; the
+// coded category stays off; each addendum a new version that prints it.
+test('signing generates the consultation summary, and an addendum its next version', async ({
+  page,
+  browser,
+}) => {
+  const { physio, patient, visit, desk } = await consultationToday({ submitted: true });
+  await submittedAnswers(visit.id, patient.id, { region: 'knee', sex: 'male' });
+  await signInWithCode(page, physio.email, physio.secret);
+  await startConsultation(page, patient.name);
+  await expect(stepTitle(page)).toHaveText('Subjective');
+  const path = new URL(page.url()).pathname;
+  const confirmed = Object.fromEntries(
+    screeningItems('knee', 'male', {}).map((item) => [
+      item.key,
+      item.input === 'number' ? 0 : false,
+    ]),
+  );
+  await draftSections(visit.id, {
+    screening: { notes: '', confirmed },
+    objective: {
+      region: 'knee',
+      side: 'right',
+      measures: { 'knee.lsi.quadriceps': { involved: 32, uninvolved: 40 } },
+      tests: [],
+    },
+    assessment: {
+      conditionId: 'KNE-004',
+      movement: 'Quad dominance',
+      irritability: 'moderate',
+      stage: 'subacute',
+    },
+    plan: { sessionsPerWeek: 2, weeks: 6 },
+  });
+
+  // Plan: the two optional boxes, saved as typed.
+  await page.goto(`${path}?section=plan`);
+  await page
+    .getByLabel(/Investigations advised/)
+    .fill('MRI of the right knee if no better in 4 weeks');
+  await page.getByLabel(/Referral advised/).fill('Orthopaedic opinion if the knee locks');
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Printed on the patient’s summary when filled.', { exact: false }).first(),
+  ).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.screenshot({ path: test.info().outputPath('plan-advice.png'), fullPage: true });
+
+  // Sign; the queue (run here as the scheduler would) makes version 1.
+  await page.goto(`${path}?section=sign`);
+  await page.getByRole('button', { name: 'Sign and finish' }).click();
+  await page.getByTestId('sign-confirm').getByRole('button', { name: 'Sign', exact: true }).click();
+  await page.waitForURL(/\/app\/my-patients$/);
+  await runDueJobs(page.request);
+  await page.goto(`/app/patients/${patient.id}?tab=documents`);
+  const documents = page.getByTestId('patient-documents');
+  await expect(documents.getByTestId('patient-document')).toHaveCount(1);
+  await expect(documents).toContainText('Consultation summary');
+  await expect(documents).toContainText('Version 1 ·');
+  const first =
+    (await documents.getByRole('link', { name: 'Open PDF' }).getAttribute('href')) ?? '';
+  const opened = await page.request.get(first);
+  expect(opened.status()).toBe(200);
+  expect(opened.headers()['content-type']).toBe('application/pdf');
+  expect(opened.headers()['content-disposition']).toBe(
+    'inline; filename="consultation-summary-v1.pdf"',
+  );
+  expect((await opened.body()).toString('latin1')).toMatch(/\/BaseFont \/[A-Z]{6}\+IBMPlexSans/);
+
+  // An addendum: the next version, the first kept under it.
+  await page.goto(`${path}?section=sign`);
+  await page.getByLabel('Add addendum').fill('Corrected: the right knee is the involved side.');
+  await page.getByRole('button', { name: 'Add addendum' }).click();
+  await expect(page.getByTestId('addendum')).toHaveCount(1);
+  await runDueJobs(page.request);
+  await page.goto(`/app/patients/${patient.id}?tab=documents`);
+  await expect(documents.getByTestId('patient-document')).toHaveCount(1);
+  await expect(documents).toContainText('Version 2 ·');
+  await expect(documents.getByRole('link', { name: /^Version 1, / })).toHaveAttribute(
+    'href',
+    first,
+  );
+  // Running the queue again makes nothing new.
+  await runDueJobs(page.request);
+  await page.reload();
+  await expect(documents.getByRole('link', { name: /^Version \d, / })).toHaveCount(1);
+  await page.screenshot({ path: test.info().outputPath('summary-documents.png'), fullPage: true });
+
+  // The front desk opens neither.
+  const context = await browser.newContext(test.info().project.use);
+  const deskPage = await context.newPage();
+  await signIn(deskPage, desk.email);
+  expect((await deskPage.request.get(first)).status()).toBe(404);
   await context.close();
 });

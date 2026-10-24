@@ -149,6 +149,9 @@ export const planOfCare = pgTable(
     treatingPhysioId: uuid('treating_physio_id')
       .notNull()
       .references(() => staffUser.id),
+    /** Printed on the consultation summary when filled (ALT-06); '' for none. */
+    investigationsAdvised: text('investigations_advised').notNull().default(''),
+    referralAdvised: text('referral_advised').notNull().default(''),
     status: planOfCareStatus('status').notNull().default('active'),
     createdBy: uuid('created_by')
       .notNull()

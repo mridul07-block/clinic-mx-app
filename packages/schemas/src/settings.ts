@@ -153,6 +153,12 @@ export const settingDefinitions = {
     source: 'TAD section 9: reports bucket; at most 4 MB, the hosted request limit (INT-02)',
     description: 'Largest report photo or scan the front desk can add, in megabytes.',
   },
+  'documents.summary_prints_category': {
+    schema: z.boolean(),
+    source: 'PRD decision 18, Blueprint decision 6: default off (user decision, 25 October 2026)',
+    description:
+      'Whether the consultation summary prints the coded physiotherapy diagnosis category.',
+  },
   'billing.consultation_fee_timing': {
     schema: z.enum(consultationFeeTimings),
     source: 'PRD section 7: Consultation fee timing',

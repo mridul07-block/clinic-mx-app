@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  ADVICE_MAX,
   DOSE_MAX,
   EXERCISE_MAX,
   EXERCISE_NOTE_MAX,
@@ -399,6 +400,37 @@ export function PlanInputs({
           Picking exercises with videos from the library arrives with the exercise library.
         </p>
       </section>
+
+      {(
+        [
+          [
+            'investigations',
+            'Investigations advised',
+            'For example, an MRI of the right knee if no better in 4 weeks.',
+          ],
+          ['referral', 'Referral advised', 'For example, an orthopaedic opinion, and why.'],
+        ] as const
+      ).map(([field, label, example]) => (
+        <label key={field} className="flex flex-col gap-1.5">
+          <span className="text-md font-semibold">
+            {label} <span className="font-normal text-ink-muted">(optional)</span>
+          </span>
+          <textarea
+            rows={2}
+            maxLength={ADVICE_MAX}
+            readOnly={readOnly}
+            value={plan[field]}
+            aria-describedby={id(field, 'hint')}
+            onChange={(event) => {
+              set({ [field]: event.target.value });
+            }}
+            className={input}
+          />
+          <span id={id(field, 'hint')} className="text-sm text-ink-muted">
+            {example} Printed on the patient’s summary when filled.
+          </span>
+        </label>
+      ))}
 
       <label className="flex flex-col gap-1.5 md:w-72">
         <span className="text-md font-semibold">Review date</span>

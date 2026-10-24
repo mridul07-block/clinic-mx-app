@@ -182,6 +182,8 @@ export const defaultReviewDate = (visitDate: string, reviewWeeks: number) =>
 
 export const GOAL_MAX = 200;
 export const REASON_MAX = 200;
+/** The longest investigations or referral advice (ALT-06). */
+export const ADVICE_MAX = 500;
 export const EXERCISE_MAX = 120;
 export const DOSE_MAX = 120;
 export const EXERCISE_NOTE_MAX = 200;
@@ -240,6 +242,18 @@ export const planFields = {
     .default(null),
   /** '' is the consultant. */
   treatingPhysioId: z.union([z.guid(), z.literal('')]).default(''),
+  /**
+   * Investigations advised and a referral advised, in the clinician's own words (ALT-06,
+   * user decision 25 October 2026; SOP section 14.1); printed on the summary when filled.
+   */
+  investigations: z
+    .string()
+    .max(ADVICE_MAX, `Keep it to ${String(ADVICE_MAX)} characters.`)
+    .default(''),
+  referral: z
+    .string()
+    .max(ADVICE_MAX, `Keep it to ${String(ADVICE_MAX)} characters.`)
+    .default(''),
 };
 
 export interface PlanShape {
@@ -252,6 +266,8 @@ export interface PlanShape {
   reviewDate: string;
   questionnaires: string[] | null;
   treatingPhysioId: string;
+  investigations: string;
+  referral: string;
 }
 
 /** The parts `planParts` counts. */

@@ -58,6 +58,8 @@ export interface SignedRows {
     reviewDate: string;
     questionnaires: string[];
     treatingPhysioId: string;
+    investigations: string;
+    referral: string;
   };
 }
 
@@ -174,6 +176,8 @@ export function signedRecord(
         reviewDate: plan.reviewDate,
         questionnaires: plan.questionnaires,
         treatingPhysioId: plan.treatingPhysioId,
+        investigations: plan.investigations.trim(),
+        referral: plan.referral.trim(),
       },
     },
   };

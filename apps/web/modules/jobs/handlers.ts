@@ -1,10 +1,13 @@
 import {
+  CONSULTATION_SUMMARY_JOB,
+  CONSULTATION_SUMMARY_MESSAGE_JOB,
   INTAKE_SUBMITTED_JOB,
   NO_SHOW_MESSAGE_JOB,
   defineJob,
   type JobHandlers,
 } from '@clinic-mx/db';
 import { z } from 'zod';
+import { generateConsultationSummary } from '../documents/consultation-summary';
 import { AI_PREPARATION_SHEET_JOB, processIntakeSubmission } from '../intake/pipeline';
 
 /**
@@ -38,6 +41,31 @@ export const jobHandlers: JobHandlers = {
    */
   [NO_SHOW_MESSAGE_JOB]: defineJob({
     payload: z.object({ appointmentId: z.guid() }),
+    run: () => Promise.resolve(),
+  }),
+  /**
+   * The consultation summary (ALT-06), queued by the database when a consultation is signed and
+   * when an addendum is added: the next version of its PDF. The job's own key marks the version it
+   * makes, so a job that runs again makes nothing new.
+   */
+  [CONSULTATION_SUMMARY_JOB]: defineJob({
+    payload: z.object({ consultationId: z.guid() }),
+    run: async ({ consultationId }, { db, job }) => {
+      await generateConsultationSummary(
+        db,
+        consultationId,
+        job.idempotencyKey ?? [CONSULTATION_SUMMARY_JOB, job.id].join(':'),
+      );
+    },
+  }),
+  /**
+   * The bundled message (ALT-06, PRD J4.1): the summary with "Open My plan" and "Rate your visit"
+   * buttons, queued on signing. Nothing is sent yet: WA-06 fills this in, sending the newest
+   * summary with the `consultation_summary` template once it exists (and retrying until it
+   * does). Until then the job completes without sending.
+   */
+  [CONSULTATION_SUMMARY_MESSAGE_JOB]: defineJob({
+    payload: z.object({ consultationId: z.guid() }),
     run: () => Promise.resolve(),
   }),
 };
