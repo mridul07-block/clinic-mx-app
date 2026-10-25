@@ -8,7 +8,7 @@ import {
   systemActor,
   withActor,
 } from '@clinic-mx/db';
-import { eq, inArray, like } from 'drizzle-orm';
+import { eq, inArray, like, sql } from 'drizzle-orm';
 
 // The price master for end to end tests (SET-02). Tests that change prices hold the `e2e prices`
 // lock, take a snapshot of the price list first and put it back afterwards. Rows a test added are
@@ -39,7 +39,12 @@ export async function restorePrices(snapshot: PriceSnapshot): Promise<void> {
         .where(like(packageType.name, 'E2E %'))
     ).map((row) => row.id);
     if (added.length) {
-      // A patient's choice of a test package (BIL-02) goes with it.
+      // A patient's choice of a test package (BIL-02) goes with it, and its bill (BIL-05).
+      const chosen = sql`(select id from plan_choice where package_type_id in ${added})`;
+      await tx.execute(
+        sql`delete from bill_line where bill_id in (select id from bill where plan_choice_id in ${chosen})`,
+      );
+      await tx.execute(sql`delete from bill where plan_choice_id in ${chosen}`);
       await tx.delete(patientPlanChoice).where(inArray(patientPlanChoice.packageTypeId, added));
       await tx.delete(packageTypeItem).where(inArray(packageTypeItem.packageTypeId, added));
       await tx.delete(packageType).where(inArray(packageType.id, added));

@@ -31,6 +31,11 @@ export interface TodayAppointment {
   episodeId: string | null;
   /** A consultation visit: once done, its plan is priced at the desk (BIL-01). */
   consultation: boolean;
+  /**
+   * The visit's unpaid consultation fee (BIL-05), for those who see amounts at the centre; null
+   * for everyone else (row level security hides bills) and when there is none.
+   */
+  unpaidFeePaise: number | null;
 }
 
 const physio = alias(staffUser, 'today_physio');
@@ -62,6 +67,11 @@ export async function todayBoard(
       consentDeclined: partAConsentDeclined(appointment.id),
       episodeId: appointment.episodeId,
       consultation: sql<boolean>`${appointmentType.key} = 'consultation'`,
+      unpaidFeePaise: sql<number | null>`(
+        select b.total_paise from bill b
+        where b.appointment_id = ${appointment.id} and b.kind = 'consultation'
+          and b.status = 'unpaid'
+      )`,
     })
     .from(appointment)
     .innerJoin(patient, eq(patient.id, appointment.patientId))

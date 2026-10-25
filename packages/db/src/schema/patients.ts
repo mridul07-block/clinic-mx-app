@@ -54,10 +54,10 @@ export type NewPatientRow = typeof patient.$inferInsert;
 
 /**
  * The human facing numbers a centre issues (TAD section 3): OP numbers now; appointment IDs and
- * bill numbers add kinds later. Server only: read and advanced by `internal.next_centre_number`,
+ * bill numbers (BIL-05). Server only: read and advanced by `internal.next_centre_number`,
  * under a row lock, so numbers have no gaps and never repeat.
  */
-export const centreSequenceKinds = ['op_number', 'appointment'] as const;
+export const centreSequenceKinds = ['op_number', 'appointment', 'bill'] as const;
 export const centreSequenceKind = pgEnum('centre_sequence_kind', centreSequenceKinds);
 
 export const centreSequence = pgTable(

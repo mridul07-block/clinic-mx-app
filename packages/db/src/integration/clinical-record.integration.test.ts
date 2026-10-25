@@ -3,6 +3,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
+import { billsOfEpisode, consultationBillNow, consultationFeeState } from '../bills';
 import { addAddendum, consultationAddenda, signConsultation } from '../clinical-record';
 import { consultationSummaryFacts } from '../consultation-summary';
 import { consultationRecord, openConsultation } from '../consultations';
@@ -23,12 +24,16 @@ import { referralLetterFacts } from '../referral-letter';
 import {
   appointment,
   auditEvent,
+  bill,
+  billLine,
   consultation,
   diagnosis,
   episode,
   job,
   kbCondition,
   measure,
+  packageType,
+  packageTypeItem,
   planModality,
   planOfCare,
   precaution,
@@ -889,6 +894,48 @@ describe('the patient choice', () => {
     });
   });
 
+  it('bills a chosen package at its price, and a later choice cancels that bill', async () => {
+    await rolledBack(async (tx) => {
+      const { episodeId, planOfCareId } = await proposed(tx);
+      const [session] = await tx
+        .select({ id: priceItem.id })
+        .from(priceItem)
+        .where(eq(priceItem.key, 'rehabilitation_session'));
+      const [offer] = await tx
+        .insert(packageType)
+        .values({ name: 'Test Ten sessions', sessions: 10, pricePaise: 900000 })
+        .returning({ id: packageType.id });
+      await tx
+        .insert(packageTypeItem)
+        .values({ packageTypeId: offer?.id ?? '', priceItemId: session?.id ?? '' });
+      await record(tx, deskHsr, {
+        episodeId,
+        planOfCareId,
+        choice: 'package',
+        packageTypeId: offer?.id ?? '',
+        sessionPriceItemId: session?.id ?? '',
+      });
+      await asOwner(tx);
+      const [made] = await billsOfEpisode(tx, episodeId);
+      expect(made).toMatchObject({ kind: 'package', status: 'unpaid', totalPaise: 900000 });
+      expect(made?.number).toMatch(/^HSR-B-\d{5}$/);
+      expect(made?.lines).toEqual([
+        { description: 'Test Ten sessions', quantity: 1, unitPaise: 900000, amountPaise: 900000 },
+      ]);
+
+      await record(tx, deskHsr, {
+        episodeId,
+        planOfCareId,
+        choice: 'per_session',
+        sessionPriceItemId: session?.id ?? '',
+      });
+      await asOwner(tx);
+      expect(await billsOfEpisode(tx, episodeId)).toMatchObject([
+        { kind: 'package', status: 'cancelled', cancelReason: 'The patient chose differently.' },
+      ]);
+    });
+  });
+
   it('raises the call task and the nudge once, and nothing after a newer choice or once the episode moves on', async () => {
     await rolledBack(async (tx) => {
       const { episodeId, planOfCareId, patientId } = await proposed(tx);
@@ -949,6 +996,202 @@ describe('the patient choice', () => {
       await asOwner(tx);
       await tx.update(episode).set({ status: 'active' }).where(eq(episode.id, episodeId));
       expect(await thinkAboutItFollowUp(tx, last.id), 'active').toBe('no longer thinking');
+    });
+  });
+});
+
+// BIL-05: the database bills the consultation fee at the consultant's own fee when the timing
+// setting says, once per visit; nobody signed in writes a bill, and only those who see amounts at
+// the centre read one.
+describe('bills at fixed prices', () => {
+  const feeFor = async (tx: Tx, staffId: string, key: string | null) => {
+    await asOwner(tx);
+    await tx.execute(
+      sql`update staff_user set consultation_price_item_id =
+        (select id from price_item where key = ${key}) where id = ${staffId}`,
+    );
+  };
+
+  const visitBills = async (tx: Tx, appointmentId: string) => {
+    await asOwner(tx);
+    return tx
+      .select({
+        id: bill.id,
+        number: bill.number,
+        status: bill.status,
+        total: bill.totalPaise,
+        createdBy: bill.createdBy,
+        cancelReason: bill.cancelReason,
+      })
+      .from(bill)
+      .where(eq(bill.appointmentId, appointmentId));
+  };
+
+  /** Another visit for the fixture's patient, inserted as it stands. */
+  const visit = async (
+    tx: Tx,
+    fixture: Awaited<ReturnType<typeof setUp>>,
+    typeKey: string,
+    status: 'checked_in' | 'completed',
+  ) => {
+    await asOwner(tx);
+    const startsAt = new Date(Date.now() - 30 * 60000);
+    const [row] = await tx
+      .insert(appointment)
+      .values({
+        number: '',
+        patientId: fixture.patientId,
+        centreId: centreIds.hsrLayout,
+        physioId: fixture.consultant.id,
+        appointmentTypeId: await typeId(tx, typeKey),
+        episodeId: fixture.episodeId,
+        startsAt,
+        endsAt: new Date(startsAt.getTime() + 60000),
+        channel: 'front_desk',
+        bookedBy: superAdmin.id,
+        status,
+        arrivedAt: new Date(),
+        checkedInBy: deskHsr.id,
+        ...(status === 'completed' ? { completedAt: new Date() } : {}),
+      })
+      .returning({ id: appointment.id });
+    return row?.id ?? '';
+  };
+
+  it('bills the consultant’s own fee when the consultation completes, once, numbered by the centre', async () => {
+    await rolledBack(async (tx) => {
+      const first = await setUp(tx);
+      await feeFor(tx, first.consultant.id, 'consultation');
+      await becomeStaff(tx, first.consultant);
+      expect(await first.sign()).toBe('signed');
+      const [made, ...more] = await visitBills(tx, first.appointmentId);
+      expect(more).toEqual([]);
+      expect(made).toMatchObject({
+        status: 'unpaid',
+        total: 75000,
+        createdBy: first.consultant.id,
+      });
+      expect(made?.number).toMatch(/^HSR-B-\d{5}$/);
+      const lines = await tx
+        .select({ description: billLine.description, amount: billLine.amountPaise })
+        .from(billLine)
+        .where(eq(billLine.billId, made?.id ?? ''));
+      expect(lines).toEqual([{ description: 'Consultation', amount: 75000 }]);
+      // Again: the same bill, no second one.
+      const [again] = await tx.execute<{ id: string }>(
+        sql`select internal.make_consultation_bill(${first.appointmentId}::uuid) as id`,
+      );
+      expect(again?.id).toBe(made?.id);
+      expect(await visitBills(tx, first.appointmentId)).toHaveLength(1);
+
+      // A senior consultant's fee, and the next number.
+      const second = await setUp(tx);
+      await feeFor(tx, second.consultant.id, 'senior_consultation');
+      await becomeStaff(tx, second.consultant);
+      expect(await second.sign()).toBe('signed');
+      const [senior] = await visitBills(tx, second.appointmentId);
+      expect(senior?.total).toBe(100000);
+      const numberOf = (value: string | undefined) => Number(value?.slice(-5));
+      expect(numberOf(senior?.number)).toBe(numberOf(made?.number) + 1);
+    });
+  });
+
+  it('bills nothing but a consultation', async () => {
+    await rolledBack(async (tx) => {
+      const fixture = await setUp(tx);
+      await feeFor(tx, fixture.consultant.id, 'consultation');
+      const session = await visit(tx, fixture, 'session', 'completed');
+      expect(await visitBills(tx, session)).toEqual([]);
+    });
+  });
+
+  it('bills at check in when the setting says, and undoing the check in cancels it', async () => {
+    await rolledBack(async (tx) => {
+      const fixture = await setUp(tx);
+      await feeFor(tx, fixture.consultant.id, 'consultation');
+      await tx.execute(
+        sql`update setting set value = '"at_check_in"'::jsonb
+          where key = 'billing.consultation_fee_timing'`,
+      );
+      const walkIn = await visit(tx, fixture, 'consultation', 'checked_in');
+      expect(await visitBills(tx, walkIn)).toMatchObject([{ status: 'unpaid', total: 75000 }]);
+      await becomeStaff(tx, deskHsr);
+      await tx
+        .update(appointment)
+        .set({ status: 'booked', arrivedAt: null, checkedInBy: null })
+        .where(eq(appointment.id, walkIn));
+      expect(await visitBills(tx, walkIn)).toMatchObject([
+        { status: 'cancelled', cancelReason: 'Check in was undone.' },
+      ]);
+    });
+  });
+
+  it('bills nothing without a fee; once it is set, the desk at the centre makes the bill', async () => {
+    await rolledBack(async (tx) => {
+      const fixture = await setUp(tx);
+      await feeFor(tx, fixture.consultant.id, null);
+      await becomeStaff(tx, fixture.consultant);
+      expect(await fixture.sign()).toBe('signed');
+      expect(await visitBills(tx, fixture.appointmentId)).toEqual([]);
+      await becomeStaff(tx, deskHsr);
+      expect(await consultationFeeState(tx, fixture.episodeId)).toMatchObject({
+        appointmentId: fixture.appointmentId,
+        status: 'completed',
+        consultantName: fixture.consultant.name,
+        feeLabel: null,
+        billed: false,
+      });
+
+      await feeFor(tx, fixture.consultant.id, 'consultation');
+      await becomeStaff(tx, deskKoramangala);
+      expect(
+        await failure(tx, (sp) => consultationBillNow(sp, fixture.appointmentId)),
+        'another centre',
+      ).toBe('42501');
+      await asOwner(tx);
+      await becomeStaff(tx, deskHsr);
+      const made = await consultationBillNow(tx, fixture.appointmentId);
+      expect(made).toMatch(/^[0-9a-f-]{36}$/);
+      expect(await consultationBillNow(tx, fixture.appointmentId)).toBe(made);
+      expect(await visitBills(tx, fixture.appointmentId)).toHaveLength(1);
+    });
+  });
+
+  it('is read by those who see amounts at the centre and written by nobody signed in', async () => {
+    await rolledBack(async (tx) => {
+      const fixture = await setUp(tx);
+      await feeFor(tx, fixture.consultant.id, 'consultation');
+      await becomeStaff(tx, fixture.consultant);
+      expect(await fixture.sign()).toBe('signed');
+      const [made] = await visitBills(tx, fixture.appointmentId);
+      const reads = async (actor: StaffMember) => {
+        await asOwner(tx);
+        await becomeStaff(tx, actor);
+        return (await billsOfEpisode(tx, fixture.episodeId)).length;
+      };
+      for (const reader of [deskHsr, finance, superAdmin]) {
+        expect(await reads(reader), reader.email).toBe(1);
+      }
+      for (const outsider of [deskKoramangala, manager, fixture.consultant]) {
+        expect(await reads(outsider), outsider.email).toBe(0);
+      }
+
+      await asOwner(tx);
+      await becomeStaff(tx, deskHsr);
+      const id = made?.id ?? '';
+      for (const [name, statement] of [
+        ['change the total', sql`update bill set total_paise = 100 where id = ${id}`],
+        ['change a line', sql`update bill_line set unit_paise = 100 where bill_id = ${id}`],
+        ['delete', sql`delete from bill where id = ${id}`],
+        [
+          'add',
+          sql`insert into bill (number, kind, patient_id, centre_id, appointment_id, total_paise)
+            values ('HSR-B-99999', 'consultation', ${fixture.patientId}, ${centreIds.hsrLayout},
+              ${fixture.appointmentId}, 1)`,
+        ],
+      ] as const) {
+        expect(await failure(tx, (sp) => sp.execute(statement)), name).toBe('42501');
+      }
     });
   });
 });

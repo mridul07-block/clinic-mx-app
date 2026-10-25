@@ -410,3 +410,10 @@ export {
   thinkAboutItFollowUp,
   type PlanChoiceEntry,
 } from './plan-choice';
+export {
+  billsOfEpisode,
+  consultationBillNow,
+  consultationFeeState,
+  type BillEntry,
+  type ConsultationFeeState,
+} from './bills';

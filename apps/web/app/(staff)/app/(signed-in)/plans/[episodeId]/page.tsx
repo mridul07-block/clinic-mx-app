@@ -1,5 +1,7 @@
-import type { PlanChoiceEntry } from '@clinic-mx/db';
+import type { BillEntry, PlanChoiceEntry } from '@clinic-mx/db';
 import {
+  billKindLabels,
+  billStatusLabels,
   documentDate,
   documentDateTime,
   documentTime,
@@ -16,12 +18,95 @@ import { z } from 'zod';
 import { secondaryButtonClass } from '../../../../../../components/forms';
 import { Tag } from '../../../../../../components/tag';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
-import { planSheetOf } from '../../../../../../modules/billing/plan-sheet';
+import { planSheetOf, type PlanSheet } from '../../../../../../modules/billing/plan-sheet';
+import { MakeBillForm } from './make-bill-form';
 import { PlanChoiceForm, type ChoiceOption } from './plan-choice-form';
 
 export const metadata: Metadata = { title: 'Plan and payment · Clinic Mx' };
 
 const amount = 'tabular-nums text-right whitespace-nowrap';
+
+const billTones = { unpaid: 'waiting', paid: 'done', cancelled: 'neutral' } as const;
+
+/** One bill: its number, what it is for, its lines at the price master's amounts, its total. */
+function BillCard({ entry }: { entry: BillEntry }) {
+  const cancelled = entry.status === 'cancelled';
+  return (
+    <li
+      data-testid="bill"
+      className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-3"
+    >
+      <span className="flex flex-wrap items-center justify-between gap-2">
+        <span className="flex flex-col">
+          <span className="font-mono text-sm text-ink">{entry.number}</span>
+          <span className="text-sm text-ink-secondary">{billKindLabels[entry.kind]}</span>
+        </span>
+        <Tag tone={billTones[entry.status]}>{billStatusLabels[entry.status]}</Tag>
+      </span>
+      <ul className="flex flex-col gap-1 text-sm">
+        {entry.lines.map((line) => (
+          <li key={line.description} className="flex justify-between gap-3">
+            <span>
+              {line.description}
+              {line.quantity > 1
+                ? ` · ${String(line.quantity)} × ${formatRupees(line.unitPaise)}`
+                : null}
+            </span>
+            <span className={amount}>{formatRupees(line.amountPaise)}</span>
+          </li>
+        ))}
+      </ul>
+      <span className="flex justify-between gap-3 border-t border-line pt-2">
+        <span className="font-medium text-ink">Total</span>
+        <span className={`${amount} font-semibold text-ink ${cancelled ? 'line-through' : ''}`}>
+          {formatRupees(entry.totalPaise)}
+        </span>
+      </span>
+      {cancelled && entry.cancelReason ? (
+        <span className="text-sm text-ink-muted">{entry.cancelReason}</span>
+      ) : null}
+    </li>
+  );
+}
+
+/** The episode's bills (BIL-05), and the consultation fee when it is due but not billed. */
+function Bills({ sheet }: { sheet: PlanSheet }) {
+  const fee = sheet.unbilledFee;
+  return (
+    <section aria-labelledby="bills" className="flex flex-col gap-2">
+      <h2 id="bills" className="font-semibold text-ink">
+        Bills
+      </h2>
+      {fee ? (
+        fee.feeSet ? (
+          <div className="flex flex-col gap-2" data-testid="fee-unbilled">
+            <p className="text-sm text-ink-secondary">The consultation fee is not billed yet.</p>
+            {fee.canMake ? <MakeBillForm episodeId={sheet.episodeId} /> : null}
+          </div>
+        ) : (
+          <p className="text-sm text-ink-secondary" data-testid="fee-not-set">
+            Consultation fee not set for {fee.consultantName}. Ask the Super Admin to set it on
+            Staff.
+          </p>
+        )
+      ) : null}
+      {sheet.bills.length > 0 ? (
+        <ul className="flex flex-col gap-2" data-testid="bills">
+          {sheet.bills.map((entry) => (
+            <BillCard key={entry.id} entry={entry} />
+          ))}
+        </ul>
+      ) : fee ? null : (
+        <p className="text-sm text-ink-muted" data-testid="no-bills">
+          No bills yet.
+        </p>
+      )}
+      <p className="text-sm text-ink-muted">
+        Prices come from the price master; bills cannot be edited here. Payment comes next.
+      </p>
+    </section>
+  );
+}
 
 /** What was chosen, in words: the package or the session type with it. */
 function choiceText(entry: PlanChoiceEntry): string {
@@ -127,9 +212,12 @@ export default async function PlanSheetPage({
       </div>
 
       {!plan ? (
-        <p className="text-ink-muted" data-testid="no-plan">
-          No plan yet. The plan appears here once the consultation is signed.
-        </p>
+        <>
+          <p className="text-ink-muted" data-testid="no-plan">
+            No plan yet. The plan appears here once the consultation is signed.
+          </p>
+          <Bills sheet={sheet} />
+        </>
       ) : (
         <>
           <section aria-labelledby="plan" className="flex flex-col gap-2">
@@ -261,6 +349,8 @@ export default async function PlanSheetPage({
             </section>
           ) : null}
 
+          <Bills sheet={sheet} />
+
           <section aria-labelledby="choice" className="flex flex-col gap-2">
             <h2 id="choice" className="font-semibold text-ink">
               Patient’s choice
@@ -297,10 +387,7 @@ export default async function PlanSheetPage({
             ) : null}
           </section>
 
-          <p className="text-sm text-ink-muted">
-            Prices come from the price master and cannot be changed here. Consent and payment come
-            next.
-          </p>
+          <p className="text-sm text-ink-muted">Consent and payment come next.</p>
         </>
       )}
     </main>
