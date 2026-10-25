@@ -22,6 +22,7 @@ import { FormMessage, primaryButtonClass } from '../../../../../components/forms
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { todayHref } from '../../../../../modules/front-desk/links';
 import { asStaff } from '../../../../../modules/access/staff-db';
+import { packageReschedulesFor } from '../../../../../modules/billing/packages';
 import { loadCalendar, slotOptions } from '../../../../../modules/scheduling/calendar';
 import { findFreeSlots, heldSlot } from '../../../../../modules/scheduling/services';
 import { getSetting } from '../../../../../modules/settings/settings';
@@ -213,6 +214,11 @@ export default async function CalendarPage({
       (await asStaff(staff, (tx) => staffRecord(tx, moveTo.physioId)))?.name ??
       '')
     : '';
+  // SCH-10: a package session's reschedules left, for the reschedule sheets.
+  const packageReschedules =
+    change === 'reschedule' && changing
+      ? await packageReschedulesFor(staff, changing.appointment.id)
+      : undefined;
   const pickOn = calendarDateSchema.safeParse(params.on).success ? (params.on ?? date) : date;
   // The picker's physio: the appointment's own to begin with (the Reschedule link), or "any".
   const pickWith = params.with ?? '';
@@ -414,6 +420,7 @@ export default async function CalendarPage({
               ? pickSlots.filter((p) => p.physioId === pickWith)
               : pickSlots
           }
+          packageReschedules={packageReschedules}
         />
       ) : null}
       {changing && changePlace && moveTo ? (
@@ -424,6 +431,7 @@ export default async function CalendarPage({
           to={moveTo}
           toPhysioName={moveToName}
           heldUntil={moveHeldUntil}
+          packageReschedules={packageReschedules}
         />
       ) : null}
       {slot && slotColumn && options ? (

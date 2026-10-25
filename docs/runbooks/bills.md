@@ -91,7 +91,7 @@ PRD J4.7 and section 7, TAD section 4, Frontend Specification (package meter, Fi
 - **Activated on payment:** paying a package's bill makes the patient's package (`package` table, `internal.activate_package`). It gets:
   - the type's sessions and name (copied, so reading it needs no price)
   - valid until `packages.validity_months` after the IST payment date, on the month's last day when it has no such day (30 Nov plus 3 months is 28 Feb; the same rule as the invoice, `packageValidUntil`)
-  - `floor(sessions / 10) × packages.reschedules_per_10_sessions` reschedules, rounded down (6 sessions allow none, 12 allow 1). Using one up is SCH-10.
+  - `floor(sessions / 10) × packages.reschedules_per_10_sessions` reschedules, rounded down (6 sessions allow none, 12 allow 1). A move of a package session asked by the patient uses one (SCH-10, `docs/runbooks/calendar.md`).
 - **Expiry reminder:** the same transaction queues `whatsapp.package_expiry_reminder` for `packages.expiry_reminder_days` (14) before the last day at `packages.expiry_reminder_time` (10:00) IST. It sends nothing until WhatsApp exists.
 - **State, worked out from the row (`packageState`):** Cancelled when its payment was undone; Used up when every session is used; Expired once its last day has passed; otherwise Active. Nothing runs at expiry. An expired package keeps its sessions left on record, and nobody can use them; credits and extensions wait for the client (DECISION 12, BIL-11).
 - **Using a session:** `internal.use_package_session(package_id)` uses one session of an active package and returns the sessions left, refusing a cancelled, used up or expired one. Staff cannot call it; SES-07 calls it when a session is closed.

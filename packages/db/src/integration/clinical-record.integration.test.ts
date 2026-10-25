@@ -18,7 +18,8 @@ import {
 } from '../bills';
 import { addAddendum, consultationAddenda, signConsultation } from '../clinical-record';
 import { invoiceFacts } from '../invoice';
-import { packagesOfEpisode, usePackageSession } from '../packages';
+import { packageRescheduleState, packagesOfEpisode, usePackageSession } from '../packages';
+import { changeAppointment } from '../slots';
 import { consultationSummaryFacts } from '../consultation-summary';
 import { consultationRecord, openConsultation } from '../consultations';
 import { insertEpisode } from '../episodes';
@@ -1629,6 +1630,141 @@ describe('counter payments', () => {
       ] as const) {
         expect(await failure(tx, (sp) => sp.execute(statement)), name).toBe('42501');
       }
+    });
+  });
+
+  // SCH-10: a reschedule the patient asks for uses one of the package's reschedules, and is
+  // refused when none is left or for a Zero Gravity Treadmill package session; the clinic's never.
+  describe('the package reschedule allowance', () => {
+    const settings = {
+      sessionTypes: ['session', 'zero_gravity_treadmill'],
+      neverReschedulable: ['zero_gravity_treadmill'],
+    };
+    let hours = 24;
+    /** A booked appointment of a type in the episode, a day or more ahead. */
+    const booked = async (
+      tx: Tx,
+      fixture: { patientId: string; episodeId: string; consultant: StaffMember },
+      key: string,
+    ) => {
+      await asOwner(tx);
+      hours += 2;
+      const startsAt = new Date(Date.now() + hours * 60 * 60_000);
+      const [row] = await tx
+        .insert(appointment)
+        .values({
+          number: '',
+          patientId: fixture.patientId,
+          centreId: centreIds.hsrLayout,
+          physioId: fixture.consultant.id,
+          appointmentTypeId: await typeId(tx, key),
+          episodeId: fixture.episodeId,
+          machine: key === 'zero_gravity_treadmill' ? 'zero_gravity_treadmill' : null,
+          machineUnit: key === 'zero_gravity_treadmill' ? 1 : null,
+          startsAt,
+          endsAt: new Date(startsAt.getTime() + 30 * 60_000),
+          channel: 'front_desk',
+          bookedBy: deskHsr.id,
+        })
+        .returning({ id: appointment.id });
+      return row?.id ?? '';
+    };
+    /** The desk moves it, asked by the patient or the clinic; the Postgres code when refused. */
+    const move = (tx: Tx, appointmentId: string, reason: 'patient' | 'clinic') =>
+      failure(tx, async (sp) => {
+        await asOwner(sp);
+        await becomeStaff(sp, deskHsr);
+        const changed = await changeAppointment(sp, {
+          appointmentId,
+          status: 'rescheduled',
+          reason,
+          changedBy: deskHsr.id,
+          now: new Date(),
+        });
+        expect(changed?.id).toBe(appointmentId);
+      });
+    const left = async (tx: Tx, paymentId: string) =>
+      (await packageOf(tx, paymentId))?.reschedulesLeft;
+    const statusOfVisit = async (tx: Tx, id: string) => {
+      await asOwner(tx);
+      const [row] = await tx
+        .select({ status: appointment.status })
+        .from(appointment)
+        .where(eq(appointment.id, id));
+      return row?.status;
+    };
+
+    it('uses one per patient-asked move of a session, then refuses; the clinic’s moves are free', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        const paid = await pay(tx, deskHsr, fixture.packageBillId);
+        expect(await left(tx, paid)).toBe(1);
+        const first = await booked(tx, fixture, 'session');
+        await asOwner(tx);
+        await becomeStaff(tx, deskHsr);
+        expect(await packageRescheduleState(tx, first, settings)).toEqual({
+          reschedulesLeft: 1,
+          neverReschedulable: false,
+        });
+        expect(await move(tx, first, 'patient')).toBeUndefined();
+        expect(await left(tx, paid)).toBe(0);
+
+        const second = await booked(tx, fixture, 'session');
+        expect(await move(tx, second, 'patient'), 'none left').toBe('23514');
+        expect(await statusOfVisit(tx, second)).toBe('booked');
+        expect(await move(tx, second, 'clinic'), 'the clinic').toBeUndefined();
+        expect(await left(tx, paid)).toBe(0);
+
+        // Consultations and reviews are not package sessions.
+        for (const key of ['consultation', 'review']) {
+          const other = await booked(tx, fixture, key);
+          expect(await move(tx, other, 'patient'), key).toBeUndefined();
+        }
+        // Nor is a session once the package has expired.
+        await asOwner(tx);
+        await tx
+          .update(patientPackage)
+          .set({ validUntil: addDays(istDate(new Date()), -1) })
+          .where(eq(patientPackage.paymentId, paid));
+        const late = await booked(tx, fixture, 'session');
+        expect(await move(tx, late, 'patient'), 'expired').toBeUndefined();
+      });
+    });
+
+    it('never lets the patient move a Zero Gravity Treadmill package session; the clinic may', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 20);
+        const paid = await pay(tx, deskHsr, fixture.packageBillId);
+        const treadmill = await booked(tx, fixture, 'zero_gravity_treadmill');
+        await asOwner(tx);
+        await becomeStaff(tx, deskHsr);
+        expect(await packageRescheduleState(tx, treadmill, settings)).toEqual({
+          reschedulesLeft: 2,
+          neverReschedulable: true,
+        });
+        expect(await move(tx, treadmill, 'patient')).toBe('23514');
+        expect(await move(tx, treadmill, 'clinic')).toBeUndefined();
+        expect(await left(tx, paid)).toBe(2);
+      });
+    });
+
+    it('lets a session without a package, or with its payment undone, move as before', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await billed(tx);
+        const session = await booked(tx, fixture, 'session');
+        await asOwner(tx);
+        await becomeStaff(tx, deskHsr);
+        expect(await packageRescheduleState(tx, session, settings)).toBeUndefined();
+        expect(await move(tx, session, 'patient')).toBeUndefined();
+      });
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 10);
+        const paid = await pay(tx, deskHsr, fixture.packageBillId);
+        await becomeStaff(tx, deskHsr);
+        await undoPayment(tx, { paymentId: paid, reason: 'Wrong package' });
+        const session = await booked(tx, fixture, 'zero_gravity_treadmill');
+        expect(await move(tx, session, 'patient')).toBeUndefined();
+      });
     });
   });
 });

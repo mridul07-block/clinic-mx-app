@@ -28,6 +28,35 @@ export interface ChangeView {
   backHref: string;
 }
 
+/** A package session's reschedules (SCH-10), when the reader sees packages. */
+export interface PackageReschedules {
+  reschedulesLeft: number;
+  neverReschedulable: boolean;
+}
+
+function PackageReschedulesLine({ state }: { state: PackageReschedules | undefined }) {
+  if (!state) return null;
+  const text = state.neverReschedulable
+    ? 'Package session that is never moved at the patient’s request: only a move asked by the clinic is possible.'
+    : state.reschedulesLeft === 0
+      ? 'Package session: no reschedules left. Only a move asked by the clinic is possible.'
+      : `Package session: ${String(state.reschedulesLeft)} ${
+          state.reschedulesLeft === 1 ? 'reschedule' : 'reschedules'
+        } left. A move asked by the patient uses one.`;
+  return (
+    <p
+      data-testid="package-reschedules"
+      className={
+        state.neverReschedulable || state.reschedulesLeft === 0
+          ? 'text-sm text-waiting-strong'
+          : 'text-sm text-ink-secondary'
+      }
+    >
+      {text}
+    </p>
+  );
+}
+
 const when = (appointment: { startsAt: Date }, physioName: string) =>
   `${formatIstDate(istDate(appointment.startsAt))}, ${timeOf(appointment.startsAt)} with ${physioName}`;
 
@@ -125,10 +154,12 @@ export function ReschedulePicker({
   on,
   withPhysio,
   slots,
+  packageReschedules,
 }: {
   appointment: CalendarAppointment;
   physioName: string;
   place: ChangeView;
+  packageReschedules?: PackageReschedules;
   /** The physios to choose from: everyone with hours at the centre that day. */
   physios: { id: string; name: string }[];
   on: string;
@@ -145,6 +176,7 @@ export function ReschedulePicker({
         <p className="text-ink-secondary">
           {appointment.patientName}, now {when(appointment, physioName)}
         </p>
+        <PackageReschedulesLine state={packageReschedules} />
       </div>
       <form action="/app/calendar" className="flex flex-col gap-3">
         <input type="hidden" name="centre" value={place.centreId} />
@@ -218,6 +250,7 @@ export function RescheduleConfirm({
   to,
   toPhysioName,
   heldUntil,
+  packageReschedules,
 }: {
   appointment: CalendarAppointment;
   physioName: string;
@@ -225,6 +258,7 @@ export function RescheduleConfirm({
   to: { physioId: string; startsAt: Date };
   toPhysioName: string;
   heldUntil?: Date;
+  packageReschedules?: PackageReschedules;
 }) {
   return (
     <Drawer
@@ -243,6 +277,7 @@ export function RescheduleConfirm({
             ? `Held for you until ${timeOf(heldUntil)}`
             : 'Your hold ran out. Reschedule still works if the time is free.'}
         </p>
+        <PackageReschedulesLine state={packageReschedules} />
       </div>
       <dl className="flex flex-col gap-3">
         <Detail term="Patient">{appointment.patientName}</Detail>

@@ -205,6 +205,20 @@ How it works:
 - **The patient's page** shows "Can book on WhatsApp" or "Self booking blocked: 2 reschedules
   asked by the patient", the counts against the limits, and the last lift.
 
+## Package reschedule allowance (SCH-10)
+
+PRD section 7 (Package reschedules) and the Frontend Specification's Reschedule screen. Decisions made by the user on 25 October 2026.
+
+- **Package session:** an appointment of a type in `packages.session_appointment_types` (Session, Zero Gravity Treadmill) in an episode with an active package: not cancelled, sessions left, not past its last day. Consultations and reviews never are, and neither is a session without a package.
+- **What uses the allowance:** a reschedule asked by the patient uses one of the package's reschedules (set when it was paid, BIL-08: 1 per 10 sessions, rounded down). A move asked by the clinic never uses one and is always possible.
+- **Refused at the patient's request:**
+  - with no reschedules left ("No reschedules left in this package. Only a move asked by the clinic is possible.")
+  - for a type in `packages.never_reschedulable_items` (Zero Gravity Treadmill). These are price item keys, matched against the appointment type's key, which is the same key.
+
+  The desk can still cancel and book again; whether a cancelled package session is lost is decision 11.
+- **Enforced in the database:** `internal.package_reschedule()`, a BEFORE trigger on the appointment's change to Rescheduled. A refusal stops the whole move, and the old appointment stays as it was. The front desk and the WhatsApp Flow (WA-04) follow the same rule, and the trigger lowers `package.reschedules_left` for any reader.
+- **Shown:** the reschedule sheets carry a line for those who see packages (not the Centre Manager): "Package session: 1 reschedule left. A move asked by the patient uses one.", "no reschedules left", or "never moved at the patient's request". The package meter shows the reschedules left.
+
 ## Running late and no show (INT-11)
 
 PRD J2.9: "Running late" shows at 15 minutes past the start; the front desk can mark a no show
@@ -285,6 +299,8 @@ When FND-09's relay arrives, the same component listens for changes instead of a
 | `packages/db/src/integration/slots.integration.test.ts` | `currentHold`: one's own live hold only, under row level security. SCH-08: freeing lets a move overlap its own time; a refused move leaves the old one Booked; the status guard (never changed again, a Completed one not cancelled, who asked required); one successor, the link fixed; audited |
 | `packages/schemas/src/slots.test.ts` | Only Booked or Confirmed changes; who asked is the patient or the clinic, always given |
 | `apps/web/e2e/reschedule.spec.ts` | 360 px and desktop: cancel by the patient (who asked is required; the time is free again); move to another day and physio (new number, "Moved from", "Rescheduled to", by the clinic); move to an overlapping time with the same physio; a physio cannot change appointments |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (the package reschedule allowance) | a patient-asked move of a package Session uses one, the next is refused and leaves it Booked, the clinic's is free; consultations, reviews, an expired package, no package and an undone payment not counted; a treadmill package session refused at the patient's request, moved by the clinic; the sheet's state |
+| `apps/web/e2e/package-reschedules.spec.ts` | 360 px and desktop: a paid 12-session package's Session moved at the patient's request ("1 reschedule left"), then "no reschedules left", refused for the patient, moved for the clinic; the meter at 0 |
 | `apps/web/e2e/booking-block.spec.ts` | 360 px and desktop: two reschedules asked by the patient block self booking and the desk still books them; one asked by the clinic does not count; a Centre Manager lifts the block |
 | `apps/web/e2e/booking.spec.ts` | 360 px and desktop: book a patient found by mobile from a free slot ("Booked MVH-…", "Front desk, by …"); add a new caller and book; a mobile on file lists its patients; New booking by type and day; Cancel gives the slot back; a time taken meanwhile is refused in the engine's words; a physio cannot book |
 | `apps/web/e2e/no-show.spec.ts` | 360 px and desktop: at 20 minutes Running late with "No show can be marked from" and no Mark button; at 30 minutes the desk marks a no show through the sheet (No show, marked by the desk, counted on the patient's page) and undoes it (Booked, the count back to 0); a physio sees Running late but no actions |

@@ -82,6 +82,8 @@ export async function testAppointment(
   patientId: string,
   date: string,
   minutes: number,
+  /** The episode it belongs to (SCH-10 books a package session). */
+  episodeId?: string,
 ): Promise<string> {
   const hsr = await centreIdByCode('HSR');
   const session = await idOf(
@@ -99,6 +101,7 @@ export async function testAppointment(
       startsAt: istInstant(date, minutes),
       holder: `test:${crypto.randomUUID()}`,
       patientId,
+      episodeId,
       channel: 'whatsapp',
       step: 15,
       now: new Date(),
