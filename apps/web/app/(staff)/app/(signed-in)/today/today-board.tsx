@@ -60,6 +60,7 @@ export function TodayBoard({
   lateMinutes,
   refreshSeconds,
   show,
+  pricesPlans = false,
 }: {
   initial: TodayAppointment[];
   version: string;
@@ -69,6 +70,8 @@ export function TodayBoard({
   lateMinutes: number;
   refreshSeconds: number;
   show?: TodayFilter;
+  /** Whether the person sees bill amounts: a done consultation links to its plan sheet (BIL-01). */
+  pricesPlans?: boolean;
 }) {
   const [appointments, setAppointments] = useState(initial);
   const [filter, setFilter] = useState(show);
@@ -242,6 +245,17 @@ export function TodayBoard({
                       className={fit(secondaryButtonClass)}
                     >
                       Form and reports
+                    </Link>
+                  ) : pricesPlans &&
+                    appointment.status === 'completed' &&
+                    appointment.consultation &&
+                    appointment.episodeId ? (
+                    <Link
+                      href={`/app/plans/${appointment.episodeId}`}
+                      aria-label={`Plan and payment for ${appointment.patientName}`}
+                      className={fit(secondaryButtonClass)}
+                    >
+                      Plan and payment
                     </Link>
                   ) : null}
                 </span>

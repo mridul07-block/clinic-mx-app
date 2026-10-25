@@ -4,6 +4,7 @@ import {
   consultationAddenda,
   consultationIntake,
   consultationRecord,
+  episodeRecord,
   knowledgeAssessment,
   knowledgeObjective,
   knowledgePlan,
@@ -22,6 +23,7 @@ import {
   addendumSchema,
   can,
   consultationSectionsSchema,
+  episodeTransition,
   istDate,
   recordVersionSchema,
   signedRecord,
@@ -41,6 +43,7 @@ import { z } from 'zod';
 import { NotAllowedError } from '../access/guard';
 import { staffService } from '../access/service';
 import { asStaffViewing } from '../access/staff-db';
+import { changeEpisodeStatus } from '../episodes/services';
 import { getSetting } from '../settings/settings';
 
 /**
@@ -215,6 +218,8 @@ export const signConsultationSchema = z.object({
  * Signs the person's own draft at the version they saw (CLN-09, PRD J3.9): the Treats patients
  * tick read now, every gate passed on the server, everything it names still in its knowledge
  * base version; then the record's rows are written and the visit completed, in one transaction.
+ * The episode moves on to Plan proposed (BIL-01; `docs/runbooks/episodes.md`), unless a red flag
+ * has put it On hold.
  */
 export const signConsultationService = staffService({
   action: 'consultant_records.sign',
@@ -258,6 +263,10 @@ export const signConsultationService = staffService({
     });
     if (signed === 'stale') {
       throw new ConsultationError('Your latest changes are still saving. Try again.', 'stale');
+    }
+    const episode = await episodeRecord(tx, found.episodeId);
+    if (episode && episodeTransition(episode, 'propose_plan').ok) {
+      await changeEpisodeStatus(tx, found.episodeId, 'propose_plan');
     }
     return { status: 'signed' };
   },

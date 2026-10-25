@@ -1,5 +1,5 @@
 import { centreList } from '@clinic-mx/db';
-import { istDate, staffRoleLabels, todayFilters, type TodayFilter } from '@clinic-mx/schemas';
+import { can, istDate, staffRoleLabels, todayFilters, type TodayFilter } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
@@ -145,6 +145,7 @@ export default async function TodayPage({
           lateMinutes={lateMinutes}
           refreshSeconds={refreshSeconds}
           show={show}
+          pricesPlans={can(staff, 'bills.view_amounts')}
         />
         {opened ? (
           <CheckInDrawer

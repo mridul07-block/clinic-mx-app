@@ -96,6 +96,7 @@ export default async function PatientPage({
   const documents = tab === 'documents' ? await documentsOfPatient(staff, patient.id) : [];
   const openAlerts = record?.alerts.filter((alert) => alert.status !== 'closed').length ?? 0;
   const actsOnAlerts = can(staff, 'red_flags.act') && !staff.support;
+  const pricesPlans = can(staff, 'bills.view_amounts');
 
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
@@ -193,6 +194,16 @@ export default async function PatientPage({
                       className="rounded-panel border border-line bg-surface p-4"
                     >
                       <EpisodeHeading episode={episode} />
+                      {/* BIL-01: a proposed or active plan is priced at the desk. */}
+                      {pricesPlans &&
+                      (episode.status === 'plan_proposed' || episode.status === 'active') ? (
+                        <Link
+                          href={`/app/plans/${episode.id}`}
+                          className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-accent underline underline-offset-2"
+                        >
+                          Plan and payment
+                        </Link>
+                      ) : null}
                     </li>
                   ))}
                 </ul>

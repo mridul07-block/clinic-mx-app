@@ -9,6 +9,7 @@ const stored: Settings = {
   'booking.slot_hold_minutes': 5,
   'live.refresh_seconds': 3,
   'billing.consultation_price_items': ['consultation', 'senior_consultation'],
+  'billing.session_price_items': ['rehabilitation_session', 'advanced_rehabilitation_session'],
   'screening.weight_loss_kg': 5,
   'screening.weight_loss_months': 6,
   'screening.morning_stiffness_minutes': 60,

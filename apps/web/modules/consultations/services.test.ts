@@ -26,6 +26,8 @@ const db = vi.hoisted(() => ({
   addAddendum: vi.fn(),
   logClinicalView: vi.fn(),
   recordStaffName: vi.fn(),
+  episodeRecord: vi.fn(),
+  updateEpisodeState: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
 const settings: Record<string, number> = {
@@ -275,7 +277,17 @@ describe('consultation', () => {
     });
 
     it('signs at the version seen and writes the rows of the record', async () => {
+      db.episodeRecord.mockResolvedValue({ id: 'episode-1', status: 'awaiting_consultation' });
+      db.updateEpisodeState.mockResolvedValue(true);
       await expect(sign()).resolves.toEqual({ status: 'signed' });
+      // BIL-01: the episode moves on to Plan proposed.
+      expect(db.updateEpisodeState).toHaveBeenCalledWith(
+        fakeTx,
+        'episode-1',
+        'awaiting_consultation',
+        expect.objectContaining({ status: 'plan_proposed' }),
+        undefined,
+      );
       expect(db.staffTreatsNow).toHaveBeenCalledWith(fakeTx, consultant().id);
       const [tx, request] = db.signConsultation.mock.calls[0] as [unknown, unknown];
       expect(tx).toBe(fakeTx);
@@ -291,6 +303,16 @@ describe('consultation', () => {
           plan: { reviewDate: '2026-12-05', treatingPhysioId: consultant().id },
         },
       });
+    });
+
+    it('leaves an episode a red flag put On hold where it is', async () => {
+      db.episodeRecord.mockResolvedValue({
+        id: 'episode-1',
+        status: 'on_hold',
+        pausedFrom: 'awaiting_consultation',
+      });
+      await expect(sign()).resolves.toEqual({ status: 'signed' });
+      expect(db.updateEpisodeState).not.toHaveBeenCalled();
     });
 
     it('refuses without the tick now, with anything held back, or at an older version', async () => {

@@ -10,7 +10,7 @@ Billing reads them:
 
 | Ticket | What it uses |
 | --- | --- |
-| BIL-01 plan sheet | Per session and package options |
+| BIL-01 plan sheet | Per session (the session types in `billing.session_price_items`) and package options, modalities per use; `docs/runbooks/plan-sheet.md` |
 | BIL-05 bills | Fixed prices; the consultation fee by physio level |
 | BIL-07 | Preset discounts at the desk |
 | BIL-08 | Packages |
