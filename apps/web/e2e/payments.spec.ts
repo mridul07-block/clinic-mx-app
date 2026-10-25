@@ -1,4 +1,3 @@
-import { istDate } from '@clinic-mx/schemas';
 import { expect, test } from '@playwright/test';
 import { completeVisit, consultantFee } from './bills';
 import { centreIdByCode, removeCalendarRows, startedAppointment } from './calendar';
@@ -40,10 +39,6 @@ test('the desk marks bills paid, the paid package makes the plan Active, and a m
     },
   });
   visits.push(visit.id);
-  test.skip(
-    istDate(visit.startsAt) !== istDate(new Date()),
-    'The visit falls on yesterday in IST.',
-  );
   await submittedWithAlert(visit.id, patient.id);
   const { consultationId } = await signedConsultation(visit.id, physio.id);
   await completeVisit(visit.id);

@@ -103,6 +103,35 @@ export function istInstant(date: string, minutes: number): Date {
   return new Date(startOfIstDay(date).getTime() + minutes * 60 * 1000);
 }
 
+/** Offsets this long or longer mean another day on purpose, and `earlierToday` keeps them. */
+const ANOTHER_DAY_MINUTES = 12 * 60;
+
+/**
+ * An instant `minutes` before `now` (negative: after it) on now's IST day; when that would fall on
+ * another day, as long the other way instead. For visits that must be today whatever the clock
+ * says: the database checks visits in, starts them and undoes either on their own IST day only,
+ * so a test visit "50 minutes ago" at 00:20 IST goes 50 minutes ahead. Offsets of 12 hours or more
+ * are taken as given ("yesterday" stays yesterday).
+ */
+export function earlierToday(minutes: number, now: Date = new Date()): Date {
+  const before = new Date(now.getTime() - minutes * 60_000);
+  if (Math.abs(minutes) >= ANOTHER_DAY_MINUTES || istDate(before) === istDate(now)) return before;
+  return new Date(now.getTime() + minutes * 60_000);
+}
+
+const HOUR_MS = 60 * 60_000;
+
+/**
+ * An instant `minutes` after now, with now kept at least an hour inside its IST day (now itself
+ * from 01:00 to 23:00 IST). For test visits placed around each other: their order and gaps hold
+ * whatever the clock says, and each within an hour of now is on today's IST date.
+ */
+export function aroundNowToday(minutes: number, now: Date = new Date()): Date {
+  const start = startOfIstDay(istDate(now)).getTime();
+  const anchor = Math.min(Math.max(now.getTime(), start + HOUR_MS), start + 23 * HOUR_MS);
+  return new Date(anchor + minutes * 60_000);
+}
+
 /** The ISO weekday of a calendar date: Monday 1 to Sunday 7. */
 export function isoWeekday(date: string): number {
   const day = new Date(`${date}T00:00:00Z`).getUTCDay();

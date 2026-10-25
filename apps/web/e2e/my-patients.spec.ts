@@ -1,4 +1,3 @@
-import { istDate } from '@clinic-mx/schemas';
 import { expect, test } from '@playwright/test';
 import { startedAppointment, removeCalendarRows } from './calendar';
 import { removePipelineRows } from './intake';
@@ -32,9 +31,11 @@ test('the physio lands on their visits in time order, starts one, and sees a che
   });
   const laterVisit = await startedAppointment(physio.id, later.id, -30, { minutes: 5 });
   visits.push(lateVisit.id, hereVisit.id, laterVisit.id);
+  // Running late needs a start 20 minutes back and Booked one 30 minutes ahead, on one IST day:
+  // impossible in the 20 minutes after midnight IST and the 30 before it.
   test.skip(
-    istDate(lateVisit.startsAt) !== istDate(laterVisit.startsAt),
-    'The visits fall on two days in IST around midnight.',
+    lateVisit.startsAt > new Date() || laterVisit.startsAt < new Date(),
+    'Too close to midnight in IST for a visit both before and after now.',
   );
   const desk = await temporaryDesk();
   await checkedIn(hereVisit.id, desk.id);

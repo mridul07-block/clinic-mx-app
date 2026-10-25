@@ -1,4 +1,4 @@
-import { formatIstDateTime, istDate } from '@clinic-mx/schemas';
+import { formatIstDateTime } from '@clinic-mx/schemas';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { removeCalendarRows, startedAppointment } from './calendar';
 import { tabletNamed } from './kiosk';
@@ -29,7 +29,6 @@ async function visit(given?: Patient, values: { episodeId?: string } = {}) {
   made.push(person.id);
   const patient = given ?? (await testPatient());
   const started = await startedAppointment(person.id, patient.id, 3, { minutes: 5, values });
-  test.skip(istDate(started.startsAt) !== istDate(new Date()), 'Just after midnight in IST.');
   return { patient, number: started.number, physio: person, startsAt: started.startsAt };
 }
 
@@ -166,10 +165,6 @@ test('each visit’s link opens that visit only', async ({ page }) => {
     await startedAppointment(person.id, patient.id, 3, { minutes: 5, values: here }),
     await startedAppointment(person.id, patient.id, 12, { minutes: 5, values: here }),
   ];
-  test.skip(
-    visits.some((v) => istDate(v.startsAt) !== istDate(new Date())),
-    'Just after midnight in IST.',
-  );
   for (const [i, shown] of visits.entries()) {
     const other = visits[1 - i];
     const link = await testLink({

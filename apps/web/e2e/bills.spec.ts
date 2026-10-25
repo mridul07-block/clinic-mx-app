@@ -1,4 +1,3 @@
-import { istDate } from '@clinic-mx/schemas';
 import { expect, test, type Page } from '@playwright/test';
 import { completeVisit, consultantFee } from './bills';
 import { centreIdByCode, removeCalendarRows, startedAppointment } from './calendar';
@@ -38,10 +37,6 @@ async function consultationVisit(fee: string | null) {
     },
   });
   visits.push(visit.id);
-  test.skip(
-    istDate(visit.startsAt) !== istDate(new Date()),
-    'The visit falls on yesterday in IST.',
-  );
   await submittedWithAlert(visit.id, patient.id);
   return { physio, patient, visit };
 }

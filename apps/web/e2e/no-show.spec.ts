@@ -61,7 +61,7 @@ const istDay = (instant: Date) => {
 test('running late at 20 minutes; a no show only from 25', async ({ page }, testInfo) => {
   const physio = await physioWithHours();
   const patient = await testPatient();
-  const { startsAt } = await startedAppointment(physio.id, patient.id, 20);
+  const { startsAt } = await startedAppointment(physio.id, patient.id, 20, { exact: true });
   const desk = await temporaryDesk();
   await signIn(page, desk.email);
   await openCalendar(page, physio.id, startsAt);
@@ -81,7 +81,7 @@ test('the front desk marks a no show from 25 minutes and undoes it the same day'
 }, testInfo) => {
   const physio = await physioWithHours();
   const patient = await testPatient();
-  const { number, startsAt } = await startedAppointment(physio.id, patient.id, 30);
+  const { number, startsAt } = await startedAppointment(physio.id, patient.id, 30, { exact: true });
   // An undo is for the appointment's own day; just after midnight IST it started yesterday.
   test.skip(istDate(startsAt) !== istDate(new Date()), 'The start is on yesterday’s date in IST.');
   const desk = await temporaryDesk();
@@ -149,9 +149,10 @@ test('a second missed appointment in a row gives the physio a clinical review ta
   const desk = await temporaryDesk();
   // The earlier miss, two days ago, already marked.
   await startedAppointment(physio.id, patient.id, 2 * 24 * 60, {
+    exact: true,
     values: { status: 'no_show', noShowAt: new Date(), noShowBy: desk.id },
   });
-  const { startsAt } = await startedAppointment(physio.id, patient.id, 30);
+  const { startsAt } = await startedAppointment(physio.id, patient.id, 30, { exact: true });
   await signIn(page, desk.email);
   await openCalendar(page, physio.id, startsAt);
   await appointmentAt(page, testInfo, patient.name).click();
@@ -179,7 +180,7 @@ test('a second missed appointment in a row gives the physio a clinical review ta
 test('a physio sees Running late but no no show actions', async ({ page }, testInfo) => {
   const physio = await physioWithHours();
   const patient = await testPatient();
-  const { startsAt } = await startedAppointment(physio.id, patient.id, 30);
+  const { startsAt } = await startedAppointment(physio.id, patient.id, 30, { exact: true });
   await signInWithCode(page, physio.email, physio.secret);
   await openCalendar(page, physio.id, startsAt);
 

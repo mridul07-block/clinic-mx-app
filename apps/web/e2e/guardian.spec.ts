@@ -1,4 +1,3 @@
-import { istDate } from '@clinic-mx/schemas';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { removeCalendarRows, startedAppointment } from './calendar';
 import { ageQuestion, consentCard, consentOf, drawSignature } from './intake';
@@ -24,7 +23,6 @@ async function visitLink(patient: { id: string }) {
     minutes: 5,
     values: { status: 'checked_in', arrivedAt: new Date(), checkedInBy: physio.id },
   });
-  test.skip(istDate(visit.startsAt) !== istDate(new Date()), 'Just after midnight in IST.');
   const link = await testLink({
     purpose: 'health_form',
     patientId: patient.id,

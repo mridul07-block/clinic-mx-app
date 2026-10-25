@@ -156,6 +156,23 @@ export default defineConfig(
     rules: { 'security/detect-non-literal-fs-filename': 'off' },
   },
   {
+    // Test visits start with earlierToday, never now give or take some minutes: the database
+    // checks visits in and starts them on their own IST day only, so such a visit falls on another
+    // day near midnight and the test fails or skips (docs/runbooks/local-gate.md, "Time of day").
+    files: ['**/*.test.ts', 'apps/web/e2e/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            ":matches(VariableDeclarator[id.name='startsAt'], Property[key.name='startsAt']) > NewExpression[callee.name='Date'] CallExpression[callee.object.name='Date'][callee.property.name='now']",
+          message:
+            'Start a test visit with earlierToday(minutes) from @clinic-mx/schemas, so it stays on today in IST.',
+        },
+      ],
+    },
+  },
+  {
     rules: {
       eqeqeq: ['error', 'always'],
       // Every disable comment must say why (rule 14).

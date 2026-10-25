@@ -1,5 +1,6 @@
 import {
   addDays,
+  earlierToday,
   istDate,
   istInstant,
   packageValidUntil,
@@ -25,7 +26,7 @@ import { consultationSummaryFacts } from '../consultation-summary';
 import { consultationRecord, openConsultation } from '../consultations';
 import { insertEpisode } from '../episodes';
 import type { StaffMember } from '../identity';
-import { startVisit } from '../my-patients';
+import { sessionVisit, startVisit } from '../my-patients';
 import {
   episodePlan,
   episodePrecautions,
@@ -94,6 +95,7 @@ const deskKoramangala = member('desk.koramangala@clinicmx.test');
 const manager = member('manager@clinicmx.test');
 const finance = member('finance@clinicmx.test');
 const support = member('support.velyx@clinicmx.test');
+const physioHsr = member('physio.hsr@clinicmx.test');
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 class Rollback extends Error {}
@@ -156,7 +158,7 @@ async function setUp(tx: Tx) {
   });
   const patientId = await testPatient(tx);
   const episodeId = await insertEpisode(tx, { patientId, centreId: centreIds.hsrLayout });
-  const startsAt = new Date(Date.now() - 5 * 60000);
+  const startsAt = earlierToday(5);
   const [visit] = await tx
     .insert(appointment)
     .values({
@@ -1053,7 +1055,7 @@ describe('bills at fixed prices', () => {
     status: 'checked_in' | 'completed',
   ) => {
     await asOwner(tx);
-    const startsAt = new Date(Date.now() - 30 * 60000);
+    const startsAt = earlierToday(30);
     const [row] = await tx
       .insert(appointment)
       .values({
@@ -1650,6 +1652,7 @@ describe('counter payments', () => {
     ) => {
       await asOwner(tx);
       hours += 2;
+      // eslint-disable-next-line no-restricted-syntax -- hours ahead on purpose: a move is on any day
       const startsAt = new Date(Date.now() + hours * 60 * 60_000);
       const [row] = await tx
         .insert(appointment)
@@ -1861,6 +1864,29 @@ describe('counter payments', () => {
           planned: 12,
           episodeStatus: 'plan_proposed',
         });
+      });
+    });
+
+    // SES-02: the session screen's appointment, under row level security (the second check).
+    it('gives the session screen its visit for the physio and the Super Admin, not another physio', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        const session = await visitOf(tx, fixture, 'session');
+        const as = async (actor: StaffMember) => {
+          await asOwner(tx);
+          await becomeStaff(tx, actor);
+          return sessionVisit(tx, session);
+        };
+        expect(await as(fixture.consultant)).toMatchObject({
+          id: session,
+          physioId: fixture.consultant.id,
+          episodeId: fixture.episodeId,
+          typeKey: 'session',
+          patientId: fixture.patientId,
+        });
+        expect((await as(superAdmin))?.id).toBe(session);
+        expect(await as(physioHsr), 'another physio at the centre').toBeUndefined();
+        expect(await as(deskKoramangala)).toBeUndefined();
       });
     });
   });

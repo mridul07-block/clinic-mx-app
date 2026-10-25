@@ -19,16 +19,17 @@ const text = (form: FormData, name: string) => {
 };
 
 /**
- * Starts the visit: a consultation opens its screen (CLN-02); a session shows In progress on the
- * list. Refusals become messages.
+ * Starts the visit: a consultation opens its screen (CLN-02), a treatment session its session
+ * screen (SES-02); other visits show In progress on the list. Refusals become messages.
  */
 export async function startVisitAction(
   _state: StartVisitState,
   form: FormData,
 ): Promise<StartVisitState> {
   let consultationId: string | undefined;
+  let sessionAppointmentId: string | undefined;
   try {
-    ({ consultationId } = await startVisit(await serviceContext(), {
+    ({ consultationId, sessionAppointmentId } = await startVisit(await serviceContext(), {
       appointmentId: text(form, 'appointmentId'),
     }));
   } catch (error) {
@@ -43,5 +44,6 @@ export async function startVisitAction(
   }
   revalidatePath('/app/my-patients');
   if (consultationId) redirect(`/app/consultations/${consultationId}`);
+  if (sessionAppointmentId) redirect(`/app/sessions/${sessionAppointmentId}`);
   return {};
 }

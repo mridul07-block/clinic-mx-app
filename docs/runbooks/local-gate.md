@@ -30,6 +30,37 @@ password unless `CLINIC_MX_SEED_STAFF_PASSWORD` is set.
 The run takes about 10 to 14 minutes on the current laptop; the two end to end projects run one
 after the other to stay within 8 GB.
 
+## Time of day
+
+The gate runs at any hour, midnight IST included. The database checks visits in, starts them and
+undoes either on their own IST day only, so a test visit placed "50 minutes ago" at 00:20 IST
+would be yesterday's and its test would fail.
+
+- **One visit:** `earlierToday(minutes)` (`packages/schemas/src/ist.ts`) is `minutes` before now
+  on today's IST date, or as long after it when that would cross midnight. `startedAppointment`
+  (`apps/web/e2e/calendar.ts`) and the database fixtures use it.
+- **Visits in an order around now:** `aroundNowToday(minutes)` is now plus `minutes`, with now kept
+  at least an hour inside today, so the order and gaps hold at any hour (the My patients database
+  tests).
+- **Another day on purpose:** offsets of 12 hours or more are taken as given ("yesterday" stays
+  yesterday). A start that must be in the past whatever its day (Running late, no shows) passes
+  `exact: true` to `startedAppointment`.
+- **Enforced:** lint refuses `startsAt` from `Date.now()` plus or minus a number in tests
+  (`eslint.config.mjs`). A deliberate other day takes a disable comment saying why.
+- **What still skips near midnight,** because it needs a start in the past on today's board:
+  - the no show undo (`no-show.spec.ts`)
+  - Running late on My patients, in the 20 minutes after midnight and the 30 before it
+  - Today's board tests, in the first hour after midnight (`pastToday`), and its coming visit
+    after 22:00 IST
+  - walk-in after 22:40 IST (`walk-in.spec.ts`)
+
+  These skip; they never fail.
+- **Checking a change against midnight at any hour:** make `earlierToday` always place ahead and
+  `aroundNowToday` anchor at 01:00 IST, and `pastToday` answer false, then run the database tests
+  and the end to end tests; put them back before committing. Done on 26 October 2026: the 266 database
+  tests and all end to end tests passed (four timed out with both projects running at once and
+  passed on their own).
+
 ## After a merge: `pnpm migrate:staging`
 
 From `main`, after `git pull` (`scripts/migrate-staging.mjs`): the steps of

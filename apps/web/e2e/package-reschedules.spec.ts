@@ -48,10 +48,6 @@ test('a package session moved at the patient’s request uses the allowance, the
     },
   });
   visits.push(visit.id);
-  test.skip(
-    istDate(visit.startsAt) !== istDate(new Date()),
-    'The visit falls on yesterday in IST.',
-  );
   await submittedWithAlert(visit.id, patient.id);
   const { consultationId } = await signedConsultation(visit.id, physio.id);
   await completeVisit(visit.id);

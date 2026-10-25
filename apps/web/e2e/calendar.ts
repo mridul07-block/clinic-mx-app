@@ -15,7 +15,7 @@ import {
   task,
   withActor,
 } from '@clinic-mx/db';
-import { istDate, istInstant, type Block } from '@clinic-mx/schemas';
+import { earlierToday, istDate, istInstant, type Block } from '@clinic-mx/schemas';
 import { eq, inArray, sql } from 'drizzle-orm';
 
 // The calendar for end to end tests (SCH-05). Each test uses its own temporary physio, so tests
@@ -110,8 +110,14 @@ export async function testAppointment(
   return booked.number;
 }
 
+/** Whether `minutes` before now is still today in IST, for a test that needs a start that far back. */
+export const pastToday = (minutes: number) =>
+  istDate(new Date(Date.now() - minutes * 60_000)) === istDate(new Date());
+
 /**
- * A Session at HSR Layout that started `minutesAgo` before now (negative: still to come) and was
+ * A Session at HSR Layout that started `minutesAgo` before now (negative: still to come), kept on
+ * today's IST date by `earlierToday` (just after midnight it starts as long ahead) unless `exact`
+ * (Running late and no shows need the start in the past, whatever its day), and was
  * booked at the front desk by the seed Super Admin (INT-11), written directly since the engine
  * books only ahead, `minutes` long and as given in `values` (a status and its times, INT-01); its
  * id, number and start.
@@ -120,7 +126,11 @@ export async function startedAppointment(
   physioId: string,
   patientId: string,
   minutesAgo: number,
-  options: { minutes?: number; values?: Partial<typeof appointment.$inferInsert> } = {},
+  options: {
+    minutes?: number;
+    values?: Partial<typeof appointment.$inferInsert>;
+    exact?: boolean;
+  } = {},
 ): Promise<{ id: string; number: string; startsAt: Date }> {
   const hsr = await centreIdByCode('HSR');
   const session = await idOf(
@@ -137,7 +147,9 @@ export async function startedAppointment(
       .where(eq(staffUser.email, 'super.admin@clinicmx.test')),
     'the seed Super Admin',
   );
-  const startsAt = new Date(Date.now() - minutesAgo * 60_000);
+  const startsAt = options.exact
+    ? new Date(Date.now() - minutesAgo * 60_000)
+    : earlierToday(minutesAgo);
   const [row] = await withActor(db(), systemActor('tests'), (tx) =>
     tx
       .insert(appointment)

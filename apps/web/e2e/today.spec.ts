@@ -1,6 +1,6 @@
 import { istDate } from '@clinic-mx/schemas';
 import { expect, test, type Page } from '@playwright/test';
-import { removeCalendarRows, startedAppointment } from './calendar';
+import { pastToday, removeCalendarRows, startedAppointment } from './calendar';
 import { testPatient } from './patients';
 import { signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
 
@@ -42,12 +42,16 @@ test('the desk lands on Today; chips count and filter; tags and timers show', as
   const upcoming = await startedAppointment(person.id, later.id, -120, { minutes: 5 });
   // An appointment after 22:00 IST would be tomorrow's; the board is today's.
   test.skip(istDate(upcoming.startsAt) !== istDate(new Date()), 'Too late in the IST day.');
+  // Running late, here, seen and cancelled need starts up to an hour back on today's board.
+  test.skip(!pastToday(60), 'Within an hour after midnight in IST.');
   await startedAppointment(person.id, late.id, 20, {
+    exact: true,
     minutes: 5,
     values: { status: 'confirmed', confirmedAt: new Date() },
   });
   const desk = await temporaryDesk();
   await startedAppointment(person.id, here.id, 10, {
+    exact: true,
     minutes: 5,
     values: {
       status: 'checked_in',
@@ -55,8 +59,13 @@ test('the desk lands on Today; chips count and filter; tags and timers show', as
       checkedInBy: desk.id,
     },
   });
-  await startedAppointment(person.id, done.id, 40, { minutes: 5, values: { status: 'completed' } });
+  await startedAppointment(person.id, done.id, 40, {
+    exact: true,
+    minutes: 5,
+    values: { status: 'completed' },
+  });
   await startedAppointment(person.id, dropped.id, 60, {
+    exact: true,
     minutes: 5,
     values: {
       status: 'cancelled',
@@ -99,7 +108,9 @@ test('the desk lands on Today; chips count and filter; tags and timers show', as
 test('the desk checks a patient in from the drawer and undoes a mistake', async ({ page }) => {
   const person = await physio();
   const patient = await testPatient();
+  test.skip(!pastToday(20), 'Running late needs a start 20 minutes back on today’s board.');
   await startedAppointment(person.id, patient.id, 20, {
+    exact: true,
     minutes: 5,
     values: { status: 'confirmed', confirmedAt: new Date() },
   });

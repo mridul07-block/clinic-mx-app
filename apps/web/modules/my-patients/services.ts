@@ -29,7 +29,7 @@ import { SchedulingError, appointmentTarget } from '../scheduling/services';
  * ("With physio" on Today); only the appointment's own physio starts it, on its day (user
  * decision 24 October 2026). Start consultation also opens the consultation (CLN-02): only a
  * consultant starts one, and only once the health form has opened the episode (user decision 24
- * October 2026). The session screen opens from Start session with SES-03.
+ * October 2026). Start session opens the session screen (SES-02).
  */
 
 /** A visit with, for a treatment session, its number and gate (SES-01). */
@@ -56,9 +56,10 @@ export async function loadMyPatients(actor: StaffMember): Promise<MyPatientsView
   return { date, visits, version: contentVersion(visits) };
 }
 
-/** What Start opened: the consultation, for a consultation; nothing yet for a session. */
+/** What Start opened: the consultation, or the session screen of a treatment session. */
 export interface StartedVisit {
   consultationId?: string;
+  sessionAppointmentId?: string;
 }
 
 export const HEALTH_FORM_NEEDED =
@@ -97,6 +98,7 @@ export const startVisit = staffService({
     if (!(await startVisitRow(tx, { appointmentId: found.id, by: actor.id, now }))) {
       throw new SchedulingError('Check the patient in first.');
     }
+    if (session) return { sessionAppointmentId: found.id };
     if (!consulting || !found.episodeId) return {};
     try {
       const consultationId = await openConsultation(tx, {

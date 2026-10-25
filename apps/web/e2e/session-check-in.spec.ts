@@ -1,8 +1,7 @@
-import { istDate } from '@clinic-mx/schemas';
 import { expect, test } from '@playwright/test';
 import { completeVisit, consultantFee } from './bills';
 import { centreIdByCode, removeCalendarRows, startedAppointment } from './calendar';
-import { signedConsultation } from './consultations';
+import { recordViews, signedConsultation } from './consultations';
 import { removePipelineRows } from './intake';
 import { checkedIn, consultationTypeId, submittedWithAlert } from './my-patients';
 import { testPatient } from './patients';
@@ -14,6 +13,10 @@ import { exclusively, signIn, signInWithCode, temporaryDesk, temporaryWithCode }
 // 25 October 2026): N is the plan's planned sessions; checked in Session and treadmill visits are
 // numbered in order; the desk still checks in, the physio starts only once the gate is met; until
 // Part B consent (BIL-03) payment alone gates.
+// SES-02 done when: the physio who starts the session sees the summary card of its episode, from
+// the signed plan with no AI sheet. Decisions (user, 25 October 2026): a session screen opened by
+// Start session and Open session; the phase line waits for OUT-04 (DECISION SES-02); only the
+// appointment's physio opens it, the Super Admin reads it.
 
 const physios: string[] = [];
 const visits: string[] = [];
@@ -36,13 +39,13 @@ async function proposedPatient(physioId: string, minutesAgo: number) {
   });
   visits.push(visit.id);
   await submittedWithAlert(visit.id, patient.id);
-  const { consultationId } = await signedConsultation(visit.id, physioId);
+  const { consultationId, conditionName } = await signedConsultation(visit.id, physioId);
   await completeVisit(visit.id);
   await proposedPlan(consultationId);
-  return { patient, visit, consultationId };
+  return { patient, visit, consultationId, conditionName };
 }
 
-test('a paid session checks in as Session 1 of 12 and starts; an unpaid one is held at the gate', async ({
+test('a paid session checks in as Session 1 of 12 and starts on its summary card; an unpaid one is held at the gate', async ({
   page,
   browser,
 }) => {
@@ -51,10 +54,6 @@ test('a paid session checks in as Session 1 of 12 and starts; an unpaid one is h
   await consultantFee(physio.id, 'consultation');
   const paid = await proposedPatient(physio.id, 50);
   const unpaid = await proposedPatient(physio.id, 110);
-  test.skip(
-    istDate(new Date(Date.now() - 260 * 60_000)) !== istDate(new Date()),
-    'The visits would fall on yesterday in IST.',
-  );
   const desk = await temporaryDesk();
   const hsr = await centreIdByCode('HSR');
   await exclusively('e2e prices', async () => {
@@ -84,7 +83,7 @@ test('a paid session checks in as Session 1 of 12 and starts; an unpaid one is h
       await expect(page.getByRole('heading', { name: 'Plan and payment' })).toBeVisible();
       const unpaidEpisode = new URL(page.url()).pathname.split('/').at(-1) ?? '';
 
-      // A session for each, earlier today; the unpaid patient's is checked in already.
+      // A session for each today; the unpaid patient's is checked in already.
       const paidSession = await startedAppointment(physio.id, paid.patient.id, 170, {
         minutes: 30,
         values: { episodeId: paidEpisode, status: 'booked' },
@@ -145,8 +144,58 @@ test('a paid session checks in as Session 1 of 12 and starts; an unpaid one is h
       await mine(paidSession.id)
         .getByRole('button', { name: `Start session for ${paid.patient.name}` })
         .click();
+
+      // SES-02: Start session opens the session screen, the episode's summary card first.
+      await expect(physioPage.getByRole('heading', { name: 'Session', exact: true })).toBeVisible();
+      expect(new URL(physioPage.url()).pathname).toBe(`/app/sessions/${paidSession.id}`);
+      await expect(physioPage.getByTestId('session-label')).toHaveText('Session 1 of 12');
+      const card = physioPage.getByTestId('summary-card');
+      await expect(card.getByTestId('summary-precautions')).toContainText('Pregnancy');
+      await expect(card.getByTestId('summary-diagnosis')).toContainText(paid.conditionName);
+      await expect(card.getByTestId('summary-diagnosis')).toContainText(
+        'Dynamic valgus on step down',
+      );
+      await expect(card.getByTestId('summary-plan')).toContainText('Climb stairs without pain');
+      await expect(card.getByTestId('summary-plan')).toContainText('2 a week for 6 weeks');
+      await expect(card.getByTestId('summary-phase')).toHaveText('Phase: not set up yet');
+      await expect(card).toContainText('Last signed note');
+      await expect(physioPage.getByTestId('session-read-only')).toHaveCount(0);
+      expect(await recordViews(paid.patient.id, physio.id)).toBeGreaterThan(0);
+      expect(
+        await physioPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      await physioPage.screenshot({
+        path: test.info().outputPath('session-screen.png'),
+        fullPage: true,
+      });
+
+      // While it runs, My patients opens it again.
+      await physioPage.goto('/app/my-patients');
       await expect(mine(paidSession.id)).toContainText(/With you since \d\d:\d\d/);
+      await mine(paidSession.id)
+        .getByRole('link', { name: `Open session for ${paid.patient.name}` })
+        .click();
+      await expect(physioPage.getByTestId('summary-card')).toBeVisible();
+      expect(new URL(physioPage.url()).pathname).toBe(`/app/sessions/${paidSession.id}`);
       await clinician.close();
+
+      // Another physio at the centre does not even read the appointment (row level security), so
+      // it is not found; the desk is not allowed in.
+      const other = await temporaryWithCode('physiotherapist', ['HSR Layout']);
+      physios.push(other.id);
+      const otherContext = await browser.newContext(test.info().project.use);
+      const otherPage = await otherContext.newPage();
+      await signInWithCode(otherPage, other.email, other.secret);
+      await otherPage.goto(`/app/sessions/${paidSession.id}`);
+      await expect(
+        otherPage.getByRole('heading', { name: 'This page could not be found.' }),
+      ).toBeVisible();
+      await expect(otherPage.getByTestId('summary-card')).toHaveCount(0);
+      await otherContext.close();
+      await page.goto(`/app/sessions/${paidSession.id}`);
+      await expect(
+        page.getByRole('heading', { name: 'You do not have access to this page' }),
+      ).toBeVisible();
     } finally {
       await restorePrices(snapshot);
     }

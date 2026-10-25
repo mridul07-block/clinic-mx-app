@@ -230,6 +230,15 @@ export function MyPatientsList({
                   >
                     Open consultation
                   </Link>
+                ) : visit.status === 'in_progress' && visit.session ? (
+                  <Link
+                    href={`/app/sessions/${visit.id}`}
+                    data-testid="open-session"
+                    aria-label={`Open session for ${visit.patientName}`}
+                    className={`${secondaryButtonClass} md:w-auto`}
+                  >
+                    Open session
+                  </Link>
                 ) : null}
               </li>
             );
