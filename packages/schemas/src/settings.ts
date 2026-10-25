@@ -67,6 +67,13 @@ export const settingDefinitions = {
     description:
       'The price items a consultant’s consultation fee can be, for example Consultation and Senior consultation.',
   },
+  'billing.session_price_items': {
+    schema: z.array(priceItemKey).min(1),
+    source:
+      'User decision, 25 October 2026 (BIL-01): the front desk picks the session type on the plan sheet',
+    description:
+      'The price items a treatment session can be on the plan and payment sheet, for example Rehabilitation session.',
+  },
   'screening.weight_loss_kg': {
     schema: z.int().positive(),
     source:

@@ -17,6 +17,7 @@ import {
   signedNotesOf,
 } from '../patient-record';
 import { insertConsultationRedFlag, moveRedFlagAlert, openRedFlagAlerts } from '../red-flag-alerts';
+import { planForPricing } from '../plan-sheet';
 import { referralLetterFacts } from '../referral-letter';
 import {
   appointment,
@@ -62,6 +63,7 @@ function member(email: string): StaffMember {
 }
 const superAdmin = member('super.admin@clinicmx.test');
 const deskHsr = member('desk.hsr@clinicmx.test');
+const deskKoramangala = member('desk.koramangala@clinicmx.test');
 const manager = member('manager@clinicmx.test');
 const finance = member('finance@clinicmx.test');
 const support = member('support.velyx@clinicmx.test');
@@ -755,6 +757,37 @@ describe('a red flag found in the consultation', () => {
       expect((await jobsOf(tx, alertId)).map((row) => row.key)).toEqual([
         `whatsapp.red_flag_safety_advice:${alertId}`,
       ]);
+    });
+  });
+});
+
+// BIL-01: the front desk prices the plan without clinical access: only what pricing needs, to those
+// who see bill amounts, the desk at the episode's centre only.
+describe('the plan for pricing', () => {
+  it('gives the desk at its centre, Finance and the Super Admin the plan, and nobody else', async () => {
+    await rolledBack(async (tx) => {
+      const { consultant, episodeId, sign } = await setUp(tx);
+      expect(await sign()).toBe('signed');
+      const reads = async (actor: StaffMember) => {
+        await asOwner(tx);
+        await becomeStaff(tx, actor);
+        return planForPricing(tx, episodeId);
+      };
+      const plan = await reads(deskHsr);
+      expect(plan?.planOfCareId).toMatch(/^[0-9a-f-]{36}$/);
+      expect({ ...plan, planOfCareId: undefined }).toEqual({
+        planOfCareId: undefined,
+        sessionsPerWeek: 2,
+        weeks: 6,
+        reviewDate: '2026-12-05',
+        treatingPhysio: consultant.name,
+        modalities: [{ key: 'laser', name: 'laser' }],
+      });
+      expect(await reads(finance), 'finance').toBeDefined();
+      expect(await reads(superAdmin), 'super admin').toBeDefined();
+      for (const outsider of [deskKoramangala, manager, consultant]) {
+        expect(await reads(outsider), outsider.email).toBeUndefined();
+      }
     });
   });
 });

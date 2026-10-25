@@ -4,7 +4,7 @@ import {
   type AppointmentStatus,
   type CalendarQuery,
 } from '@clinic-mx/schemas';
-import { and, asc, eq, gte, lt, notInArray } from 'drizzle-orm';
+import { and, asc, eq, gte, lt, notInArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { partAConsentDeclined } from './consent';
 import { appointment, appointmentType, patient, staffUser } from './schema';
@@ -27,6 +27,10 @@ export interface TodayAppointment {
   typeName: string;
   /** A Part A consent declined (INT-06): reception speaks to the patient. */
   consentDeclined: boolean;
+  /** The visit's episode, for the plan and payment sheet (BIL-01). */
+  episodeId: string | null;
+  /** A consultation visit: once done, its plan is priced at the desk (BIL-01). */
+  consultation: boolean;
 }
 
 const physio = alias(staffUser, 'today_physio');
@@ -56,6 +60,8 @@ export async function todayBoard(
       physioName: physio.name,
       typeName: appointmentType.name,
       consentDeclined: partAConsentDeclined(appointment.id),
+      episodeId: appointment.episodeId,
+      consultation: sql<boolean>`${appointmentType.key} = 'consultation'`,
     })
     .from(appointment)
     .innerJoin(patient, eq(patient.id, appointment.patientId))

@@ -45,7 +45,7 @@ the reason it is refused. It does no I/O.
 | Event | From | To | Called by (later ticket) |
 | --- | --- | --- | --- |
 | `submit_intake` | Intake pending | Awaiting consultation | INT-10 health form submit |
-| `propose_plan` | Awaiting consultation | Plan proposed | CLN-09 signing |
+| `propose_plan` | Awaiting consultation | Plan proposed | Signing (CLN-09; wired in BIL-01), unless On hold |
 | `activate` | Plan proposed | Active | BIL payment (PRD J4.7) |
 | `start_review` | Active | Under review | OUT review |
 | `continue` | Under review | Active | OUT review |
