@@ -8,6 +8,7 @@ import {
   episodeStatusLabels,
   formatIstDate,
   formatRupees,
+  paymentMethodLabels,
   planChoiceLabels,
   planSheetQuerySchema,
 } from '@clinic-mx/schemas';
@@ -20,6 +21,7 @@ import { Tag } from '../../../../../../components/tag';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { planSheetOf, type PlanSheet } from '../../../../../../modules/billing/plan-sheet';
 import { MakeBillForm } from './make-bill-form';
+import { PaymentForm, UndoPaymentForm } from './payment-forms';
 import { PlanChoiceForm, type ChoiceOption } from './plan-choice-form';
 
 export const metadata: Metadata = { title: 'Plan and payment · Clinic Mx' };
@@ -29,7 +31,15 @@ const amount = 'tabular-nums text-right whitespace-nowrap';
 const billTones = { unpaid: 'waiting', paid: 'done', cancelled: 'neutral' } as const;
 
 /** One bill: its number, what it is for, its lines at the price master's amounts, its total. */
-function BillCard({ entry }: { entry: BillEntry }) {
+function BillCard({
+  entry,
+  episodeId,
+  canCollect,
+}: {
+  entry: BillEntry;
+  episodeId: string;
+  canCollect: boolean;
+}) {
   const cancelled = entry.status === 'cancelled';
   return (
     <li
@@ -65,6 +75,33 @@ function BillCard({ entry }: { entry: BillEntry }) {
       {cancelled && entry.cancelReason ? (
         <span className="text-sm text-ink-muted">{entry.cancelReason}</span>
       ) : null}
+      {entry.payment ? (
+        <span className="flex flex-col gap-0.5 text-sm text-ink-secondary" data-testid="paid">
+          <span>
+            Paid by {paymentMethodLabels[entry.payment.method]}
+            {entry.payment.reference ? (
+              <>
+                {' · Ref '}
+                <span className="font-mono">{entry.payment.reference}</span>
+              </>
+            ) : null}
+          </span>
+          <span>
+            Recorded by {entry.payment.recordedByName ?? 'a former staff member'},{' '}
+            {documentDateTime(entry.payment.recordedAt)}
+          </span>
+        </span>
+      ) : null}
+      {canCollect && entry.status === 'unpaid' ? (
+        <PaymentForm
+          episodeId={episodeId}
+          billId={entry.id}
+          total={formatRupees(entry.totalPaise)}
+        />
+      ) : null}
+      {canCollect && entry.payment?.undoable ? (
+        <UndoPaymentForm episodeId={episodeId} paymentId={entry.payment.id} />
+      ) : null}
     </li>
   );
 }
@@ -93,7 +130,12 @@ function Bills({ sheet }: { sheet: PlanSheet }) {
       {sheet.bills.length > 0 ? (
         <ul className="flex flex-col gap-2" data-testid="bills">
           {sheet.bills.map((entry) => (
-            <BillCard key={entry.id} entry={entry} />
+            <BillCard
+              key={entry.id}
+              entry={entry}
+              episodeId={sheet.episodeId}
+              canCollect={sheet.canCollect}
+            />
           ))}
         </ul>
       ) : fee ? null : (
@@ -102,7 +144,8 @@ function Bills({ sheet }: { sheet: PlanSheet }) {
         </p>
       )}
       <p className="text-sm text-ink-muted">
-        Prices come from the price master; bills cannot be edited here. Payment comes next.
+        Prices come from the price master; bills cannot be edited here. The whole total is paid at
+        once; partial payments are not taken yet.
       </p>
     </section>
   );
@@ -387,7 +430,7 @@ export default async function PlanSheetPage({
             ) : null}
           </section>
 
-          <p className="text-sm text-ink-muted">Consent and payment come next.</p>
+          <p className="text-sm text-ink-muted">Consent comes next.</p>
         </>
       )}
     </main>

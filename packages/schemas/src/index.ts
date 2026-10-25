@@ -674,6 +674,11 @@ export {
   billStatuses,
   consultationFeeDue,
   makeConsultationBillSchema,
+  paymentMethodLabels,
+  paymentMethods,
+  recordPaymentSchema,
+  undoPaymentSchema,
   type BillKind,
+  type PaymentMethod,
   type BillStatus,
 } from './bills';

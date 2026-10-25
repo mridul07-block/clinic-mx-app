@@ -1,6 +1,6 @@
-import type { AppointmentStatus, BillKind, BillStatus } from '@clinic-mx/schemas';
-import { and, asc, desc, eq, inArray, notInArray, sql } from 'drizzle-orm';
-import { appointment, appointmentType, bill, billLine, staffUser } from './schema';
+import type { AppointmentStatus, BillKind, BillStatus, PaymentMethod } from '@clinic-mx/schemas';
+import { and, asc, desc, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm';
+import { appointment, appointmentType, bill, billLine, payment, staffUser } from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /**
@@ -19,6 +19,19 @@ export interface BillEntry {
   createdAt: Date;
   cancelReason: string | null;
   lines: { description: string; quantity: number; unitPaise: number; amountPaise: number }[];
+  /** Its live payment (BIL-06), when paid. */
+  payment: PaymentEntry | null;
+}
+
+export interface PaymentEntry {
+  id: string;
+  method: PaymentMethod;
+  amountPaise: number;
+  reference: string | null;
+  recordedByName: string | null;
+  recordedAt: Date;
+  /** Recorded today in IST: it may still be undone at the desk. */
+  undoable: boolean;
 }
 
 /** An episode's bills, newest first, with their lines. */
@@ -53,8 +66,32 @@ export async function billsOfEpisode(db: DbOrTransaction, episodeId: string): Pr
       ),
     )
     .orderBy(asc(billLine.description));
+  const payments = await db
+    .select({
+      billId: payment.billId,
+      id: payment.id,
+      method: payment.method,
+      amountPaise: payment.amountPaise,
+      reference: payment.reference,
+      recordedByName: staffUser.name,
+      recordedAt: payment.recordedAt,
+      undoable: sql<boolean>`(${payment.recordedAt} at time zone 'Asia/Kolkata')::date
+        = (now() at time zone 'Asia/Kolkata')::date`,
+    })
+    .from(payment)
+    .leftJoin(staffUser, eq(staffUser.id, payment.recordedBy))
+    .where(
+      and(
+        inArray(
+          payment.billId,
+          bills.map((entry) => entry.id),
+        ),
+        isNull(payment.undoneAt),
+      ),
+    );
   return bills.map((entry) => ({
     ...entry,
+    payment: paymentOf(payments.find((paid) => paid.billId === entry.id)),
     lines: lines
       .filter((line) => line.billId === entry.id)
       .map(({ description, quantity, unitPaise, amountPaise }) => ({
@@ -64,6 +101,12 @@ export async function billsOfEpisode(db: DbOrTransaction, episodeId: string): Pr
         amountPaise,
       })),
   }));
+}
+
+function paymentOf(row: (PaymentEntry & { billId: string }) | undefined): PaymentEntry | null {
+  if (!row) return null;
+  const { id, method, amountPaise, reference, recordedByName, recordedAt, undoable } = row;
+  return { id, method, amountPaise, reference, recordedByName, recordedAt, undoable };
 }
 
 /** The episode's consultation visit as billing sees it: who consulted, their fee, its bill. */
@@ -123,4 +166,44 @@ export async function consultationBillNow(
     sql`select internal.consultation_bill_now(${appointmentId}::uuid) as id`,
   );
   return row?.id ?? null;
+}
+
+/**
+ * Marks a bill paid by a method, for its whole total, as the signed in person (BIL-06); the
+ * database refuses a bill already paid, or one this person does not take payment for.
+ */
+export async function recordPayment(
+  db: DbOrTransaction,
+  values: { billId: string; method: PaymentMethod; reference?: string },
+): Promise<string> {
+  const [row] = await db.execute<{ id: string }>(
+    sql`select internal.record_payment(${values.billId}::uuid, ${values.method}::payment_method,
+      ${values.reference ?? null}) as id`,
+  );
+  if (!row) throw new Error('The payment was not recorded.');
+  return row.id;
+}
+
+/** Undoes a payment recorded by mistake, on its day, with the reason; the bill is unpaid again. */
+export async function undoPayment(
+  db: DbOrTransaction,
+  values: { paymentId: string; reason: string },
+): Promise<void> {
+  await db.execute(sql`select internal.undo_payment(${values.paymentId}::uuid, ${values.reason})`);
+}
+
+/** The centre a bill is at, or a payment's bill is at; undefined when the reader cannot see it. */
+export async function billCentre(
+  db: DbOrTransaction,
+  ref: { billId: string } | { paymentId: string },
+): Promise<string | undefined> {
+  const [row] =
+    'billId' in ref
+      ? await db.select({ centreId: bill.centreId }).from(bill).where(eq(bill.id, ref.billId))
+      : await db
+          .select({ centreId: bill.centreId })
+          .from(payment)
+          .innerJoin(bill, eq(bill.id, payment.billId))
+          .where(eq(payment.id, ref.paymentId));
+  return row?.centreId;
 }

@@ -687,6 +687,20 @@
       "when": 1792924470755,
       "tag": "20261025103430_bills_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1792926877188,
+      "tag": "20261025111437_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1792926878541,
+      "tag": "20261025111438_payments_rules",
+      "breakpoints": true
     }
   ]
 }

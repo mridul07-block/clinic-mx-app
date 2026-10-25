@@ -31,7 +31,7 @@ arithmetic is `planOptions` in `packages/schemas/src/plan-sheet.ts`, tested on i
 
 ## Bills (BIL-05)
 
-The Bills section lists the episode's bills: the consultation fee once it is due, and the package bill when one is chosen, each with its number, status, lines and total. It also shows the fee-not-set message or "Make the consultation bill". It shows even before there is a plan. See `docs/runbooks/bills.md`.
+The Bills section lists the episode's bills: the consultation fee once it is due, and the package bill when one is chosen, each with its number, status, lines and total. It also shows the fee-not-set message or "Make the consultation bill". It shows even before there is a plan. Each unpaid bill has "Mark paid" (UPI QR, Card or Cash, optional reference; BIL-06), and a paid one shows how it was paid, with "Undo payment" on its day. Paying for the chosen plan moves the episode to Active. See `docs/runbooks/bills.md`.
 
 ## The patient's choice (BIL-02)
 

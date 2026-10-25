@@ -1,4 +1,4 @@
-import { billKinds, billStatuses } from '@clinic-mx/schemas';
+import { billKinds, billStatuses, paymentMethods } from '@clinic-mx/schemas';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -98,5 +98,46 @@ export const billLine = pgTable(
   ],
 ).enableRLS();
 
+export const paymentMethod = pgEnum('payment_method', paymentMethods);
+
+/**
+ * A payment at the counter (BIL-06, TAD section 4): the bill's whole total by UPI QR, card or
+ * cash, with an optional reference, recorded by the database for the person at the desk. Nobody
+ * signed in writes one directly. A payment recorded by mistake is undone on its day with a reason,
+ * never deleted; one live payment per bill.
+ */
+export const payment = pgTable(
+  'payment',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    billId: uuid('bill_id')
+      .notNull()
+      .references(() => bill.id),
+    method: paymentMethod('method').notNull(),
+    amountPaise: integer('amount_paise').notNull(),
+    /** The UPI transaction ID or the card slip number, when given. */
+    reference: text('reference'),
+    recordedBy: uuid('recorded_by')
+      .notNull()
+      .references(() => staffUser.id),
+    recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
+    undoneAt: timestamp('undone_at', { withTimezone: true }),
+    undoneBy: uuid('undone_by').references(() => staffUser.id),
+    undoReason: text('undo_reason'),
+  },
+  (table) => [
+    uniqueIndex('payment_live_key')
+      .on(table.billId)
+      .where(sql`${table.undoneAt} is null`),
+    check('payment_amount', sql`${table.amountPaise} > 0`),
+    check('payment_reference', sql`${table.reference} is null or length(${table.reference}) <= 40`),
+    check(
+      'payment_undone',
+      sql`(${table.undoneAt} is null) = (${table.undoneBy} is null) and (${table.undoneAt} is null) = (${table.undoReason} is null)`,
+    ),
+  ],
+).enableRLS();
+
+export type Payment = typeof payment.$inferSelect;
 export type Bill = typeof bill.$inferSelect;
 export type BillLine = typeof billLine.$inferSelect;

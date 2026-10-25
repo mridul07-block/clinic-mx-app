@@ -41,9 +41,9 @@ export async function restorePrices(snapshot: PriceSnapshot): Promise<void> {
     if (added.length) {
       // A patient's choice of a test package (BIL-02) goes with it, and its bill (BIL-05).
       const chosen = sql`(select id from plan_choice where package_type_id in ${added})`;
-      await tx.execute(
-        sql`delete from bill_line where bill_id in (select id from bill where plan_choice_id in ${chosen})`,
-      );
+      const chosenBills = sql`(select id from bill where plan_choice_id in ${chosen})`;
+      await tx.execute(sql`delete from payment where bill_id in ${chosenBills}`);
+      await tx.execute(sql`delete from bill_line where bill_id in ${chosenBills}`);
       await tx.execute(sql`delete from bill where plan_choice_id in ${chosen}`);
       await tx.delete(patientPlanChoice).where(inArray(patientPlanChoice.packageTypeId, added));
       await tx.delete(packageTypeItem).where(inArray(packageTypeItem.packageTypeId, added));

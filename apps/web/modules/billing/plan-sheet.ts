@@ -52,6 +52,8 @@ export interface PlanSheet {
   canRecordChoice: boolean;
   /** The episode's bills, newest first (BIL-05). */
   bills: BillEntry[];
+  /** Whether this person takes payment here (BIL-06). */
+  canCollect: boolean;
   /** The consultation fee when it is due and not billed: why, and whether the desk can make it. */
   unbilledFee: { consultantName: string; feeSet: boolean; canMake: boolean } | undefined;
 }
@@ -115,6 +117,7 @@ export async function planSheetOf(
       canRecordChoice:
         plan !== undefined && episode.status === 'plan_proposed' && !actor.support && collects,
       bills,
+      canCollect: !actor.support && collects,
       unbilledFee:
         fee && !fee.billed && consultationFeeDue(feeTiming, fee.status)
           ? {
