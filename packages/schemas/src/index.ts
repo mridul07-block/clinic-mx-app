@@ -666,3 +666,14 @@ export {
   type PlanChoice,
   type RecordPlanChoice,
 } from './plan-choice';
+export {
+  billKindLabels,
+  billKinds,
+  billNumberPattern,
+  billStatusLabels,
+  billStatuses,
+  consultationFeeDue,
+  makeConsultationBillSchema,
+  type BillKind,
+  type BillStatus,
+} from './bills';

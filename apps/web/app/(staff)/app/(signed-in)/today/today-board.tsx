@@ -2,6 +2,7 @@
 
 import type { TodayAppointment } from '@clinic-mx/db';
 import {
+  formatRupees,
   inTodayFilter,
   todayFilterLabels,
   todayFilters,
@@ -225,6 +226,10 @@ export function TodayBoard({
                   {appointment.consentDeclined ? (
                     // INT-06: the patient declined a Part A statement; reception speaks to them.
                     <Tag tone="danger">Consent declined</Tag>
+                  ) : null}
+                  {pricesPlans && appointment.unpaidFeePaise !== null ? (
+                    // BIL-05: the consultation fee is billed and waiting at the counter.
+                    <Tag tone="waiting">Unpaid {formatRupees(appointment.unpaidFeePaise)}</Tag>
                   ) : null}
                 </span>
                 <span className="col-start-3 row-span-2 row-start-1 justify-self-end md:col-start-4 md:row-span-1">

@@ -1,11 +1,14 @@
 import 'server-only';
 import {
+  billsOfEpisode,
+  consultationFeeState,
   episodeRecord,
   packageTypeList,
   patientRecord,
   planChoicesOf,
   planForPricing,
   priceItemList,
+  type BillEntry,
   type DbOrTransaction,
   type PlanChoiceEntry,
   type PlanForPricing,
@@ -13,6 +16,7 @@ import {
 } from '@clinic-mx/db';
 import {
   can,
+  consultationFeeDue,
   planOptions,
   type EpisodeStatus,
   type PlanOptions,
@@ -46,6 +50,10 @@ export interface PlanSheet {
   choices: PlanChoiceEntry[];
   /** Whether this person may record a choice now: Plan proposed, a plan, at their centre. */
   canRecordChoice: boolean;
+  /** The episode's bills, newest first (BIL-05). */
+  bills: BillEntry[];
+  /** The consultation fee when it is due and not billed: why, and whether the desk can make it. */
+  unbilledFee: { consultantName: string; feeSet: boolean; canMake: boolean } | undefined;
 }
 
 /** The active price items, the session types offered and the active packages, from Prices. */
@@ -73,9 +81,10 @@ export async function planSheetOf(
   sessionKey?: string,
 ): Promise<PlanSheet | undefined> {
   assertMay(actor, 'bills.view_amounts');
-  const [sessionKeys, validityMonths] = await Promise.all([
+  const [sessionKeys, validityMonths, feeTiming] = await Promise.all([
     getSetting('billing.session_price_items'),
     getSetting('packages.validity_months'),
+    getSetting('billing.consultation_fee_timing'),
   ]);
   return asStaff(actor, async (tx) => {
     const episode = await episodeRecord(tx, episodeId);
@@ -86,6 +95,9 @@ export async function planSheetOf(
     const { active, sessionItems, packages } = await priceListsOf(tx, sessionKeys);
     const sessionItem = sessionItems.find((item) => item.key === sessionKey) ?? sessionItems.at(0);
     const choices = await planChoicesOf(tx, episodeId);
+    const bills = await billsOfEpisode(tx, episodeId);
+    const fee = await consultationFeeState(tx, episodeId);
+    const collects = can(actor, 'bills.create_and_collect', { centreId: episode.centreId });
     return {
       episodeId,
       episodeStatus: episode.status,
@@ -101,10 +113,16 @@ export async function planSheetOf(
           : undefined,
       choices,
       canRecordChoice:
-        plan !== undefined &&
-        episode.status === 'plan_proposed' &&
-        !actor.support &&
-        can(actor, 'bills.create_and_collect', { centreId: episode.centreId }),
+        plan !== undefined && episode.status === 'plan_proposed' && !actor.support && collects,
+      bills,
+      unbilledFee:
+        fee && !fee.billed && consultationFeeDue(feeTiming, fee.status)
+          ? {
+              consultantName: fee.consultantName,
+              feeSet: fee.feeLabel !== null,
+              canMake: fee.feeLabel !== null && !actor.support && collects,
+            }
+          : undefined,
     };
   });
 }

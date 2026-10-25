@@ -29,6 +29,10 @@ has put it On hold (`docs/runbooks/episodes.md`).
 Prices come from the price master (`docs/runbooks/prices.md`) and are never edited here. The
 arithmetic is `planOptions` in `packages/schemas/src/plan-sheet.ts`, tested on its own.
 
+## Bills (BIL-05)
+
+The Bills section lists the episode's bills: the consultation fee once it is due, and the package bill when one is chosen, each with its number, status, lines and total. It also shows the fee-not-set message or "Make the consultation bill". It shows even before there is a plan. See `docs/runbooks/bills.md`.
+
 ## The patient's choice (BIL-02)
 
 PRD J4.3: "The patient's choice (package, per session, think about it, no thanks) is recorded against
