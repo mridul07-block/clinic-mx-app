@@ -1,3 +1,4 @@
+import { earlierToday } from '@clinic-mx/schemas';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
@@ -124,7 +125,7 @@ async function setUp(tx: Tx) {
   const visit = async (physioId: string, values: Partial<typeof appointment.$inferInsert> = {}) => {
     const patientId = await testPatient(tx);
     const episodeId = await insertEpisode(tx, { patientId, centreId: centreIds.hsrLayout });
-    const startsAt = new Date(Date.now() + (minutes += 2) * 60000);
+    const startsAt = earlierToday(-(minutes += 2));
     const [row] = await tx
       .insert(appointment)
       .values({

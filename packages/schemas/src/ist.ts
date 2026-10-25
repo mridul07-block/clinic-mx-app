@@ -103,6 +103,17 @@ export function istInstant(date: string, minutes: number): Date {
   return new Date(startOfIstDay(date).getTime() + minutes * 60 * 1000);
 }
 
+/**
+ * An instant `minutes` before `now` (negative: after it) on now's IST day; when that would fall on
+ * another day, as long the other way instead. For visits that must be today whatever the clock
+ * says: the database checks visits in, starts them and undoes either on their own IST day only,
+ * so a test visit "50 minutes ago" at 00:20 IST goes 50 minutes ahead.
+ */
+export function earlierToday(minutes: number, now: Date = new Date()): Date {
+  const before = new Date(now.getTime() - minutes * 60_000);
+  return istDate(before) === istDate(now) ? before : new Date(now.getTime() + minutes * 60_000);
+}
+
 /** The ISO weekday of a calendar date: Monday 1 to Sunday 7. */
 export function isoWeekday(date: string): number {
   const day = new Date(`${date}T00:00:00Z`).getUTCDay();

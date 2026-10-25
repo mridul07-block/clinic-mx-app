@@ -1,4 +1,3 @@
-import { istDate } from '@clinic-mx/schemas';
 import { expect, test } from '@playwright/test';
 import { completeVisit, consultantFee } from './bills';
 import { centreIdByCode, removeCalendarRows, startedAppointment } from './calendar';
@@ -19,10 +18,6 @@ import { exclusively, signIn, signInWithCode, temporaryDesk, temporaryWithCode }
 // Start session and Open session; the phase line waits for OUT-04 (DECISION SES-02); only the
 // appointment's physio opens it, the Super Admin reads it.
 
-// Early in the IST day the visits go later today instead of earlier, so none falls on another day.
-const early = istDate(new Date(Date.now() - 260 * 60_000)) !== istDate(new Date());
-const minutesAgo = (minutes: number) => (early ? -minutes - 10 : minutes);
-
 const physios: string[] = [];
 const visits: string[] = [];
 test.afterEach(async () => {
@@ -31,9 +26,9 @@ test.afterEach(async () => {
 });
 
 /** A patient whose consultation today is signed, with the plan proposed (2 a week for 6 weeks). */
-async function proposedPatient(physioId: string, minutes: number) {
+async function proposedPatient(physioId: string, minutesAgo: number) {
   const patient = await testPatient();
-  const visit = await startedAppointment(physioId, patient.id, minutesAgo(minutes), {
+  const visit = await startedAppointment(physioId, patient.id, minutesAgo, {
     minutes: 45,
     values: {
       appointmentTypeId: await consultationTypeId(),
@@ -89,19 +84,14 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
       const unpaidEpisode = new URL(page.url()).pathname.split('/').at(-1) ?? '';
 
       // A session for each today; the unpaid patient's is checked in already.
-      const paidSession = await startedAppointment(physio.id, paid.patient.id, minutesAgo(170), {
+      const paidSession = await startedAppointment(physio.id, paid.patient.id, 170, {
         minutes: 30,
         values: { episodeId: paidEpisode, status: 'booked' },
       });
-      const unpaidSession = await startedAppointment(
-        physio.id,
-        unpaid.patient.id,
-        minutesAgo(230),
-        {
-          minutes: 30,
-          values: { episodeId: unpaidEpisode, status: 'booked' },
-        },
-      );
+      const unpaidSession = await startedAppointment(physio.id, unpaid.patient.id, 230, {
+        minutes: 30,
+        values: { episodeId: unpaidEpisode, status: 'booked' },
+      });
       await checkedIn(unpaidSession.id, desk.id);
 
       // One tap: the desk checks the paid session in and reads Session 1 of 12.

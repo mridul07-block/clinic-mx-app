@@ -172,6 +172,10 @@ the code location.
 - 25 October 2026 (SES-01): a checked in Session or treadmill visit is "Session n of N" (n in order of
   check in, N from the plan); the desk still checks in, but the physio starts a session only once
   the chosen plan is paid; Part B consent joins the gate with BIL-03.
+- 26 October 2026 (tests at midnight): test visits start with `earlierToday`, which keeps them on
+  today's IST date (just after midnight they start ahead instead of behind), and lint refuses
+  `startsAt` from `Date.now()` give or take minutes in tests; 17 end to end specs no longer skip
+  after midnight and the database tests no longer fail then, so the local gate runs at any hour.
 - 25 October 2026 (SES-02): Start session opens a session screen with the summary card of the
   appointment's episode first (the session note goes under it with SES-03); only the appointment's
   physio opens it and the Super Admin reads it; the phase line says "Phase: not set up yet" until

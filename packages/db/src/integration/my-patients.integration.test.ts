@@ -1,4 +1,4 @@
-import { istDate } from '@clinic-mx/schemas';
+import { earlierToday, istDate } from '@clinic-mx/schemas';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
@@ -82,7 +82,7 @@ async function setUp(tx: Tx) {
     values: Partial<typeof appointment.$inferInsert> = {},
   ) => {
     const patientId = values.patientId ?? (await testPatient(tx));
-    const startsAt = new Date(Date.now() + minutesFromNow * 60000);
+    const startsAt = earlierToday(-minutesFromNow);
     const [row] = await tx
       .insert(appointment)
       .values({

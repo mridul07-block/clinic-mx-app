@@ -1,4 +1,3 @@
-import { istDate } from '@clinic-mx/schemas';
 import { expect, test } from '@playwright/test';
 import { centreIdByCode, removeCalendarRows, startedAppointment } from './calendar';
 import { otherBrowser, removePipelineRows, submitBackForm } from './intake';
@@ -28,7 +27,6 @@ test('the desk fills the form in with the patient; the drawer and the physio see
     minutes: 5,
     values: { status: 'checked_in', arrivedAt: new Date(), checkedInBy: physio.id },
   });
-  test.skip(istDate(visit.startsAt) !== istDate(new Date()), 'Just after midnight in IST.');
   visits.push(visit.id);
 
   const desk = await temporaryDesk();

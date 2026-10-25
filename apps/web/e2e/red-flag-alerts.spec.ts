@@ -1,4 +1,3 @@
-import { istDate } from '@clinic-mx/schemas';
 import { expect, test } from '@playwright/test';
 import { centreIdByCode, removeCalendarRows, startedAppointment } from './calendar';
 import {
@@ -38,7 +37,6 @@ test('an emergency: the desk’s banner, the physio reviews, refers and closes, 
     minutes: 5,
     values: { status: 'checked_in', arrivedAt: new Date(), checkedInBy: physio.id },
   });
-  test.skip(istDate(visit.startsAt) !== istDate(new Date()), 'Just after midnight in IST.');
   visits.push(visit.id);
   const link = await testLink({
     purpose: 'health_form',

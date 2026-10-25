@@ -31,10 +31,6 @@ async function consultationToday(options: { submitted: boolean }) {
     values: { appointmentTypeId: await consultationTypeId() },
   });
   visits.push(visit.id);
-  test.skip(
-    istDate(visit.startsAt) !== istDate(new Date()),
-    'The visit falls on yesterday in IST.',
-  );
   const desk = await temporaryDesk();
   await checkedIn(visit.id, desk.id);
   if (options.submitted) await submittedWithAlert(visit.id, patient.id);

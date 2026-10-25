@@ -38,10 +38,6 @@ test('the desk records the choice, and "I’ll think about it" is followed up', 
     },
   });
   visits.push(visit.id);
-  test.skip(
-    istDate(visit.startsAt) !== istDate(new Date()),
-    'The visit falls on yesterday in IST.',
-  );
   await submittedWithAlert(visit.id, patient.id);
   const { consultationId } = await signedConsultation(visit.id, physio.id);
   await proposedPlan(consultationId);

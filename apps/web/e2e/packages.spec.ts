@@ -40,10 +40,6 @@ test('paying for the package activates it, with its meter, Finance’s lists and
     },
   });
   visits.push(visit.id);
-  test.skip(
-    istDate(visit.startsAt) !== istDate(new Date()),
-    'The visit falls on yesterday in IST.',
-  );
   await submittedWithAlert(visit.id, patient.id);
   const { consultationId } = await signedConsultation(visit.id, physio.id);
   await completeVisit(visit.id);

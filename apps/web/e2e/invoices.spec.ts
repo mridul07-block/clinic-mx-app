@@ -1,4 +1,3 @@
-import { istDate } from '@clinic-mx/schemas';
 import { expect, test } from '@playwright/test';
 import { completeVisit, consultantFee } from './bills';
 import { centreIdByCode, removeCalendarRows, startedAppointment } from './calendar';
@@ -39,10 +38,6 @@ test('paying makes a numbered invoice PDF, and undoing the payment makes its can
     },
   });
   visits.push(visit.id);
-  test.skip(
-    istDate(visit.startsAt) !== istDate(new Date()),
-    'The visit falls on yesterday in IST.',
-  );
   await submittedWithAlert(visit.id, patient.id);
   const { consultationId } = await signedConsultation(visit.id, physio.id);
   await completeVisit(visit.id);

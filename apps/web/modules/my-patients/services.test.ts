@@ -147,6 +147,7 @@ describe('my patients today', () => {
     await refused({ status: 'booked' }, 'Check the patient in first.');
     await refused({ status: 'in_progress' }, 'This visit has started already.');
     await refused(
+      // eslint-disable-next-line no-restricted-syntax -- two days back on purpose: another day
       { startsAt: new Date(Date.now() - 2 * 24 * 3600_000) },
       'A visit is started on its own day.',
     );

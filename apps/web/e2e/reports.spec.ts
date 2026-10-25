@@ -1,4 +1,3 @@
-import { istDate } from '@clinic-mx/schemas';
 import { expect, test, type Page } from '@playwright/test';
 import { centreIdByCode, removeCalendarRows, startedAppointment } from './calendar';
 import { otherBrowser } from './intake';
@@ -34,7 +33,6 @@ test('the desk adds a photo, shrunk on the device; only a clinician opens it', a
   made.push(physio.id);
   const patient = await testPatient();
   const visit = await startedAppointment(physio.id, patient.id, 3, { minutes: 5 });
-  test.skip(istDate(visit.startsAt) !== istDate(new Date()), 'Just after midnight in IST.');
 
   // The desk adds it at check in.
   const desk = await temporaryDesk();

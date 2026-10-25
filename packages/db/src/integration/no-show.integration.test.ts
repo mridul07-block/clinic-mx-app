@@ -71,6 +71,7 @@ async function setUp(tx: Tx) {
   const episodeId = await insertEpisode(tx, { patientId, centreId: centreIds.hsrLayout });
   /** Started `minutesAgo` minutes (and `daysAgo` days) ago. */
   const past = async (minutesAgo: number, daysAgo = 0) => {
+    // eslint-disable-next-line no-restricted-syntax -- a no show needs a start in the past, by design
     const startsAt = new Date(Date.now() - (minutesAgo + daysAgo * 24 * 60) * 60000);
     const [row] = await tx
       .insert(appointment)

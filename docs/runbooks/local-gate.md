@@ -30,6 +30,26 @@ password unless `CLINIC_MX_SEED_STAFF_PASSWORD` is set.
 The run takes about 10 to 14 minutes on the current laptop; the two end to end projects run one
 after the other to stay within 8 GB.
 
+## Time of day
+
+The gate runs at any hour, midnight IST included. The database checks visits in, starts them and
+undoes either on their own IST day only, so a test visit placed "50 minutes ago" at 00:20 IST
+would be yesterday's and its test would fail.
+
+- **The rule:** test visits start with `earlierToday(minutes)` (`packages/schemas/src/ist.ts`). It
+  is `minutes` before now on today's IST date, or as long after it when that would cross
+  midnight. `startedAppointment` (`apps/web/e2e/calendar.ts`) and the database fixtures use it.
+- **Enforced:** lint refuses `startsAt` from `Date.now()` plus or minus a number in tests
+  (`eslint.config.mjs`). A deliberate other day takes a disable comment saying why.
+- **What still skips near midnight,** because it needs a start in the past or late in the day by
+  design:
+  - the no show undo (`no-show.spec.ts`)
+  - Running late on My patients, in the 20 minutes after midnight and the 30 before it
+  - Today's coming visit after 22:00 IST (`today.spec.ts`)
+  - walk-in after 22:40 IST (`walk-in.spec.ts`)
+
+  These skip; they never fail.
+
 ## After a merge: `pnpm migrate:staging`
 
 From `main`, after `git pull` (`scripts/migrate-staging.mjs`): the steps of

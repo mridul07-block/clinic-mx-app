@@ -1,4 +1,3 @@
-import { istDate } from '@clinic-mx/schemas';
 import { expect, test } from '@playwright/test';
 import { centreIdByCode, removeCalendarRows, startedAppointment } from './calendar';
 import { signedConsultation } from './consultations';
@@ -34,10 +33,6 @@ test('the desk prices a signed plan per session and as a package', async ({ page
     },
   });
   visits.push(visit.id);
-  test.skip(
-    istDate(visit.startsAt) !== istDate(new Date()),
-    'The visit falls on yesterday in IST.',
-  );
   await submittedWithAlert(visit.id, patient.id);
   const { consultationId, conditionName } = await signedConsultation(visit.id, physio.id);
   await plannedModality(consultationId, 'radial_shockwave');

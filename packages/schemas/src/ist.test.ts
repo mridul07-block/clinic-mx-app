@@ -1,7 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { endOfIstDay, formatIstDate, formatIstDateTime, istDate, istDayEndingAt } from './ist';
+import {
+  earlierToday,
+  endOfIstDay,
+  formatIstDate,
+  formatIstDateTime,
+  istDate,
+  istDayEndingAt,
+} from './ist';
 
 // Rule 15: stored in UTC, shown in IST (UTC+05:30).
+describe('earlierToday', () => {
+  it('goes back on the same IST day, and ahead instead just after midnight', () => {
+    const noon = new Date('2026-11-30T06:30:00Z'); // 12:00 IST
+    expect(earlierToday(50, noon).toISOString()).toBe('2026-11-30T05:40:00.000Z');
+    expect(earlierToday(-50, noon).toISOString()).toBe('2026-11-30T07:20:00.000Z');
+    const afterMidnight = new Date('2026-11-30T18:50:00Z'); // 00:20 IST on 1 December
+    expect(earlierToday(50, afterMidnight).toISOString()).toBe('2026-11-30T19:40:00.000Z');
+    expect(istDate(earlierToday(50, afterMidnight))).toBe('2026-12-01');
+  });
+
+  it('goes back instead of ahead late in the IST day', () => {
+    const lateEvening = new Date('2026-11-30T18:20:00Z'); // 23:50 IST
+    expect(earlierToday(-30, lateEvening).toISOString()).toBe('2026-11-30T17:50:00.000Z');
+    expect(istDate(earlierToday(-30, lateEvening))).toBe('2026-11-30');
+  });
+});
+
 describe('IST days', () => {
   it('end at midnight IST, which is 18:30 UTC the day before', () => {
     expect(endOfIstDay('2026-11-30').toISOString()).toBe('2026-11-30T18:30:00.000Z');

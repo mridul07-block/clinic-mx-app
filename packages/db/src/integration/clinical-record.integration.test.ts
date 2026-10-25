@@ -1,5 +1,6 @@
 import {
   addDays,
+  earlierToday,
   istDate,
   istInstant,
   packageValidUntil,
@@ -157,7 +158,7 @@ async function setUp(tx: Tx) {
   });
   const patientId = await testPatient(tx);
   const episodeId = await insertEpisode(tx, { patientId, centreId: centreIds.hsrLayout });
-  const startsAt = new Date(Date.now() - 5 * 60000);
+  const startsAt = earlierToday(5);
   const [visit] = await tx
     .insert(appointment)
     .values({
@@ -1054,7 +1055,7 @@ describe('bills at fixed prices', () => {
     status: 'checked_in' | 'completed',
   ) => {
     await asOwner(tx);
-    const startsAt = new Date(Date.now() - 30 * 60000);
+    const startsAt = earlierToday(30);
     const [row] = await tx
       .insert(appointment)
       .values({
@@ -1651,6 +1652,7 @@ describe('counter payments', () => {
     ) => {
       await asOwner(tx);
       hours += 2;
+      // eslint-disable-next-line no-restricted-syntax -- hours ahead on purpose: a move is on any day
       const startsAt = new Date(Date.now() + hours * 60 * 60_000);
       const [row] = await tx
         .insert(appointment)
