@@ -12,6 +12,7 @@ import {
   type EpisodePlanEntry,
   type NextVisitEntry,
   type SignedNoteEntry,
+  type DbOrTransaction,
   type StaffMember,
 } from '@clinic-mx/db';
 import { can, currentEpisode, worksAtCentre } from '@clinic-mx/schemas';
@@ -49,6 +50,42 @@ export interface ClinicalRecord {
   nextVisit: NextVisitEntry | undefined;
 }
 
+/** The reader's signed notes of the patient, each with whether they may add an addendum. */
+export async function recordNotes(
+  tx: DbOrTransaction,
+  actor: StaffMember,
+  patientId: string,
+): Promise<RecordNote[]> {
+  return (await signedNotesOf(tx, patientId)).map((note) => ({
+    ...note,
+    addsAddenda:
+      actor.treatsPatients &&
+      !actor.support &&
+      (note.signedBy === actor.id || worksAtCentre(actor, note.centreId)),
+  }));
+}
+
+/**
+ * The summary card of one episode (CLN-12, SES-02): its plan, precautions, newest signed note and
+ * open alerts. Nothing from the consultant's preparation sheet (PRD J5.2: no AI sheet).
+ */
+export async function episodeSummary(
+  tx: DbOrTransaction,
+  episode: EpisodeEntry,
+  notes: RecordNote[],
+  alerts: AlertHistoryEntry[],
+): Promise<PatientSummary> {
+  return {
+    episode,
+    plan: await episodePlan(tx, episode.id),
+    precautions: await episodePrecautions(tx, episode.id),
+    lastNote: notes.find((note) => note.episodeId === episode.id),
+    openAlerts: alerts.filter(
+      (alert) => alert.episodeId === episode.id && alert.status !== 'closed',
+    ).length,
+  };
+}
+
 /** The record's clinical part for a clinician; undefined for anyone else. */
 export async function clinicalRecordOf(
   actor: StaffMember,
@@ -58,24 +95,10 @@ export async function clinicalRecordOf(
   if (!can(actor, 'clinical.read')) return undefined;
   return asStaffViewing(actor, async (tx) => {
     const episodes = await episodesOf(tx, patientId);
-    const notes = (await signedNotesOf(tx, patientId)).map((note) => ({
-      ...note,
-      addsAddenda:
-        actor.treatsPatients &&
-        !actor.support &&
-        (note.signedBy === actor.id || worksAtCentre(actor, note.centreId)),
-    }));
+    const notes = await recordNotes(tx, actor, patientId);
     const alerts = await patientAlertHistory(tx, patientId);
     const episode = currentEpisode(episodes);
-    const summary: PatientSummary | undefined = episode && {
-      episode,
-      plan: await episodePlan(tx, episode.id),
-      precautions: await episodePrecautions(tx, episode.id),
-      lastNote: notes.find((note) => note.episodeId === episode.id),
-      openAlerts: alerts.filter(
-        (alert) => alert.episodeId === episode.id && alert.status !== 'closed',
-      ).length,
-    };
+    const summary = episode && (await episodeSummary(tx, episode, notes, alerts));
     const nextVisit = await nextVisitOf(tx, patientId, now);
     await logClinicalView(tx, 'patient', patientId);
     return { summary, notes, alerts, nextVisit };

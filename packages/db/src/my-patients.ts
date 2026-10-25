@@ -6,7 +6,15 @@ import {
 } from '@clinic-mx/schemas';
 import { and, asc, desc, eq, gte, inArray, lt, notInArray, sql } from 'drizzle-orm';
 import { partAConsentDeclined } from './consent';
-import { appointment, appointmentType, centre, consultation, patient, patientLink } from './schema';
+import {
+  appointment,
+  appointmentType,
+  centre,
+  consultation,
+  patient,
+  patientLink,
+  staffUser,
+} from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /** A visit on a physio's My patients today (CLN-01). */
@@ -144,6 +152,54 @@ export async function visitToStart(
     })
     .from(appointment)
     .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
+    .where(eq(appointment.id, appointmentId));
+  return row;
+}
+
+/** A visit as its session screen shows it (SES-02). */
+export interface SessionVisit {
+  id: string;
+  physioId: string;
+  physioName: string;
+  status: AppointmentStatus;
+  startsAt: Date;
+  episodeId: string | null;
+  typeKey: string;
+  typeName: string;
+  patientId: string;
+  patientName: string;
+  opNumber: string;
+  centreName: string;
+}
+
+/**
+ * One appointment for the session screen (SES-02), or undefined when not found. Under the reader's
+ * row level security: a physio reads the appointments of their centres.
+ */
+export async function sessionVisit(
+  db: DbOrTransaction,
+  appointmentId: string,
+): Promise<SessionVisit | undefined> {
+  const [row] = await db
+    .select({
+      id: appointment.id,
+      physioId: appointment.physioId,
+      physioName: staffUser.name,
+      status: appointment.status,
+      startsAt: appointment.startsAt,
+      episodeId: appointment.episodeId,
+      typeKey: appointmentType.key,
+      typeName: appointmentType.name,
+      patientId: appointment.patientId,
+      patientName: patient.name,
+      opNumber: patient.opNumber,
+      centreName: centre.name,
+    })
+    .from(appointment)
+    .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
+    .innerJoin(patient, eq(patient.id, appointment.patientId))
+    .innerJoin(centre, eq(centre.id, appointment.centreId))
+    .innerJoin(staffUser, eq(staffUser.id, appointment.physioId))
     .where(eq(appointment.id, appointmentId));
   return row;
 }

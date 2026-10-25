@@ -52,6 +52,12 @@ const visit = (extra: Record<string, unknown> = {}) => ({
 const found = (value: ReturnType<typeof visit> | undefined) => {
   db.appointmentRecord.mockResolvedValue(value);
   db.visitToStart.mockResolvedValue(value);
+  // As the database: progress only for a session type, in an Active episode by default (SES-01).
+  db.sessionProgress.mockResolvedValue(
+    value?.typeKey === 'session'
+      ? new Map([[value.id, { number: 1, planned: 12, episodeStatus: 'active' }]])
+      : new Map(),
+  );
 };
 const consultationId = '00000000-0000-4000-8000-000000000a01';
 
@@ -89,9 +95,11 @@ describe('my patients today', () => {
     ).rejects.toThrow(NotAllowedError);
   });
 
-  it('starts the physio’s own checked in visit, as them', async () => {
+  it('starts the physio’s own checked in visit, as them, and opens its session screen', async () => {
     found(visit());
-    await expect(startVisit(context(), { appointmentId })).resolves.toEqual({});
+    await expect(startVisit(context(), { appointmentId })).resolves.toEqual({
+      sessionAppointmentId: appointmentId,
+    });
     expect(db.openConsultation).not.toHaveBeenCalled();
     expect(db.startVisit).toHaveBeenCalledWith(
       fakeTx,
@@ -119,7 +127,9 @@ describe('my patients today', () => {
     );
     expect(db.startVisit).not.toHaveBeenCalled();
     progress('under_review');
-    await expect(startVisit(context(), { appointmentId })).resolves.toEqual({});
+    await expect(startVisit(context(), { appointmentId })).resolves.toEqual({
+      sessionAppointmentId: appointmentId,
+    });
     // Not a session type: no progress, no gate.
     db.sessionProgress.mockResolvedValueOnce(new Map());
     await expect(startVisit(context(), { appointmentId })).resolves.toEqual({});

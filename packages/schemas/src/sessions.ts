@@ -61,3 +61,9 @@ export function sessionGate(episodeStatus: EpisodeStatus | null): SessionGate {
   }
   return { met: false, message: `The episode is ${episodeStatusLabels[episodeStatus]}.` };
 }
+
+/**
+ * The summary card's phase line on the session screen (SES-02) until the phase stepper (OUT-04)
+ * gives each programme its phases. DECISION SES-02.
+ */
+export const phaseNotSetUp = 'Phase: not set up yet';

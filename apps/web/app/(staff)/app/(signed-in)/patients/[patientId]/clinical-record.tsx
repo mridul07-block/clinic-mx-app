@@ -91,16 +91,22 @@ function DiagnosisLine({ note }: { note: RecordNote }) {
 /**
  * The summary card (CLN-12; Frontend Specification principle 2, red flags and precautions first):
  * the current episode's open alerts and precautions, then its signed diagnosis and plan, the last
- * signed note and the next visit.
+ * signed note and the next visit. The session screen adds the programme phase (SES-02).
  */
 export function SummaryCard({
   patientId,
   summary,
   nextVisit,
+  phase,
+  empty = 'No episodes yet. Booking a consultation opens one.',
 }: {
   patientId: string;
   summary: PatientSummary | undefined;
   nextVisit: ClinicalRecord['nextVisit'];
+  /** The programme phase line, on the session screen. */
+  phase?: string;
+  /** What shows without an episode. */
+  empty?: string;
 }) {
   if (!summary) {
     return (
@@ -108,7 +114,7 @@ export function SummaryCard({
         <h2 id="summary" className="font-semibold text-ink">
           Summary
         </h2>
-        <p className="text-ink-muted">No episodes yet. Booking a consultation opens one.</p>
+        <p className="text-ink-muted">{empty}</p>
       </section>
     );
   }
@@ -144,6 +150,11 @@ export function SummaryCard({
         )}
       </div>
       <EpisodeHeading episode={episode} />
+      {phase ? (
+        <p className="text-sm text-ink-muted" data-testid="summary-phase">
+          {phase}
+        </p>
+      ) : null}
       {lastNote ? (
         <>
           <div className="flex flex-col gap-1" data-testid="summary-diagnosis">

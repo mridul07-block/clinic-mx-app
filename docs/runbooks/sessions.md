@@ -42,3 +42,47 @@ An appointment whose type is in `packages.session_appointment_types` (Session, Z
 | `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: a paid package episode's session checked in through the drawer, "Session 1 of 12, payment complete"; Today's tags; the physio starts it; an unpaid patient's session held at the gate with no Start session |
 
 **Negative check:** make `sessionGate` always met, and the Start session unit test fails.
+
+## Summary card (SES-02)
+
+Source: PRD J5.2 ("The treating physio sees a summary card from the signed plan; no AI sheet"). Decisions made by the user on 25 October 2026.
+
+### The session screen
+
+- **Where:** `/app/sessions/<appointmentId>` (`apps/web/app/(staff)/app/(signed-in)/sessions/[appointmentId]/page.tsx`). Start session redirects there once the gate is met, and My patients shows Open session on a session in progress. The session note (SES-03) goes under the card.
+- **What it is for:** appointments of a session type (`packages.session_appointment_types`). Any other appointment is not found.
+- **The heading:** the type, "Session n of N" (SES-01), the patient, OP number, time and centre.
+
+### The card
+
+The summary card of the appointment's own episode, built by `episodeSummary` in `apps/web/modules/patients/record.ts` (shared with the patient record, CLN-12):
+
+1. open red flag alerts and precautions first
+2. the episode, then "Phase: not set up yet" (DECISION SES-02; the phase stepper, OUT-04, replaces it)
+3. the signed diagnosis, the plan's goals, frequency, review, treating physio, interventions and home programme
+4. the last signed note and the next visit
+
+Nothing from the consultant's AI preparation sheet is read. Without an episode it says "Not part of an episode yet."
+
+### Who opens it
+
+| Who | What happens |
+| --- | --- |
+| The appointment's physio | Opens it |
+| The Super Admin | Reads it, marked "Read only: this is <physio>'s session." |
+| Another physio | Not found: row level security does not show them the appointment (cover between physios is SES-08) |
+| Anyone else who reads the appointment, Velyx support included | Not allowed |
+
+- **Server:** `loadSession` in `apps/web/modules/sessions/services.ts` checks `clinical.read` and the appointment's physio, and logs each open as a record view of the patient.
+- **Database:** `sessionVisit` (`packages/db/src/my-patients.ts`) and the card's reads run under the reader's row level security, so nobody outside the centre reads them.
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `apps/web/modules/sessions/services.test.ts` | the own physio gets the episode's card and the view is logged; another physio, support and the desk are refused; the Super Admin reads it; a consultation is not found; no card outside an episode |
+| `apps/web/modules/my-patients/services.test.ts` | Start session returns the session screen; Start consultation still opens the consultation |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (session check in) | the physio and the Super Admin read the visit; another physio at the centre and the desk at another centre do not |
+| `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: Start session lands on the screen with the card and the phase line, Open session opens it again, another physio gets not found and the desk Not allowed |
+
+**Negative check:** drop the own physio check in `loadSession`, and the "another physio" unit test fails; row level security still keeps another physio out in the database test and end to end.
