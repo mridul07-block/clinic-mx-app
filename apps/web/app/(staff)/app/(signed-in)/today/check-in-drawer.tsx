@@ -1,4 +1,5 @@
 import {
+  consentNotCheckedYet,
   formatIstDateTime,
   guardianRelationshipLabels,
   healthFormStateLabels,
@@ -131,6 +132,29 @@ export async function CheckInDrawer({
           </div>
         ) : null}
       </section>
+
+      {view.session ? (
+        // SES-01: the treatment session's number and its gate.
+        <section aria-labelledby="session" className="flex flex-col gap-2">
+          <h3 id="session" className="font-semibold text-ink">
+            Session
+          </h3>
+          {view.session.label ? (
+            <p data-testid="session-progress" className="text-ink">
+              {view.session.label}
+              {view.session.gate.met ? `, ${view.session.gate.message.toLowerCase()}` : ''}
+            </p>
+          ) : null}
+          {view.session.gate.met ? (
+            <p className="text-sm text-ink-muted">{consentNotCheckedYet}</p>
+          ) : (
+            <p data-testid="session-gate" className="flex flex-wrap items-center gap-2 text-sm">
+              <Tag tone="waiting">Gate blocked</Tag>
+              <span className="text-ink-secondary">{view.session.gate.message}</span>
+            </p>
+          )}
+        </section>
+      ) : null}
 
       {here ? (
         <section aria-labelledby="arrival" className="flex flex-col gap-3">

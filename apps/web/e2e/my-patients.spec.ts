@@ -69,7 +69,11 @@ test('the physio lands on their visits in time order, starts one, and sees a che
   // The desk checks the later patient in: it shows here without a reload.
   await checkedIn(laterVisit.id, desk.id);
   await expect(row(later.name)).toContainText(/Here \d+ min/, { timeout: 15_000 });
-  await expect(row(later.name).getByRole('button', { name: /^Start session/ })).toBeVisible();
+  // SES-01: a session outside any episode waits at the gate instead of offering Start session.
+  await expect(row(later.name).getByTestId('session-gate')).toHaveText(
+    'Gate blocked: Not part of an episode yet.',
+  );
+  await expect(row(later.name).getByRole('button', { name: /^Start session/ })).toHaveCount(0);
 
   // On the front desk's Today, the started one is with the physio.
   const deskPage = await (await browser.newContext()).newPage();

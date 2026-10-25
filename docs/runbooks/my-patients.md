@@ -51,6 +51,9 @@ Enforced twice. The database (migration `my_patients_today_rules`):
 | In progress always has `started_at` and `started_by` | Check `appointment_started` |
 | A physio reads the health form links and consents of their own appointments | Policies `patient_link_physio_read`, `consent_record_physio_read` |
 
+Start session waits for the session's gate, and a session row shows "Session n of N" (SES-01,
+`docs/runbooks/sessions.md`).
+
 ## Live
 
 The page polls `/app/my-patients/live?since=<version>` every `live.refresh_seconds` with the live

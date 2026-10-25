@@ -95,6 +95,9 @@ Database and access:
 - The `reports` bucket is private; only our server reaches it. Locally and in CI, `pnpm db:start`
   now runs Supabase's storage service.
 
+A treatment session's drawer has a Session section, and its row shows "Session n of N" once checked in
+or "Gate blocked" (SES-01, `docs/runbooks/sessions.md`).
+
 ## Walk in (INT-12)
 
 Decisions (user, 23 October 2026):

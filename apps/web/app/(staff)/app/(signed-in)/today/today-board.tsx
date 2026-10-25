@@ -1,6 +1,7 @@
 'use client';
 
 import type { TodayAppointment } from '@clinic-mx/db';
+import type { SessionView } from '@clinic-mx/schemas';
 import {
   formatRupees,
   inTodayFilter,
@@ -18,18 +19,21 @@ import { todayHref } from '../../../../../modules/front-desk/links';
 import { calendarHref } from '../../../../../modules/scheduling/links';
 import { shownStatus, shownStatusLabels, stripClass, timeOf } from '../calendar/calendar-block';
 
-const matches = (appointment: TodayAppointment, filter: TodayFilter | undefined) =>
+/** A Today row with its session (SES-01). */
+type TodayRow = TodayAppointment & { session: SessionView | null };
+
+const matches = (appointment: TodayRow, filter: TodayFilter | undefined) =>
   inTodayFilter(appointment.status, filter);
 
 type TodayJson = {
-  [K in keyof TodayAppointment]: TodayAppointment[K] extends Date
+  [K in keyof TodayRow]: TodayRow[K] extends Date
     ? string
-    : TodayAppointment[K] extends Date | null
+    : TodayRow[K] extends Date | null
       ? string | null
-      : TodayAppointment[K];
+      : TodayRow[K];
 };
 
-const revive = (a: TodayJson): TodayAppointment => ({
+const revive = (a: TodayJson): TodayRow => ({
   ...a,
   startsAt: new Date(a.startsAt),
   endsAt: new Date(a.endsAt),
@@ -63,7 +67,7 @@ export function TodayBoard({
   show,
   pricesPlans = false,
 }: {
-  initial: TodayAppointment[];
+  initial: TodayRow[];
   version: string;
   renderedAt: number;
   centreId: string;
@@ -223,6 +227,19 @@ export function TodayBoard({
                 <span className="col-start-2 row-start-2 flex flex-wrap items-center gap-2 md:col-start-3 md:row-start-1 md:justify-end">
                   {late ? <span className="text-sm text-waiting-strong">{late}</span> : null}
                   <Tag tone={toneByAppointmentStatus[status]}>{label}</Tag>
+                  {appointment.session?.label ? (
+                    // SES-01: the treatment session's number once checked in.
+                    <span data-testid="session-label">
+                      <Tag tone="outline">{appointment.session.label}</Tag>
+                    </span>
+                  ) : null}
+                  {appointment.session &&
+                  !appointment.session.gate.met &&
+                  ['booked', 'confirmed', 'checked_in'].includes(appointment.status) ? (
+                    <span data-testid="session-gate" title={appointment.session.gate.message}>
+                      <Tag tone="waiting">Gate blocked</Tag>
+                    </span>
+                  ) : null}
                   {appointment.consentDeclined ? (
                     // INT-06: the patient declined a Part A statement; reception speaks to them.
                     <Tag tone="danger">Consent declined</Tag>

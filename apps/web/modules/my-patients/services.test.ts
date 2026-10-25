@@ -12,6 +12,7 @@ const db = vi.hoisted(() => ({
   openConsultation: vi.fn(),
   startVisit: vi.fn(),
   myPatientsToday: vi.fn(),
+  sessionProgress: vi.fn(),
   contentVersion: vi.fn(() => 'v1'),
 }));
 const { NoKnowledgeVersionError } = vi.hoisted(() => ({
@@ -64,6 +65,12 @@ describe('my patients today', () => {
     );
     db.contentVersion.mockReturnValue('v1');
     db.startVisit.mockResolvedValue({ id: appointmentId });
+    // A session in an Active episode by default: its gate is met (SES-01).
+    db.sessionProgress.mockImplementation((_tx: unknown, ids: string[]) =>
+      Promise.resolve(
+        new Map(ids.map((id) => [id, { number: 1, planned: 12, episodeStatus: 'active' }])),
+      ),
+    );
   });
 
   it('lists the person’s own visits today, for those with the Treats patients tick', async () => {
@@ -90,6 +97,32 @@ describe('my patients today', () => {
       fakeTx,
       expect.objectContaining({ appointmentId, by: physio().id }),
     );
+  });
+
+  it('starts a session only once its gate is met (SES-01); consultations have none', async () => {
+    found(visit());
+    const progress = (episodeStatus: string | null) =>
+      db.sessionProgress.mockResolvedValueOnce(
+        new Map([[appointmentId, { number: 2, planned: 12, episodeStatus }]]),
+      );
+    progress('plan_proposed');
+    await expect(startVisit(context(), { appointmentId })).rejects.toThrow(
+      new SchedulingError('Consent and payment are needed before the first session.'),
+    );
+    progress('on_hold');
+    await expect(startVisit(context(), { appointmentId })).rejects.toThrow(
+      'The episode is On hold.',
+    );
+    progress(null);
+    await expect(startVisit(context(), { appointmentId })).rejects.toThrow(
+      'Not part of an episode yet.',
+    );
+    expect(db.startVisit).not.toHaveBeenCalled();
+    progress('under_review');
+    await expect(startVisit(context(), { appointmentId })).resolves.toEqual({});
+    // Not a session type: no progress, no gate.
+    db.sessionProgress.mockResolvedValueOnce(new Map());
+    await expect(startVisit(context(), { appointmentId })).resolves.toEqual({});
   });
 
   it('refuses someone else’s visit, one not checked in, one started, and another day', async () => {

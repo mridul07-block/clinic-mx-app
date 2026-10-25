@@ -19,7 +19,8 @@ import {
 import { addAddendum, consultationAddenda, signConsultation } from '../clinical-record';
 import { invoiceFacts } from '../invoice';
 import { packageRescheduleState, packagesOfEpisode, usePackageSession } from '../packages';
-import { changeAppointment } from '../slots';
+import { sessionProgress } from '../sessions';
+import { changeAppointment, checkIn, undoCheckIn } from '../slots';
 import { consultationSummaryFacts } from '../consultation-summary';
 import { consultationRecord, openConsultation } from '../consultations';
 import { insertEpisode } from '../episodes';
@@ -1764,6 +1765,102 @@ describe('counter payments', () => {
         await undoPayment(tx, { paymentId: paid, reason: 'Wrong package' });
         const session = await booked(tx, fixture, 'zero_gravity_treadmill');
         expect(await move(tx, session, 'patient')).toBeUndefined();
+      });
+    });
+  });
+
+  // SES-01: a checked in session is session n of the episode, in check in order, of the plan's
+  // planned sessions; the episode's status gives the gate.
+  describe('session check in', () => {
+    let minutes = 8 * 60;
+    let arrivals = 0;
+    /** A booked appointment of a type in the episode, today in IST from 08:00 on. */
+    const visitOf = async (
+      tx: Tx,
+      fixture: { patientId: string; episodeId: string; consultant: StaffMember },
+      key: string,
+    ) => {
+      await asOwner(tx);
+      minutes += 45;
+      const startsAt = istInstant(istDate(new Date()), minutes);
+      const [row] = await tx
+        .insert(appointment)
+        .values({
+          number: '',
+          patientId: fixture.patientId,
+          centreId: centreIds.hsrLayout,
+          physioId: fixture.consultant.id,
+          appointmentTypeId: await typeId(tx, key),
+          episodeId: fixture.episodeId,
+          machine: key === 'zero_gravity_treadmill' ? 'zero_gravity_treadmill' : null,
+          machineUnit: key === 'zero_gravity_treadmill' ? 1 : null,
+          startsAt,
+          endsAt: new Date(startsAt.getTime() + 30 * 60_000),
+          channel: 'front_desk',
+          bookedBy: deskHsr.id,
+        })
+        .returning({ id: appointment.id });
+      return row?.id ?? '';
+    };
+    const arrive = async (tx: Tx, appointmentId: string) => {
+      await asOwner(tx);
+      await becomeStaff(tx, deskHsr);
+      arrivals += 1;
+      await checkIn(tx, {
+        appointmentId,
+        by: deskHsr.id,
+        now: new Date(Date.now() + arrivals * 1000),
+      });
+    };
+    const read = async (tx: Tx, actor: StaffMember, ids: string[]) => {
+      await asOwner(tx);
+      await becomeStaff(tx, actor);
+      return sessionProgress(tx, ids);
+    };
+
+    it('numbers checked in sessions in order against the plan, and gives a number back on undo', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        await pay(tx, deskHsr, fixture.packageBillId);
+        const first = await visitOf(tx, fixture, 'session');
+        const second = await visitOf(tx, fixture, 'session');
+        const treadmill = await visitOf(tx, fixture, 'zero_gravity_treadmill');
+        const later = await visitOf(tx, fixture, 'session');
+        const review = await visitOf(tx, fixture, 'review');
+        for (const id of [first, second, treadmill, review]) await arrive(tx, id);
+        const ids = [first, second, treadmill, later, review, fixture.appointmentId];
+        const progress = await read(tx, deskHsr, ids);
+        expect(progress.get(first)).toEqual({ number: 1, planned: 12, episodeStatus: 'active' });
+        expect(progress.get(second)?.number).toBe(2);
+        expect(progress.get(treadmill)?.number).toBe(3);
+        expect(progress.get(later)).toEqual({ number: null, planned: 12, episodeStatus: 'active' });
+        expect(progress.has(review), 'a review is not a session').toBe(false);
+        expect(progress.has(fixture.appointmentId), 'nor a consultation').toBe(false);
+
+        // The second check in undone: its number goes to the treadmill visit.
+        await asOwner(tx);
+        await becomeStaff(tx, deskHsr);
+        await undoCheckIn(tx, { appointmentId: second, now: new Date() });
+        const after = await read(tx, deskHsr, ids);
+        expect(after.get(second)?.number).toBeNull();
+        expect(after.get(treadmill)?.number).toBe(2);
+
+        // The treating physio reads it too; the desk at another centre does not.
+        expect((await read(tx, fixture.consultant, [first])).get(first)?.number).toBe(1);
+        expect((await read(tx, deskKoramangala, ids)).size).toBe(0);
+      });
+    });
+
+    it('carries the episode status the gate is worked out from', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await billed(tx);
+        const session = await visitOf(tx, fixture, 'session');
+        await arrive(tx, session);
+        expect((await read(tx, deskHsr, [session])).get(session)).toEqual({
+          number: 1,
+          planned: 12,
+          episodeStatus: 'plan_proposed',
+        });
       });
     });
   });

@@ -4,12 +4,20 @@ import {
   contentVersion,
   myPatientsToday,
   openConsultation,
+  sessionProgress,
   startVisit as startVisitRow,
   visitToStart,
   type MyPatientVisit,
   type StaffMember,
 } from '@clinic-mx/db';
-import { can, istDate, startVisitSchema } from '@clinic-mx/schemas';
+import {
+  can,
+  istDate,
+  sessionGate,
+  sessionView,
+  startVisitSchema,
+  type SessionView,
+} from '@clinic-mx/schemas';
 import { assertMay } from '../access/guard';
 import { staffService } from '../access/service';
 import { asStaff } from '../access/staff-db';
@@ -24,9 +32,12 @@ import { SchedulingError, appointmentTarget } from '../scheduling/services';
  * October 2026). The session screen opens from Start session with SES-03.
  */
 
+/** A visit with, for a treatment session, its number and gate (SES-01). */
+export type MyPatientRow = MyPatientVisit & { session: SessionView | null };
+
 export interface MyPatientsView {
   date: string;
-  visits: MyPatientVisit[];
+  visits: MyPatientRow[];
   version: string;
 }
 
@@ -34,7 +45,14 @@ export interface MyPatientsView {
 export async function loadMyPatients(actor: StaffMember): Promise<MyPatientsView> {
   assertMay(actor, 'visits.start');
   const date = istDate(new Date());
-  const visits = await asStaff(actor, (tx) => myPatientsToday(tx, { staffId: actor.id, date }));
+  const visits = await asStaff(actor, async (tx) => {
+    const rows = await myPatientsToday(tx, { staffId: actor.id, date });
+    const progress = await sessionProgress(
+      tx,
+      rows.map((row) => row.id),
+    );
+    return rows.map((row) => ({ ...row, session: sessionView(progress.get(row.id)) }));
+  });
   return { date, visits, version: contentVersion(visits) };
 }
 
@@ -70,6 +88,12 @@ export const startVisit = staffService({
       throw new SchedulingError('Only a consultant starts a consultation.');
     }
     if (consulting && !found.episodeId) throw new SchedulingError(HEALTH_FORM_NEEDED);
+    // SES-01: a treatment session starts only once its gate is met.
+    const session = (await sessionProgress(tx, [found.id])).get(found.id);
+    if (session) {
+      const gate = sessionGate(session.episodeStatus);
+      if (!gate.met) throw new SchedulingError(gate.message);
+    }
     if (!(await startVisitRow(tx, { appointmentId: found.id, by: actor.id, now }))) {
       throw new SchedulingError('Check the patient in first.');
     }
