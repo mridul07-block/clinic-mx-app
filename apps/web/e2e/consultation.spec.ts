@@ -2,7 +2,7 @@ import { addDays, istDate, screeningItems } from '@clinic-mx/schemas';
 import { expect, test, type Page } from '@playwright/test';
 import { removeCalendarRows, startedAppointment } from './calendar';
 import { draftSections, savedConsultation, signedRows, submittedAnswers } from './consultations';
-import { removePipelineRows } from './intake';
+import { pipelineOf, removePipelineRows } from './intake';
 import { runDueJobs } from './jobs';
 import { checkedIn, consultationTypeId, submittedWithAlert } from './my-patients';
 import { testPatient } from './patients';
@@ -770,4 +770,85 @@ test('signing generates the consultation summary, and an addendum its next versi
   await signIn(deskPage, desk.email);
   expect((await deskPage.request.get(first)).status()).toBe(404);
   await context.close();
+});
+
+// CLN-11 and ALT-07 done when: a red flag found in the consultation is recorded in its category;
+// every category but Monitor with caution puts the episode On hold and generates the referral
+// letter (user decisions, 25 October 2026); the safety advice is queued for the WhatsApp tickets.
+test('a red flag found in the consultation holds the episode and generates the referral letter', async ({
+  page,
+  browser,
+}) => {
+  const { physio, patient, visit, desk } = await consultationToday({ submitted: true });
+  await submittedAnswers(visit.id, patient.id, {
+    region: 'knee',
+    sex: 'male',
+    complaint: 'Thigh pain at night',
+  });
+  await signInWithCode(page, physio.email, physio.secret);
+  await startConsultation(page, patient.name);
+  await expect(stepTitle(page)).toHaveText('Subjective');
+  const path = new URL(page.url()).pathname;
+  await page.goto(`${path}?section=screening`);
+
+  const found = page.getByTestId('red-flag-found');
+  await expect(found).toContainText('None recorded.');
+  await found.getByRole('button', { name: 'Red flag found' }).click();
+  await found.getByRole('radio', { name: /Urgent medical referral/ }).check();
+  await found.getByLabel('Red flags found').fill('Night pain and weight loss');
+  await found.getByRole('button', { name: 'Record and refer' }).click();
+  await expect(found.getByRole('alert')).toContainText('Say where the patient was referred.');
+  await found.getByLabel('Referred to').fill('Orthopaedic surgeon');
+  await found.getByLabel('Reason').fill('Constant night pain with 5 kg weight loss over 6 weeks.');
+  await found.getByLabel('Question for the specialist').fill('Please rule out a bony lesion.');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.screenshot({ path: test.info().outputPath('red-flag-form.png'), fullPage: true });
+  await found.getByRole('button', { name: 'Record and refer' }).click();
+  await expect(found.getByTestId('recorded-red-flag')).toHaveCount(1);
+  await expect(found).toContainText('Urgent medical referral · Referred to Orthopaedic surgeon');
+  await expect.poll(async () => (await pipelineOf(visit.id)).status).toBe('on_hold');
+
+  // The queue makes the letter, on the patient record's Documents tab.
+  await runDueJobs(page.request);
+  await page.goto(`/app/patients/${patient.id}?tab=documents`);
+  const documents = page.getByTestId('patient-documents');
+  await expect(documents).toContainText('Referral letter');
+  const href = (await documents.getByRole('link', { name: 'Open PDF' }).getAttribute('href')) ?? '';
+  const opened = await page.request.get(href);
+  expect(opened.status()).toBe(200);
+  expect(opened.headers()['content-disposition']).toBe('inline; filename="referral-letter-v1.pdf"');
+
+  // The front desk opens none of it.
+  const context = await browser.newContext(test.info().project.use);
+  const deskPage = await context.newPage();
+  await signIn(deskPage, desk.email);
+  expect((await deskPage.request.get(href)).status()).toBe(404);
+  await context.close();
+});
+
+test('Monitor with caution is recorded without holding the episode or a letter', async ({
+  page,
+}) => {
+  const { physio, patient, visit } = await consultationToday({ submitted: true });
+  await submittedAnswers(visit.id, patient.id, { region: 'knee', sex: 'male' });
+  await signInWithCode(page, physio.email, physio.secret);
+  await startConsultation(page, patient.name);
+  await expect(stepTitle(page)).toHaveText('Subjective');
+  const path = new URL(page.url()).pathname;
+  await page.goto(`${path}?section=screening`);
+  const found = page.getByTestId('red-flag-found');
+  await found.getByRole('button', { name: 'Red flag found' }).click();
+  await found.getByRole('radio', { name: /Monitor with caution/ }).check();
+  await expect(found.getByLabel('Referred to')).toHaveCount(0);
+  await found.getByLabel('Red flags found').fill('Mild night pain');
+  await found.getByRole('button', { name: 'Record red flag' }).click();
+  await expect(found).toContainText('Monitor with caution · Monitoring');
+  expect((await pipelineOf(visit.id)).status).not.toBe('on_hold');
+  await runDueJobs(page.request);
+  await page.goto(`/app/patients/${patient.id}?tab=documents`);
+  await expect(
+    page.getByText('Consultation summaries and letters appear here once they are generated.'),
+  ).toBeVisible();
 });

@@ -1,7 +1,14 @@
 import type { Db, StaffMember } from '@clinic-mx/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
-import { AlertError, closeAlert, emergencyBannersOf, referAlert, reviewAlert } from './services';
+import {
+  AlertError,
+  closeAlert,
+  emergencyBannersOf,
+  recordConsultationRedFlag,
+  referAlert,
+  reviewAlert,
+} from './services';
 
 const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
@@ -14,6 +21,8 @@ const db = vi.hoisted(() => ({
   openRedFlagAlerts: vi.fn(),
   recentlyClosedAlerts: vi.fn(),
   redFlagAlertsByIds: vi.fn(),
+  consultationRecord: vi.fn(),
+  insertConsultationRedFlag: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
 vi.mock('../access/staff-db', () => ({
@@ -38,6 +47,10 @@ const physio = (extra: Partial<StaffMember> = {}): StaffMember => ({
 });
 const context = (actor = physio()) => ({ db: {} as Db, actor });
 const alert = (status: string, centreId = hsr) => ({ id: alertId, status, episodeId, centreId });
+const letter = {
+  reason: 'Saddle numbness with a new bladder change',
+  question: 'Please assess for cauda equina syndrome.',
+};
 
 // ALT-01: clinicians move an alert raised, reviewed, referred, closed; refer holds the episode.
 describe('red flag alerts', () => {
@@ -78,11 +91,13 @@ describe('red flag alerts', () => {
   it('refers, putting the episode On hold unless it already is', async () => {
     db.alertForUpdate.mockResolvedValue(alert('reviewed'));
     db.episodeRecord.mockResolvedValue({ id: episodeId, status: 'awaiting_consultation' });
-    await referAlert(context(), { alertId, referredTo: ' Emergency department ' });
+    await referAlert(context(), { alertId, referredTo: ' Emergency department ', ...letter });
     expect(db.moveRedFlagAlert).toHaveBeenCalledWith(fakeTx, alertId, 'reviewed', {
       status: 'referred',
       referredBy: physio().id,
       referredTo: 'Emergency department',
+      referralReason: letter.reason,
+      referralQuestion: letter.question,
     });
     expect(db.updateEpisodeState).toHaveBeenCalledWith(
       fakeTx,
@@ -98,7 +113,7 @@ describe('red flag alerts', () => {
       status: 'on_hold',
       pausedFrom: 'awaiting_consultation',
     });
-    await referAlert(context(), { alertId, referredTo: 'Doctor' });
+    await referAlert(context(), { alertId, referredTo: 'Doctor', ...letter });
     expect(db.updateEpisodeState).not.toHaveBeenCalled();
   });
 
@@ -173,5 +188,103 @@ describe('red flag alerts', () => {
     ]) {
       expect(await emergencyBannersOf(actor)).toEqual([]);
     }
+  });
+});
+
+// CLN-11: a red flag found in the consultation, recorded by its consultant in one of the five
+// categories; every category but Monitor with caution is referred and holds the episode.
+describe('a red flag found in the consultation', () => {
+  const consultationId = '00000000-0000-4000-8000-000000000801';
+  const kbVersionId = '00000000-0000-4000-8000-000000000901';
+  const draft = (extra: Record<string, unknown> = {}) => ({
+    id: consultationId,
+    physioId: physio().id,
+    status: 'draft',
+    episodeId,
+    appointmentId,
+    kbVersionId,
+    centreId: hsr,
+    ...extra,
+  });
+
+  beforeEach(() => {
+    for (const fn of Object.values(db)) fn.mockReset();
+    db.withStaffAccess.mockImplementation(
+      (_db: Db, _context: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
+    );
+    db.moveRedFlagAlert.mockResolvedValue(true);
+    db.updateEpisodeState.mockResolvedValue(true);
+    db.insertConsultationRedFlag.mockResolvedValue(alertId);
+    db.episodeRecord.mockResolvedValue({ id: episodeId, status: 'awaiting_consultation' });
+  });
+
+  it('records, reviews and refers it, putting the episode On hold', async () => {
+    db.consultationRecord.mockResolvedValue(draft());
+    await recordConsultationRedFlag(context(), {
+      consultationId,
+      triage: 'urgent_medical_referral',
+      found: 'Night pain and weight loss',
+      referredTo: 'Orthopaedic surgeon',
+      ...letter,
+    });
+    expect(db.insertConsultationRedFlag).toHaveBeenCalledWith(fakeTx, {
+      episodeId,
+      appointmentId,
+      kbVersionId,
+      name: 'Night pain and weight loss',
+      triage: 'urgent_medical_referral',
+      display: 'review',
+      action: 'Same day physician / orthopaedic / neurosurgical review',
+    });
+    const moves = db.moveRedFlagAlert.mock.calls as unknown[][];
+    expect(moves.map((call) => [call[2], call[3]])).toEqual([
+      ['raised', { status: 'reviewed', reviewedBy: physio().id }],
+      [
+        'reviewed',
+        {
+          status: 'referred',
+          referredBy: physio().id,
+          referredTo: 'Orthopaedic surgeon',
+          referralReason: letter.reason,
+          referralQuestion: letter.question,
+        },
+      ],
+    ]);
+    expect(db.updateEpisodeState).toHaveBeenCalledWith(
+      fakeTx,
+      episodeId,
+      'awaiting_consultation',
+      expect.objectContaining({ status: 'on_hold' }),
+      undefined,
+    );
+  });
+
+  it('records Monitor with caution as reviewed only: no referral, no hold', async () => {
+    db.consultationRecord.mockResolvedValue(draft());
+    await recordConsultationRedFlag(context(), {
+      consultationId,
+      triage: 'monitor_with_caution',
+      found: 'Mild night pain',
+    });
+    expect(db.insertConsultationRedFlag).toHaveBeenCalledWith(
+      fakeTx,
+      expect.objectContaining({ triage: 'monitor_with_caution', display: 'information' }),
+    );
+    expect(db.moveRedFlagAlert).toHaveBeenCalledTimes(1);
+    expect(db.updateEpisodeState).not.toHaveBeenCalled();
+  });
+
+  it('is only for the consultant’s own draft', async () => {
+    for (const found of [draft({ physioId: 'someone else' }), draft({ status: 'signed' })]) {
+      db.consultationRecord.mockResolvedValue(found);
+      await expect(
+        recordConsultationRedFlag(context(), {
+          consultationId,
+          triage: 'monitor_with_caution',
+          found: 'Mild night pain',
+        }),
+      ).rejects.toThrow('Red flags are recorded on your own consultation, before signing.');
+    }
+    expect(db.insertConsultationRedFlag).not.toHaveBeenCalled();
   });
 });

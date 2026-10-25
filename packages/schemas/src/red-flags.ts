@@ -30,6 +30,23 @@ export const redFlagTriageLabels: Record<RedFlagTriage, string> = {
   monitor_with_caution: 'Monitor with caution',
 };
 
+/** What each category asks of the clinician, word for word from the framework's §2 table. */
+export const redFlagTriageActions: Record<RedFlagTriage, string> = {
+  immediate_emergency: 'Refer to A&E / ER immediately. Stop all physio.',
+  urgent_medical_referral: 'Same day physician / orthopaedic / neurosurgical review',
+  urgent_imaging: 'MRI / X-ray / blood investigations before physio continues',
+  specialist_referral: 'Neuro / Oncology / Rheumatology / Vascular referral',
+  monitor_with_caution: 'Reassess frequently; safety-net patient in writing',
+};
+
+/**
+ * Whether a red flag found in the consultation is referred (CLN-11, user decision 25 October
+ * 2026): every category but Monitor with caution puts the episode On hold with a referral letter.
+ */
+export function triageRefers(triage: RedFlagTriage): boolean {
+  return triage !== 'monitor_with_caution';
+}
+
 /**
  * How an alert shows (Frontend Specification "Alert tiers"): an emergency is the red banner that
  * stays until a clinician acknowledges it; a review is an amber tag and a task; information is a

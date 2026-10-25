@@ -322,6 +322,8 @@ export {
 } from './clinical';
 export {
   alertForUpdate,
+  consultationRedFlags,
+  insertConsultationRedFlag,
   moveRedFlagAlert,
   openEmergencies,
   openRedFlagAlerts,
@@ -329,6 +331,7 @@ export {
   redFlagAlertsByIds,
   type AlertForUpdate,
   type AlertMove,
+  type ConsultationRedFlagEntry,
   type OpenEmergency,
   type RedFlagAlertEntry,
 } from './red-flag-alerts';
@@ -391,3 +394,9 @@ export {
   consultationSummaryFacts,
   type ConsultationSummaryFacts,
 } from './consultation-summary';
+export {
+  RED_FLAG_SAFETY_ADVICE_JOB,
+  REFERRAL_LETTER_JOB,
+  referralLetterFacts,
+  type ReferralLetterFacts,
+} from './referral-letter';

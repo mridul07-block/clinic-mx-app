@@ -16,7 +16,8 @@ import {
   patientAlertHistory,
   signedNotesOf,
 } from '../patient-record';
-import { openRedFlagAlerts } from '../red-flag-alerts';
+import { insertConsultationRedFlag, moveRedFlagAlert, openRedFlagAlerts } from '../red-flag-alerts';
+import { referralLetterFacts } from '../referral-letter';
 import {
   appointment,
   auditEvent,
@@ -624,6 +625,136 @@ describe('the consultation summary', () => {
         },
         addenda: [],
       });
+    });
+  });
+});
+
+// CLN-11 and ALT-07: a red flag the consultant finds is an alert they raise on their own draft;
+// referring it queues the referral letter and the safety advice; Monitor with caution, the advice.
+describe('a red flag found in the consultation', () => {
+  const raise = (
+    tx: Tx,
+    values: { episodeId: string; appointmentId: string; kbVersionId: string },
+  ) =>
+    insertConsultationRedFlag(tx, {
+      ...values,
+      name: 'Night pain and weight loss',
+      triage: 'urgent_medical_referral',
+      display: 'review',
+      action: 'Same day physician / orthopaedic / neurosurgical review',
+    });
+  const kbOf = async (tx: Tx, consultationId: string) =>
+    (
+      await tx
+        .select({ id: consultation.kbVersionId })
+        .from(consultation)
+        .where(eq(consultation.id, consultationId))
+    )[0]?.id ?? '';
+  const jobsOf = (tx: Tx, alertId: string) =>
+    tx
+      .select({ key: job.idempotencyKey })
+      .from(job)
+      .where(sql`${job.payload} ->> 'alertId' = ${alertId}`)
+      .orderBy(job.idempotencyKey);
+
+  it('is raised by the consultant on their own draft only', async () => {
+    await rolledBack(async (tx) => {
+      const { consultant, colleague, consultationId, episodeId, appointmentId } = await setUp(tx);
+      await asOwner(tx);
+      const kbVersionId = await kbOf(tx, consultationId);
+      const values = { episodeId, appointmentId, kbVersionId };
+      for (const outsider of [colleague, deskHsr, superAdmin]) {
+        await asOwner(tx);
+        await becomeStaff(tx, outsider);
+        expect(await failure(tx, (sp) => raise(sp, values)), outsider.email).toBe('42501');
+      }
+      await asOwner(tx);
+      await becomeStaff(tx, consultant);
+      // Not with another rule's key, nor already moved on.
+      const direct = (extra: Partial<typeof redFlagAlert.$inferInsert>) =>
+        failure(tx, (sp) =>
+          sp.insert(redFlagAlert).values({
+            ...values,
+            ruleKey: 'everywhere.night_pain',
+            name: 'x',
+            triage: 'urgent_medical_referral',
+            display: 'review',
+            action: 'x',
+            signedOff: true,
+            ...extra,
+          }),
+        );
+      expect(await direct({})).toBe('42501');
+      expect(await direct({ ruleKey: 'consultation.x', status: 'referred' })).toBe('42501');
+      expect(await raise(tx, values)).toMatch(/^[0-9a-f-]{36}$/);
+    });
+  });
+
+  it('queues the referral letter and the safety advice once referred, and reads the letter', async () => {
+    await rolledBack(async (tx) => {
+      const { consultant, consultationId, episodeId, appointmentId, patientId } = await setUp(tx);
+      await asOwner(tx);
+      const kbVersionId = await kbOf(tx, consultationId);
+      await becomeStaff(tx, consultant);
+      const alertId = await raise(tx, { episodeId, appointmentId, kbVersionId });
+      await moveRedFlagAlert(tx, alertId, 'raised', {
+        status: 'reviewed',
+        reviewedBy: consultant.id,
+      });
+      await asOwner(tx);
+      expect(await jobsOf(tx, alertId)).toEqual([]);
+      expect(await referralLetterFacts(tx, alertId)).toBeUndefined();
+      await becomeStaff(tx, consultant);
+      await moveRedFlagAlert(tx, alertId, 'reviewed', {
+        status: 'referred',
+        referredBy: consultant.id,
+        referredTo: 'Orthopaedic surgeon',
+        referralReason: 'Night pain and weight loss over 6 weeks',
+        referralQuestion: 'Please rule out a bony lesion.',
+      });
+      await asOwner(tx);
+      expect((await jobsOf(tx, alertId)).map((row) => row.key)).toEqual([
+        `referral_letter:${alertId}`,
+        `whatsapp.red_flag_safety_advice:${alertId}`,
+      ]);
+      expect(await referralLetterFacts(tx, alertId)).toMatchObject({
+        patientId,
+        episodeId,
+        referral: {
+          found: 'Night pain and weight loss',
+          triage: 'urgent_medical_referral',
+          referredTo: 'Orthopaedic surgeon',
+          question: 'Please rule out a bony lesion.',
+        },
+        referrer: { name: consultant.name },
+        completedVisits: [],
+      });
+    });
+  });
+
+  it('queues only the safety advice for Monitor with caution', async () => {
+    await rolledBack(async (tx) => {
+      const { consultant, consultationId, episodeId, appointmentId } = await setUp(tx);
+      await asOwner(tx);
+      const kbVersionId = await kbOf(tx, consultationId);
+      await becomeStaff(tx, consultant);
+      const alertId = await insertConsultationRedFlag(tx, {
+        episodeId,
+        appointmentId,
+        kbVersionId,
+        name: 'Mild night pain',
+        triage: 'monitor_with_caution',
+        display: 'information',
+        action: 'Reassess frequently; safety-net patient in writing',
+      });
+      await moveRedFlagAlert(tx, alertId, 'raised', {
+        status: 'reviewed',
+        reviewedBy: consultant.id,
+      });
+      await asOwner(tx);
+      expect((await jobsOf(tx, alertId)).map((row) => row.key)).toEqual([
+        `whatsapp.red_flag_safety_advice:${alertId}`,
+      ]);
     });
   });
 });

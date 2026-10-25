@@ -7,7 +7,6 @@ import {
 } from '@clinic-mx/db';
 import {
   ageOn,
-  answerText,
   consultationSectionsSchema,
   documentCalendarDate,
   documentDate,
@@ -15,24 +14,22 @@ import {
   interventionLabels,
   irritabilityLabels,
   istDate,
-  lsiPercent,
-  measureResult,
-  measureStatusLabels,
   patientSexLabels,
-  specialTestResultLabels,
   stageLabels,
-  subjectiveAnswered,
-  subjectiveField,
-  subjectiveValue,
   summaryComplaintRows,
   summaryFrequency,
-  type KnowledgeMeasure,
-  type MeasureEntry,
 } from '@clinic-mx/schemas';
 import { z } from 'zod';
 import { systemService } from '../access/service';
 import { getSetting } from '../settings/settings';
-import { Fields, LetterheadDocument, Mono, Paragraph, Section, SignOff, Table } from './letterhead';
+import { LetterheadDocument, SignOff } from './letterhead';
+import {
+  SectionsBody,
+  examinationBlocks,
+  investigationLines,
+  sectionList,
+  type DocumentSection,
+} from './record-rows';
 import { generateDocument, type GeneratedDocument } from './services';
 
 /**
@@ -43,43 +40,7 @@ import { generateDocument, type GeneratedDocument } from './services';
  * precautions and modality reasons, sources, questionnaires and knowledge base text.
  */
 
-type Block =
-  | { kind: 'fields'; rows: [string, string][] }
-  | { kind: 'table'; columns: { label: string; align?: 'end' }[]; rows: string[][] }
-  | { kind: 'lines'; lines: string[] };
-
-export interface SummarySection {
-  heading: string;
-  blocks: Block[];
-}
-
-const number = (value: number) => String(Math.round(value * 10) / 10);
-
-/** What was measured, as recorded: both sides, or the one value, with the unit. */
-function recorded(measure: KnowledgeMeasure, entry: MeasureEntry): string {
-  const unit = measure.unit ? ` ${measure.unit}` : '';
-  if (entry.involved !== undefined || entry.uninvolved !== undefined) {
-    return [
-      entry.involved === undefined ? '' : `Involved ${number(entry.involved)}${unit}`,
-      entry.uninvolved === undefined ? '' : `uninvolved ${number(entry.uninvolved)}${unit}`,
-    ]
-      .filter(Boolean)
-      .join(', ');
-  }
-  return entry.value === undefined ? '' : `${number(entry.value)}${unit}`;
-}
-
-/** The workbook's result, as the Objective shows it: LSI or deficit, and its status in words. */
-function result(measure: KnowledgeMeasure, entry: MeasureEntry): string {
-  const found = measureResult(measure, entry);
-  return [
-    found.lsi === undefined ? '' : `LSI ${lsiPercent(found.lsi)}`,
-    found.deficit === undefined ? '' : `Deficit ${number(found.deficit)} ${measure.unit}`.trim(),
-    found.status ? measureStatusLabels[found.status] : '',
-  ]
-    .filter(Boolean)
-    .join(' · ');
-}
+export type SummarySection = DocumentSection;
 
 /** What the summary prints, section by section; tested without rendering. */
 export function summarySections(
@@ -88,13 +49,7 @@ export function summarySections(
 ): SummarySection[] {
   const sections = consultationSectionsSchema.parse(facts.sections);
   const visitDate = istDate(facts.visitStartsAt);
-  const out: SummarySection[] = [];
-  const add = (heading: string, ...blocks: Block[]) => {
-    const kept = blocks.filter((block) =>
-      block.kind === 'lines' ? block.lines.length > 0 : block.rows.length > 0,
-    );
-    if (kept.length > 0) out.push({ heading, blocks: kept });
-  };
+  const { out, add } = sectionList();
 
   const { patient } = facts;
   add('Patient details', {
@@ -116,42 +71,10 @@ export function summarySections(
     rows: summaryComplaintRows(sections.subjective.confirmed, facts.answers),
   });
 
-  const measures = Object.entries(sections.objective.measures).flatMap(([key, entry]) => {
-    const measure = facts.objectiveCatalog.measures.find((m) => m.key === key);
-    const shown = measure ? recorded(measure, entry) : '';
-    return measure && shown ? [[measure.name, shown, result(measure, entry)]] : [];
-  });
-  const tests = sections.objective.tests.flatMap((test) => {
-    const known = facts.objectiveCatalog.specialTests.find((t) => t.key === test.key);
-    return known && test.result && test.result !== 'not_tested'
-      ? [[known.test, specialTestResultLabels[test.result], test.interpretation.trim()]]
-      : [];
-  });
-  add(
-    'On examination',
-    {
-      kind: 'table',
-      columns: [{ label: 'Measure' }, { label: 'Recorded' }, { label: 'Result' }],
-      rows: measures,
-    },
-    {
-      kind: 'table',
-      columns: [{ label: 'Special test' }, { label: 'Result' }, { label: 'Interpretation' }],
-      rows: tests,
-    },
-  );
-
-  const investigated = subjectiveValue(
-    'investigations',
-    sections.subjective.confirmed,
-    facts.answers,
-  );
+  add('On examination', ...examinationBlocks(sections.objective, facts.objectiveCatalog));
   add('On investigation', {
     kind: 'lines',
-    lines:
-      investigated !== undefined && subjectiveAnswered(investigated)
-        ? [answerText(subjectiveField('investigations'), investigated)]
-        : [],
+    lines: investigationLines(sections.subjective.confirmed, facts.answers),
   });
 
   const { diagnosis } = facts;
@@ -238,30 +161,7 @@ export function ConsultationSummary({
       versionLabel={`Version ${String(version)}`}
       generatedAt={generatedAt}
     >
-      {summarySections(facts, printsCategory).map((section) => (
-        <Section key={section.heading} heading={section.heading}>
-          {section.blocks.map((block, index) => {
-            const key = [section.heading, index].join('-');
-            if (block.kind === 'lines') {
-              return block.lines.map((line) => (
-                <Paragraph key={[key, line].join('-')}>{line}</Paragraph>
-              ));
-            }
-            if (block.kind === 'table') {
-              return <Table key={key} columns={block.columns} rows={block.rows} />;
-            }
-            return (
-              <Fields
-                key={key}
-                rows={block.rows.map(([label, value]) => [
-                  label,
-                  label === 'OP number' ? <Mono key={label}>{value}</Mono> : value,
-                ])}
-              />
-            );
-          })}
-        </Section>
-      ))}
+      <SectionsBody sections={summarySections(facts, printsCategory)} />
       <SignOff
         name={facts.signer.name}
         credentials={facts.signer.credentials}

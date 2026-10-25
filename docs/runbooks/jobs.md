@@ -35,7 +35,10 @@ ALT-04; does nothing until the WhatsApp tickets); `documents.consultation_summar
 database on signing, key `consultation_summary:sign:<consultation id>`, and on each addendum,
 `consultation_summary:addendum:<addendum id>`; renders the summary's next version, recording the
 key on it so a rerun makes nothing; ALT-06); `whatsapp.consultation_summary` (queued on signing;
-does nothing until WA-06).
+does nothing until WA-06); `documents.referral_letter` (queued by the database when a red flag alert
+is referred, key `referral_letter:<alert id>`; renders the letter, keyed like the summary; ALT-07);
+`whatsapp.red_flag_safety_advice` (queued with each referral, and for Monitor with caution found
+in the consultation; does nothing until WA-06; CLN-11).
 
 End to end tests run the queue themselves: `apps/web/e2e/jobs.ts` posts to the tick with a test
 secret that `playwright.config.ts` gives the server.

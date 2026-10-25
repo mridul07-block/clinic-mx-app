@@ -12,6 +12,7 @@ import {
 import { testLink } from './patient-links';
 import { testPatient } from './patients';
 import { signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
+import { runDueJobs } from './jobs';
 
 // ALT-01 done when: alerts go raised, reviewed, referred, closed; the emergency banner stays until
 // a clinician acknowledges it; the front desk sees the non clinical banner. Decisions (user, 23
@@ -88,10 +89,29 @@ test('an emergency: the desk’s banner, the physio reviews, refers and closes, 
   await card.getByRole('button', { name: 'Refer' }).click();
   await expect(card.getByRole('alert')).toContainText('Say where the patient was referred.');
   await card.getByLabel('Referred to').fill('Emergency department');
+  // ALT-07: the referral letter's reason and question are asked for too.
+  await card.getByRole('button', { name: 'Refer' }).click();
+  await expect(card.getByRole('alert')).toContainText('Write the reason for the referral.');
+  await card.getByLabel('Reason').fill('Saddle numbness reported on the health form.');
+  await card.getByLabel('Question for the specialist').fill('Please assess for cauda equina.');
   await card.getByRole('button', { name: 'Refer' }).click();
   await expect(card).toHaveAttribute('data-status', 'referred');
   await expect(card).toContainText('Referred to Emergency department');
   expect((await pipelineOf(visit.id)).status).toBe('on_hold');
+
+  // The queue makes the referral letter, on the patient record's Documents tab.
+  await runDueJobs(page.request);
+  await page.goto(`/app/patients/${patient.id}?tab=documents`);
+  await expect(page.getByTestId('patient-documents')).toContainText('Referral letter');
+  const letter =
+    (await page
+      .getByTestId('patient-documents')
+      .getByRole('link', { name: 'Open PDF' })
+      .getAttribute('href')) ?? '';
+  const opened = await page.request.get(letter);
+  expect(opened.status()).toBe(200);
+  expect(opened.headers()['content-disposition']).toBe('inline; filename="referral-letter-v1.pdf"');
+  await page.goto('/app/alerts');
 
   await card.getByLabel('Decision').fill('Sent to the emergency department for an MRI.');
   await card.getByRole('button', { name: 'Close with decision' }).click();

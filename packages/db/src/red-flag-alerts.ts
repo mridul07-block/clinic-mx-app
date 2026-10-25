@@ -4,7 +4,7 @@ import type {
   RedFlagAlertStatus,
   RedFlagTriage,
 } from '@clinic-mx/schemas';
-import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, like, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { appointment, episode, patient, redFlagAlert, staffUser } from './schema';
 import type { DbOrTransaction } from './versioned';
@@ -182,7 +182,14 @@ export async function alertForUpdate(
 /** What a lifecycle move records; the trigger stamps the times. */
 export type AlertMove =
   | { status: 'reviewed'; reviewedBy: string }
-  | { status: 'referred'; referredBy: string; referredTo: string }
+  | {
+      status: 'referred';
+      referredBy: string;
+      referredTo: string;
+      /** The referral letter's reason and question (ALT-07); the trigger needs both. */
+      referralReason: string;
+      referralQuestion: string;
+    }
   | { status: 'closed'; closedBy: string; decision: string };
 
 /** Moves an alert if it is still in `from`; whether it moved. */
@@ -198,4 +205,63 @@ export async function moveRedFlagAlert(
     .where(and(eq(redFlagAlert.id, alertId), eq(redFlagAlert.status, from)))
     .returning({ id: redFlagAlert.id });
   return moved.length > 0;
+}
+
+/**
+ * A red flag the consultant found in the consultation (CLN-11), raised under row level security:
+ * only for their own draft, with a `consultation.` rule key; returns its id. The consultant then
+ * reviews it, and refers it unless it is Monitor with caution.
+ */
+export async function insertConsultationRedFlag(
+  tx: DbOrTransaction,
+  values: {
+    episodeId: string;
+    appointmentId: string;
+    kbVersionId: string;
+    name: string;
+    triage: RedFlagTriage;
+    display: AlertDisplay;
+    action: string;
+  },
+): Promise<string> {
+  const [row] = await tx
+    .insert(redFlagAlert)
+    .values({ ...values, ruleKey: `consultation.${crypto.randomUUID()}`, signedOff: true })
+    .returning({ id: redFlagAlert.id });
+  if (!row) throw new Error('The red flag was not recorded.');
+  return row.id;
+}
+
+/** A red flag recorded in a consultation, as its Screening step lists it (CLN-11). */
+export interface ConsultationRedFlagEntry {
+  id: string;
+  name: string;
+  triage: RedFlagTriage;
+  status: RedFlagAlertStatus;
+  referredTo: string | null;
+  raisedAt: Date;
+}
+
+/** The red flags recorded in a visit's consultation, oldest first. */
+export function consultationRedFlags(
+  db: DbOrTransaction,
+  appointmentId: string,
+): Promise<ConsultationRedFlagEntry[]> {
+  return db
+    .select({
+      id: redFlagAlert.id,
+      name: redFlagAlert.name,
+      triage: redFlagAlert.triage,
+      status: redFlagAlert.status,
+      referredTo: redFlagAlert.referredTo,
+      raisedAt: redFlagAlert.raisedAt,
+    })
+    .from(redFlagAlert)
+    .where(
+      and(
+        eq(redFlagAlert.appointmentId, appointmentId),
+        like(redFlagAlert.ruleKey, 'consultation.%'),
+      ),
+    )
+    .orderBy(asc(redFlagAlert.raisedAt));
 }

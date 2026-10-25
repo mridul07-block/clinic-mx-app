@@ -199,7 +199,9 @@ export {
   redFlagConditionSchema,
   redFlagRuleSchema,
   redFlagRulesSchema,
+  redFlagTriageActions,
   redFlagTriageLabels,
+  triageRefers,
   redFlagTriages,
   screeningQuestionKeys,
   screeningQuestions,
@@ -471,11 +473,13 @@ export {
   alertTransition,
   closeAlertSchema,
   referAlertSchema,
+  recordRedFlagSchema,
   reviewAlertSchema,
   type AlertEvent,
   type AlertTransition,
   type CloseAlertInput,
   type ReferAlertInput,
+  type RecordRedFlagInput,
 } from './red-flag-alerts';
 export {
   messageTemplate,

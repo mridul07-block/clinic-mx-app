@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { RedFlagAlertStatus } from './intake-submit';
-import type { AlertDisplay } from './red-flags';
+import { redFlagTriages, triageRefers, type AlertDisplay } from './red-flags';
 
 /**
  * A red flag alert's life (ALT-01, PRD M11, Blueprint: "Record the alert, clinician review,
@@ -62,14 +62,64 @@ const alertIdSchema = z.guid({ error: 'That alert was not found.' });
 
 export const reviewAlertSchema = z.object({ alertId: alertIdSchema });
 
-export const referAlertSchema = z.object({
-  alertId: alertIdSchema,
-  referredTo: z
-    .string()
-    .trim()
-    .min(1, { error: 'Say where the patient was referred.' })
-    .max(200, { error: 'Keep it under 200 characters.' }),
-});
+const referredTo = z
+  .string()
+  .trim()
+  .min(1, { error: 'Say where the patient was referred.' })
+  .max(200, { error: 'Keep it under 200 characters.' });
+/** Why, for the referral letter (CLN-11, ALT-07): the red flags found and the reasoning. */
+const reason = z
+  .string()
+  .trim()
+  .min(1, { error: 'Write the reason for the referral.' })
+  .max(1000, { error: 'Keep it under 1000 characters.' });
+/** What the specialist is asked (Frontend Specification section 11: the referral letter). */
+const question = z
+  .string()
+  .trim()
+  .min(1, { error: 'Write the question for the specialist.' })
+  .max(1000, { error: 'Keep it under 1000 characters.' });
+
+/** Refer (ALT-01): where to, and, for the referral letter (ALT-07), the reason and the question. */
+export const referAlertSchema = z.object({ alertId: alertIdSchema, referredTo, reason, question });
+
+/**
+ * A red flag the consultant finds in the consultation (CLN-11, user decision 25 October 2026): its
+ * category from the framework's five, what was found, and, for every category but Monitor with
+ * caution, the referral: where to, the reason and the question for the specialist.
+ */
+export const recordRedFlagSchema = z
+  .object({
+    consultationId: z.guid(),
+    triage: z.enum(redFlagTriages, { error: 'Choose the category.' }),
+    found: z
+      .string()
+      .trim()
+      .min(1, { error: 'Say which red flags were found.' })
+      .max(200, { error: 'Keep it under 200 characters.' }),
+    referredTo: z.string().trim().max(200).default(''),
+    reason: z.string().trim().max(1000).default(''),
+    question: z.string().trim().max(1000).default(''),
+  })
+  .superRefine((input, context) => {
+    if (!triageRefers(input.triage)) return;
+    for (const [field, schema] of [
+      ['referredTo', referredTo],
+      ['reason', reason],
+      ['question', question],
+    ] as const) {
+      const checked = schema.safeParse(input[field]);
+      if (!checked.success) {
+        context.addIssue({
+          code: 'custom',
+          path: [field],
+          message: checked.error.issues[0]?.message ?? 'Fill this in.',
+        });
+      }
+    }
+  });
+
+export type RecordRedFlagInput = z.output<typeof recordRedFlagSchema>;
 
 export const closeAlertSchema = z.object({
   alertId: alertIdSchema,

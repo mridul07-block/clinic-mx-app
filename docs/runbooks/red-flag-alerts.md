@@ -27,6 +27,27 @@ a closed alert never changes. The audit trail keeps every step ("Acknowledgement
 - **Close needs a written decision**, in free text. There is no fixed list until the client gives
   one.
 
+## Found in the consultation, and the referral (CLN-11, ALT-07)
+
+Decisions (user, 25 October 2026):
+
+- **Red flag found**, on the consultation's Screening step: the consultant records what they found
+  in one of the framework's five categories (its §2 action shown beside each). It becomes an alert
+  with a `consultation.<id>` rule key, raised by them under row level security
+  (`red_flag_alert_consultation_insert`: their own draft, at a centre they see, nothing of the
+  lifecycle set), then at once reviewed by them and, for every category but Monitor with caution,
+  referred: the episode goes On hold.
+- **Refer** (here or from the consultation) also asks the reason and the question for the
+  specialist; the lifecycle trigger refuses a referral without them. Both print on the referral
+  letter.
+- **What follows a referral**, queued by the database (`internal.red_flag_follow_up`): the referral
+  letter (`documents.referral_letter`, `docs/runbooks/documents.md`) and the WhatsApp safety
+  advice (`whatsapp.red_flag_safety_advice`, sent with WA-06). Monitor with caution found in the
+  consultation queues the safety advice only.
+- **The letter** is generated at the referral, from the consultation as it stood, or from the
+  health form before any consultation; signing does not change it. It is printed from the
+  patient record; the shareable link waits for the client (DECISION ALT-07).
+
 ## Who sees what
 
 | Role | Alerts (`/app/alerts`) | Banner | Acts |

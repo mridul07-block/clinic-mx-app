@@ -1054,6 +1054,8 @@ describe('red flag alerts after they are raised', () => {
           status: 'referred',
           referredBy: physio.id,
           referredTo: 'Emergency department',
+          referralReason: 'Saddle numbness with a new bladder change',
+          referralQuestion: 'Please assess for cauda equina syndrome.',
         }),
       ).toBe(true);
       expect(
@@ -1105,6 +1107,16 @@ describe('red flag alerts after they are raised', () => {
       expect(await set({ status: 'referred', referredBy: physio.id, referredTo: '  ' })).toBe(
         '23514',
       );
+      // ALT-07: a referral needs the letter's reason and question.
+      expect(
+        await set({
+          status: 'referred',
+          referredBy: physio.id,
+          referredTo: 'Emergency department',
+          referralReason: 'Saddle numbness',
+          referralQuestion: ' ',
+        }),
+      ).toBe('23514');
       expect(await set({ status: 'closed', closedBy: physio.id, decision: '' })).toBe('23514');
       expect(
         await set({ status: 'closed', closedBy: physio.id, decision: 'Seen; safe.' }),

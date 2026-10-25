@@ -1,25 +1,33 @@
 import 'server-only';
 import {
   alertForUpdate,
+  consultationRecord,
+  consultationRedFlags,
   episodeRecord,
+  insertConsultationRedFlag,
   moveRedFlagAlert,
   openEmergencies,
   openRedFlagAlerts,
   recentlyClosedAlerts,
   redFlagAlertsByIds,
   type AlertMove,
+  type ConsultationRedFlagEntry,
   type RedFlagAlertEntry,
   type StaffMember,
 } from '@clinic-mx/db';
 import {
+  alertDisplay,
   alertOrder,
   alertTransition,
   can,
   closeAlertSchema,
   episodeTransition,
   istDate,
+  recordRedFlagSchema,
+  redFlagTriageActions,
   referAlertSchema,
   reviewAlertSchema,
+  triageRefers,
   type AlertEvent,
 } from '@clinic-mx/schemas';
 import { assertMay } from '../access/guard';
@@ -137,7 +145,19 @@ export const reviewAlert = staffService({
   },
 });
 
-/** Refer: where the patient was sent; the episode goes On hold unless it already is. */
+/** A referral puts the episode On hold (PRD J3.10), unless it already is. */
+async function holdEpisode(tx: ServiceTransaction, episodeId: string) {
+  const current = await episodeRecord(tx, episodeId);
+  if (current && episodeTransition(current, 'hold').ok) {
+    await changeEpisodeStatus(tx, episodeId, 'hold');
+  }
+}
+
+/**
+ * Refer: where the patient was sent, and for the referral letter (ALT-07) the reason and the
+ * question for the specialist; the episode goes On hold. The database queues the letter and the
+ * safety advice.
+ */
 export const referAlert = staffService({
   action: 'red_flags.act',
   input: referAlertSchema,
@@ -147,13 +167,71 @@ export const referAlert = staffService({
       status: 'referred',
       referredBy: actor.id,
       referredTo: input.referredTo,
+      referralReason: input.reason,
+      referralQuestion: input.question,
     });
-    const current = await episodeRecord(tx, alert.episodeId);
-    if (current && episodeTransition(current, 'hold').ok) {
-      await changeEpisodeStatus(tx, alert.episodeId, 'hold');
-    }
+    await holdEpisode(tx, alert.episodeId);
   },
 });
+
+/** The consultation's centre, for the permission check; refused when it is not there to read. */
+async function consultationCentre(tx: ServiceTransaction, consultationId: string) {
+  const found = await consultationRecord(tx, consultationId);
+  if (!found) throw new AlertError('That consultation was not found.');
+  return { centreId: found.centreId };
+}
+
+/**
+ * A red flag the consultant found in the consultation (CLN-11, PRD J3.10; user decisions 25
+ * October 2026): recorded as an alert in the framework's category, reviewed by them at once, and,
+ * for every category but Monitor with caution, referred with the letter's reason and question,
+ * putting the episode On hold. The database queues the referral letter and the safety advice
+ * (Monitor with caution: the safety advice only). Only on their own draft.
+ */
+export const recordConsultationRedFlag = staffService({
+  action: 'red_flags.act',
+  input: recordRedFlagSchema,
+  target: (input, tx) => consultationCentre(tx, input.consultationId),
+  run: async (tx, input, actor) => {
+    const found = await consultationRecord(tx, input.consultationId);
+    if (!found || found.physioId !== actor.id || found.status !== 'draft') {
+      throw new AlertError('Red flags are recorded on your own consultation, before signing.');
+    }
+    const alertId = await insertConsultationRedFlag(tx, {
+      episodeId: found.episodeId,
+      appointmentId: found.appointmentId,
+      kbVersionId: found.kbVersionId,
+      name: input.found,
+      triage: input.triage,
+      display: alertDisplay(input.triage),
+      action: redFlagTriageActions[input.triage],
+    });
+    await moveRedFlagAlert(tx, alertId, 'raised', { status: 'reviewed', reviewedBy: actor.id });
+    if (triageRefers(input.triage)) {
+      await moveRedFlagAlert(tx, alertId, 'reviewed', {
+        status: 'referred',
+        referredBy: actor.id,
+        referredTo: input.referredTo,
+        referralReason: input.reason,
+        referralQuestion: input.question,
+      });
+      await holdEpisode(tx, found.episodeId);
+    }
+    return { alertId };
+  },
+});
+
+/** The red flags recorded in a consultation, for its Screening step (CLN-11). */
+export async function consultationRedFlagsOf(
+  actor: StaffMember,
+  consultationId: string,
+): Promise<ConsultationRedFlagEntry[]> {
+  if (!can(actor, 'red_flags.view')) return [];
+  return asStaff(actor, async (tx) => {
+    const found = await consultationRecord(tx, consultationId);
+    return found ? consultationRedFlags(tx, found.appointmentId) : [];
+  });
+}
 
 /** Close with the clinician's written decision. */
 export const closeAlert = staffService({

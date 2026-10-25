@@ -58,6 +58,9 @@ export const redFlagAlert = pgTable(
     referredTo: text('referred_to'),
     referredBy: uuid('referred_by').references(() => staffUser.id),
     referredAt: timestamp('referred_at', { withTimezone: true }),
+    /** For the referral letter (ALT-07): why, and what the specialist is asked. */
+    referralReason: text('referral_reason'),
+    referralQuestion: text('referral_question'),
     decision: text('decision'),
     closedBy: uuid('closed_by').references(() => staffUser.id),
     closedAt: timestamp('closed_at', { withTimezone: true }),
