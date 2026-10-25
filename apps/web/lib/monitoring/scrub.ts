@@ -23,8 +23,9 @@ const replacements: readonly (readonly [RegExp, (match: string) => string])[] = 
   [/[\w.+-]+@[\w-]+\.[\w.-]+/g, () => SCRUBBED],
   [/\bMVH-\d+\b/gi, () => SCRUBBED],
   [/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, () => SCRUBBED],
-  // Link tokens and keys: long runs of letters and digits that hold at least one digit.
-  [/(?=[\w-]*\d)[\w-]{20,}/g, () => SCRUBBED],
+  // Link tokens and keys: long runs of letters and digits that hold a digit, or longer ones that
+  // mix upper and lower case (a random token may hold no digit at all; plain words rarely mix).
+  [/(?=[\w-]*\d)[\w-]{20,}|(?=[\w-]*[a-z])(?=[\w-]*[A-Z])[\w-]{24,}/g, () => SCRUBBED],
   // Phone numbers: 10 or more digits, with or without +91, spaces or dashes between them.
   [/\+?\d[\d\s-]{8,}\d/g, (match) => (match.replace(/\D/g, '').length >= 10 ? SCRUBBED : match)],
 ];
@@ -34,7 +35,7 @@ export function scrubText(text: string): string {
 }
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const tokenLike = /^(?=[\w.-]*\d)[\w.-]{16,}$/;
+const tokenLike = /^(?:(?=[\w.-]*\d)[\w.-]{16,}|(?=[\w.-]*[a-z])(?=[\w.-]*[A-Z])[\w.-]{24,})$/;
 
 /**
  * Keeps the place, never what was in the address: no query or fragment, ids and tokens replaced.

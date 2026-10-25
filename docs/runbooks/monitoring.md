@@ -31,7 +31,10 @@ Rule 12. Two layers:
      tokens `[token]`, so a patient link is `/p/[token]`.
    - Error and message text loses quoted values, email addresses, phone numbers (10 or more
      digits), patient numbers, ids, tokens, Postgres `Key (...)=(...)` values and everything after
-     a failed query's `params:`. The error's type and stack remain.
+     a failed query's `params:`. The error's type and stack remain. A token is a run of 20 or more
+     letters, digits, `-` and `_` holding a digit, or of 24 or more mixing upper and lower case (a
+     random token may hold no digit: a test met one on 25 October 2026); long snake_case words
+     stay.
    - Console breadcrumbs are dropped; request breadcrumbs keep only the scrubbed address, method and
      status.
    - A name in free text cannot be told from other words, so code never writes a patient's name

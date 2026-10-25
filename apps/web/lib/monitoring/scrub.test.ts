@@ -52,6 +52,18 @@ describe('scrubText', () => {
     expect(scrubText('Cannot read properties of undefined')).toBe(
       'Cannot read properties of undefined',
     );
+    expect(scrubText('failed in document_generation_handler_for_invoices')).toBe(
+      'failed in document_generation_handler_for_invoices',
+    );
+  });
+
+  it('removes a link token that holds no digit (1 in about 250 random 32 character tokens)', () => {
+    // A generated value, not a real link: base64url letters, dash and underscore, no digit.
+    const token = 'BBhgYtHMRUsRxnl_gjQcUHFyjEbcJbrS';
+    expect(scrubText(`bad link ${token}`)).toBe('bad link [scrubbed]');
+    expect(scrubUrl(`https://clinic.example/app/documents/${token}`)).toBe(
+      'https://clinic.example/app/documents/[token]',
+    );
   });
 });
 
