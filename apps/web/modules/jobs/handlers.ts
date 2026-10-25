@@ -2,7 +2,9 @@ import {
   CONSULTATION_SUMMARY_JOB,
   CONSULTATION_SUMMARY_MESSAGE_JOB,
   INTAKE_SUBMITTED_JOB,
+  INVOICE_JOB,
   NO_SHOW_MESSAGE_JOB,
+  RECEIPT_JOB,
   RED_FLAG_SAFETY_ADVICE_JOB,
   REFERRAL_LETTER_JOB,
   THINK_ABOUT_IT_FOLLOW_UP_JOB,
@@ -13,6 +15,7 @@ import {
 import { z } from 'zod';
 import { followUpThinkAboutIt } from '../billing/plan-choice';
 import { generateConsultationSummary } from '../documents/consultation-summary';
+import { generateInvoice } from '../documents/invoice';
 import { generateReferralLetter } from '../documents/referral-letter';
 import { AI_PREPARATION_SHEET_JOB, processIntakeSubmission } from '../intake/pipeline';
 
@@ -117,6 +120,27 @@ export const jobHandlers: JobHandlers = {
    */
   [THINK_ABOUT_IT_MESSAGE_JOB]: defineJob({
     payload: z.object({ choiceId: z.guid() }),
+    run: () => Promise.resolve(),
+  }),
+  /**
+   * The invoice and receipt PDF (BIL-09), queued by the database when a payment is recorded, and
+   * again when it is undone (that version prints it as cancelled). The job's own key marks the
+   * version it makes.
+   */
+  [INVOICE_JOB]: defineJob({
+    payload: z.object({ paymentId: z.guid() }),
+    run: async ({ paymentId }, { db, job }) => {
+      await generateInvoice(db, paymentId, job.idempotencyKey ?? [INVOICE_JOB, job.id].join(':'));
+    },
+  }),
+  /**
+   * The WhatsApp receipt (BIL-09, PRD J4.7), queued with each payment. Nothing is sent yet: the
+   * WhatsApp tickets fill this in, and the sender must skip a payment since undone, then send the
+   * newest invoice with the `receipt` template (retrying until it is made). Until then the job
+   * completes without sending.
+   */
+  [RECEIPT_JOB]: defineJob({
+    payload: z.object({ paymentId: z.guid() }),
     run: () => Promise.resolve(),
   }),
 };

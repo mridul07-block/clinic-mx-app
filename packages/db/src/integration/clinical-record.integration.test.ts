@@ -1,5 +1,5 @@
 import { addDays, istDate, istInstant, type SignedRows } from '@clinic-mx/schemas';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
@@ -11,6 +11,7 @@ import {
   undoPayment,
 } from '../bills';
 import { addAddendum, consultationAddenda, signConsultation } from '../clinical-record';
+import { invoiceFacts } from '../invoice';
 import { consultationSummaryFacts } from '../consultation-summary';
 import { consultationRecord, openConsultation } from '../consultations';
 import { insertEpisode } from '../episodes';
@@ -1352,6 +1353,67 @@ describe('counter payments', () => {
         .where(and(eq(bill.episodeId, episodeId), eq(bill.kind, 'package')));
       await pay(tx, deskHsr, packageBill?.id ?? '');
       expect(await statusOf(tx, episodeId)).toBe('active');
+    });
+  });
+
+  it('numbers each payment’s invoice in the centre’s own series and queues its PDF and receipt', async () => {
+    await rolledBack(async (tx) => {
+      const first = await billed(tx);
+      const second = await billed(tx);
+      const one = await pay(tx, deskHsr, first.feeBillId, 'UPI-1');
+      const two = await pay(tx, deskHsr, second.feeBillId);
+      await asOwner(tx);
+      const numbers = await tx
+        .select({ id: payment.id, invoice: payment.invoiceNumber })
+        .from(payment)
+        .where(inArray(payment.id, [one, two]));
+      const invoiceOf = (id: string) => numbers.find((row) => row.id === id)?.invoice ?? '';
+      expect(invoiceOf(one)).toMatch(/^HSR-INV-\d{5}$/);
+      expect(Number(invoiceOf(two).slice(-5))).toBe(Number(invoiceOf(one).slice(-5)) + 1);
+      const queued = async (paymentId: string) =>
+        (
+          await tx
+            .select({ kind: job.kind, key: job.idempotencyKey })
+            .from(job)
+            .where(sql`${job.payload} ->> 'paymentId' = ${paymentId}`)
+        )
+          .map((row) => [row.kind, row.key].join(' '))
+          .sort();
+      expect(await queued(one)).toEqual([
+        `documents.invoice invoice:${one}`,
+        `whatsapp.receipt receipt:${one}`,
+      ]);
+
+      expect(await invoiceFacts(tx, one)).toMatchObject({
+        invoiceNumber: invoiceOf(one),
+        billKind: 'consultation',
+        centreId: centreIds.hsrLayout,
+        lines: [{ description: 'Consultation', quantity: 1, unitPaise: 75000, amountPaise: 75000 }],
+        totalPaise: 75000,
+        method: 'upi',
+        reference: 'UPI-1',
+        receivedBy: deskHsr.name,
+        package: null,
+        undone: null,
+      });
+
+      // Undone: the invoice is queued again (printed cancelled); paying again gets a new number.
+      await becomeStaff(tx, deskHsr);
+      await undoPayment(tx, { paymentId: one, reason: 'Wrong patient' });
+      await asOwner(tx);
+      expect(await queued(one)).toEqual([
+        `documents.invoice invoice:${one}`,
+        `documents.invoice invoice:undo:${one}`,
+        `whatsapp.receipt receipt:${one}`,
+      ]);
+      expect((await invoiceFacts(tx, one))?.undone?.reason).toBe('Wrong patient');
+      const again = await pay(tx, deskHsr, first.feeBillId);
+      await asOwner(tx);
+      const [fresh] = await tx
+        .select({ invoice: payment.invoiceNumber })
+        .from(payment)
+        .where(eq(payment.id, again));
+      expect(Number(fresh?.invoice?.slice(-5))).toBe(Number(invoiceOf(two).slice(-5)) + 1);
     });
   });
 

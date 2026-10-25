@@ -64,6 +64,26 @@ PRD J4.6 and J4.7. Decisions made by the user on 25 October 2026.
 
 **Enforced:** staff have no INSERT, UPDATE or DELETE on `payment`. The functions `internal.record_payment` and `internal.undo_payment` (security definer, `supabase/migrations/20261025111438_payments_rules.sql`) check that the person takes payment at the bill's centre (`internal.collects_at`; never Velyx support). The services `recordBillPayment` and `undoBillPayment` (`apps/web/modules/billing/payments.ts`) check `bills.create_and_collect` there too.
 
+## Invoices and receipts (BIL-09)
+
+Frontend Specification §11, TAD §9 and PRD J4.7. Decisions made by the user on 25 October 2026.
+
+- **Numbers:** recording a payment gives it the centre's next invoice number, for example `HSR-INV-00001`. This series is separate from bill numbers (`centre_sequence` kind `invoice`), so invoices run without gaps whatever bills were cancelled. A number is never given to another payment. Paying again after an undo gets a fresh number.
+- **The PDF:** the same transaction queues `documents.invoice`, and the job makes the "Invoice and receipt" PDF on the centre's letterhead (`apps/web/modules/documents/invoice.tsx`). It shows:
+  - the invoice and bill numbers, the date and the centre
+  - the patient (name, OP number)
+  - the items with quantity, price and amount, and the total
+  - how it was paid (method, reference, amount, when, received by)
+  - for a package: its name, sessions and "Valid until 28 Feb 2027 (3 months from payment)". The expiry runs from the payment date with `packages.validity_months`, falling on the month's last day when needed (`packageValidUntil`); BIL-08 uses the same rule.
+- **Left out for now:** discounts (BIL-07), tax (decision 17) and legal details (DECISION ALT-05).
+- **Undo:** undoing the payment queues the invoice again. Version 2 opens with "Cancelled: the payment was undone on <date>. <reason>".
+- **Receipt:** `whatsapp.receipt` is queued with each payment and sends nothing until WhatsApp exists. Its sender must skip a payment since undone and send the newest invoice.
+- **Where:**
+  - a paid bill on the sheet links "Invoice HSR-INV-00001 (PDF)", or says it is being made until the job runs
+  - those who see amounts without clinical access find "Invoices" on the patient record's Overview
+  - the Super Admin finds it on the Documents tab
+  - it opens from our domain for those who see amounts at its centre (`docs/runbooks/documents.md`)
+
 ## Tests
 
 | Test | Covers |
@@ -73,6 +93,9 @@ PRD J4.6 and J4.7. Decisions made by the user on 25 October 2026.
 | `packages/db/src/integration/clinical-record.integration.test.ts` (counter payments) | the whole total as the desk, once; another centre, the manager, a physio and support refused; no direct insert, change or delete; Active for a paid package, per session with the fee paid in either order, never while thinking about it; undone on its day with a reason, not by another centre and not the next day |
 | `apps/web/modules/billing/payments.test.ts` | the method and the trimmed reference, never an amount; already paid; yesterday's payment; no method; another centre and a physio refused |
 | `apps/web/e2e/payments.spec.ts` | 360 px and desktop: no method refused; the package paid by UPI with its reference makes the episode Active; the fee paid by cash clears Today's tag; undone with a reason; nothing for the desk at another centre |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (counter payments) | invoice numbers in the centre's own series, consecutive and fresh after an undo; the invoice and receipt jobs per payment and the invoice again on undo; the invoice's facts |
+| `apps/web/modules/documents/invoice.test.tsx` | the numbers, patient, items and payment; the package's expiry at month end; a consultation by cash without a reference; no tax or discount; the cancelled notice; the PDF; keyed, never twice |
+| `apps/web/e2e/invoices.spec.ts` | 360 px and desktop: paid, the invoice is being made, then after the tick its link opens a PDF; listed under Invoices; undone, version 2 after the tick; the desk at another centre cannot open it |
 | `apps/web/e2e/bills.spec.ts` | 360 px and desktop: "Unpaid ₹750" on Today; the fee bill on the sheet; a package billed then cancelled; a physio refused; no bills for the desk at another centre; no fee set, then made after the fee is set (Senior, ₹1,000) |
 
-**Negative checks:** let `make_consultation_bill` bill every visit type, and the "bills nothing but a consultation" database test fails; let `activate_if_paid` activate on a paid fee whatever the choice, and the "moves the episode to Active" database test fails.
+**Negative checks:** let `make_consultation_bill` bill every visit type, and the "bills nothing but a consultation" database test fails; let `activate_if_paid` activate on a paid fee whatever the choice, and the "moves the episode to Active" database test fails; drop the invoice job from `undo_payment`, and the invoice numbering database test fails.

@@ -32,6 +32,10 @@ export interface PaymentEntry {
   recordedAt: Date;
   /** Recorded today in IST: it may still be undone at the desk. */
   undoable: boolean;
+  /** Its invoice's number (BIL-09); null for payments from before invoices. */
+  invoiceNumber: string | null;
+  /** Its invoice PDF's newest version, once the job has made it. */
+  invoiceDocumentId: string | null;
 }
 
 /** An episode's bills, newest first, with their lines. */
@@ -77,6 +81,12 @@ export async function billsOfEpisode(db: DbOrTransaction, episodeId: string): Pr
       recordedAt: payment.recordedAt,
       undoable: sql<boolean>`(${payment.recordedAt} at time zone 'Asia/Kolkata')::date
         = (now() at time zone 'Asia/Kolkata')::date`,
+      invoiceNumber: payment.invoiceNumber,
+      invoiceDocumentId: sql<string | null>`(
+        select d.id from document d
+        where d.kind = 'invoice_receipt' and d.source_id = ${payment.id}
+        order by d.version desc limit 1
+      )`,
     })
     .from(payment)
     .leftJoin(staffUser, eq(staffUser.id, payment.recordedBy))
@@ -105,8 +115,17 @@ export async function billsOfEpisode(db: DbOrTransaction, episodeId: string): Pr
 
 function paymentOf(row: (PaymentEntry & { billId: string }) | undefined): PaymentEntry | null {
   if (!row) return null;
-  const { id, method, amountPaise, reference, recordedByName, recordedAt, undoable } = row;
-  return { id, method, amountPaise, reference, recordedByName, recordedAt, undoable };
+  return {
+    id: row.id,
+    method: row.method,
+    amountPaise: row.amountPaise,
+    reference: row.reference,
+    recordedByName: row.recordedByName,
+    recordedAt: row.recordedAt,
+    undoable: row.undoable,
+    invoiceNumber: row.invoiceNumber,
+    invoiceDocumentId: row.invoiceDocumentId,
+  };
 }
 
 /** The episode's consultation visit as billing sees it: who consulted, their fee, its bill. */
