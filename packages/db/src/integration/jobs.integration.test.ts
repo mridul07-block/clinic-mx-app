@@ -13,9 +13,11 @@ const url = process.env.DIRECT_DATABASE_URL;
 if (!url) throw new Error('DIRECT_DATABASE_URL is not set.');
 const first = createDb(url, { max: 1 });
 const second = createDb(url, { max: 1 });
+const third = createDb(url, { max: 1 });
+const fourth = createDb(url, { max: 1 });
 
 afterAll(async () => {
-  await Promise.all([first.close(), second.close()]);
+  await Promise.all([first.close(), second.close(), third.close(), fourth.close()]);
 });
 
 beforeEach(async () => {
@@ -78,6 +80,21 @@ describe('claimJobs', () => {
     expect(other).toHaveLength(10);
     const ids = new Set([...held, ...other].map((j) => j.id));
     expect(ids.size).toBe(20);
+  });
+
+  it('never claims more than its limit, nor a job twice, however many ticks overlap', async () => {
+    // Four ticks at once, each on its own connection, outside any transaction, round after round.
+    for (let round = 0; round < 10; round += 1) {
+      await first.db.delete(job);
+      await due('test.ok', 30);
+      const claims = await Promise.all(
+        [first, second, third, fourth].map(({ db }) => claimJobs(db, 10)),
+      );
+      for (const claim of claims) expect(claim.length).toBeLessThanOrEqual(10);
+      const ids = claims.flat().map((claimed) => claimed.id);
+      expect(new Set(ids).size, `round ${String(round)}`).toBe(ids.length);
+      expect(ids.length, `round ${String(round)}`).toBe(30);
+    }
   });
 
   it('leaves jobs that are not due yet', async () => {

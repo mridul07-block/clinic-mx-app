@@ -47,26 +47,42 @@ export async function enqueueJob(db: DbOrTransaction, options: EnqueueOptions) {
 
 /**
  * Claims up to `limit` due jobs for this tick. FOR UPDATE SKIP LOCKED lets ticks that overlap
- * take different jobs instead of waiting for or repeating each other's.
+ * take different jobs instead of waiting for or repeating each other's. The due ids are read
+ * first, then only those still queued are marked running: in one `update ... where id in
+ * (select ... skip locked)` statement Postgres may run the select again while re-checking a row
+ * another tick changed, and claim more than `limit` (seen once in the local gate, 25 October
+ * 2026). Both run in one transaction (a savepoint inside the caller's), so the locks hold until
+ * the jobs are marked; only jobs still queued are marked, so none is ever claimed twice.
  */
 export async function claimJobs(db: DbOrTransaction, limit: number): Promise<Job[]> {
-  const due = db
-    .select({ id: job.id })
-    .from(job)
-    .where(and(eq(job.status, 'queued'), lte(job.runAt, sql`now()`)))
-    .orderBy(job.runAt)
-    .limit(limit)
-    .for('update', { skipLocked: true });
-  return db
-    .update(job)
-    .set({
-      status: 'running',
-      attempts: sql`${job.attempts} + 1`,
-      claimedAt: sql`now()`,
-      updatedAt: sql`now()`,
-    })
-    .where(inArray(job.id, due))
-    .returning();
+  return db.transaction(async (tx) => {
+    const due = await tx
+      .select({ id: job.id })
+      .from(job)
+      .where(and(eq(job.status, 'queued'), lte(job.runAt, sql`now()`)))
+      .orderBy(job.runAt)
+      .limit(limit)
+      .for('update', { skipLocked: true });
+    if (due.length === 0) return [];
+    return tx
+      .update(job)
+      .set({
+        status: 'running',
+        attempts: sql`${job.attempts} + 1`,
+        claimedAt: sql`now()`,
+        updatedAt: sql`now()`,
+      })
+      .where(
+        and(
+          inArray(
+            job.id,
+            due.map((row) => row.id),
+          ),
+          eq(job.status, 'queued'),
+        ),
+      )
+      .returning();
+  });
 }
 
 export async function completeJob(db: DbOrTransaction, id: string): Promise<void> {
