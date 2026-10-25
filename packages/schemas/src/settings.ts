@@ -192,6 +192,11 @@ export const settingDefinitions = {
     source: 'PRD section 7: Package validity',
     description: 'Days before a package expires that the patient is reminded.',
   },
+  'packages.expiry_reminder_time': {
+    schema: timeOfDay,
+    source: 'BIL-08: in working hours, 10:00 AM IST, as the "I’ll think about it" nudge',
+    description: 'Time of day (IST) of the package expiry reminder.',
+  },
   'clinical.baseline_reuse_days': {
     schema: days,
     source: 'PRD section 7: Baseline reuse',

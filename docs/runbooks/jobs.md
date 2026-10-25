@@ -46,7 +46,11 @@ desk's call task and queues the nudge unless the patient has chosen since; BIL-0
 `documents.invoice` (queued by the database when a payment is recorded, key `invoice:<payment id>`,
 and again when it is undone, `invoice:undo:<payment id>`; renders the invoice's next version,
 keyed like the summary; BIL-09); `whatsapp.receipt` (queued with each payment; does nothing until
-the WhatsApp tickets, whose sender skips a payment since undone).
+the WhatsApp tickets, whose sender skips a payment since undone);
+`whatsapp.package_expiry_reminder` (queued by the database when a package is activated, key
+`package_expiry:<package id>`, `packages.expiry_reminder_days` before its last day at
+`packages.expiry_reminder_time` IST; does nothing until the WhatsApp tickets, whose sender sends
+only while the package is still active; BIL-08).
 
 End to end tests run the queue themselves: `apps/web/e2e/jobs.ts` posts to the tick with a test
 secret that `playwright.config.ts` gives the server.

@@ -3,12 +3,14 @@ import {
   billsOfEpisode,
   consultationFeeState,
   episodeRecord,
+  packagesOfEpisode,
   packageTypeList,
   patientRecord,
   planChoicesOf,
   planForPricing,
   priceItemList,
   type BillEntry,
+  type PackageEntry,
   type DbOrTransaction,
   type PlanChoiceEntry,
   type PlanForPricing,
@@ -17,6 +19,7 @@ import {
 import {
   can,
   consultationFeeDue,
+  istDate,
   planOptions,
   type EpisodeStatus,
   type PlanOptions,
@@ -54,6 +57,11 @@ export interface PlanSheet {
   bills: BillEntry[];
   /** Whether this person takes payment here (BIL-06). */
   canCollect: boolean;
+  /** The episode's packages, newest first (BIL-08). */
+  packages: PackageEntry[];
+  /** Today in IST and `packages.expiry_reminder_days`, for the meter's "Expiring" tag. */
+  today: string;
+  expiringDays: number;
   /** The consultation fee when it is due and not billed: why, and whether the desk can make it. */
   unbilledFee: { consultantName: string; feeSet: boolean; canMake: boolean } | undefined;
 }
@@ -83,10 +91,11 @@ export async function planSheetOf(
   sessionKey?: string,
 ): Promise<PlanSheet | undefined> {
   assertMay(actor, 'bills.view_amounts');
-  const [sessionKeys, validityMonths, feeTiming] = await Promise.all([
+  const [sessionKeys, validityMonths, feeTiming, expiringDays] = await Promise.all([
     getSetting('billing.session_price_items'),
     getSetting('packages.validity_months'),
     getSetting('billing.consultation_fee_timing'),
+    getSetting('packages.expiry_reminder_days'),
   ]);
   return asStaff(actor, async (tx) => {
     const episode = await episodeRecord(tx, episodeId);
@@ -98,6 +107,8 @@ export async function planSheetOf(
     const sessionItem = sessionItems.find((item) => item.key === sessionKey) ?? sessionItems.at(0);
     const choices = await planChoicesOf(tx, episodeId);
     const bills = await billsOfEpisode(tx, episodeId);
+    const now = new Date();
+    const bought = await packagesOfEpisode(tx, episodeId, now);
     const fee = await consultationFeeState(tx, episodeId);
     const collects = can(actor, 'bills.create_and_collect', { centreId: episode.centreId });
     return {
@@ -118,6 +129,9 @@ export async function planSheetOf(
         plan !== undefined && episode.status === 'plan_proposed' && !actor.support && collects,
       bills,
       canCollect: !actor.support && collects,
+      packages: bought,
+      today: istDate(now),
+      expiringDays,
       unbilledFee:
         fee && !fee.billed && consultationFeeDue(feeTiming, fee.status)
           ? {

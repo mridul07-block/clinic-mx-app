@@ -4,6 +4,7 @@ import {
   INTAKE_SUBMITTED_JOB,
   INVOICE_JOB,
   NO_SHOW_MESSAGE_JOB,
+  PACKAGE_EXPIRY_REMINDER_JOB,
   RECEIPT_JOB,
   RED_FLAG_SAFETY_ADVICE_JOB,
   REFERRAL_LETTER_JOB,
@@ -141,6 +142,18 @@ export const jobHandlers: JobHandlers = {
    */
   [RECEIPT_JOB]: defineJob({
     payload: z.object({ paymentId: z.guid() }),
+    run: () => Promise.resolve(),
+  }),
+  /**
+   * The package expiry reminder (BIL-08, PRD section 7), queued by the database when a package is
+   * activated, `packages.expiry_reminder_days` before its last day at
+   * `packages.expiry_reminder_time` IST. Nothing is sent yet: the WhatsApp tickets fill this in,
+   * and the sender must check the package is still active with sessions left (not cancelled,
+   * used up or expired), then send the `package_expiry_reminder` template with the sessions left
+   * and the expiry date. Until then the job completes without sending.
+   */
+  [PACKAGE_EXPIRY_REMINDER_JOB]: defineJob({
+    payload: z.object({ packageId: z.guid() }),
     run: () => Promise.resolve(),
   }),
 };

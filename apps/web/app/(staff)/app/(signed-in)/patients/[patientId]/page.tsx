@@ -19,9 +19,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { FormMessage } from '../../../../../../components/forms';
+import { PackageMeter } from '../../../../../../components/package-meter';
 import { RecordTabs } from '../../../../../../components/record-tabs';
 import { Tag } from '../../../../../../components/tag';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
+import { patientPackagesFor } from '../../../../../../modules/billing/packages';
 import { documentsOfPatient } from '../../../../../../modules/documents/services';
 import { reportsOfPatient } from '../../../../../../modules/reports/services';
 import { asStaff } from '../../../../../../modules/access/staff-db';
@@ -101,6 +103,13 @@ export default async function PatientPage({
           (entry) => entry.kind === 'invoice_receipt',
         )
       : undefined;
+  // BIL-08: the patient's packages, sessions only, for the desk, physios and Finance.
+  const packages =
+    tab === 'overview' && can(staff, 'packages.view_sessions_left')
+      ? await patientPackagesFor(staff, patient.id)
+      : undefined;
+  const expiringDays = packages ? await getSetting('packages.expiry_reminder_days') : 0;
+  const today = istDate(new Date());
   const openAlerts = record?.alerts.filter((alert) => alert.status !== 'closed').length ?? 0;
   const actsOnAlerts = can(staff, 'red_flags.act') && !staff.support;
   const pricesPlans = can(staff, 'bills.view_amounts');
@@ -228,6 +237,21 @@ export default async function PatientPage({
               ) : (
                 <p className="text-ink-muted">Invoices appear here once a bill is paid.</p>
               )}
+            </section>
+          ) : null}
+
+          {packages && packages.length > 0 ? (
+            <section aria-labelledby="packages" className="flex flex-col gap-3">
+              <h2 id="packages" className="font-semibold text-ink">
+                Packages
+              </h2>
+              <ul className="flex flex-col gap-2" data-testid="patient-packages">
+                {packages.map((entry) => (
+                  <li key={entry.id}>
+                    <PackageMeter entry={entry} today={today} expiringDays={expiringDays} />
+                  </li>
+                ))}
+              </ul>
             </section>
           ) : null}
 

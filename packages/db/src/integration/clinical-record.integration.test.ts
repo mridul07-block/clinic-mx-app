@@ -1,4 +1,10 @@
-import { addDays, istDate, istInstant, type SignedRows } from '@clinic-mx/schemas';
+import {
+  addDays,
+  istDate,
+  istInstant,
+  packageValidUntil,
+  type SignedRows,
+} from '@clinic-mx/schemas';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
@@ -12,6 +18,7 @@ import {
 } from '../bills';
 import { addAddendum, consultationAddenda, signConsultation } from '../clinical-record';
 import { invoiceFacts } from '../invoice';
+import { packagesOfEpisode, usePackageSession } from '../packages';
 import { consultationSummaryFacts } from '../consultation-summary';
 import { consultationRecord, openConsultation } from '../consultations';
 import { insertEpisode } from '../episodes';
@@ -42,6 +49,7 @@ import {
   measure,
   packageType,
   packageTypeItem,
+  patientPackage,
   planModality,
   planOfCare,
   precaution,
@@ -1445,6 +1453,182 @@ describe('counter payments', () => {
         .set({ recordedAt: new Date(Date.now() - 24 * 60 * 60_000) })
         .where(eq(payment.id, again));
       expect(await undo(deskHsr, again), 'yesterday').toBe('23514');
+    });
+  });
+
+  // BIL-08: paying a package's bill activates the package; a session is used only while it is
+  // active; undoing the payment cancels it while no session has been used.
+  async function chosenPackage(tx: Tx, sessions = 12) {
+    const fixture = await billed(tx);
+    await asOwner(tx);
+    const [offer] = await tx
+      .insert(packageType)
+      .values({ name: `Test ${String(sessions)} sessions`, sessions, pricePaise: 900000 })
+      .returning({ id: packageType.id });
+    await tx
+      .insert(packageTypeItem)
+      .values({ packageTypeId: offer?.id ?? '', priceItemId: fixture.sessionId });
+    await record(tx, deskHsr, {
+      episodeId: fixture.episodeId,
+      planOfCareId: fixture.planOfCareId,
+      choice: 'package',
+      packageTypeId: offer?.id ?? '',
+      sessionPriceItemId: fixture.sessionId,
+    });
+    await asOwner(tx);
+    const [packageBill] = await tx
+      .select({ id: bill.id })
+      .from(bill)
+      .where(and(eq(bill.episodeId, fixture.episodeId), eq(bill.kind, 'package')));
+    return { ...fixture, packageTypeId: offer?.id ?? '', packageBillId: packageBill?.id ?? '' };
+  }
+
+  const packageOf = async (tx: Tx, paymentId: string) => {
+    await asOwner(tx);
+    const [row] = await tx
+      .select()
+      .from(patientPackage)
+      .where(eq(patientPackage.paymentId, paymentId));
+    return row;
+  };
+
+  it('activates the package its bill buys, valid to the month’s end, with its reminder', async () => {
+    await rolledBack(async (tx) => {
+      const { episodeId, patientId, packageBillId, feeBillId } = await chosenPackage(tx, 12);
+      const fee = await pay(tx, deskHsr, feeBillId);
+      expect(await packageOf(tx, fee), 'the fee buys none').toBeUndefined();
+      const paid = await pay(tx, deskHsr, packageBillId);
+      const bought = await packageOf(tx, paid);
+      expect(bought).toMatchObject({
+        patientId,
+        episodeId,
+        centreId: centreIds.hsrLayout,
+        billId: packageBillId,
+        name: 'Test 12 sessions',
+        sessionsTotal: 12,
+        sessionsUsed: 0,
+        reschedulesLeft: 1,
+        cancelledAt: null,
+      });
+      expect(bought?.validUntil).toBe(packageValidUntil(bought?.paidAt ?? new Date(), 3));
+      const [reminder] = await tx
+        .select({ kind: job.kind, runAt: job.runAt, key: job.idempotencyKey })
+        .from(job)
+        .where(sql`${job.payload} ->> 'packageId' = ${bought?.id ?? ''}`);
+      expect(reminder).toEqual({
+        kind: 'whatsapp.package_expiry_reminder',
+        runAt: istInstant(addDays(bought?.validUntil ?? '', -14), 600),
+        key: `package_expiry:${bought?.id ?? ''}`,
+      });
+
+      // Paid on 30 November: valid until 28 February, reminded on 14 February at 10:00 AM IST.
+      await tx.delete(patientPackage).where(eq(patientPackage.paymentId, paid));
+      await tx
+        .update(payment)
+        .set({ recordedAt: new Date('2026-11-30T10:35:00Z') })
+        .where(eq(payment.id, paid));
+      await tx.execute(sql`select internal.activate_package(${paid}::uuid)`);
+      const late = await packageOf(tx, paid);
+      expect(late?.validUntil).toBe('2027-02-28');
+      const [lateReminder] = await tx
+        .select({ runAt: job.runAt })
+        .from(job)
+        .where(sql`${job.payload} ->> 'packageId' = ${late?.id ?? ''}`);
+      expect(lateReminder?.runAt).toEqual(new Date('2027-02-14T04:30:00Z'));
+    });
+  });
+
+  it('uses a session only while the package is active, as the system only', async () => {
+    await rolledBack(async (tx) => {
+      const { packageBillId, episodeId } = await chosenPackage(tx, 2);
+      const paid = await pay(tx, deskHsr, packageBillId);
+      const bought = await packageOf(tx, paid);
+      const id = bought?.id ?? '';
+      expect(
+        await failure(tx, async (sp) => {
+          await becomeStaff(sp, deskHsr);
+          await usePackageSession(sp, id);
+        }),
+        'the desk',
+      ).toBe('42501');
+      await asOwner(tx);
+      const use = () => failure(tx, (sp) => usePackageSession(sp, id));
+      await tx
+        .update(patientPackage)
+        .set({ validUntil: addDays(istDate(new Date()), -1) })
+        .where(eq(patientPackage.id, id));
+      expect(await use(), 'expired').toBe('23514');
+      await tx
+        .update(patientPackage)
+        .set({ validUntil: istDate(new Date()) })
+        .where(eq(patientPackage.id, id));
+      expect(await usePackageSession(tx, id), 'its last day').toBe(1);
+      expect(await usePackageSession(tx, id)).toBe(0);
+      expect(await use(), 'used up').toBe('23514');
+      const [entry] = await packagesOfEpisode(tx, episodeId);
+      expect(entry).toMatchObject({ sessionsUsed: 2, sessionsLeft: 0, state: 'used_up' });
+      await tx
+        .update(patientPackage)
+        .set({ sessionsUsed: 0, cancelledAt: new Date(), cancelReason: 'Test' })
+        .where(eq(patientPackage.id, id));
+      expect(await use(), 'cancelled').toBe('23514');
+    });
+  });
+
+  it('is cancelled by undoing its payment, refused once a session is used', async () => {
+    await rolledBack(async (tx) => {
+      const { packageBillId } = await chosenPackage(tx);
+      const first = await pay(tx, deskHsr, packageBillId);
+      await becomeStaff(tx, deskHsr);
+      await undoPayment(tx, { paymentId: first, reason: 'Wrong package' });
+      expect(await packageOf(tx, first)).toMatchObject({
+        cancelReason: 'The payment was undone.',
+      });
+      expect((await packageOf(tx, first))?.cancelledAt).not.toBeNull();
+
+      // Paid again: a fresh package; once a session is used the desk cannot undo it.
+      const second = await pay(tx, deskHsr, packageBillId);
+      const fresh = await packageOf(tx, second);
+      expect(fresh?.cancelledAt).toBeNull();
+      await usePackageSession(tx, fresh?.id ?? '');
+      expect(
+        await failure(tx, async (sp) => {
+          await becomeStaff(sp, deskHsr);
+          await undoPayment(sp, { paymentId: second, reason: 'Wrong package' });
+        }),
+      ).toBe('23514');
+      expect((await packageOf(tx, second))?.cancelledAt).toBeNull();
+    });
+  });
+
+  it('is read by those who see amounts at its centre and its physios, written by nobody', async () => {
+    await rolledBack(async (tx) => {
+      const { packageBillId, consultant, elsewhere } = await chosenPackage(tx);
+      const paid = await pay(tx, deskHsr, packageBillId);
+      const id = (await packageOf(tx, paid))?.id ?? '';
+      const reads = async (actor: StaffMember) => {
+        await asOwner(tx);
+        await becomeStaff(tx, actor);
+        const [row] = await tx
+          .select({ id: patientPackage.id })
+          .from(patientPackage)
+          .where(eq(patientPackage.id, id));
+        return row?.id;
+      };
+      for (const reader of [deskHsr, finance, superAdmin, consultant]) {
+        expect(await reads(reader), reader.email).toBe(id);
+      }
+      for (const outsider of [deskKoramangala, manager, elsewhere]) {
+        expect(await reads(outsider), outsider.email).toBeUndefined();
+      }
+      await asOwner(tx);
+      await becomeStaff(tx, finance);
+      for (const [name, statement] of [
+        ['update', sql`update package set sessions_used = 0 where id = ${id}`],
+        ['delete', sql`delete from package where id = ${id}`],
+      ] as const) {
+        expect(await failure(tx, (sp) => sp.execute(statement)), name).toBe('42501');
+      }
     });
   });
 });

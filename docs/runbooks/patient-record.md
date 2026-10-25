@@ -28,7 +28,7 @@ Decisions (user, 24 October 2026):
 
 | Tab | Shows |
 | --- | --- |
-| Overview | For clinicians, the summary card first. Then the contact details (or the edit form), episodes for those without clinical access, their invoices for those who see amounts (BIL-09), self booking, guardians and "Also on this mobile" |
+| Overview | For clinicians, the summary card first. Then the contact details (or the edit form), episodes for those without clinical access, their invoices for those who see amounts (BIL-09), their packages' meters for the desk, physios and Finance (BIL-08), self booking, guardians and "Also on this mobile" |
 | Notes | Each episode (region, status, centre, dates, discharge reason) with its signed notes, newest first: "Consultation · date, time · consultant", the diagnosis, "Open note" (the read-only consultation) and "Addenda (n)" |
 | Documents | Documents (each with its newest version to open and "Earlier versions"; until one is generated, "Consultation summaries and letters appear here once they are generated."), then Reports |
 | Alerts | The patient's red flag alerts at every centre, open first: rule, triage, status, lifecycle (raised, reviewed, referred, closed, who and when), decision; "Open in Alerts" for an open one the reader acts on at its centre |
