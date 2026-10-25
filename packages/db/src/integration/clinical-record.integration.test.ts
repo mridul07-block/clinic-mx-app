@@ -3,7 +3,13 @@ import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
-import { billsOfEpisode, consultationBillNow, consultationFeeState } from '../bills';
+import {
+  billsOfEpisode,
+  consultationBillNow,
+  consultationFeeState,
+  recordPayment,
+  undoPayment,
+} from '../bills';
 import { addAddendum, consultationAddenda, signConsultation } from '../clinical-record';
 import { consultationSummaryFacts } from '../consultation-summary';
 import { consultationRecord, openConsultation } from '../consultations';
@@ -27,6 +33,7 @@ import {
   bill,
   billLine,
   consultation,
+  payment,
   diagnosis,
   episode,
   job,
@@ -801,35 +808,43 @@ describe('the plan for pricing', () => {
   });
 });
 
+/** A signed consultation whose episode is Plan proposed, and its plan of care. */
+async function proposed(tx: Tx) {
+  const fixture = await setUp(tx);
+  expect(await fixture.sign()).toBe('signed');
+  await asOwner(tx);
+  for (const status of ['awaiting_consultation', 'plan_proposed'] as const) {
+    await tx.update(episode).set({ status }).where(eq(episode.id, fixture.episodeId));
+  }
+  const [plan] = await tx
+    .select({ id: planOfCare.id })
+    .from(planOfCare)
+    .where(eq(planOfCare.episodeId, fixture.episodeId));
+  return { ...fixture, planOfCareId: plan?.id ?? '' };
+}
+
+type ChoiceValues = Omit<Parameters<typeof recordPlanChoice>[1], 'recordedBy'> & {
+  recordedBy?: string;
+};
+
+const record = async (tx: Tx, actor: StaffMember, values: ChoiceValues) => {
+  await asOwner(tx);
+  await becomeStaff(tx, actor);
+  return recordPlanChoice(tx, { recordedBy: actor.id, ...values });
+};
+
+const feeFor = async (tx: Tx, staffId: string, key: string | null) => {
+  await asOwner(tx);
+  await tx.execute(
+    sql`update staff_user set consultation_price_item_id =
+      (select id from price_item where key = ${key}) where id = ${staffId}`,
+  );
+};
+
 // BIL-02: the patient's choice on the plan, read and recorded by those who price it, only while
 // the episode is Plan proposed and against its newest plan; "I'll think about it" is followed up at
 // 10:00 AM IST on the second day with a call task and the WhatsApp nudge, unless chosen since.
 describe('the patient choice', () => {
-  /** A signed consultation whose episode is Plan proposed, and its plan of care. */
-  async function proposed(tx: Tx) {
-    const fixture = await setUp(tx);
-    expect(await fixture.sign()).toBe('signed');
-    await asOwner(tx);
-    for (const status of ['awaiting_consultation', 'plan_proposed'] as const) {
-      await tx.update(episode).set({ status }).where(eq(episode.id, fixture.episodeId));
-    }
-    const [plan] = await tx
-      .select({ id: planOfCare.id })
-      .from(planOfCare)
-      .where(eq(planOfCare.episodeId, fixture.episodeId));
-    return { ...fixture, planOfCareId: plan?.id ?? '' };
-  }
-
-  type ChoiceValues = Omit<Parameters<typeof recordPlanChoice>[1], 'recordedBy'> & {
-    recordedBy?: string;
-  };
-
-  const record = async (tx: Tx, actor: StaffMember, values: ChoiceValues) => {
-    await asOwner(tx);
-    await becomeStaff(tx, actor);
-    return recordPlanChoice(tx, { recordedBy: actor.id, ...values });
-  };
-
   it('is recorded by the desk at its centre, with the follow up queued for day 2 at 10:00 AM IST', async () => {
     await rolledBack(async (tx) => {
       const { episodeId, planOfCareId } = await proposed(tx);
@@ -1004,14 +1019,6 @@ describe('the patient choice', () => {
 // setting says, once per visit; nobody signed in writes a bill, and only those who see amounts at
 // the centre read one.
 describe('bills at fixed prices', () => {
-  const feeFor = async (tx: Tx, staffId: string, key: string | null) => {
-    await asOwner(tx);
-    await tx.execute(
-      sql`update staff_user set consultation_price_item_id =
-        (select id from price_item where key = ${key}) where id = ${staffId}`,
-    );
-  };
-
   const visitBills = async (tx: Tx, appointmentId: string) => {
     await asOwner(tx);
     return tx
@@ -1192,6 +1199,190 @@ describe('bills at fixed prices', () => {
       ] as const) {
         expect(await failure(tx, (sp) => sp.execute(statement)), name).toBe('42501');
       }
+    });
+  });
+});
+
+// BIL-06: the desk marks a bill paid for its whole total by UPI QR, card or cash; the chosen
+// plan paid moves the episode to Active; a mistake is undone on its day by the desk at the centre.
+describe('counter payments', () => {
+  /** A Plan proposed episode whose consultant charges the Consultation fee, billed on signing. */
+  async function billed(tx: Tx) {
+    const fixture = await setUp(tx);
+    await feeFor(tx, fixture.consultant.id, 'consultation');
+    await becomeStaff(tx, fixture.consultant);
+    expect(await fixture.sign()).toBe('signed');
+    await asOwner(tx);
+    for (const status of ['awaiting_consultation', 'plan_proposed'] as const) {
+      await tx.update(episode).set({ status }).where(eq(episode.id, fixture.episodeId));
+    }
+    const [plan] = await tx
+      .select({ id: planOfCare.id })
+      .from(planOfCare)
+      .where(eq(planOfCare.episodeId, fixture.episodeId));
+    const [fee] = await tx
+      .select({ id: bill.id })
+      .from(bill)
+      .where(eq(bill.appointmentId, fixture.appointmentId));
+    const [session] = await tx
+      .select({ id: priceItem.id })
+      .from(priceItem)
+      .where(eq(priceItem.key, 'rehabilitation_session'));
+    return {
+      ...fixture,
+      planOfCareId: plan?.id ?? '',
+      feeBillId: fee?.id ?? '',
+      sessionId: session?.id ?? '',
+    };
+  }
+
+  const pay = async (tx: Tx, actor: StaffMember, billId: string, reference?: string) => {
+    await asOwner(tx);
+    await becomeStaff(tx, actor);
+    return recordPayment(tx, { billId, method: 'upi', reference });
+  };
+
+  const statusOf = async (tx: Tx, episodeId: string) => {
+    await asOwner(tx);
+    const [row] = await tx
+      .select({ status: episode.status })
+      .from(episode)
+      .where(eq(episode.id, episodeId));
+    return row?.status;
+  };
+
+  it('records the whole total as the desk, once, and nobody else at all', async () => {
+    await rolledBack(async (tx) => {
+      const { consultant, feeBillId } = await billed(tx);
+      for (const outsider of [deskKoramangala, manager, consultant]) {
+        expect(await failure(tx, (sp) => pay(sp, outsider, feeBillId)), outsider.email).toBe(
+          '42501',
+        );
+      }
+      expect(await failure(tx, (sp) => pay(sp, support, feeBillId)), 'support').toBeDefined();
+      const paid = await pay(tx, deskHsr, feeBillId, '  UPI-4528  ');
+      await asOwner(tx);
+      const [row] = await tx
+        .select({
+          amount: payment.amountPaise,
+          reference: payment.reference,
+          by: payment.recordedBy,
+          method: payment.method,
+        })
+        .from(payment)
+        .where(eq(payment.id, paid));
+      expect(row).toEqual({ amount: 75000, reference: 'UPI-4528', by: deskHsr.id, method: 'upi' });
+      const [after] = await tx
+        .select({ status: bill.status })
+        .from(bill)
+        .where(eq(bill.id, feeBillId));
+      expect(after?.status).toBe('paid');
+      expect(await failure(tx, (sp) => pay(sp, deskHsr, feeBillId)), 'twice').toBe('23514');
+      await becomeStaff(tx, deskHsr);
+      for (const [name, statement] of [
+        [
+          'insert',
+          sql`insert into payment (bill_id, method, amount_paise, recorded_by)
+            values (${feeBillId}, 'cash', 1, ${deskHsr.id})`,
+        ],
+        ['update', sql`update payment set amount_paise = 1 where id = ${paid}`],
+        ['delete', sql`delete from payment where id = ${paid}`],
+      ] as const) {
+        expect(await failure(tx, (sp) => sp.execute(statement)), name).toBe('42501');
+      }
+    });
+  });
+
+  it('moves the episode to Active once the chosen plan is paid, and not otherwise', async () => {
+    // Pay per session chosen, then the fee paid.
+    await rolledBack(async (tx) => {
+      const { episodeId, planOfCareId, feeBillId, sessionId } = await billed(tx);
+      await record(tx, deskHsr, {
+        episodeId,
+        planOfCareId,
+        choice: 'per_session',
+        sessionPriceItemId: sessionId,
+      });
+      await pay(tx, deskHsr, feeBillId);
+      expect(await statusOf(tx, episodeId)).toBe('active');
+    });
+    // The fee paid, then pay per session chosen.
+    await rolledBack(async (tx) => {
+      const { episodeId, planOfCareId, feeBillId, sessionId } = await billed(tx);
+      await pay(tx, deskHsr, feeBillId);
+      expect(await statusOf(tx, episodeId)).toBe('plan_proposed');
+      await record(tx, deskHsr, {
+        episodeId,
+        planOfCareId,
+        choice: 'per_session',
+        sessionPriceItemId: sessionId,
+      });
+      expect(await statusOf(tx, episodeId)).toBe('active');
+    });
+    // Thinking about it: the fee paid changes nothing.
+    await rolledBack(async (tx) => {
+      const { episodeId, planOfCareId, feeBillId } = await billed(tx);
+      await record(tx, deskHsr, { episodeId, planOfCareId, choice: 'think_about_it' });
+      await pay(tx, deskHsr, feeBillId);
+      expect(await statusOf(tx, episodeId)).toBe('plan_proposed');
+    });
+    // A package: its bill paid, not the fee.
+    await rolledBack(async (tx) => {
+      const { episodeId, planOfCareId, feeBillId, sessionId } = await billed(tx);
+      const [offer] = await tx
+        .insert(packageType)
+        .values({ name: 'Test Ten sessions', sessions: 10, pricePaise: 900000 })
+        .returning({ id: packageType.id });
+      await tx
+        .insert(packageTypeItem)
+        .values({ packageTypeId: offer?.id ?? '', priceItemId: sessionId });
+      await record(tx, deskHsr, {
+        episodeId,
+        planOfCareId,
+        choice: 'package',
+        packageTypeId: offer?.id ?? '',
+        sessionPriceItemId: sessionId,
+      });
+      await pay(tx, deskHsr, feeBillId);
+      expect(await statusOf(tx, episodeId)).toBe('plan_proposed');
+      await asOwner(tx);
+      const [packageBill] = await tx
+        .select({ id: bill.id })
+        .from(bill)
+        .where(and(eq(bill.episodeId, episodeId), eq(bill.kind, 'package')));
+      await pay(tx, deskHsr, packageBill?.id ?? '');
+      expect(await statusOf(tx, episodeId)).toBe('active');
+    });
+  });
+
+  it('is undone on its day by the desk at the centre, with a reason, and not after', async () => {
+    await rolledBack(async (tx) => {
+      const { feeBillId } = await billed(tx);
+      const paid = await pay(tx, deskHsr, feeBillId);
+      const undo = (actor: StaffMember, paymentId: string, reason = 'Wrong patient') =>
+        failure(tx, async (sp) => {
+          await asOwner(sp);
+          await becomeStaff(sp, actor);
+          await undoPayment(sp, { paymentId, reason });
+        });
+      expect(await undo(deskKoramangala, paid), 'another centre').toBe('42501');
+      expect(await undo(deskHsr, paid, ' '), 'no reason').toBe('23514');
+      expect(await undo(deskHsr, paid), 'the desk').toBeUndefined();
+      await asOwner(tx);
+      const [back] = await tx
+        .select({ status: bill.status })
+        .from(bill)
+        .where(eq(bill.id, feeBillId));
+      expect(back?.status).toBe('unpaid');
+
+      // Paid again, then yesterday's payment: Finance's refund, not the desk's undo.
+      const again = await pay(tx, deskHsr, feeBillId);
+      await asOwner(tx);
+      await tx
+        .update(payment)
+        .set({ recordedAt: new Date(Date.now() - 24 * 60 * 60_000) })
+        .where(eq(payment.id, again));
+      expect(await undo(deskHsr, again), 'yesterday').toBe('23514');
     });
   });
 });

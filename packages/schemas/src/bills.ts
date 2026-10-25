@@ -43,3 +43,39 @@ export function consultationFeeDue(
     ? status === 'completed'
     : ['checked_in', 'in_progress', 'completed'].includes(status);
 }
+
+/** How the patient paid at the counter (PRD J4.6): the clinic's UPI QR, the card machine or cash. */
+export const paymentMethods = ['upi', 'card', 'cash'] as const;
+export type PaymentMethod = (typeof paymentMethods)[number];
+
+export const paymentMethodLabels: Record<PaymentMethod, string> = {
+  upi: 'UPI QR',
+  card: 'Card',
+  cash: 'Cash',
+};
+
+/**
+ * "Mark paid" on a bill (BIL-06): the whole total, by a method, with an optional reference (the
+ * UPI transaction ID or the card slip number). Nobody types an amount; partial payments wait for
+ * the client (decision 10).
+ */
+export const recordPaymentSchema = z.object({
+  billId: z.guid({ error: 'That bill was not found.' }),
+  method: z.enum(paymentMethods, { error: 'Choose how the patient paid.' }),
+  reference: z
+    .string()
+    .trim()
+    .max(40, { error: 'Keep the reference to 40 characters.' })
+    .transform((value) => value || undefined)
+    .optional(),
+});
+
+/** Undoing a payment recorded by mistake, on the day it was recorded, with the reason. */
+export const undoPaymentSchema = z.object({
+  paymentId: z.guid({ error: 'That payment was not found.' }),
+  reason: z
+    .string()
+    .trim()
+    .min(1, { error: 'Say why the payment is undone.' })
+    .max(300, { error: 'Keep the reason to 300 characters.' }),
+});

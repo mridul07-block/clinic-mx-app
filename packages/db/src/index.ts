@@ -411,9 +411,13 @@ export {
   type PlanChoiceEntry,
 } from './plan-choice';
 export {
+  billCentre,
   billsOfEpisode,
   consultationBillNow,
   consultationFeeState,
+  recordPayment,
+  undoPayment,
   type BillEntry,
   type ConsultationFeeState,
+  type PaymentEntry,
 } from './bills';
