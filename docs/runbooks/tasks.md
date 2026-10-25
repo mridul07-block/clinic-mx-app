@@ -64,6 +64,7 @@ Kinds so far:
 | `job.failed` | A job out of attempts (FND-10) | The Super Admin |
 | `call.no_show` | A confirmed no show (ALT-04, `docs/runbooks/no-shows.md`) | The Front Desk at the centre |
 | `review.no_shows` | Missed appointments in a row (ALT-04) | The physio of the missed appointment |
+| `call.think_about_it` | "I'll think about it" still the patient's choice on day 2 (BIL-02, `docs/runbooks/plan-sheet.md`) | The Front Desk at the episode's centre |
 
 ## Checking it
 

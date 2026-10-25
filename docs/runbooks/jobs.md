@@ -38,7 +38,11 @@ key on it so a rerun makes nothing; ALT-06); `whatsapp.consultation_summary` (qu
 does nothing until WA-06); `documents.referral_letter` (queued by the database when a red flag alert
 is referred, key `referral_letter:<alert id>`; renders the letter, keyed like the summary; ALT-07);
 `whatsapp.red_flag_safety_advice` (queued with each referral, and for Monitor with caution found
-in the consultation; does nothing until WA-06; CLN-11).
+in the consultation; does nothing until WA-06; CLN-11); `billing.think_about_it_follow_up`
+(queued by the database when "I'll think about it" is recorded, key
+`billing.think_about_it_follow_up:<choice id>`, due at the choice's `follow_up_at`; makes the
+desk's call task and queues the nudge unless the patient has chosen since; BIL-02);
+`whatsapp.think_about_it` (the nudge; does nothing until the WhatsApp tickets).
 
 End to end tests run the queue themselves: `apps/web/e2e/jobs.ts` posts to the tick with a test
 secret that `playwright.config.ts` gives the server.

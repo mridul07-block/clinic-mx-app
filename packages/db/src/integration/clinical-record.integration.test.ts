@@ -1,4 +1,4 @@
-import type { SignedRows } from '@clinic-mx/schemas';
+import { addDays, istDate, istInstant, type SignedRows } from '@clinic-mx/schemas';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
@@ -17,6 +17,7 @@ import {
   signedNotesOf,
 } from '../patient-record';
 import { insertConsultationRedFlag, moveRedFlagAlert, openRedFlagAlerts } from '../red-flag-alerts';
+import { planChoicesOf, recordPlanChoice, thinkAboutItFollowUp } from '../plan-choice';
 import { planForPricing } from '../plan-sheet';
 import { referralLetterFacts } from '../referral-letter';
 import {
@@ -24,15 +25,18 @@ import {
   auditEvent,
   consultation,
   diagnosis,
+  episode,
   job,
   kbCondition,
   measure,
   planModality,
   planOfCare,
   precaution,
+  priceItem,
   redFlagAlert,
   specialTestResult,
   staffUser,
+  task,
 } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import { becomeStaff, testPatient, testPhysio, typeId } from './fake-schedule';
@@ -788,6 +792,163 @@ describe('the plan for pricing', () => {
       for (const outsider of [deskKoramangala, manager, consultant]) {
         expect(await reads(outsider), outsider.email).toBeUndefined();
       }
+    });
+  });
+});
+
+// BIL-02: the patient's choice on the plan, read and recorded by those who price it, only while
+// the episode is Plan proposed and against its newest plan; "I'll think about it" is followed up at
+// 10:00 AM IST on the second day with a call task and the WhatsApp nudge, unless chosen since.
+describe('the patient choice', () => {
+  /** A signed consultation whose episode is Plan proposed, and its plan of care. */
+  async function proposed(tx: Tx) {
+    const fixture = await setUp(tx);
+    expect(await fixture.sign()).toBe('signed');
+    await asOwner(tx);
+    for (const status of ['awaiting_consultation', 'plan_proposed'] as const) {
+      await tx.update(episode).set({ status }).where(eq(episode.id, fixture.episodeId));
+    }
+    const [plan] = await tx
+      .select({ id: planOfCare.id })
+      .from(planOfCare)
+      .where(eq(planOfCare.episodeId, fixture.episodeId));
+    return { ...fixture, planOfCareId: plan?.id ?? '' };
+  }
+
+  type ChoiceValues = Omit<Parameters<typeof recordPlanChoice>[1], 'recordedBy'> & {
+    recordedBy?: string;
+  };
+
+  const record = async (tx: Tx, actor: StaffMember, values: ChoiceValues) => {
+    await asOwner(tx);
+    await becomeStaff(tx, actor);
+    return recordPlanChoice(tx, { recordedBy: actor.id, ...values });
+  };
+
+  it('is recorded by the desk at its centre, with the follow up queued for day 2 at 10:00 AM IST', async () => {
+    await rolledBack(async (tx) => {
+      const { episodeId, planOfCareId } = await proposed(tx);
+      const choice = await record(tx, deskHsr, {
+        episodeId,
+        planOfCareId,
+        choice: 'think_about_it',
+      });
+      expect(choice.followUpAt).toEqual(istInstant(addDays(istDate(new Date()), 2), 10 * 60));
+      await asOwner(tx);
+      const queued = await tx
+        .select({ runAt: job.runAt, payload: job.payload })
+        .from(job)
+        .where(eq(job.idempotencyKey, `billing.think_about_it_follow_up:${choice.id}`));
+      expect(queued).toEqual([{ runAt: choice.followUpAt, payload: { choiceId: choice.id } }]);
+
+      const reads = async (actor: StaffMember) => {
+        await asOwner(tx);
+        await becomeStaff(tx, actor);
+        return (await planChoicesOf(tx, episodeId)).map((entry) => entry.choice);
+      };
+      for (const reader of [deskHsr, finance, superAdmin]) {
+        expect(await reads(reader), reader.email).toEqual(['think_about_it']);
+      }
+      for (const outsider of [deskKoramangala, manager]) {
+        expect(await reads(outsider), outsider.email).toEqual([]);
+      }
+    });
+  });
+
+  it('is refused at another centre, as someone else, by support, when not proposed, and never changed', async () => {
+    await rolledBack(async (tx) => {
+      const { consultant, episodeId, planOfCareId } = await proposed(tx);
+      const values: ChoiceValues = { episodeId, planOfCareId, choice: 'no_thanks' };
+      const refused = (actor: StaffMember, extra: Partial<ChoiceValues> = {}) =>
+        failure(tx, (sp) => record(sp, actor, { ...values, ...extra }));
+      expect(await refused(deskKoramangala), 'other centre').toBe('42501');
+      expect(await refused(manager), 'manager').toBe('42501');
+      expect(await refused(consultant), 'physio').toBe('42501');
+      expect(await refused(support), 'support').toBeDefined();
+      expect(await refused(deskHsr, { recordedBy: finance.id }), 'as someone else').toBe('42501');
+      expect(
+        await refused(deskHsr, { planOfCareId: '00000000-0000-4000-8000-000000000000' }),
+        'not its plan',
+      ).toBe('42501');
+
+      const choice = await record(tx, deskHsr, values);
+      expect(
+        await failure(tx, (sp) =>
+          sp.execute(sql`update plan_choice set choice = 'package' where id = ${choice.id}`),
+        ),
+        'update',
+      ).toBe('42501');
+      expect(
+        await failure(tx, (sp) => sp.execute(sql`delete from plan_choice where id = ${choice.id}`)),
+        'delete',
+      ).toBe('42501');
+
+      await asOwner(tx);
+      await tx.update(episode).set({ status: 'active' }).where(eq(episode.id, episodeId));
+      expect(await refused(deskHsr), 'active').toBe('42501');
+    });
+  });
+
+  it('raises the call task and the nudge once, and nothing after a newer choice or once the episode moves on', async () => {
+    await rolledBack(async (tx) => {
+      const { episodeId, planOfCareId, patientId } = await proposed(tx);
+      const thinking = await record(tx, deskHsr, {
+        episodeId,
+        planOfCareId,
+        choice: 'think_about_it',
+      });
+      await asOwner(tx);
+      expect(await thinkAboutItFollowUp(tx, thinking.id)).toBe('raised');
+      expect(await thinkAboutItFollowUp(tx, thinking.id)).toBe('already raised');
+      const raised = await tx
+        .select({
+          title: task.title,
+          role: task.assigneeRole,
+          centreId: task.centreId,
+          patientId: task.patientId,
+        })
+        .from(task)
+        .where(sql`${task.details} ->> 'choiceId' = ${thinking.id}`);
+      expect(raised).toHaveLength(1);
+      expect(raised[0]).toMatchObject({
+        role: 'front_desk',
+        centreId: centreIds.hsrLayout,
+        patientId,
+      });
+      expect(raised[0]?.title).toMatch(
+        /^Call about the proposed plan \(thinking it over since \w{3} \d{1,2} \w{3}\)$/,
+      );
+      const nudges = await tx
+        .select({ id: job.id })
+        .from(job)
+        .where(eq(job.idempotencyKey, `whatsapp.think_about_it:${thinking.id}`));
+      expect(nudges).toHaveLength(1);
+
+      // Chosen since: nothing.
+      const again = await record(tx, deskHsr, {
+        episodeId,
+        planOfCareId,
+        choice: 'think_about_it',
+      });
+      await asOwner(tx);
+      const [session] = await tx
+        .select({ id: priceItem.id })
+        .from(priceItem)
+        .where(eq(priceItem.key, 'rehabilitation_session'));
+      await record(tx, deskHsr, {
+        episodeId,
+        planOfCareId,
+        choice: 'per_session',
+        sessionPriceItemId: session?.id ?? '',
+      });
+      await asOwner(tx);
+      expect(await thinkAboutItFollowUp(tx, again.id), 'chosen since').toBe('no longer thinking');
+
+      // The episode moved on: nothing.
+      const last = await record(tx, deskHsr, { episodeId, planOfCareId, choice: 'think_about_it' });
+      await asOwner(tx);
+      await tx.update(episode).set({ status: 'active' }).where(eq(episode.id, episodeId));
+      expect(await thinkAboutItFollowUp(tx, last.id), 'active').toBe('no longer thinking');
     });
   });
 });

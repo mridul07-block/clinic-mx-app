@@ -1,5 +1,8 @@
 import {
+  consultation,
   createDb,
+  episode,
+  job,
   packageType,
   packageTypeItem,
   planModality,
@@ -8,7 +11,7 @@ import {
   systemActor,
   withActor,
 } from '@clinic-mx/db';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 // The plan and payment sheet for end to end tests (BIL-01): a priced modality on a signed
 // consultation's plan, and a package type covering a session item. Generated
@@ -53,5 +56,41 @@ export async function testPackage(values: {
       .returning({ id: packageType.id });
     if (!created) throw new Error('The package type was not added.');
     await tx.insert(packageTypeItem).values({ packageTypeId: created.id, priceItemId: item.id });
+  });
+}
+
+/**
+ * Moves the consultation's episode to Plan proposed, as signing through the service does (the
+ * fixture signs in the database directly).
+ */
+export async function proposedPlan(consultationId: string): Promise<void> {
+  await withActor(db(), systemActor('tests'), async (tx) => {
+    const [row] = await tx
+      .select({ episodeId: consultation.episodeId, status: episode.status })
+      .from(consultation)
+      .innerJoin(episode, eq(episode.id, consultation.episodeId))
+      .where(eq(consultation.id, consultationId));
+    if (!row) throw new Error('The consultation has no episode.');
+    const steps = ['awaiting_consultation', 'plan_proposed'] as const;
+    for (const status of steps.slice(row.status === 'intake_pending' ? 0 : 1)) {
+      await tx.update(episode).set({ status }).where(eq(episode.id, row.episodeId));
+    }
+  });
+}
+
+/** Makes the "I'll think about it" follow ups on the patient's choices due now (BIL-02). */
+export async function thinkAboutItDueNow(patientId: string): Promise<number> {
+  return withActor(db(), systemActor('tests'), async (tx) => {
+    const due = await tx
+      .update(job)
+      .set({ runAt: new Date() })
+      .where(
+        sql`${job.kind} = 'billing.think_about_it_follow_up' and ${job.status} = 'queued'
+          and ${job.payload} ->> 'choiceId' in (
+            select c.id::text from plan_choice c join episode e on e.id = c.episode_id
+            where e.patient_id = ${patientId})`,
+      )
+      .returning({ id: job.id });
+    return due.length;
   });
 }

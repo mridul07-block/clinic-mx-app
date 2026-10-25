@@ -74,6 +74,17 @@ export const settingDefinitions = {
     description:
       'The price items a treatment session can be on the plan and payment sheet, for example Rehabilitation session.',
   },
+  'billing.think_about_it_follow_up_days': {
+    schema: days,
+    source: 'TAD section 8: the "I’ll think about it" nudge and call task 2 days later (BIL-02)',
+    description:
+      'Days after "I’ll think about it" is recorded that the patient is nudged and the front desk gets a call task.',
+  },
+  'billing.think_about_it_follow_up_time': {
+    schema: timeOfDay,
+    source: 'User decision, 25 October 2026 (BIL-02): in working hours, 10:00 AM IST',
+    description: 'Time of day (IST) of the "I’ll think about it" nudge and call task.',
+  },
   'screening.weight_loss_kg': {
     schema: z.int().positive(),
     source:

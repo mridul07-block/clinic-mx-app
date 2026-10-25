@@ -401,3 +401,12 @@ export {
   type ReferralLetterFacts,
 } from './referral-letter';
 export { planForPricing, type PlanForPricing } from './plan-sheet';
+export {
+  THINK_ABOUT_IT_CALL_TASK,
+  THINK_ABOUT_IT_FOLLOW_UP_JOB,
+  THINK_ABOUT_IT_MESSAGE_JOB,
+  planChoicesOf,
+  recordPlanChoice,
+  thinkAboutItFollowUp,
+  type PlanChoiceEntry,
+} from './plan-choice';

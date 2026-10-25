@@ -3,12 +3,16 @@ import {
   episodeRecord,
   packageTypeList,
   patientRecord,
+  planChoicesOf,
   planForPricing,
   priceItemList,
+  type DbOrTransaction,
+  type PlanChoiceEntry,
   type PlanForPricing,
   type StaffMember,
 } from '@clinic-mx/db';
 import {
+  can,
   planOptions,
   type EpisodeStatus,
   type PlanOptions,
@@ -22,8 +26,8 @@ import { getSetting } from '../settings/settings';
  * The plan and payment sheet (BIL-01, PRD J4.2): for those who see bill amounts (the front desk,
  * Finance, the Super Admin), the recommended plan read only, as far as pricing needs it, and what
  * it costs per session or as a package from the price master. The front desk picks the session
- * type (user decision, 25 October 2026); prices are never edited here. The patient's choice,
- * consent and payment come with BIL-02 onwards.
+ * type (user decision, 25 October 2026); prices are never edited here. The patient's choice is
+ * BIL-02's (`plan-choice.ts`); consent and payment come with BIL-03 onwards.
  */
 
 export interface PlanSheet {
@@ -38,6 +42,28 @@ export interface PlanSheet {
   /** The session types offered, from `billing.session_price_items`. */
   sessionItems: PriceItemPrice[];
   options: PlanOptions | undefined;
+  /** The patient's choices, newest first (BIL-02); the first is the one that counts. */
+  choices: PlanChoiceEntry[];
+  /** Whether this person may record a choice now: Plan proposed, a plan, at their centre. */
+  canRecordChoice: boolean;
+}
+
+/** The active price items, the session types offered and the active packages, from Prices. */
+export async function priceListsOf(tx: DbOrTransaction, sessionKeys: readonly string[]) {
+  const active: PriceItemPrice[] = (await priceItemList(tx))
+    .filter((item) => item.active)
+    .map(({ id, key, label, amountPaise }) => ({ id, key, label, amountPaise }));
+  const sessionItems = sessionKeys.flatMap((key) => active.filter((item) => item.key === key));
+  const packages = (await packageTypeList(tx))
+    .filter((type) => type.active)
+    .map((type) => ({
+      id: type.id,
+      name: type.name,
+      sessions: type.sessions,
+      pricePaise: type.pricePaise,
+      itemIds: type.items.map((item) => item.id),
+    }));
+  return { active, sessionItems, packages };
 }
 
 /** The sheet for an episode; undefined when the reader does not see the episode. */
@@ -57,20 +83,9 @@ export async function planSheetOf(
     const patient = await patientRecord(tx, episode.patientId);
     if (!patient) return undefined;
     const plan = await planForPricing(tx, episodeId);
-    const active: PriceItemPrice[] = (await priceItemList(tx))
-      .filter((item) => item.active)
-      .map(({ id, key, label, amountPaise }) => ({ id, key, label, amountPaise }));
-    const sessionItems = sessionKeys.flatMap((key) => active.filter((item) => item.key === key));
+    const { active, sessionItems, packages } = await priceListsOf(tx, sessionKeys);
     const sessionItem = sessionItems.find((item) => item.key === sessionKey) ?? sessionItems.at(0);
-    const packages = (await packageTypeList(tx))
-      .filter((type) => type.active)
-      .map((type) => ({
-        id: type.id,
-        name: type.name,
-        sessions: type.sessions,
-        pricePaise: type.pricePaise,
-        itemIds: type.items.map((item) => item.id),
-      }));
+    const choices = await planChoicesOf(tx, episodeId);
     return {
       episodeId,
       episodeStatus: episode.status,
@@ -84,6 +99,12 @@ export async function planSheetOf(
         plan && sessionItem
           ? planOptions(plan, sessionItem, active, packages, validityMonths)
           : undefined,
+      choices,
+      canRecordChoice:
+        plan !== undefined &&
+        episode.status === 'plan_proposed' &&
+        !actor.support &&
+        can(actor, 'bills.create_and_collect', { centreId: episode.centreId }),
     };
   });
 }

@@ -10,6 +10,8 @@ const stored: Settings = {
   'live.refresh_seconds': 3,
   'billing.consultation_price_items': ['consultation', 'senior_consultation'],
   'billing.session_price_items': ['rehabilitation_session', 'advanced_rehabilitation_session'],
+  'billing.think_about_it_follow_up_days': 2,
+  'billing.think_about_it_follow_up_time': '10:00',
   'screening.weight_loss_kg': 5,
   'screening.weight_loss_months': 6,
   'screening.morning_stiffness_minutes': 60,
