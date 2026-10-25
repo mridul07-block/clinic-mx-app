@@ -24,3 +24,4 @@ export * from './clinical-record';
 export * from './documents';
 export * from './plan-choices';
 export * from './bills';
+export * from './packages';

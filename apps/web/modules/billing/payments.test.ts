@@ -72,6 +72,15 @@ describe('counter payments', () => {
     ).rejects.toThrow(
       'A payment is undone on the day it was recorded; after that Finance makes a refund.',
     );
+    // BIL-08: a package with a session used is Finance's refund.
+    db.undoPayment.mockRejectedValue(
+      refused('Sessions from this package have been used; Finance refunds it'),
+    );
+    await expect(
+      undoBillPayment(context(), { paymentId, reason: 'Wrong package' }),
+    ).rejects.toThrow(
+      'A session from this package has been used, so the payment cannot be undone; Finance makes a refund.',
+    );
   });
 
   it('refuses no method, the desk at another centre and a physio', async () => {

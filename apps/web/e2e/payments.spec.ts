@@ -84,7 +84,9 @@ test('the desk marks bills paid, the paid package makes the plan Active, and a m
       await expect(offer.getByTestId('paid')).toContainText('Paid by UPI QR · Ref UPI-E2E-1');
       await expect(offer.getByTestId('paid')).toContainText(`Recorded by ${desk.name}`);
       await expect(offer).toContainText('Paid');
-      await expect(page.locator('main').getByText('Active', { exact: true })).toBeVisible();
+      await expect(
+        page.getByTestId('sheet-header').getByText('Active', { exact: true }),
+      ).toBeVisible();
       await expect(page.getByTestId('plan-choice-form')).toHaveCount(0);
 
       // The fee by cash: Today no longer shows it unpaid.

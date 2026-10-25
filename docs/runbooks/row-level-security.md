@@ -92,9 +92,10 @@ so the `staff_user` policy does not run the `staff_user_centre` policies again.
 
 Still to come, with the tickets that create what they need:
 
-- **Bills and packages (BIL-05, BIL-08):** Centre Managers read only a `payment_pending` view and
-  physios only a `sessions_left` view. Neither may ever select an amount (decision 21 October 2026:
-  the views come with the tables).
+- **Bills (BIL-05):** Centre Managers read only a `payment_pending` view and may never select an
+  amount (decision 21 October 2026). Packages (BIL-08) need no `sessions_left` view: the `package`
+  table holds no amounts (prices stay on `package_type` and the bill), so physios read its rows at
+  their centres directly and Centre Managers read none (`docs/runbooks/bills.md`).
 - **Audit:** the Centre Manager's clinical audit for their centres and Finance's audit, once
   audit events carry a category.
 - **Tasks:** centre scope, once tasks link to patients and episodes.

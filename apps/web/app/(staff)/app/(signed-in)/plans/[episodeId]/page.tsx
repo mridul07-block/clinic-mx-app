@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { secondaryButtonClass } from '../../../../../../components/forms';
+import { PackageMeter } from '../../../../../../components/package-meter';
 import { Tag } from '../../../../../../components/tag';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { planSheetOf, type PlanSheet } from '../../../../../../modules/billing/plan-sheet';
@@ -167,6 +168,25 @@ function Bills({ sheet }: { sheet: PlanSheet }) {
   );
 }
 
+/** The episode's packages (BIL-08): active once paid, with sessions used, expiry and reschedules. */
+function Packages({ sheet }: { sheet: PlanSheet }) {
+  if (sheet.packages.length === 0) return null;
+  return (
+    <section aria-labelledby="bought-packages" className="flex flex-col gap-2">
+      <h2 id="bought-packages" className="font-semibold text-ink">
+        Package
+      </h2>
+      <ul className="flex flex-col gap-2" data-testid="packages">
+        {sheet.packages.map((entry) => (
+          <li key={entry.id}>
+            <PackageMeter entry={entry} today={sheet.today} expiringDays={sheet.expiringDays} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** What was chosen, in words: the package or the session type with it. */
 function choiceText(entry: PlanChoiceEntry): string {
   if (entry.choice === 'package') return `Package: ${entry.packageName ?? 'not found'}`;
@@ -263,7 +283,10 @@ export default async function PlanSheetPage({
           {sheet.patientName}
         </Link>
         <h1 className="text-title font-semibold">Plan and payment</h1>
-        <p className="flex flex-wrap items-center gap-2 text-sm text-ink-secondary">
+        <p
+          className="flex flex-wrap items-center gap-2 text-sm text-ink-secondary"
+          data-testid="sheet-header"
+        >
           <span className="font-mono text-ink">{sheet.opNumber}</span>
           {sheet.centreName ? <span>· {sheet.centreName}</span> : null}
           <Tag tone="outline">{episodeStatusLabels[sheet.episodeStatus]}</Tag>
@@ -276,6 +299,7 @@ export default async function PlanSheetPage({
             No plan yet. The plan appears here once the consultation is signed.
           </p>
           <Bills sheet={sheet} />
+          <Packages sheet={sheet} />
         </>
       ) : (
         <>
@@ -409,6 +433,7 @@ export default async function PlanSheetPage({
           ) : null}
 
           <Bills sheet={sheet} />
+          <Packages sheet={sheet} />
 
           <section aria-labelledby="choice" className="flex flex-col gap-2">
             <h2 id="choice" className="font-semibold text-ink">

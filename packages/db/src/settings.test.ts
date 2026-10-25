@@ -30,6 +30,7 @@ const stored: Settings = {
   'billing.consultation_fee_timing': 'after_consultation',
   'packages.validity_months': 3,
   'packages.expiry_reminder_days': 14,
+  'packages.expiry_reminder_time': '10:00',
   'clinical.baseline_reuse_days': 7,
   'clinical.reassessment_session': 4,
   'clinical.review_weeks': 6,

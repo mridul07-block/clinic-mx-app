@@ -13,7 +13,7 @@ Billing reads them:
 | BIL-01 plan sheet | Per session (the session types in `billing.session_price_items`) and package options, modalities per use; `docs/runbooks/plan-sheet.md` |
 | BIL-05 bills | Fixed prices copied onto each bill line; the consultation fee by the consultant's fee item; `docs/runbooks/bills.md` |
 | BIL-07 | Preset discounts at the desk |
-| BIL-08 | Packages |
+| BIL-08 packages | The package type's sessions and name copied onto the patient's package when its bill is paid; `docs/runbooks/bills.md` |
 
 ## Who
 

@@ -715,6 +715,20 @@
       "when": 1792930501147,
       "tag": "20261025121501_invoices_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1792933499110,
+      "tag": "20261025130459_packages",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1792933508594,
+      "tag": "20261025130508_packages_rules",
+      "breakpoints": true
     }
   ]
 }

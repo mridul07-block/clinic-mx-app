@@ -5,6 +5,7 @@ import {
   job,
   packageType,
   packageTypeItem,
+  patientPackage,
   planModality,
   planOfCare,
   priceItem,
@@ -92,5 +93,15 @@ export async function thinkAboutItDueNow(patientId: string): Promise<number> {
       )
       .returning({ id: job.id });
     return due.length;
+  });
+}
+
+/** Moves the last day of the patient's packages (BIL-08), to see them expiring or expired. */
+export async function packageValidUntil(patientId: string, validUntil: string): Promise<void> {
+  await withActor(db(), systemActor('tests'), async (tx) => {
+    await tx
+      .update(patientPackage)
+      .set({ validUntil })
+      .where(eq(patientPackage.patientId, patientId));
   });
 }

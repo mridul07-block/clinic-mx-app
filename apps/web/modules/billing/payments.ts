@@ -20,6 +20,10 @@ const refusals: [RegExp, string][] = [
   [/Only an unpaid bill is paid/, 'This bill is already paid.'],
   [/already undone/, 'This payment is already undone.'],
   [
+    /Sessions from this package have been used/,
+    'A session from this package has been used, so the payment cannot be undone; Finance makes a refund.',
+  ],
+  [
     /only on the day it was recorded/,
     'A payment is undone on the day it was recorded; after that Finance makes a refund.',
   ],

@@ -422,3 +422,12 @@ export {
   type PaymentEntry,
 } from './bills';
 export { INVOICE_JOB, RECEIPT_JOB, invoiceFacts, type InvoiceFacts } from './invoice';
+export {
+  PACKAGE_EXPIRY_REMINDER_JOB,
+  packageList,
+  packagesOfEpisode,
+  packagesOfPatient,
+  usePackageSession,
+  type PackageEntry,
+  type PackageListRow,
+} from './packages';

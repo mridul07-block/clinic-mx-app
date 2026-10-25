@@ -84,6 +84,23 @@ Frontend Specification §11, TAD §9 and PRD J4.7. Decisions made by the user on
   - the Super Admin finds it on the Documents tab
   - it opens from our domain for those who see amounts at its centre (`docs/runbooks/documents.md`)
 
+## Packages (BIL-08)
+
+PRD J4.7 and section 7, TAD section 4, Frontend Specification (package meter, Finance's Packages tab). Decisions made by the user on 25 October 2026.
+
+- **Activated on payment:** paying a package's bill makes the patient's package (`package` table, `internal.activate_package`). It gets:
+  - the type's sessions and name (copied, so reading it needs no price)
+  - valid until `packages.validity_months` after the IST payment date, on the month's last day when it has no such day (30 Nov plus 3 months is 28 Feb; the same rule as the invoice, `packageValidUntil`)
+  - `floor(sessions / 10) × packages.reschedules_per_10_sessions` reschedules, rounded down (6 sessions allow none, 12 allow 1). Using one up is SCH-10.
+- **Expiry reminder:** the same transaction queues `whatsapp.package_expiry_reminder` for `packages.expiry_reminder_days` (14) before the last day at `packages.expiry_reminder_time` (10:00) IST. It sends nothing until WhatsApp exists.
+- **State, worked out from the row (`packageState`):** Cancelled when its payment was undone; Used up when every session is used; Expired once its last day has passed; otherwise Active. Nothing runs at expiry. An expired package keeps its sessions left on record, and nobody can use them; credits and extensions wait for the client (DECISION 12, BIL-11).
+- **Using a session:** `internal.use_package_session(package_id)` uses one session of an active package and returns the sessions left, refusing a cancelled, used up or expired one. Staff cannot call it; SES-07 calls it when a session is closed.
+- **Undo:** undoing the payment cancels the package ("The payment was undone."), but only while no session from it has been used. After that the desk is refused and it is Finance's refund (BIL-11). Paying again makes a fresh package.
+- **Who reads it:** those who see amounts at its centre (the Super Admin, Finance, the front desk there) and physios at their centres; never Centre Managers. The table holds no amounts, so physios read it directly for the sessions left (decision 21 October 2026). Nobody signed in writes one.
+- **Where:**
+  - the plan and payment sheet's "Package" section and the patient record's Overview ("Packages"): the meter with sessions used of total, valid until and reschedules left, tagged Active, Expiring (within the reminder days), Used up, Expired or Cancelled
+  - `/app/packages` (home link "Packages") for those who see amounts: Active, Expiring in 14 days, and Expired with sessions left, soonest expiry first
+
 ## Tests
 
 | Test | Covers |
@@ -96,6 +113,9 @@ Frontend Specification §11, TAD §9 and PRD J4.7. Decisions made by the user on
 | `packages/db/src/integration/clinical-record.integration.test.ts` (counter payments) | invoice numbers in the centre's own series, consecutive and fresh after an undo; the invoice and receipt jobs per payment and the invoice again on undo; the invoice's facts |
 | `apps/web/modules/documents/invoice.test.tsx` | the numbers, patient, items and payment; the package's expiry at month end; a consultation by cash without a reference; no tax or discount; the cancelled notice; the PDF; keyed, never twice |
 | `apps/web/e2e/invoices.spec.ts` | 360 px and desktop: paid, the invoice is being made, then after the tick its link opens a PDF; listed under Invoices; undone, version 2 after the tick; the desk at another centre cannot open it |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (counter payments) | packages: activated by the package bill only, with sessions, reschedules, valid to the month's end and the reminder at 10:00 AM IST; a session used only while active and only by the system; the undo cancels it, refused once a session is used; read by the desk, Finance, the Super Admin and its physio, not another centre or the manager; nobody writes one |
+| `packages/schemas/src/packages.test.ts` | the state on its last day and the day after, used up, cancelled; reschedules rounded down |
+| `apps/web/e2e/packages.spec.ts` | 360 px and desktop: paid by UPI, the sheet's meter "0 of 12 used · Valid until … · 1 reschedule left"; the patient record lists it; Finance's Active, Expiring in 14 days and Expired with sessions left; nothing for the desk at another centre; the physio sees the sessions and no price; the undo cancels it |
 | `apps/web/e2e/bills.spec.ts` | 360 px and desktop: "Unpaid ₹750" on Today; the fee bill on the sheet; a package billed then cancelled; a physio refused; no bills for the desk at another centre; no fee set, then made after the fee is set (Senior, ₹1,000) |
 
-**Negative checks:** let `make_consultation_bill` bill every visit type, and the "bills nothing but a consultation" database test fails; let `activate_if_paid` activate on a paid fee whatever the choice, and the "moves the episode to Active" database test fails; drop the invoice job from `undo_payment`, and the invoice numbering database test fails.
+**Negative checks:** let `make_consultation_bill` bill every visit type, and the "bills nothing but a consultation" database test fails; let `activate_if_paid` activate on a paid fee whatever the choice, and the "moves the episode to Active" database test fails; drop the invoice job from `undo_payment`, and the invoice numbering database test fails; drop the package from `record_payment`, and the four package database tests fail.
