@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  aroundNowToday,
   earlierToday,
   endOfIstDay,
   formatIstDate,
@@ -23,6 +24,30 @@ describe('earlierToday', () => {
     const lateEvening = new Date('2026-11-30T18:20:00Z'); // 23:50 IST
     expect(earlierToday(-30, lateEvening).toISOString()).toBe('2026-11-30T17:50:00.000Z');
     expect(istDate(earlierToday(-30, lateEvening))).toBe('2026-11-30');
+  });
+
+  it('keeps an offset of 12 hours or more, which means another day on purpose', () => {
+    const afterMidnight = new Date('2026-11-30T18:50:00Z'); // 00:20 IST on 1 December
+    expect(istDate(earlierToday(24 * 60, afterMidnight))).toBe('2026-11-30');
+    expect(istDate(earlierToday(2 * 24 * 60, afterMidnight))).toBe('2026-11-29');
+  });
+});
+
+describe('aroundNowToday', () => {
+  it('is now plus the minutes for most of the day', () => {
+    const noon = new Date('2026-11-30T06:30:00Z'); // 12:00 IST
+    expect(aroundNowToday(-3, noon).toISOString()).toBe('2026-11-30T06:27:00.000Z');
+  });
+
+  it('keeps order and gaps inside today near midnight', () => {
+    const afterMidnight = new Date('2026-11-30T18:35:00Z'); // 00:05 IST on 1 December
+    const [before, after] = [aroundNowToday(-3, afterMidnight), aroundNowToday(3, afterMidnight)];
+    expect(after.getTime() - before.getTime()).toBe(6 * 60_000);
+    expect(istDate(before)).toBe('2026-12-01');
+    expect(before.toISOString()).toBe('2026-11-30T19:27:00.000Z'); // 00:57 IST
+    const lateEvening = new Date('2026-11-30T18:20:00Z'); // 23:50 IST
+    expect(istDate(aroundNowToday(30, lateEvening))).toBe('2026-11-30');
+    expect(istDate(aroundNowToday(-24 * 60, afterMidnight))).toBe('2026-11-30');
   });
 });
 

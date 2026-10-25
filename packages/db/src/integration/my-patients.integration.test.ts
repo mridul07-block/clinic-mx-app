@@ -1,4 +1,4 @@
-import { earlierToday, istDate } from '@clinic-mx/schemas';
+import { aroundNowToday, istDate } from '@clinic-mx/schemas';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
@@ -65,7 +65,10 @@ async function failure(tx: Tx, work: (sp: Tx) => Promise<unknown>): Promise<stri
   return undefined;
 }
 
-/** Two physios at HSR Layout and a way to give them visits that start `minutesFromNow`. */
+/**
+ * Two physios at HSR Layout and a way to give them visits that start `minutesFromNow`, around now
+ * kept inside today's IST date so their order holds at any hour.
+ */
 async function setUp(tx: Tx) {
   const session = await typeId(tx, 'session');
   const physio = await testPhysio(tx, {
@@ -82,7 +85,7 @@ async function setUp(tx: Tx) {
     values: Partial<typeof appointment.$inferInsert> = {},
   ) => {
     const patientId = values.patientId ?? (await testPatient(tx));
-    const startsAt = earlierToday(-minutesFromNow);
+    const startsAt = aroundNowToday(minutesFromNow);
     const [row] = await tx
       .insert(appointment)
       .values({

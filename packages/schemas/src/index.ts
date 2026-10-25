@@ -14,6 +14,7 @@ export {
   documentDateTime,
   documentTime,
   addDays,
+  aroundNowToday,
   earlierToday,
   isoWeekday,
   istDate,
