@@ -701,6 +701,20 @@
       "when": 1792926878541,
       "tag": "20261025111438_payments_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1792930499806,
+      "tag": "20261025121459_invoices",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1792930501147,
+      "tag": "20261025121501_invoices_rules",
+      "breakpoints": true
     }
   ]
 }

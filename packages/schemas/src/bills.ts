@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { istDate } from './ist';
 
 /**
  * Bills at fixed prices (BIL-05, PRD J4.6, TAD section 9). The database makes them, at the price
@@ -79,3 +80,18 @@ export const undoPaymentSchema = z.object({
     .min(1, { error: 'Say why the payment is undone.' })
     .max(300, { error: 'Keep the reason to 300 characters.' }),
 });
+
+/**
+ * The IST date a package bought at `paidAt` stays valid until (BIL-09, decision: from the payment
+ * date, `packages.validity_months` later): the same day that many months on, or the month's last
+ * day when it has no such day (30 Nov plus 3 months is 28 Feb). BIL-08 uses the same rule.
+ */
+export function packageValidUntil(paidAt: Date, months: number): string {
+  const [year = 0, month = 1, day = 1] = istDate(paidAt).split('-').map(Number);
+  const target = new Date(Date.UTC(year, month - 1 + months, 1));
+  const lastDay = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  target.setUTCDate(Math.min(day, lastDay));
+  return target.toISOString().slice(0, 10);
+}

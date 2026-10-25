@@ -155,7 +155,8 @@ The summary and the letter word the record through the same helpers
 | Invoice and receipt | Those who see bill amounts (`bills.view_amounts`): the Super Admin, Finance, and the Front Desk | The Front Desk at the document's centre |
 
 Anyone else gets "not found", and the patient record's Documents tab (clinicians only) does not list
-it. Patients get their documents with the WhatsApp tickets.
+it. Those who see amounts without the clinical tabs (the Front Desk, Finance) find invoices under
+"Invoices" on the patient record's Overview and on the plan and payment sheet's paid bills (BIL-09). Patients get their documents with the WhatsApp tickets.
 
 ## Where it is enforced
 

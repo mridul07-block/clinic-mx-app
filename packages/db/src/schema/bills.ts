@@ -117,6 +117,11 @@ export const payment = pgTable(
     amountPaise: integer('amount_paise').notNull(),
     /** The UPI transaction ID or the card slip number, when given. */
     reference: text('reference'),
+    /**
+     * Its invoice's number (BIL-09): the centre's code, "INV" and its next invoice number, given
+     * when the payment is recorded, so invoices run without gaps. None before BIL-09.
+     */
+    invoiceNumber: text('invoice_number').unique(),
     recordedBy: uuid('recorded_by')
       .notNull()
       .references(() => staffUser.id),

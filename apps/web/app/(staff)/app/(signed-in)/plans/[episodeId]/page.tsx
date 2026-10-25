@@ -90,6 +90,22 @@ function BillCard({
             Recorded by {entry.payment.recordedByName ?? 'a former staff member'},{' '}
             {documentDateTime(entry.payment.recordedAt)}
           </span>
+          {entry.payment.invoiceNumber ? (
+            entry.payment.invoiceDocumentId ? (
+              <Link
+                href={`/app/documents/${entry.payment.invoiceDocumentId}`}
+                className="underline underline-offset-2"
+                data-testid="invoice-link"
+              >
+                Invoice <span className="font-mono">{entry.payment.invoiceNumber}</span> (PDF)
+              </Link>
+            ) : (
+              <span data-testid="invoice-pending">
+                Invoice <span className="font-mono">{entry.payment.invoiceNumber}</span> is being
+                made.
+              </span>
+            )
+          ) : null}
         </span>
       ) : null}
       {canCollect && entry.status === 'unpaid' ? (

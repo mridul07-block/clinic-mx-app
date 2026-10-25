@@ -42,7 +42,11 @@ in the consultation; does nothing until WA-06; CLN-11); `billing.think_about_it_
 (queued by the database when "I'll think about it" is recorded, key
 `billing.think_about_it_follow_up:<choice id>`, due at the choice's `follow_up_at`; makes the
 desk's call task and queues the nudge unless the patient has chosen since; BIL-02);
-`whatsapp.think_about_it` (the nudge; does nothing until the WhatsApp tickets).
+`whatsapp.think_about_it` (the nudge; does nothing until the WhatsApp tickets);
+`documents.invoice` (queued by the database when a payment is recorded, key `invoice:<payment id>`,
+and again when it is undone, `invoice:undo:<payment id>`; renders the invoice's next version,
+keyed like the summary; BIL-09); `whatsapp.receipt` (queued with each payment; does nothing until
+the WhatsApp tickets, whose sender skips a payment since undone).
 
 End to end tests run the queue themselves: `apps/web/e2e/jobs.ts` posts to the tick with a test
 secret that `playwright.config.ts` gives the server.

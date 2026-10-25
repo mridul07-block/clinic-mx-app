@@ -94,6 +94,13 @@ export default async function PatientPage({
   const canLift = can(staff, 'bookings.lift_self_booking_block') && !staff.support;
   const reports = tab === 'documents' ? await reportsOfPatient(staff, patient.id) : [];
   const documents = tab === 'documents' ? await documentsOfPatient(staff, patient.id) : [];
+  // BIL-09: those who see amounts without the clinical tabs reprint invoices from the Overview.
+  const invoices =
+    !clinical && can(staff, 'bills.view_amounts')
+      ? (await documentsOfPatient(staff, patient.id)).filter(
+          (entry) => entry.kind === 'invoice_receipt',
+        )
+      : undefined;
   const openAlerts = record?.alerts.filter((alert) => alert.status !== 'closed').length ?? 0;
   const actsOnAlerts = can(staff, 'red_flags.act') && !staff.support;
   const pricesPlans = can(staff, 'bills.view_amounts');
@@ -210,6 +217,19 @@ export default async function PatientPage({
               )}
             </section>
           )}
+
+          {invoices ? (
+            <section aria-labelledby="invoices" className="flex flex-col gap-3">
+              <h2 id="invoices" className="font-semibold text-ink">
+                Invoices
+              </h2>
+              {invoices.length > 0 ? (
+                <DocumentList documents={invoices} />
+              ) : (
+                <p className="text-ink-muted">Invoices appear here once a bill is paid.</p>
+              )}
+            </section>
+          ) : null}
 
           {selfBooking ? (
             <section aria-labelledby="self-booking" className="flex flex-col gap-3">
