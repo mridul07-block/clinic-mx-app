@@ -165,6 +165,9 @@ the code location.
 - 23 October 2026 (SCH-08): Booked or Confirmed appointments are rescheduled or cancelled any time
   until check in; a move keeps the type, on any day and with any physio, under a new number; who
   asked is By the patient or By the clinic, with no free text.
+- 25 October 2026 (FND-10 hardening): the tick reads at most its batch of due job ids and then marks
+  only those still queued, in one transaction, after one claim took 20 jobs for a limit of 10 in
+  the local gate; end to end tests tick the shared queue until the result shows (`tickUntil`).
 - 25 October 2026 (SCH-10): a package Session or Zero Gravity Treadmill appointment moved at the
   patient's request uses one of the package's reschedules and is refused when none is left; a
   package treadmill session is never moved at the patient's request; moves asked by the clinic

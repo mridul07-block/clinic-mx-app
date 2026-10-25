@@ -12,3 +12,18 @@ export async function runDueJobs(request: APIRequestContext): Promise<void> {
   });
   expect(ticked.status()).toBe(200);
 }
+
+/**
+ * Ticks the queue until `check` passes. Tests run in parallel, so another test's tick may be
+ * running this test's job when this tick is answered; one tick is not enough to rely on.
+ */
+export async function tickUntil(
+  request: APIRequestContext,
+  check: () => Promise<void>,
+  timeout = 20_000,
+): Promise<void> {
+  await expect(async () => {
+    await runDueJobs(request);
+    await check();
+  }).toPass({ timeout });
+}

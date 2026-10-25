@@ -4,7 +4,7 @@ import { completeVisit, consultantFee } from './bills';
 import { centreIdByCode, removeCalendarRows, startedAppointment } from './calendar';
 import { signedConsultation } from './consultations';
 import { removePipelineRows } from './intake';
-import { runDueJobs } from './jobs';
+import { tickUntil } from './jobs';
 import { consultationTypeId, submittedWithAlert } from './my-patients';
 import { testPatient } from './patients';
 import { proposedPlan } from './plan-sheet';
@@ -61,10 +61,11 @@ test('paying makes a numbered invoice PDF, and undoing the payment makes its can
   await fee.getByLabel('Reference (optional)').fill('UPI-INV-1');
   await fee.getByRole('button', { name: 'Mark paid ₹750' }).click();
   await expect(fee.getByTestId('invoice-pending')).toContainText(/Invoice HSR-INV-\d{5} is being/);
-  await runDueJobs(page.request);
-  await page.reload();
   const link = fee.getByTestId('invoice-link');
-  await expect(link).toHaveText(/^Invoice HSR-INV-\d{5} \(PDF\)$/);
+  await tickUntil(page.request, async () => {
+    await page.reload();
+    await expect(link).toHaveText(/^Invoice HSR-INV-\d{5} \(PDF\)$/, { timeout: 1_000 });
+  });
   const invoiceHref = await link.getAttribute('href');
   const pdf = await page.request.get(invoiceHref ?? '');
   expect(pdf.status()).toBe(200);
@@ -84,9 +85,10 @@ test('paying makes a numbered invoice PDF, and undoing the payment makes its can
   await fee.getByLabel('Why is it undone?').fill('Recorded against the wrong bill');
   await fee.getByRole('button', { name: 'Undo payment' }).click();
   await expect(fee.getByRole('button', { name: 'Mark paid ₹750' })).toBeVisible();
-  await runDueJobs(page.request);
-  await page.goto(`/app/patients/${patient.id}`);
-  await expect(listed).toContainText('Version 2');
+  await tickUntil(page.request, async () => {
+    await page.goto(`/app/patients/${patient.id}`);
+    await expect(listed).toContainText('Version 2', { timeout: 1_000 });
+  });
   await expect(listed).toContainText('Earlier versions');
 
   // The desk at another centre cannot open it.

@@ -10,8 +10,11 @@ based work run as jobs.
    neither does. A second enqueue with the same idempotency key is ignored.
 2. Every minute pg_cron runs `internal.jobs_tick()`, which POSTs to `/api/jobs/tick` with
    `Authorization: Bearer <JOBS_SECRET>`.
-3. The tick claims due jobs with `FOR UPDATE SKIP LOCKED` (overlapping ticks take different jobs),
-   runs each with its handler from `apps/web/modules/jobs/handlers.ts`, and marks it done.
+3. The tick claims due jobs with `FOR UPDATE SKIP LOCKED` (overlapping ticks take different jobs):
+   in one transaction it reads at most a batch of due ids, then marks only those still queued as
+   running, so a tick never takes more than its batch nor a job another tick holds (25 October
+   2026: a single `update … where id in (select … skip locked)` once claimed 20 jobs for a limit of
+   10 in the local gate). It runs each with its handler from `apps/web/modules/jobs/handlers.ts`, and marks it done.
 4. A failure queues the job again after 1, 2, 4, then 8 minutes. After the 5th failed attempt the
    job is marked failed and a high priority task "Background job … failed 5 times" is created for
    the Super Admin, in the same transaction. A job still running after 10 minutes counts as a
@@ -53,7 +56,9 @@ the WhatsApp tickets, whose sender skips a payment since undone);
 only while the package is still active; BIL-08).
 
 End to end tests run the queue themselves: `apps/web/e2e/jobs.ts` posts to the tick with a test
-secret that `playwright.config.ts` gives the server.
+secret that `playwright.config.ts` gives the server. Tests run in parallel and share the queue, so
+another test's tick may be running a test's job when its own tick answers: wait with `tickUntil`
+(tick, then check, until the check passes) rather than one `runDueJobs` and an assertion.
 
 ## Setting up an environment
 
