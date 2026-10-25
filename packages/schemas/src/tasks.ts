@@ -19,6 +19,7 @@ export const taskKindLabels: Record<string, string> = {
   'job.failed': 'Background job failed',
   'call.no_show': 'Call after a no show',
   'review.no_shows': 'Clinical review: missed appointments',
+  'call.think_about_it': 'Call about a proposed plan',
 };
 
 export function taskKindLabel(kind: string): string {

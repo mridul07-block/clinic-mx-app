@@ -1,7 +1,12 @@
+import type { PlanChoiceEntry } from '@clinic-mx/db';
 import {
+  documentDate,
+  documentDateTime,
+  documentTime,
   episodeStatusLabels,
   formatIstDate,
   formatRupees,
+  planChoiceLabels,
   planSheetQuerySchema,
 } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
@@ -12,16 +17,54 @@ import { secondaryButtonClass } from '../../../../../../components/forms';
 import { Tag } from '../../../../../../components/tag';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { planSheetOf } from '../../../../../../modules/billing/plan-sheet';
+import { PlanChoiceForm, type ChoiceOption } from './plan-choice-form';
 
 export const metadata: Metadata = { title: 'Plan and payment · Clinic Mx' };
 
 const amount = 'tabular-nums text-right whitespace-nowrap';
 
+/** What was chosen, in words: the package or the session type with it. */
+function choiceText(entry: PlanChoiceEntry): string {
+  if (entry.choice === 'package') return `Package: ${entry.packageName ?? 'not found'}`;
+  if (entry.choice === 'per_session') {
+    return `${planChoiceLabels.per_session} (${entry.sessionLabel ?? 'not found'})`;
+  }
+  return planChoiceLabels[entry.choice];
+}
+
+function recordedText(entry: PlanChoiceEntry): string {
+  return `Recorded by ${entry.recordedByName ?? 'a former staff member'}, ${documentDateTime(entry.recordedAt)}`;
+}
+
+/** The patient's choice that counts, and what follows from it. */
+function CurrentChoice({ entry }: { entry: PlanChoiceEntry }) {
+  return (
+    <div
+      className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-3"
+      data-testid="current-choice"
+    >
+      <span className="font-medium text-ink">{choiceText(entry)}</span>
+      <span className="text-sm text-ink-secondary">{recordedText(entry)}</span>
+      {entry.followUpAt ? (
+        <span className="text-sm text-ink-secondary" data-testid="follow-up">
+          Follow-up call and WhatsApp nudge on {documentDate(entry.followUpAt)} at{' '}
+          {documentTime(entry.followUpAt)}
+        </span>
+      ) : null}
+      {entry.choice === 'no_thanks' ? (
+        <span className="text-sm text-ink-secondary">
+          The plan and all clinical information stay on the record.
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * The plan and payment sheet (BIL-01, PRD J4.2, Frontend Specification section 7): for the front
  * desk, the recommended plan read only and what it costs per session or as a package. The session
- * type is chosen with a plain form, so the sheet works without scripts. The patient's choice,
- * Part B consent, the bill and payment come with BIL-02 onwards.
+ * type is chosen with a plain form, so the sheet works without scripts. The patient's choice is
+ * recorded below it (BIL-02); Part B consent, the bill and payment come with BIL-03 onwards.
  */
 export default async function PlanSheetPage({
   params,
@@ -37,6 +80,34 @@ export default async function PlanSheetPage({
   const sheet = await planSheetOf(staff, episodeId, query.session);
   if (!sheet) notFound();
   const { plan, options } = sheet;
+  const [current, ...earlier] = sheet.choices;
+  const choiceOptions: ChoiceOption[] = options
+    ? [
+        ...options.packages.map((offer) => ({
+          value: ['package', offer.id].join(':'),
+          label: `Package: ${offer.name}`,
+          amount: formatRupees(offer.pricePaise),
+          helper: offer.cover,
+        })),
+        {
+          value: 'per_session',
+          label: `Pay per session (${options.perSession.item.label})`,
+          amount: formatRupees(
+            options.perSession.totalPaise ?? options.perSession.item.amountPaise,
+          ),
+        },
+        {
+          value: 'think_about_it',
+          label: planChoiceLabels.think_about_it,
+          helper: 'The patient gets a WhatsApp nudge and the front desk a call task later.',
+        },
+        {
+          value: 'no_thanks',
+          label: planChoiceLabels.no_thanks,
+          helper: 'The plan and all clinical information stay on the record.',
+        },
+      ]
+    : [];
 
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
@@ -190,9 +261,45 @@ export default async function PlanSheetPage({
             </section>
           ) : null}
 
+          <section aria-labelledby="choice" className="flex flex-col gap-2">
+            <h2 id="choice" className="font-semibold text-ink">
+              Patient’s choice
+            </h2>
+            {current ? (
+              <CurrentChoice entry={current} />
+            ) : (
+              <p className="text-sm text-ink-muted" data-testid="no-choice">
+                No choice recorded yet.
+              </p>
+            )}
+            {sheet.canRecordChoice && options ? (
+              <PlanChoiceForm
+                key={current?.id ?? 'none'}
+                episodeId={sheet.episodeId}
+                session={options.perSession.item.key}
+                options={choiceOptions}
+              />
+            ) : null}
+            {earlier.length > 0 ? (
+              <details className="text-sm">
+                <summary className="min-h-11 cursor-pointer py-2.5 text-ink-secondary">
+                  Earlier choices ({earlier.length})
+                </summary>
+                <ul className="flex flex-col gap-1.5" data-testid="earlier-choices">
+                  {earlier.map((entry) => (
+                    <li key={entry.id} className="flex flex-col">
+                      <span>{choiceText(entry)}</span>
+                      <span className="text-ink-muted">{recordedText(entry)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+          </section>
+
           <p className="text-sm text-ink-muted">
-            Prices come from the price master and cannot be changed here. The patient’s choice,
-            consent and payment come next.
+            Prices come from the price master and cannot be changed here. Consent and payment come
+            next.
           </p>
         </>
       )}

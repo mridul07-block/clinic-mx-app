@@ -3,6 +3,7 @@ import {
   discountPreset,
   packageType,
   packageTypeItem,
+  patientPlanChoice,
   priceItem,
   systemActor,
   withActor,
@@ -38,6 +39,8 @@ export async function restorePrices(snapshot: PriceSnapshot): Promise<void> {
         .where(like(packageType.name, 'E2E %'))
     ).map((row) => row.id);
     if (added.length) {
+      // A patient's choice of a test package (BIL-02) goes with it.
+      await tx.delete(patientPlanChoice).where(inArray(patientPlanChoice.packageTypeId, added));
       await tx.delete(packageTypeItem).where(inArray(packageTypeItem.packageTypeId, added));
       await tx.delete(packageType).where(inArray(packageType.id, added));
     }

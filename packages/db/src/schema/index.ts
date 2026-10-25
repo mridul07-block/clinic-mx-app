@@ -22,3 +22,4 @@ export * from './clinical';
 export * from './consultations';
 export * from './clinical-record';
 export * from './documents';
+export * from './plan-choices';

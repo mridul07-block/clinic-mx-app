@@ -5,10 +5,13 @@ import {
   NO_SHOW_MESSAGE_JOB,
   RED_FLAG_SAFETY_ADVICE_JOB,
   REFERRAL_LETTER_JOB,
+  THINK_ABOUT_IT_FOLLOW_UP_JOB,
+  THINK_ABOUT_IT_MESSAGE_JOB,
   defineJob,
   type JobHandlers,
 } from '@clinic-mx/db';
 import { z } from 'zod';
+import { followUpThinkAboutIt } from '../billing/plan-choice';
 import { generateConsultationSummary } from '../documents/consultation-summary';
 import { generateReferralLetter } from '../documents/referral-letter';
 import { AI_PREPARATION_SHEET_JOB, processIntakeSubmission } from '../intake/pipeline';
@@ -93,6 +96,27 @@ export const jobHandlers: JobHandlers = {
    */
   [RED_FLAG_SAFETY_ADVICE_JOB]: defineJob({
     payload: z.object({ alertId: z.guid() }),
+    run: () => Promise.resolve(),
+  }),
+  /**
+   * The "I'll think about it" follow up (BIL-02), queued by the database when the choice is
+   * recorded, due at 10:00 AM IST on the second day (both settings): a call task for the front desk
+   * and the WhatsApp nudge, unless the patient has chosen since or the episode has moved on. A
+   * choice that already has its task gets nothing more.
+   */
+  [THINK_ABOUT_IT_FOLLOW_UP_JOB]: defineJob({
+    payload: z.object({ choiceId: z.guid() }),
+    run: async ({ choiceId }, { db }) => {
+      await followUpThinkAboutIt(db, { choiceId });
+    },
+  }),
+  /**
+   * The "I'll think about it" WhatsApp nudge (BIL-02). Nothing is sent yet: the WhatsApp tickets
+   * fill this in, and the sender must first check the choice is still the newest (a patient who
+   * has chosen since gets nothing). Until then the job completes without sending.
+   */
+  [THINK_ABOUT_IT_MESSAGE_JOB]: defineJob({
+    payload: z.object({ choiceId: z.guid() }),
     run: () => Promise.resolve(),
   }),
 };
