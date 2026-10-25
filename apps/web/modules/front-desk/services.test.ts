@@ -21,6 +21,7 @@ const db = vi.hoisted(() => ({
   checkIn: vi.fn(),
   undoCheckIn: vi.fn(),
   todayBoard: vi.fn(),
+  sessionProgress: vi.fn(() => Promise.resolve(new Map())),
   contentVersion: vi.fn(() => 'v1'),
   checkInView: vi.fn(),
   healthFormLink: vi.fn(),
@@ -142,6 +143,7 @@ describe('front desk today', () => {
   });
 
   it('loads the board for those who check in at the centre', async () => {
+    db.sessionProgress.mockResolvedValue(new Map());
     db.todayBoard.mockResolvedValue([]);
     expect(await loadToday(member(), { centreId: hsr, date: '2026-11-02' })).toEqual({
       appointments: [],

@@ -5,6 +5,7 @@ import {
   healthFormLink,
   kioskDevices,
   patientReports,
+  sessionProgress,
   type CheckInView,
   type GuardianEntry,
   type PatientReportEntry,
@@ -16,7 +17,9 @@ import {
   istDate,
   needsGuardian,
   needsHealthForm,
+  sessionView,
   type HealthFormState,
+  type SessionView,
 } from '@clinic-mx/schemas';
 import { assertCan, assertMay } from '../access/guard';
 import { asStaff } from '../access/staff-db';
@@ -39,6 +42,8 @@ export interface CheckInDrawerView {
   /** Working tablets at the appointment's centre, to open the form on. */
   tablets: { id: string; name: string }[];
   reports: PatientReportEntry[];
+  /** For a treatment session: "Session n of N" once checked in, and the gate (SES-01). */
+  session: SessionView | null;
 }
 
 /**
@@ -81,6 +86,7 @@ export async function loadCheckIn(
         .filter((k) => k.centreId === appointment.centreId && !k.stoppedAt)
         .map((k) => ({ id: k.id, name: k.name })),
       reports: await patientReports(tx, appointment.patientId),
+      session: sessionView((await sessionProgress(tx, [appointment.id])).get(appointment.id)),
     };
   });
 }

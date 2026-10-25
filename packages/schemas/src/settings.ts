@@ -158,9 +158,9 @@ export const settingDefinitions = {
   'packages.session_appointment_types': {
     schema: z.array(priceItemKey).min(1),
     source:
-      'SCH-10 (user decision, 25 October 2026): Session and Zero Gravity Treadmill appointments in an episode with an active package',
+      'SCH-10 and SES-01 (user decisions, 25 October 2026): Session and Zero Gravity Treadmill appointments',
     description:
-      'Appointment types whose appointments are package sessions for the reschedule allowance (keys, as never reschedulable items).',
+      'Appointment types that are treatment sessions: numbered at check in (Session n of N) and, in an episode with an active package, package sessions for the reschedule allowance.',
   },
   'day.running_late_minutes': {
     schema: minutes,

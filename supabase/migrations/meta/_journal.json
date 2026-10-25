@@ -736,6 +736,13 @@
       "when": 1792945939182,
       "tag": "20261025163219_package_reschedules_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1792950942991,
+      "tag": "20261025175542_session_progress_rules",
+      "breakpoints": true
     }
   ]
 }

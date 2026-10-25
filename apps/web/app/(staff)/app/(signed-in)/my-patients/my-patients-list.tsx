@@ -8,6 +8,7 @@ import {
   visitFormStatus,
   type AlertDisplay,
   type HealthFormState,
+  type SessionView,
 } from '@clinic-mx/schemas';
 import { toneByAppointmentStatus, type Tone } from '@clinic-mx/ui';
 import Link from 'next/link';
@@ -18,8 +19,11 @@ import { LIVE_HEADER } from '../../../../../lib/live';
 import { shownStatus, shownStatusLabels, stripClass, timeOf } from '../calendar/calendar-block';
 import { StartButton } from './start-button';
 
+/** A visit with its session (SES-01). */
+type MyPatientRow = MyPatientVisit & { session: SessionView | null };
+
 type VisitJson = Omit<
-  MyPatientVisit,
+  MyPatientRow,
   'startsAt' | 'endsAt' | 'arrivedAt' | 'startedAt' | 'healthForm'
 > & {
   startsAt: string;
@@ -31,7 +35,7 @@ type VisitJson = Omit<
 };
 
 const date = (value: string | null) => (value ? new Date(value) : null);
-const revive = (v: VisitJson): MyPatientVisit => ({
+const revive = (v: VisitJson): MyPatientRow => ({
   ...v,
   startsAt: new Date(v.startsAt),
   endsAt: new Date(v.endsAt),
@@ -74,7 +78,7 @@ export function MyPatientsList({
   refreshSeconds,
   showCentre,
 }: {
-  initial: MyPatientVisit[];
+  initial: MyPatientRow[];
   version: string;
   renderedAt: number;
   lateMinutes: number;
@@ -182,6 +186,11 @@ export function MyPatientsList({
                   </span>
                   <span className="flex flex-wrap items-center gap-2">
                     <Tag tone={toneByAppointmentStatus[status]}>{label}</Tag>
+                    {visit.session?.label ? (
+                      <span data-testid="session-label">
+                        <Tag tone="outline">{visit.session.label}</Tag>
+                      </span>
+                    ) : null}
                     {form ? (
                       <span data-testid="form-status">
                         <Tag tone={formTone[form]}>Form: {healthFormStateLabels[form]}</Tag>
@@ -201,7 +210,12 @@ export function MyPatientsList({
                     ) : null}
                   </span>
                 </span>
-                {visit.status === 'checked_in' ? (
+                {visit.status === 'checked_in' && visit.session && !visit.session.gate.met ? (
+                  // SES-01: the session waits for its gate; the physio sees why.
+                  <p data-testid="session-gate" className="text-sm text-waiting-strong md:max-w-56">
+                    Gate blocked: {visit.session.gate.message}
+                  </p>
+                ) : visit.status === 'checked_in' ? (
                   <StartButton
                     appointmentId={visit.id}
                     label={startLabel(visit.typeKey)}
