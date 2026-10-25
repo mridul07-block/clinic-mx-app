@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { requireStaff } from '../../../../../../modules/auth/session';
+import { consultationRedFlagsOf } from '../../../../../../modules/alerts/services';
 import { loadConsultation } from '../../../../../../modules/consultations/services';
 import { ConsultationStepper } from './consultation-stepper';
 
@@ -27,6 +28,7 @@ export default async function ConsultationPage({
   const { consultationId } = await params;
   const consultation = await loadConsultation(staff, consultationId);
   if (!consultation) notFound();
+  const redFlags = await consultationRedFlagsOf(staff, consultation.id);
   const { section } = await searchParams;
   return (
     <main className="flex w-full max-w-5xl flex-col gap-4 px-4 pt-6 md:pb-6">
@@ -68,6 +70,7 @@ export default async function ConsultationPage({
         planCatalog={consultation.planCatalog}
         treatingPhysios={consultation.treatingPhysios}
         planDefaults={consultation.planDefaults}
+        redFlags={redFlags}
         initialStep={stepFromQuery(typeof section === 'string' ? section : undefined)}
       />
     </main>

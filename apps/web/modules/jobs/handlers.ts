@@ -3,11 +3,14 @@ import {
   CONSULTATION_SUMMARY_MESSAGE_JOB,
   INTAKE_SUBMITTED_JOB,
   NO_SHOW_MESSAGE_JOB,
+  RED_FLAG_SAFETY_ADVICE_JOB,
+  REFERRAL_LETTER_JOB,
   defineJob,
   type JobHandlers,
 } from '@clinic-mx/db';
 import { z } from 'zod';
 import { generateConsultationSummary } from '../documents/consultation-summary';
+import { generateReferralLetter } from '../documents/referral-letter';
 import { AI_PREPARATION_SHEET_JOB, processIntakeSubmission } from '../intake/pipeline';
 
 /**
@@ -66,6 +69,30 @@ export const jobHandlers: JobHandlers = {
    */
   [CONSULTATION_SUMMARY_MESSAGE_JOB]: defineJob({
     payload: z.object({ consultationId: z.guid() }),
+    run: () => Promise.resolve(),
+  }),
+  /**
+   * The referral letter (ALT-07), queued by the database when a red flag alert is referred, from
+   * the consultation or the Alerts page. The job's own key marks the version it makes.
+   */
+  [REFERRAL_LETTER_JOB]: defineJob({
+    payload: z.object({ alertId: z.guid() }),
+    run: async ({ alertId }, { db, job }) => {
+      await generateReferralLetter(
+        db,
+        alertId,
+        job.idempotencyKey ?? [REFERRAL_LETTER_JOB, job.id].join(':'),
+      );
+    },
+  }),
+  /**
+   * The safety advice after a red flag (CLN-11, PRD J3.10), queued with each referral and for
+   * Monitor with caution found in the consultation. Nothing is sent yet: WA-06 fills this in with
+   * the `red_flag_safety_advice` template once its advice is clinically signed off. Until then the
+   * job completes without sending.
+   */
+  [RED_FLAG_SAFETY_ADVICE_JOB]: defineJob({
+    payload: z.object({ alertId: z.guid() }),
     run: () => Promise.resolve(),
   }),
 };

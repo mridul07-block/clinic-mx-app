@@ -243,6 +243,12 @@ export async function removePipelineRows(appointmentIds: string[]): Promise<void
   await withActor(db(), systemActor('tests'), async (tx) => {
     await tx.delete(job).where(inArray(job.idempotencyKey, keys));
     if (episodes.length === 0) return;
+    // What a referral queued (CLN-11, ALT-07): the letter and the safety advice, by alert.
+    await tx
+      .delete(job)
+      .where(
+        sql`${job.payload} ->> 'alertId' in (select id::text from red_flag_alert where episode_id in ${episodes})`,
+      );
     await tx.delete(redFlagAlert).where(inArray(redFlagAlert.episodeId, episodes));
     await tx.delete(precaution).where(inArray(precaution.episodeId, episodes));
   });

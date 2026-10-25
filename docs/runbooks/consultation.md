@@ -85,8 +85,13 @@ signed without it." Decisions (user, 24 October 2026):
 - **Each precaution is its own item**, confirmed Yes or No. Pregnancy is listed only for a female
   patient.
 - **A confirmation that differs from the patient** is recorded and tagged "Changed from the
-  patient's answer". CLN-11 (red flag found in consultation) adds the tier, On hold, the referral
-  letter and the safety advice.
+  patient's answer".
+- **Red flag found** (CLN-11, below the items): the consultant records what they found in one of
+  the framework's five categories (`docs/runbooks/red-flag-alerts.md`). Every category but
+  Monitor with caution asks where to, the reason and the question for the specialist, puts the
+  episode On hold and generates the referral letter; the safety advice is queued. The red flags
+  recorded in the consultation are listed there, read only once it is signed. Signing is not
+  held back by a red flag.
 
 **The items** come from `screeningItems` in `packages/schemas/src/screening.ts`:
 - the framework's red flag questions for the region Subjective shows (the clinician's change, else

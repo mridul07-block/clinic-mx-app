@@ -43,6 +43,7 @@ import { AssessmentInputs } from './assessment-inputs';
 import { ObjectiveInputs } from './objective-inputs';
 import { PlanInputs } from './plan-inputs';
 import { SignPanel } from './sign-panel';
+import { RedFlagFound, type RecordedRedFlag } from './red-flag-found';
 import { ScreeningItems } from './screening-items';
 import { SubjectiveFields } from './subjective-fields';
 
@@ -73,6 +74,7 @@ export function ConsultationStepper({
   planCatalog,
   treatingPhysios,
   planDefaults,
+  redFlags,
 }: {
   id: string;
   serverValue: ConsultationSections;
@@ -99,6 +101,8 @@ export function ConsultationStepper({
   treatingPhysios: { id: string; name: string }[];
   /** What the plan's '' and null stand for (CLN-07). */
   planDefaults: PlanDefaults;
+  /** The red flags recorded in this consultation (CLN-11). */
+  redFlags: RecordedRedFlag[];
 }) {
   const save = useMemo(() => saveConsultationDraft(id), [id]);
   const draft = useAutosave({ kind: 'consultation', id, serverValue, serverVersion, save });
@@ -250,6 +254,9 @@ export function ConsultationStepper({
               });
             }}
           />
+        ) : null}
+        {step === 'screening' ? (
+          <RedFlagFound consultationId={id} editable={editable} recorded={redFlags} />
         ) : null}
         {step === 'objective' ? (
           <ObjectiveInputs

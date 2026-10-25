@@ -5,18 +5,32 @@ import { z } from 'zod';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { serviceContext } from '../access/staff-db';
 import { EpisodeError } from '../episodes/services';
-import { AlertError, closeAlert, referAlert, reviewAlert } from './services';
+import {
+  AlertError,
+  closeAlert,
+  recordConsultationRedFlag,
+  referAlert,
+  reviewAlert,
+} from './services';
 
 /** What an alert form shows after a post (ALT-01). */
 export interface AlertFormState {
   error?: string;
   done?: boolean;
+  /**
+   * What was typed, given back with a refusal: the form resets after each post (React 19), so its
+   * fields start from these rather than empty.
+   */
+  values?: Record<string, string>;
 }
 
 const text = (form: FormData, name: string) => {
   const value = form.get(name);
   return typeof value === 'string' ? value : '';
 };
+
+const typed = (form: FormData, names: readonly string[]) =>
+  Object.fromEntries(names.map((name) => [name, text(form, name)]));
 
 /** Refusals become messages; anything else is ours and is thrown. */
 function failure(error: unknown): AlertFormState {
@@ -63,9 +77,11 @@ export async function referAlertAction(
     await referAlert(await serviceContext(), {
       alertId: text(form, 'alertId'),
       referredTo: text(form, 'referredTo'),
+      reason: text(form, 'reason'),
+      question: text(form, 'question'),
     });
   } catch (error) {
-    return failure(error);
+    return { ...failure(error), values: typed(form, ['referredTo', 'reason', 'question']) };
   }
   return refreshEverywhere();
 }
@@ -81,6 +97,29 @@ export async function closeAlertAction(
     });
   } catch (error) {
     return failure(error);
+  }
+  return refreshEverywhere();
+}
+
+/** A red flag found in the consultation (CLN-11), from its Screening step. */
+export async function recordRedFlagAction(
+  _state: AlertFormState,
+  form: FormData,
+): Promise<AlertFormState> {
+  try {
+    await recordConsultationRedFlag(await serviceContext(), {
+      consultationId: text(form, 'consultationId'),
+      triage: text(form, 'triage'),
+      found: text(form, 'found'),
+      referredTo: text(form, 'referredTo'),
+      reason: text(form, 'reason'),
+      question: text(form, 'question'),
+    });
+  } catch (error) {
+    return {
+      ...failure(error),
+      values: typed(form, ['found', 'referredTo', 'reason', 'question']),
+    };
   }
   return refreshEverywhere();
 }

@@ -5,8 +5,10 @@ import {
   alertOrder,
   alertTransition,
   closeAlertSchema,
+  recordRedFlagSchema,
   referAlertSchema,
 } from './red-flag-alerts';
+import { redFlagTriageActions, redFlagTriages, triageRefers } from './red-flags';
 
 // ALT-01: raised, reviewed, referred, closed; the database trigger allows the same moves.
 describe('a red flag alert', () => {
@@ -62,16 +64,79 @@ describe('a red flag alert', () => {
 
   it('needs where the patient was referred, and a written decision to close', () => {
     const alertId = '0b8a3a52-31f1-4f0e-9a43-5a3f0d6b2c11';
-    expect(referAlertSchema.parse({ alertId, referredTo: '  Emergency department ' })).toEqual({
+    const letter = {
+      reason: ' Saddle numbness with new bladder change ',
+      question: 'Please assess for cauda equina.',
+    };
+    expect(
+      referAlertSchema.parse({ alertId, referredTo: '  Emergency department ', ...letter }),
+    ).toEqual({
       alertId,
       referredTo: 'Emergency department',
+      reason: 'Saddle numbness with new bladder change',
+      question: 'Please assess for cauda equina.',
     });
     expect(
-      referAlertSchema.safeParse({ alertId, referredTo: '   ' }).error?.issues[0]?.message,
+      referAlertSchema.safeParse({ alertId, referredTo: '   ', ...letter }).error?.issues[0]
+        ?.message,
     ).toBe('Say where the patient was referred.');
+    // ALT-07: the letter's reason and question are needed to refer.
+    expect(
+      referAlertSchema
+        .safeParse({ alertId, referredTo: 'ED', reason: '', question: '' })
+        .error?.issues.map((i) => i.message),
+    ).toEqual(['Write the reason for the referral.', 'Write the question for the specialist.']);
     expect(closeAlertSchema.safeParse({ alertId, decision: '' }).error?.issues[0]?.message).toBe(
       'Write the decision before closing.',
     );
     expect(closeAlertSchema.safeParse({ alertId, decision: 'x'.repeat(1001) }).success).toBe(false);
+  });
+});
+
+// CLN-11: a red flag found in the consultation, in one of the framework's five categories.
+describe('a red flag found in the consultation', () => {
+  const consultationId = '0b8a3a52-31f1-4f0e-9a43-5a3f0d6b2c12';
+
+  it('refers every category but Monitor with caution, each with the framework’s action', () => {
+    expect(redFlagTriages.filter(triageRefers)).toEqual([
+      'immediate_emergency',
+      'urgent_medical_referral',
+      'urgent_imaging',
+      'specialist_referral',
+    ]);
+    expect(redFlagTriageActions.immediate_emergency).toBe(
+      'Refer to A&E / ER immediately. Stop all physio.',
+    );
+  });
+
+  it('needs where to, the reason and the question to refer; none to monitor', () => {
+    const referred = recordRedFlagSchema.safeParse({
+      consultationId,
+      triage: 'urgent_medical_referral',
+      found: 'Night pain and weight loss',
+    });
+    expect(referred.error?.issues.map((i) => i.path[0])).toEqual([
+      'referredTo',
+      'reason',
+      'question',
+    ]);
+    expect(
+      recordRedFlagSchema.parse({
+        consultationId,
+        triage: 'monitor_with_caution',
+        found: ' Mild night pain ',
+      }),
+    ).toEqual({
+      consultationId,
+      triage: 'monitor_with_caution',
+      found: 'Mild night pain',
+      referredTo: '',
+      reason: '',
+      question: '',
+    });
+    expect(
+      recordRedFlagSchema.safeParse({ consultationId, triage: 'monitor_with_caution', found: '' })
+        .error?.issues[0]?.message,
+    ).toBe('Say which red flags were found.');
   });
 });

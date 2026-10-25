@@ -35,7 +35,10 @@ export function ReviewForm({ alertId }: { alertId: string }) {
   );
 }
 
-/** Refer: where the patient was sent; the episode goes On hold. */
+/**
+ * Refer: where the patient was sent, and for the referral letter (ALT-07) the reason and the
+ * question for the specialist; the episode goes On hold.
+ */
 export function ReferForm({ alertId }: { alertId: string }) {
   const [state, action, pending] = useActionState(referAlertAction, initialState);
   return (
@@ -45,8 +48,25 @@ export function ReferForm({ alertId }: { alertId: string }) {
       <TextField
         label="Referred to"
         name="referredTo"
+        defaultValue={state.values?.referredTo}
         maxLength={200}
         helper="For example the emergency department or a doctor. The episode goes On hold."
+      />
+      <TextAreaField
+        label="Reason"
+        name="reason"
+        defaultValue={state.values?.reason}
+        maxLength={1000}
+        rows={3}
+        helper="The red flags found and your reasoning, for the referral letter."
+      />
+      <TextAreaField
+        label="Question for the specialist"
+        name="question"
+        defaultValue={state.values?.question}
+        maxLength={1000}
+        rows={2}
+        helper="A referral letter is generated and added to the patient's Documents."
       />
       <button type="submit" disabled={pending} className={`${secondaryButtonClass} sm:w-auto`}>
         Refer
