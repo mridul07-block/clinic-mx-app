@@ -5,7 +5,7 @@ import {
   type PackageState,
 } from '@clinic-mx/schemas';
 import { and, asc, desc, eq, gte, isNull, lt, lte, sql } from 'drizzle-orm';
-import { centre, patient, patientPackage } from './schema';
+import { appointment, appointmentType, centre, patient, patientPackage } from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /**
@@ -153,4 +153,32 @@ export async function usePackageSession(db: DbOrTransaction, packageId: string):
   );
   if (!row) throw new Error('The package session was not used.');
   return row.sessions_left;
+}
+
+/**
+ * Whether an appointment is a package session and how many reschedules its package has left
+ * (SCH-10), for the reschedule sheet: a type in `sessionTypes` in an episode with an active
+ * package. Read under row level security, so a reader who does not see packages (a Centre
+ * Manager) gets undefined; the database enforces the allowance whoever moves it.
+ */
+export async function packageRescheduleState(
+  db: DbOrTransaction,
+  appointmentId: string,
+  settings: { sessionTypes: readonly string[]; neverReschedulable: readonly string[] },
+  now = new Date(),
+): Promise<{ reschedulesLeft: number; neverReschedulable: boolean } | undefined> {
+  const [visit] = await db
+    .select({ episodeId: appointment.episodeId, typeKey: appointmentType.key })
+    .from(appointment)
+    .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
+    .where(eq(appointment.id, appointmentId));
+  if (!visit?.episodeId || !settings.sessionTypes.includes(visit.typeKey)) return undefined;
+  const active = (await packagesOfEpisode(db, visit.episodeId, now)).find(
+    (entry) => entry.state === 'active',
+  );
+  if (!active) return undefined;
+  return {
+    reschedulesLeft: active.reschedulesLeft,
+    neverReschedulable: settings.neverReschedulable.includes(visit.typeKey),
+  };
 }

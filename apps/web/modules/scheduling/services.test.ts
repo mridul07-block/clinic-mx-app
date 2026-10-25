@@ -367,6 +367,32 @@ describe('scheduling', () => {
     ).rejects.toThrow(db.SlotRefusedError);
   });
 
+  it('says in plain words when the package allows no move at the patient’s request (SCH-10)', async () => {
+    db.appointmentRecord.mockResolvedValue(old);
+    const refused = (message: string) =>
+      Object.assign(new Error('Failed query'), { cause: { message } });
+    const move = () =>
+      rescheduleAppointment(context(), {
+        appointmentId,
+        physioId,
+        startsAt: '2026-11-03T05:00:00.000Z',
+        reason: 'patient',
+      });
+    db.changeAppointment.mockRejectedValueOnce(refused('No reschedules left in this package'));
+    await expect(move()).rejects.toThrow(
+      new SchedulingError(
+        'No reschedules left in this package. Only a move asked by the clinic is possible.',
+      ),
+    );
+    db.changeAppointment.mockRejectedValueOnce(
+      refused("This package session cannot be rescheduled at the patient's request"),
+    );
+    await expect(move()).rejects.toThrow(
+      'This package session cannot be moved at the patient’s request; only a move asked by the clinic is possible.',
+    );
+    expect(db.bookAppointment).not.toHaveBeenCalled();
+  });
+
   it('changes appointments only for the booking roles at their centres', async () => {
     db.appointmentRecord.mockResolvedValue({ ...old, centreId: koramangala });
     await expect(

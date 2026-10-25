@@ -257,6 +257,27 @@ export const cancelAppointment = staffService({
  * episode, at the front desk; if the new start is refused, nothing changes (PRD J1.7: the old
  * time is given up only for the new booking). The new appointment's id and number.
  */
+/**
+ * The package reschedule allowance's refusals (SCH-10), which the database raises when the old
+ * appointment becomes Rescheduled, as the front desk reads them.
+ */
+const packageRefusals: [RegExp, string][] = [
+  [
+    /No reschedules left in this package/,
+    'No reschedules left in this package. Only a move asked by the clinic is possible.',
+  ],
+  [
+    /cannot be rescheduled at the patient's request/,
+    'This package session cannot be moved at the patient’s request; only a move asked by the clinic is possible.',
+  ],
+];
+
+function packageRefusal(error: unknown): SchedulingError | undefined {
+  const cause = (error as { cause?: { message?: string } }).cause?.message ?? '';
+  const refusal = packageRefusals.find(([pattern]) => pattern.test(cause));
+  return refusal ? new SchedulingError(refusal[1]) : undefined;
+}
+
 export async function rescheduleAppointment(context: ServiceContext, rawInput: unknown) {
   const step = await getSetting('scheduling.slot_minutes');
   return staffService({
@@ -273,6 +294,8 @@ export async function rescheduleAppointment(context: ServiceContext, rawInput: u
           reason: input.reason,
           changedBy: actor.id,
           now: new Date(),
+        }).catch((error: unknown) => {
+          throw packageRefusal(error) ?? error;
         }));
       if (!old || !changed) {
         throw new SchedulingError('Only a booked or confirmed appointment can be moved.');

@@ -155,6 +155,13 @@ export const settingDefinitions = {
     source: 'PRD section 7: Package reschedules',
     description: 'Price items whose package sessions can never be rescheduled.',
   },
+  'packages.session_appointment_types': {
+    schema: z.array(priceItemKey).min(1),
+    source:
+      'SCH-10 (user decision, 25 October 2026): Session and Zero Gravity Treadmill appointments in an episode with an active package',
+    description:
+      'Appointment types whose appointments are package sessions for the reschedule allowance (keys, as never reschedulable items).',
+  },
   'day.running_late_minutes': {
     schema: minutes,
     source: 'PRD section 7: Running late',

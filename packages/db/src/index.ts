@@ -425,6 +425,7 @@ export { INVOICE_JOB, RECEIPT_JOB, invoiceFacts, type InvoiceFacts } from './inv
 export {
   PACKAGE_EXPIRY_REMINDER_JOB,
   packageList,
+  packageRescheduleState,
   packagesOfEpisode,
   packagesOfPatient,
   usePackageSession,

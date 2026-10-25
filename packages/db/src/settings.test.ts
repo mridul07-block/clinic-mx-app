@@ -23,6 +23,7 @@ const stored: Settings = {
   'booking.self_booking_block_no_shows': 2,
   'packages.reschedules_per_10_sessions': 1,
   'packages.never_reschedulable_items': ['zero_gravity_treadmill'],
+  'packages.session_appointment_types': ['session', 'zero_gravity_treadmill'],
   'day.running_late_minutes': 15,
   'day.no_show_allowed_minutes': 25,
   'reports.max_file_mb': 4,
