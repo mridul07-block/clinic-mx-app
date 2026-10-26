@@ -145,8 +145,15 @@ export const sessionNoteSchema = z.object({
     })
     .default({ interventions: [], modalities: [], note: '' }),
   response: z
-    .object({ rating: z.enum(sessionResponses).nullable().default(null), note: noteText })
-    .default({ rating: null, note: '' }),
+    .object({
+      rating: z.enum(sessionResponses).nullable().default(null),
+      note: noteText,
+      // SES-06: an adverse event, ticked under the response, with its description.
+      adverseEvent: z
+        .object({ reported: z.boolean().default(false), description: noteText })
+        .default({ reported: false, description: '' }),
+    })
+    .default({ rating: null, note: '', adverseEvent: { reported: false, description: '' } }),
   homeProgramme: z.object({ note: noteText }).default({ note: '' }),
   nextSession: z
     .object({ plan: z.enum(nextSessionPlans).nullable().default(null), note: noteText })
@@ -227,6 +234,29 @@ export function sameAsLastTimeOverwrites(current: SessionNote, last: SessionNote
   );
 }
 
+const painAfterNumber: Record<PainReading, string> = {
+  rest: 'at rest',
+  activity: 'during activity',
+  after: 'after treatment',
+};
+
+/** "Pain 2 at rest · 4 during activity · 1 after treatment · Better", for a list of signed notes (CLN-12 follow up). */
+export function sessionNoteDigest(note: SessionNote): string {
+  const pain = painReadings
+    .map((reading) => {
+      const value = note.pain[reading];
+      return value === null ? null : `${String(value)} ${painAfterNumber[reading]}`;
+    })
+    .filter((part) => part !== null);
+  return [
+    pain.length > 0 ? `Pain ${pain.join(' · ')}` : null,
+    note.response.rating ? sessionResponseLabels[note.response.rating] : null,
+    note.response.adverseEvent.reported ? 'Adverse event' : null,
+  ]
+    .filter((part) => part !== null)
+    .join(' · ');
+}
+
 /** What still holds Close session back, in the note's order; empty when it can close. */
 export function sessionNoteBlockers(note: SessionNote): string[] {
   const blockers: string[] = [];
@@ -242,6 +272,9 @@ export function sessionNoteBlockers(note: SessionNote): string[] {
     blockers.push('Tick the treatment given.');
   }
   if (note.response.rating === null) blockers.push('Choose the response.');
+  if (note.response.adverseEvent.reported && note.response.adverseEvent.description.trim() === '') {
+    blockers.push('Describe the adverse event.');
+  }
   if (note.nextSession.plan === null) blockers.push('Choose what the next session does.');
   return blockers;
 }

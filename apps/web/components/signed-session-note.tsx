@@ -4,32 +4,9 @@ import {
   painReadingLabels,
   painReadings,
   sessionResponseLabels,
-  type PainReading,
   type SessionNote,
 } from '@clinic-mx/schemas';
 import type { ReactNode } from 'react';
-
-const painAfterNumber: Record<PainReading, string> = {
-  rest: 'at rest',
-  activity: 'during activity',
-  after: 'after treatment',
-};
-
-/** "Pain 2 at rest · 4 during activity · 1 after treatment · Better", for a list of notes. */
-export function sessionNoteDigest(note: SessionNote): string {
-  const pain = painReadings
-    .map((reading) => {
-      const value = note.pain[reading];
-      return value === null ? null : `${String(value)} ${painAfterNumber[reading]}`;
-    })
-    .filter((part) => part !== null);
-  return [
-    pain.length > 0 ? `Pain ${pain.join(' · ')}` : null,
-    note.response.rating ? sessionResponseLabels[note.response.rating] : null,
-  ]
-    .filter((part) => part !== null)
-    .join(' · ');
-}
 
 function Row({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -90,6 +67,9 @@ export function SignedSessionNote({
           note.response.note,
         )}
       </Row>
+      {note.response.adverseEvent.reported ? (
+        <Row title="Adverse event">{note.response.adverseEvent.description.trim()}</Row>
+      ) : null}
       {note.homeProgramme.note.trim() ? (
         <Row title="Home programme changes">{note.homeProgramme.note.trim()}</Row>
       ) : null}

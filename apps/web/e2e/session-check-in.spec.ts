@@ -28,6 +28,9 @@ import { exclusively, signIn, signInWithCode, temporaryDesk, temporaryWithCode }
 // SES-04 done when: "Same as last time" copies the previous note for editing. Decisions (user, 26
 // October 2026): the treatment, home programme changes and next session only; confirm before
 // replacing what was entered; hidden without an earlier signed note.
+// SES-06 done when: an adverse event requires a description and alerts the consultant. Decisions
+// (user, 26 October 2026): an optional tick under the response; at Close session the consultant
+// and the Clinical Director (the Super Admin role, DECISION SES-06) each get a task.
 
 const physios: string[] = [];
 const visits: string[] = [];
@@ -307,7 +310,65 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
       await physioPage.reload();
       await expect(note.getByLabel('Plan for next time')).toHaveValue('Add step downs');
       await expect(note.getByRole('radio', { name: 'Progress' })).toBeChecked();
+
+      // SES-06: session 2 closes with an adverse event, which must be described first.
+      await note.locator('label').filter({ hasText: /^No$/ }).click();
+      await note.getByLabel('Pain at rest').fill('3');
+      await note.getByLabel('Pain during activity').fill('6');
+      await note.getByLabel('Pain after treatment').fill('4');
+      await note
+        .locator('label')
+        .filter({ hasText: /^Worse$/ })
+        .click();
+      await note.getByRole('checkbox', { name: 'Adverse event' }).check();
+      await expect(note.getByTestId('close-blockers')).toHaveText('Describe the adverse event.');
+      await expect(note.getByRole('button', { name: 'Close session' })).toBeDisabled();
+      await expect(
+        note.getByText(
+          'Closing the session gives the consultant and the Clinical Director a task.',
+        ),
+      ).toBeVisible();
+      await note
+        .getByLabel('Describe the adverse event')
+        .fill('Dizzy after exercise, settled in 10 minutes');
+      await expect(note.getByTestId('close-blockers')).toHaveCount(0);
+      await expect(note.getByRole('status')).toHaveText('Saved');
+      await physioPage.screenshot({
+        path: test.info().outputPath('session-adverse-event.png'),
+        fullPage: true,
+      });
+      await note.getByRole('button', { name: 'Close session' }).click();
+      await expect(
+        physioPage.getByRole('status').filter({ hasText: 'Session closed.' }),
+      ).toBeVisible();
+      await physioPage.goto('/app/tasks');
+      await expect(
+        physioPage.getByTestId('task-card').filter({ hasText: 'Adverse event in session 2' }),
+      ).toHaveCount(1);
       await clinician.close();
+
+      // The Clinical Director (the Super Admin role) has its own task, and the record shows it.
+      const director = await temporaryWithCode('super_admin');
+      const directorContext = await browser.newContext(test.info().project.use);
+      const directorPage = await directorContext.newPage();
+      await signInWithCode(directorPage, director.email, director.secret);
+      await directorPage.goto('/app/tasks');
+      await expect(
+        directorPage
+          .getByTestId('task-card')
+          .filter({ hasText: 'Adverse event in session 2: Clinical Director review' })
+          .filter({ hasText: paid.patient.name }),
+      ).toHaveCount(1);
+      await directorPage.goto(`/app/patients/${paid.patient.id}?tab=notes`);
+      const adverseNote = directorPage
+        .getByTestId('signed-note')
+        .filter({ hasText: 'Session 2 ·' });
+      await expect(adverseNote).toContainText('Worse · Adverse event');
+      await adverseNote.getByText('Open note').click();
+      await expect(adverseNote.getByTestId('signed-session-note')).toContainText(
+        'Dizzy after exercise, settled in 10 minutes',
+      );
+      await directorContext.close();
 
       // Another physio at the centre does not even read the appointment (row level security), so
       // it is not found; the desk is not allowed in.
@@ -322,16 +383,17 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
       ).toBeVisible();
       await expect(otherPage.getByTestId('summary-card')).toHaveCount(0);
 
-      // On the patient record they read the signed note, with the card's last note now the
-      // session, and add an addendum at the episode's centre.
+      // On the patient record they read session 1's signed note, with the card's last note now
+      // session 2, and add an addendum at the episode's centre.
       await otherPage.goto(`/app/patients/${paid.patient.id}`);
       await expect(otherPage.getByTestId('summary-last-note')).toContainText(
-        `Last signed note: Session 1,`,
+        `Last signed note: Session 2,`,
       );
       await expect(otherPage.getByTestId('summary-diagnosis')).toContainText(paid.conditionName);
       await otherPage.goto(`/app/patients/${paid.patient.id}?tab=notes`);
       const sessionNote = otherPage.getByTestId('signed-note').filter({ hasText: 'Session 1 ·' });
-      await expect(otherPage.getByTestId('signed-note').first()).toContainText('Session 1 ·');
+      await expect(otherPage.getByTestId('signed-note').first()).toContainText('Session 2 ·');
+      await expect(otherPage.getByTestId('signed-note').nth(1)).toContainText('Session 1 ·');
       await expect(sessionNote).toContainText(
         'Pain 2 at rest · 4 during activity · 1 after treatment · Better',
       );
