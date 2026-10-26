@@ -12,6 +12,7 @@ import {
   patientAlertHistory,
   planForSession,
   recordBaseline,
+  recordReassessment,
   saveSessionNote as saveSessionNoteRow,
   sessionAddenda,
   sessionModalities,
@@ -29,6 +30,7 @@ import {
 } from '@clinic-mx/db';
 import {
   baselineRecordings,
+  reassessmentRecordings,
   can,
   closeSessionSchema,
   coversSessionsAt,
@@ -51,6 +53,8 @@ import { staffService } from '../access/service';
 import { asStaffViewing } from '../access/staff-db';
 import { episodeSummary, recordNotes, type PatientSummary } from '../patients/record';
 import { baselineView, workedOutBaseline, type BaselineView } from './baseline';
+import { reassessedItems, reassessmentView, type ReassessmentView } from './reassessment';
+import { getSetting } from '../settings/settings';
 
 /**
  * The session screen (SES-02, PRD J5.2; docs/runbooks/sessions.md): the treating physio's summary
@@ -63,7 +67,8 @@ import { baselineView, workedOutBaseline, type BaselineView } from './baseline';
  * opened by Start session, written by the appointment's physio with autosave, and signed by Close
  * session, which completes the visit, uses a package session and gives the consultant a task for
  * new symptoms (the database does those, `internal.session_closed`). Session 1 also records the
- * episode's baseline (OUT-01, `./baseline`): its signing freezes it.
+ * episode's baseline (OUT-01, `./baseline`): its signing freezes it. The reassessment session
+ * measures it again for the consultant to review (OUT-05, `./reassessment`).
  *
  * A signed note changes only by addenda (CLN-12 follow up, user decisions 26 October 2026), added
  * here or on the patient record's Notes as for a consultation: the Treats patients tick, at the
@@ -110,6 +115,8 @@ export interface SessionNoteView {
   };
   /** Session 1's baseline (OUT-01); null for any other session. */
   baseline: BaselineView | null;
+  /** The reassessment session's section (OUT-05); null for any other session. */
+  reassessment: ReassessmentView | null;
 }
 
 export interface SessionScreen {
@@ -251,6 +258,7 @@ export async function loadSession(
         (own || worksAtCentre(actor, stored.centreId)),
       plan: plan ?? { interventions: [], modalities: [], homeProgramme: [] },
       baseline: await baselineView(tx, stored),
+      reassessment: await reassessmentView(tx, stored),
     };
     await logClinicalView(tx, 'patient', visit.patientId);
     const covered = visit.startedBy !== null && visit.startedBy !== visit.physioId;
@@ -314,10 +322,16 @@ export const closeSession = staffService({
     const note = readSessionNote(found.note);
     // Session 1 records the baseline (OUT-01), worked out again here as the signing sees it.
     const baseline = found.number === 1 ? await workedOutBaseline(tx, found) : undefined;
+    // The reassessment session measures the baseline's measures again (OUT-05).
+    const reassessed =
+      found.number === (await getSetting('clinical.reassessment_session'))
+        ? (await reassessedItems(tx, found.episodeId, found.kbVersionId)).map((i) => i.measure)
+        : [];
     const blockers = sessionNoteBlockers(
       note,
       await noteModalities(tx, found.kbVersionId, found.episodeId),
       baseline?.missing,
+      reassessed,
     );
     if (blockers.length > 0) throw new SessionError(blockers.join(' '), 'refused');
     const { rest, activity, after } = note.pain;
@@ -344,6 +358,15 @@ export const closeSession = staffService({
           consultationId: r.consultationId,
         })),
         recordings: baselineRecordings(note.baseline, baseline.missing),
+      });
+    }
+    if (reassessed.length > 0) {
+      await recordReassessment(tx, {
+        sessionId: found.id,
+        episodeId: found.episodeId,
+        kbVersionId: found.kbVersionId,
+        by: actor.id,
+        ...reassessmentRecordings(note.reassessment, reassessed),
       });
     }
     return { status: 'signed' };

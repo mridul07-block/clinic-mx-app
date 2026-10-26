@@ -1,11 +1,13 @@
 import type { TaskEntry } from '@clinic-mx/db';
 import {
+  REASSESSMENT_TASK,
   REVIEW_BOOKING_TASK,
   UNSIGNED_NOTES_TASK,
   can,
   documentDateTime,
   formatIstDate,
   formatIstDateTime,
+  reassessmentIdOf,
   reviewToBookOf,
   staffRoleLabels,
   taskKindLabel,
@@ -83,6 +85,20 @@ function ReviewToBook({ details }: { details: Record<string, unknown> }) {
   );
 }
 
+/** The reassessment a review task opens (OUT-05). */
+function ReassessmentLink({ details }: { details: Record<string, unknown> }) {
+  const id = reassessmentIdOf(details);
+  if (!id) return null;
+  return (
+    <Link
+      href={`/app/reassessments/${id}`}
+      className="self-start text-sm text-accent underline underline-offset-2 pointer-coarse:py-3"
+    >
+      Open the reassessment
+    </Link>
+  );
+}
+
 function TaskCard({
   task,
   viewerId,
@@ -142,6 +158,7 @@ function TaskCard({
         {task.kind === 'job.failed' ? <JobFailure details={task.details} /> : null}
         {task.kind === UNSIGNED_NOTES_TASK ? <UnsignedNotes details={task.details} /> : null}
         {task.kind === REVIEW_BOOKING_TASK ? <ReviewToBook details={task.details} /> : null}
+        {task.kind === REASSESSMENT_TASK ? <ReassessmentLink details={task.details} /> : null}
       </div>
       {task.decision ? (
         <p className="text-sm text-ink-secondary" data-testid="task-decision">

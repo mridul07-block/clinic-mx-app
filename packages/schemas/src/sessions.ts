@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import { baselineBlockers, baselineEntrySchema, type BaselineMarker } from './baseline';
+import {
+  reassessmentBlockers,
+  reassessmentEntrySchema,
+  type ReassessedMeasure,
+} from './reassessment';
 import { recordVersionSchema } from './drafts';
 import { episodeStatusLabels, type EpisodeStatus } from './episodes';
 import { interventionKinds, type InterventionKind, type ModalityParameter } from './plan';
@@ -182,6 +187,17 @@ export const sessionNoteSchema = z.object({
     )
     .default({})
     .refine((entries) => Object.keys(entries).length <= 50, 'Too many baseline markers.'),
+  // OUT-05: session 4's entries for the baseline's measures, by measure key.
+  reassessment: z
+    .record(
+      z
+        .string()
+        .regex(/^[a-z_]+\.[a-z0-9_.]+$/)
+        .max(120),
+      reassessmentEntrySchema,
+    )
+    .default({})
+    .refine((entries) => Object.keys(entries).length <= 100, 'Too many reassessed measures.'),
 });
 
 export type SessionNote = z.infer<typeof sessionNoteSchema>;
@@ -345,12 +361,14 @@ export function coversSessionsAt(
  * What still holds Close session back, in the note's order; empty when it can close. With the
  * note's modalities (SES-05), each ticked one needs its parameters, and a reason when it warns
  * about one of the patient's precautions. At session 1, each baseline marker it asks for (OUT-01)
- * needs a reading, or Not tested with a reason.
+ * needs a reading, or Not tested with a reason; at session 4, each baseline measure it reassesses
+ * (OUT-05) the same.
  */
 export function sessionNoteBlockers(
   note: SessionNote,
   modalities: readonly SessionModality[] = [],
   baselineMissing: readonly BaselineMarker[] = [],
+  reassessed: readonly ReassessedMeasure[] = [],
 ): string[] {
   const blockers: string[] = [];
   if (note.newSymptoms.answer === null) blockers.push('Answer "Any new symptoms?".');
@@ -362,6 +380,7 @@ export function sessionNoteBlockers(
       blockers.push(`Set ${painReadingLabels[reading].toLowerCase()}.`);
   }
   blockers.push(...baselineBlockers(note.baseline, baselineMissing));
+  blockers.push(...reassessmentBlockers(note.reassessment, reassessed));
   if (note.treatment.interventions.length + note.treatment.modalities.length === 0) {
     blockers.push('Tick the treatment given.');
   }

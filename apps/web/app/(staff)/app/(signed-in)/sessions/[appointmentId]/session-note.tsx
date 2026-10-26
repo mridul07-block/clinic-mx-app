@@ -2,6 +2,8 @@
 
 import {
   BASELINE_REASON_MAX,
+  emptyReassessmentEntry,
+  entryOfReassessment,
   formatIstDate,
   formatIstDateTime,
   interventionLabels,
@@ -10,6 +12,7 @@ import {
   nextSessionPlans,
   painReadingLabels,
   painReadings,
+  reassessmentChangeText,
   sameAsLastTime,
   sameAsLastTimeOverwrites,
   sessionNoteBlockers,
@@ -18,6 +21,7 @@ import {
   sessionResponses,
   type BaselineEntry,
   type InterventionKind,
+  type ReassessmentEntry,
   type SessionModality,
   type SessionNote,
 } from '@clinic-mx/schemas';
@@ -33,6 +37,11 @@ import {
   type CloseSessionState,
 } from '../../../../../../modules/sessions/actions';
 import type { BaselineItem, BaselineView } from '../../../../../../modules/sessions/baseline';
+import type {
+  ReassessedItem,
+  ReassessmentView,
+} from '../../../../../../modules/sessions/reassessment';
+import { ReassessmentRows } from '../../reassessments/[reassessmentId]/reassessment-rows';
 
 const textarea =
   'w-full min-w-0 rounded-control border border-line-control bg-surface px-3 py-2 text-md shadow-xs hover:border-ink-muted read-only:bg-surface-sunken';
@@ -267,11 +276,218 @@ function BaselineSection({
   );
 }
 
+/** A number field for one reading; empty is null. */
+function Reading({
+  label,
+  unit,
+  value,
+  readOnly,
+  onChange,
+}: {
+  label: string;
+  unit: string;
+  value: number | null;
+  readOnly: boolean;
+  onChange: (value: number | null) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="number"
+        inputMode="decimal"
+        step="any"
+        aria-label={label}
+        readOnly={readOnly}
+        value={value ?? ''}
+        onChange={(event) => {
+          const read = event.target.valueAsNumber;
+          onChange(Number.isFinite(read) ? read : null);
+        }}
+        className={`${input} max-w-32`}
+      />
+      <span className="text-ink-secondary">{unit === 'grade' ? '' : unit}</span>
+    </div>
+  );
+}
+
+/**
+ * The reassessment session (OUT-05, PRD J5.10): each measure the baseline holds, its baseline
+ * reading, and this session's (both sides of a side by side measure), with the change as it is
+ * typed; or Not tested with a reason. Once signed, baseline against this session and the
+ * consultant's review.
+ */
+function ReassessmentSection({
+  view,
+  entries,
+  readOnly,
+  signed,
+  onChange,
+}: {
+  view: ReassessmentView;
+  entries: SessionNote['reassessment'];
+  readOnly: boolean;
+  signed: boolean;
+  onChange: (key: string, entry: ReassessmentEntry) => void;
+}) {
+  const title = `Reassessment (session ${String(view.sessionNumber)})`;
+  if (signed && view.rows) {
+    return (
+      <Section title={title}>
+        <ReassessmentRows rows={view.rows} sessionNumber={view.sessionNumber} />
+        <p className="text-sm text-ink-secondary" data-testid="reassessment-review">
+          {view.decision
+            ? `Reviewed by ${view.decision.by} on ${formatIstDateTime(view.decision.at)}.`
+            : `Awaiting ${view.consultantName ?? 'the consultant'}'s review.`}
+        </p>
+        {view.reassessmentId ? (
+          <a
+            href={`/app/reassessments/${view.reassessmentId}`}
+            className="self-start text-sm text-accent underline underline-offset-2 pointer-coarse:py-3"
+          >
+            Open the review
+          </a>
+        ) : null}
+      </Section>
+    );
+  }
+  return (
+    <Section title={title}>
+      <p className="text-sm text-ink-secondary">
+        {readOnly
+          ? 'The baseline measures, taken again for the consultant to review.'
+          : 'Take each baseline measure again, or mark it Not tested. The consultant reviews them.'}
+      </p>
+      {view.items.length === 0 ? (
+        <p className="text-ink-muted">
+          No baseline was recorded at session 1, so there is nothing to reassess.
+        </p>
+      ) : null}
+      <ul className="flex flex-col gap-3" data-testid="reassessment">
+        {view.items.map((item: ReassessedItem) => {
+          const { measure } = item;
+          const entry = entries[measure.key] ?? emptyReassessmentEntry;
+          const id = ['reassessment', measure.key].join('-');
+          const change = reassessmentChangeText(
+            measure,
+            item.baselineEntry,
+            entryOfReassessment(entry),
+          );
+          const update = (change: Partial<ReassessmentEntry>) => {
+            onChange(measure.key, { ...entry, ...change });
+          };
+          return (
+            <li
+              key={measure.key}
+              data-testid="reassessment-item"
+              className="flex flex-col gap-2 border-t border-line pt-3 first:border-0 first:pt-0"
+            >
+              <span className="font-medium text-ink">{measure.name}</span>
+              <p className="text-sm text-ink-secondary">
+                Baseline:{' '}
+                {item.baseline ??
+                  `Not tested${item.baselineNotTested ? ` (${item.baselineNotTested})` : ''}`}
+              </p>
+              {!entry.notTested ? (
+                measure.kind === 'lsi' || measure.kind === 'deficit' ? (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-sm text-ink-secondary">Involved</span>
+                      <Reading
+                        label={`${measure.name} involved`}
+                        unit={measure.unit}
+                        value={entry.involved}
+                        readOnly={readOnly}
+                        onChange={(involved) => {
+                          update({ involved });
+                        }}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-sm text-ink-secondary">Uninvolved</span>
+                      <Reading
+                        label={`${measure.name} uninvolved`}
+                        unit={measure.unit}
+                        value={entry.uninvolved}
+                        readOnly={readOnly}
+                        onChange={(uninvolved) => {
+                          update({ uninvolved });
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : measure.kind === 'grade' ? (
+                  <Choices
+                    name={id}
+                    options={grades}
+                    labels={gradeLabels}
+                    value={
+                      entry.value === null ? null : (String(entry.value) as (typeof grades)[number])
+                    }
+                    readOnly={readOnly}
+                    onChange={(value) => {
+                      update({ value: Number(value) });
+                    }}
+                  />
+                ) : (
+                  <Reading
+                    label={measure.name}
+                    unit={measure.unit}
+                    value={entry.value}
+                    readOnly={readOnly}
+                    onChange={(value) => {
+                      update({ value });
+                    }}
+                  />
+                )
+              ) : null}
+              {change && !entry.notTested ? (
+                <p className="text-sm font-medium text-ink" data-testid="reassessment-live-change">
+                  {change}
+                </p>
+              ) : null}
+              <label className="flex min-h-row items-center gap-3 pointer-coarse:min-h-row-touch">
+                <input
+                  type="checkbox"
+                  className={tick}
+                  disabled={readOnly}
+                  checked={entry.notTested}
+                  onChange={(event) => {
+                    update({ notTested: event.target.checked });
+                  }}
+                />
+                Not tested
+              </label>
+              {entry.notTested ? (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-sm font-medium text-ink-secondary">
+                    Why it was not tested
+                  </span>
+                  <input
+                    type="text"
+                    maxLength={BASELINE_REASON_MAX}
+                    readOnly={readOnly}
+                    value={entry.reason}
+                    onChange={(event) => {
+                      update({ reason: event.target.value });
+                    }}
+                    className={input}
+                  />
+                </label>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </Section>
+  );
+}
+
 /**
  * The session note (SES-03, PRD J5.4; user decisions 26 October 2026): new symptoms first, then
  * since last visit, the three pain sliders, the treatment given as ticks from the plan, the
  * response, home programme changes and the next session; autosaved as it is written. Session 1
- * also records the baseline (OUT-01) after the pain readings. Close session saves what is left and
+ * also records the baseline (OUT-01) after the pain readings, and the reassessment session takes
+ * it again (OUT-05). Close session saves what is left and
  * signs it at that version.
  */
 export function SessionNoteForm({
@@ -284,6 +500,7 @@ export function SessionNoteForm({
   lastTime,
   modalityDefinitions,
   baseline,
+  reassessment,
 }: {
   appointmentId: string;
   serverValue: SessionNote;
@@ -301,6 +518,8 @@ export function SessionNoteForm({
   modalityDefinitions: SessionModality[];
   /** Session 1's baseline (OUT-01); null for any other session. */
   baseline: BaselineView | null;
+  /** The reassessment session's section (OUT-05); null for any other session. */
+  reassessment: ReassessmentView | null;
 }) {
   const save = useMemo(() => saveSessionNoteDraft(appointmentId), [appointmentId]);
   const draft = useAutosave({
@@ -322,7 +541,8 @@ export function SessionNoteForm({
   const requested = signed
     ? []
     : (baseline?.items.filter((item) => item.source === 'requested') ?? []);
-  const blockers = sessionNoteBlockers(note, modalityDefinitions, requested);
+  const reassessed = signed ? [] : (reassessment?.items.map((item) => item.measure) ?? []);
+  const blockers = sessionNoteBlockers(note, modalityDefinitions, requested, reassessed);
   const definitionOf = (key: string) => modalityDefinitions.find((m) => m.key === key);
   const [state, action, pending] = useActionState(closeSessionAction, initialState);
   const [saving, setSaving] = useState(false);
@@ -500,6 +720,18 @@ export function SessionNoteForm({
           readOnly={readOnly}
           onChange={(key, entry) => {
             set({ baseline: { ...note.baseline, [key]: entry } });
+          }}
+        />
+      ) : null}
+
+      {reassessment ? (
+        <ReassessmentSection
+          view={reassessment}
+          entries={note.reassessment}
+          readOnly={readOnly}
+          signed={signed !== null}
+          onChange={(key, entry) => {
+            set({ reassessment: { ...note.reassessment, [key]: entry } });
           }}
         />
       ) : null}

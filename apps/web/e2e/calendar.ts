@@ -197,8 +197,14 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
       sql`delete from addendum where session_id in
         (select id from session where physio_id in ${physioIds})`,
     );
-    // Session 1's baseline (OUT-01): its rows and the markers it recorded.
-    for (const table of ['baseline_measure', 'measure']) {
+    // Session 4's reassessment (OUT-05) and its review task, then session 1's baseline (OUT-01):
+    // their rows and the readings the sessions recorded.
+    const theirSessions = sql`(select id from session where physio_id in ${physioIds})`;
+    await tx.execute(
+      sql`delete from task where kind = 'review.reassessment' and details ->> 'reassessmentId' in
+        (select id::text from reassessment where session_id in ${theirSessions})`,
+    );
+    for (const table of ['reassessment', 'baseline_measure', 'measure']) {
       await tx.execute(
         sql`delete from ${sql.identifier(table)} where session_id in
           (select id from session where physio_id in ${physioIds})`,

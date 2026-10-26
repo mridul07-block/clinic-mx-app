@@ -354,3 +354,58 @@ session 1 (PRD J5.3 and section 7 "Baseline reuse", a setting). Decisions (user,
 
 **Negative check:** drop the date condition from `internal.reusable_measure`, and the database
 test fails ("too old").
+
+## Session 4 reassessment (OUT-05)
+
+Done when the treating physio records the markers at session 4 and the consultant reviews and signs
+the decision (PRD J5.10; section 7 "Reassessment", `clinical.reassessment_session` = 4). Decisions
+(user, 26 October 2026; DECISION 7 default until the client decides who performs it):
+
+- **Who:** whoever writes the reassessment session's note measures (the booked physio, or the
+  colleague covering it). The episode's consultant, who signed the consultation, reviews and
+  signs.
+- **What:**
+  - exactly the measures of the frozen baseline (OUT-01), in the workbook's order
+  - each shows its baseline reading
+  - a side by side measure takes both sides, with the LSI or deficit change shown as it is typed
+  - a grade is 0 to 3 in one tap
+  - one not tested at baseline is asked for again
+  - an episode without a baseline asks nothing
+- **Gate:** Close session waits until each one is recorded, or marked Not tested with a reason
+  ("Record both sides of Quadriceps, or mark it Not tested with a reason.").
+- **Signing the session writes:**
+  - the readings, as `measure` rows of the session
+  - one `reassessment` row, with the reasons not tested
+- **The database then:**
+  - stamps the consultant (`internal.reassessment_guard`), so nobody names someone else
+  - gives the consultant a task, "Review the session 4 reassessment"
+- **Review (`/app/reassessments/<id>`, from the task's "Open the reassessment"):**
+  - the baseline and the session's reading for each measure, with the change ("LSI 80% →
+    92%", "6/10 → 3/10")
+  - The consultant writes the decision in their own words and signs it ("Sign decision"):
+    - once, with the Treats patients tick now
+    - It never changes, not even by the database owner, and is never deleted.
+    - Signing closes their task with the same decision.
+  - Others who read the session note read it; the signed session note shows it and who reviewed
+    it.
+
+| Piece | Where |
+| --- | --- |
+| Blockers, readings, change text, the decision | `packages/schemas/src/reassessment.ts`; `reassessment` in `sessionNoteSchema` |
+| Writing, reading, signing | `packages/db/src/reassessment.ts` (`recordReassessment`, `reassessmentById`, `signReassessment`, `frozenBaselineOfEpisode`) |
+| The session's section, baseline against now | `apps/web/modules/sessions/reassessment.ts`; `closeSession` checks and records it after signing |
+| The review and signing | `apps/web/modules/reassessments/services.ts` (`consultant_records.sign`), `reassessments/[reassessmentId]/page.tsx` |
+| Rules | `supabase/migrations/20261026161651_reassessment_rules.sql`: a session's readings only while its physio signs session 1 or the reassessment session (`internal.signing_session_numbered`); the row only then; the consultant stamped; signed once by them; the task opened and closed; read as the session note; support read only |
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `packages/schemas/src/reassessment.test.ts` | both sides, a value, grades, Not tested with a reason; the recordings; the change text; older notes; the decision's bounds |
+| `apps/web/modules/sessions/services.test.ts` (reassessment) | session 4 asks the baseline's measures in order, session 3 nothing; Close refused, then the reassessment written after signing; no baseline asks nothing; the signed view with the change and the review |
+| `apps/web/modules/reassessments/services.test.ts` | only the episode's consultant signs, while unsigned, with the tick; the view logged; others refused |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (reassessment) | written only while its physio signs session 4 (not a draft, a colleague, support, session 3); consultant stamped and tasked; read at the centre, not by the desk or support; signed by the consultant alone, once, closing the task; never changed or deleted; readings refused at session 2 |
+| `apps/web/e2e/reassessment.spec.ts` | 360 px and desktop: session 4 retakes quadriceps, pain and effusion with live change; the consultant opens the task, sees the change and signs; the task closes; the note shows the review |
+
+**Negative check:** let `internal.signing_session_numbered` accept any session number, and the
+database test fails ("not session 3", "session 2").
