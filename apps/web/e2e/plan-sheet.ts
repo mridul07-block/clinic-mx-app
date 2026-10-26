@@ -1,4 +1,5 @@
 import {
+  appointment,
   consultation,
   createDb,
   episode,
@@ -12,7 +13,7 @@ import {
   systemActor,
   withActor,
 } from '@clinic-mx/db';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, sql } from 'drizzle-orm';
 
 // The plan and payment sheet for end to end tests (BIL-01): a priced modality on a signed
 // consultation's plan, and a package type covering a session item. Generated
@@ -113,4 +114,23 @@ export async function packageSessionsUsed(patientId: string): Promise<number> {
     .from(patientPackage)
     .where(eq(patientPackage.patientId, patientId));
   return rows.reduce((total, row) => total + row.used, 0);
+}
+
+/** The patient's appointments booked in plan series (SCH-11), the series, and the lists queued. */
+export async function planSeriesOf(patientId: string) {
+  const rows = await db()
+    .select({ planBookingId: appointment.planBookingId })
+    .from(appointment)
+    .where(and(eq(appointment.patientId, patientId), isNotNull(appointment.planBookingId)));
+  const series = [...new Set(rows.map((row) => row.planBookingId ?? ''))];
+  const lists =
+    series.length === 0
+      ? []
+      : await db()
+          .select({ id: job.id })
+          .from(job)
+          .where(
+            sql`${job.kind} = 'whatsapp.plan_sessions_list' and ${job.payload} ->> 'planBookingId' in ${series}`,
+          );
+  return { appointments: rows.length, series: series.length, lists: lists.length };
 }

@@ -826,6 +826,8 @@ describe('the plan for pricing', () => {
         weeks: 6,
         reviewDate: '2026-12-05',
         treatingPhysio: consultant.name,
+        // SCH-11 suggests the treating physio for the plan's sessions.
+        treatingPhysioId: consultant.id,
         modalities: [{ key: 'laser', name: 'laser' }],
       });
       expect(await reads(finance), 'finance').toBeDefined();

@@ -7,6 +7,7 @@ import {
 import { sql } from 'drizzle-orm';
 import {
   check,
+  date,
   index,
   integer,
   pgEnum,
@@ -39,6 +40,48 @@ export const appointmentChangeReason = pgEnum(
   'appointment_change_reason',
   appointmentChangeReasons,
 );
+
+/**
+ * A series booked at once with "Book plan sessions" (SCH-11, PRD J4.8): the pattern the desk set
+ * (a start date, ISO weekdays and one IST time, with a physio) and who booked it. Its appointments
+ * carry its id, and the database queues one WhatsApp plan sessions list for it. Nobody changes or
+ * deletes one.
+ */
+export const planBooking = pgTable(
+  'plan_booking',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    episodeId: uuid('episode_id')
+      .notNull()
+      .references(() => episode.id),
+    centreId: uuid('centre_id')
+      .notNull()
+      .references(() => centre.id),
+    physioId: uuid('physio_id')
+      .notNull()
+      .references(() => staffUser.id),
+    appointmentTypeId: uuid('appointment_type_id')
+      .notNull()
+      .references(() => appointmentType.id),
+    fromDate: date('from_date').notNull(),
+    /** ISO weekdays, Monday 1 to Sunday 7. */
+    weekdays: integer('weekdays').array().notNull(),
+    /** The IST time asked for, "HH:MM". */
+    time: text('time').notNull(),
+    bookedBy: uuid('booked_by')
+      .notNull()
+      .references(() => staffUser.id),
+    bookedAt: timestamp('booked_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('plan_booking_episode_idx').on(table.episodeId, table.bookedAt),
+    check('plan_booking_time', sql`${table.time} ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'`),
+    check(
+      'plan_booking_weekdays',
+      sql`cardinality(${table.weekdays}) between 1 and 7 and ${table.weekdays} <@ array[1,2,3,4,5,6,7]`,
+    ),
+  ],
+).enableRLS();
 
 export const appointment = pgTable(
   'appointment',
@@ -77,6 +120,8 @@ export const appointment = pgTable(
     rescheduledFromId: uuid('rescheduled_from_id')
       .unique()
       .references((): AnyPgColumn => appointment.id),
+    /** Booked with "Book plan sessions" (SCH-11): the series it belongs to. */
+    planBookingId: uuid('plan_booking_id').references(() => planBooking.id),
     arrivedAt: timestamp('arrived_at', { withTimezone: true }),
     /** Who checked the patient in, having checked who they are (INT-02); cleared by an undo. */
     checkedInBy: uuid('checked_in_by').references(() => staffUser.id),
@@ -95,6 +140,7 @@ export const appointment = pgTable(
     // TAD section 6: slot queries use an index on (centre, physio, starts_at).
     index('appointment_centre_physio_start_idx').on(table.centreId, table.physioId, table.startsAt),
     index('appointment_patient_start_idx').on(table.patientId, table.startsAt),
+    index('appointment_plan_booking_idx').on(table.planBookingId),
     check('appointment_span', sql`${table.endsAt} > ${table.startsAt}`),
     // A booking made by staff (Front desk or Walk in) records who made it (PRD J1.5).
     check(
@@ -161,6 +207,7 @@ export const slotHold = pgTable(
 
 export type Appointment = typeof appointment.$inferSelect;
 export type SlotHold = typeof slotHold.$inferSelect;
+export type PlanBooking = typeof planBooking.$inferSelect;
 
 /**
  * A patient's reschedules (asked by the patient) and verified no shows (SCH-09, PRD J1.8, TAD

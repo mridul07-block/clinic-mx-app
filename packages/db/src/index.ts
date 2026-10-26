@@ -250,8 +250,10 @@ export {
   datesWithFreeSlots,
   freeSlots,
   markNoShow,
+  physiosForType,
   placeHold,
   releaseHold,
+  seriesFit,
   slotFit,
   undoCheckIn,
   undoNoShow,
@@ -259,8 +261,16 @@ export {
   type BookingRequest,
   type FreeSlotsRequest,
   type PhysioSlots,
+  type SeriesRequest,
   type SlotRequest,
 } from './slots';
+export {
+  PLAN_SESSIONS_LIST_JOB,
+  appointmentTypeIdByKey,
+  episodeSessionCounts,
+  recordPlanBooking,
+  type PlanBookingRecord,
+} from './plan-sessions';
 export { bookingCounterOf, liftBookingBlock, type BookingCounterEntry } from './booking-counters';
 export {
   calendarDay,

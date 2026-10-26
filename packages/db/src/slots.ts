@@ -3,6 +3,7 @@ import {
   changeableStatuses,
   checkSlot,
   holdsSlot,
+  seriesRows,
   isoWeekday,
   istDate,
   istInstant,
@@ -16,6 +17,7 @@ import {
   type Machine,
   type SlotCheck,
   type SlotQuery,
+  type SeriesRow,
   type SlotRefusal,
   type Weekly,
 } from '@clinic-mx/schemas';
@@ -370,6 +372,64 @@ export async function datesWithFreeSlots(
   return dates;
 }
 
+/** The people at a centre on a date who may take a type (by name): Book plan sessions' physios. */
+export async function physiosForType(
+  db: DbOrTransaction,
+  request: { centreId: string; appointmentTypeId: string; date: string },
+): Promise<PersonRow[]> {
+  const plan = await loadPlan(db, { ...request, from: request.date, to: request.date });
+  return plan?.physios ?? [];
+}
+
+export interface SeriesRequest {
+  centreId: string;
+  physioId: string;
+  appointmentTypeId: string;
+  /** The series' starts, in date order. */
+  starts: Date[];
+  holder?: string;
+  step: number;
+  now: Date;
+  /** `booking.plan_clash_alternatives`. */
+  alternatives: number;
+}
+
+/**
+ * Each start of a plan series checked by the engine's rules (SCH-11), with the busy times of the
+ * whole span loaded once (and the day after, for the next day choices): free, or why not with
+ * the nearest free starts that day and the next with the same physio.
+ */
+export async function seriesFit(db: DbOrTransaction, request: SeriesRequest): Promise<SeriesRow[]> {
+  const first = request.starts.at(0);
+  const last = request.starts.at(-1);
+  if (!first || !last) return [];
+  const plan = await loadPlan(db, {
+    ...request,
+    from: istDate(first),
+    to: addDays(istDate(last), 1),
+  });
+  const refusal: SlotRefusal | undefined = !plan?.type.active
+    ? 'type_inactive'
+    : plan.refused.has(request.physioId)
+      ? 'needs_consultant'
+      : plan.physios.some((p) => p.id === request.physioId)
+        ? undefined
+        : 'not_offered';
+  if (!plan || refusal) {
+    return request.starts.map((startsAt) => ({
+      startsAt,
+      check: { ok: false, refusal: refusal ?? 'type_inactive' },
+      sameDay: [],
+      nextDay: null,
+    }));
+  }
+  return seriesRows(
+    request.starts,
+    (date) => queryFor(plan, request.physioId, date, request.step, request.now),
+    request.alternatives,
+  );
+}
+
 export interface SlotRequest {
   centreId: string;
   physioId: string;
@@ -504,6 +564,8 @@ export interface BookingRequest extends SlotRequest {
   bookedBy?: string;
   /** The appointment this one replaces (SCH-08), already marked Rescheduled. */
   rescheduledFromId?: string;
+  /** The plan series it belongs to (SCH-11). */
+  planBookingId?: string;
 }
 
 /**
@@ -531,6 +593,7 @@ export async function bookAppointment(
         channel: request.channel,
         bookedBy: request.bookedBy,
         rescheduledFromId: request.rescheduledFromId,
+        planBookingId: request.planBookingId,
         machine,
         machineUnit: slot.machineUnit,
       })

@@ -233,7 +233,11 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
       );
     }
     await tx.delete(consultation).where(inArray(consultation.physioId, physioIds));
+    // Their plan series (SCH-11) after the appointments in them, with the lists they queued.
+    const series = sql`(select id::text from plan_booking where physio_id in ${physioIds})`;
+    await tx.delete(job).where(sql`${job.payload} ->> 'planBookingId' in ${series}`);
     await tx.delete(appointment).where(inArray(appointment.physioId, physioIds));
+    await tx.execute(sql`delete from plan_booking where physio_id in ${physioIds}`);
     await tx.delete(slotHold).where(inArray(slotHold.physioId, physioIds));
     await tx.delete(roster).where(inArray(roster.staffUserId, physioIds));
   });

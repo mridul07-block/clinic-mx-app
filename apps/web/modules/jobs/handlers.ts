@@ -5,6 +5,7 @@ import {
   INVOICE_JOB,
   NO_SHOW_MESSAGE_JOB,
   PACKAGE_EXPIRY_REMINDER_JOB,
+  PLAN_SESSIONS_LIST_JOB,
   RECEIPT_JOB,
   RED_FLAG_SAFETY_ADVICE_JOB,
   REFERRAL_LETTER_JOB,
@@ -76,6 +77,16 @@ export const jobHandlers: JobHandlers = {
    */
   [CONSULTATION_SUMMARY_MESSAGE_JOB]: defineJob({
     payload: z.object({ consultationId: z.guid() }),
+    run: () => Promise.resolve(),
+  }),
+  /**
+   * The plan sessions list (SCH-11, PRD J4.8), queued by the database once per series booked with
+   * "Book plan sessions". Nothing is sent yet: WA-06 fills this in, sending the series' booked
+   * appointments still Booked or Confirmed with the `plan_sessions_list` template. Until then the
+   * job completes without sending.
+   */
+  [PLAN_SESSIONS_LIST_JOB]: defineJob({
+    payload: z.object({ planBookingId: z.guid() }),
     run: () => Promise.resolve(),
   }),
   /**

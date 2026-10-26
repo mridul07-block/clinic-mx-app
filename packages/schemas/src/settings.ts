@@ -135,6 +135,12 @@ export const settingDefinitions = {
     description:
       'Patients younger than this many years need a guardian, who signs and attends (SCH-02).',
   },
+  'booking.plan_clash_alternatives': {
+    schema: z.int().positive(),
+    source: 'User decision 26 October 2026 (SCH-11): the 3 nearest free times that day',
+    description:
+      'Book plan sessions: how many of the nearest free times that day are offered for a date that is not free.',
+  },
   'booking.self_booking_block_reschedules': {
     schema: z.int().positive(),
     source: 'PRD section 7: Self booking block',
