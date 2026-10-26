@@ -82,6 +82,7 @@ export default async function SessionPage({
           editable={note.editable}
           signed={note.signed}
           plan={note.plan}
+          lastTime={note.lastTime}
         />
       ) : null}
       {note?.signed ? (

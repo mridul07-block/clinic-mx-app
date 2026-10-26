@@ -25,6 +25,9 @@ import { exclusively, signIn, signInWithCode, temporaryDesk, temporaryWithCode }
 // Decisions (user, 26 October 2026): listed inline on Notes with consultations; addenda as on a
 // consultation (the tick, at the episode's centre or on one's own note), on Notes and on the
 // session screen; the card's last signed note is either kind.
+// SES-04 done when: "Same as last time" copies the previous note for editing. Decisions (user, 26
+// October 2026): the treatment, home programme changes and next session only; confirm before
+// replacing what was entered; hidden without an earlier signed note.
 
 const physios: string[] = [];
 const visits: string[] = [];
@@ -206,6 +209,9 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
         .locator('label')
         .filter({ hasText: /^Progress$/ })
         .click();
+      await note.getByLabel('Plan for next time').fill('Add step downs');
+      // Session 1 has no earlier note to copy.
+      await expect(note.getByTestId('same-as-last-time')).toHaveCount(0);
       await expect(note.getByTestId('close-blockers')).toHaveCount(0);
       await expect(note.getByRole('status')).toHaveText('Saved');
       expect(
@@ -255,6 +261,52 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
           .getByTestId('task-card')
           .filter({ hasText: 'New symptoms reported in session 1' }),
       ).toHaveCount(1);
+
+      // SES-04: the next session starts with "Same as last time".
+      const second = await startedAppointment(physio.id, paid.patient.id, 135, {
+        minutes: 20,
+        values: { episodeId: paidEpisode, status: 'booked' },
+      });
+      await checkedIn(second.id, desk.id);
+      await physioPage.goto('/app/my-patients');
+      await mine(second.id)
+        .getByRole('button', { name: `Start session for ${paid.patient.name}` })
+        .click();
+      await physioPage.waitForURL((url) => url.pathname === `/app/sessions/${second.id}`);
+      await expect(physioPage.getByTestId('session-label')).toHaveText('Session 2 of 12');
+      const same = note.getByTestId('same-as-last-time');
+      const sameButton = same.getByRole('button', { name: /^Same as last time \(session 1, / });
+      await expect(sameButton).toBeVisible();
+      // Something entered in a section it copies: it asks first.
+      await note.getByLabel('Treatment note').fill('Taped the knee');
+      await expect(note.getByRole('status')).toHaveText('Saved');
+      await sameButton.click();
+      await expect(same).toContainText("Replace what you have entered with last time's note?");
+      await same.getByRole('button', { name: 'Keep mine' }).click();
+      await expect(note.getByLabel('Treatment note')).toHaveValue('Taped the knee');
+      await sameButton.click();
+      await same.getByRole('button', { name: 'Replace' }).click();
+      await expect(same).toContainText('Copied from session 1. Check it before closing.');
+      await expect(note.getByLabel('Treatment note')).toHaveValue('');
+      await expect(note.getByLabel('Plan for next time')).toHaveValue('Add step downs');
+      await expect(note.getByRole('radio', { name: 'Progress' })).toBeChecked();
+      await expect(note.getByRole('checkbox', { name: 'Exercise' })).toBeChecked();
+      // Today's questions stay unanswered.
+      await expect(note.getByLabel('What the patient reports')).toHaveValue('');
+      await expect(note.getByTestId('close-blockers')).toContainText('Answer "Any new symptoms?".');
+      await expect(note.getByTestId('close-blockers')).toContainText('Set pain at rest.');
+      await expect(note.getByTestId('close-blockers')).toContainText('Choose the response.');
+      await expect(note.getByRole('status')).toHaveText('Saved');
+      expect(
+        await physioPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      await physioPage.screenshot({
+        path: test.info().outputPath('session-same-as-last-time.png'),
+        fullPage: true,
+      });
+      await physioPage.reload();
+      await expect(note.getByLabel('Plan for next time')).toHaveValue('Add step downs');
+      await expect(note.getByRole('radio', { name: 'Progress' })).toBeChecked();
       await clinician.close();
 
       // Another physio at the centre does not even read the appointment (row level security), so

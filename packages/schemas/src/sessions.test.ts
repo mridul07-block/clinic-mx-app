@@ -3,6 +3,8 @@ import {
   emptySessionNote,
   prefilledSessionNote,
   readSessionNote,
+  sameAsLastTime,
+  sameAsLastTimeOverwrites,
   sessionAddendumSchema,
   sessionGate,
   sessionLabel,
@@ -134,5 +136,63 @@ describe('a signed session note on the record', () => {
       false,
     );
     expect(sessionAddendumSchema.safeParse({ sessionId: 'nope', text: 'x' }).success).toBe(false);
+  });
+});
+
+// SES-04 done when: "Same as last time" copies the previous note for editing. Decisions (user, 26
+// October 2026): the plan side only; confirm before replacing what was entered.
+describe('Same as last time', () => {
+  const last = (): SessionNote => ({
+    ...emptySessionNote(),
+    newSymptoms: { answer: 'yes', description: 'Tingling' },
+    sinceLastVisit: 'Stairs easier',
+    pain: { rest: 2, activity: 4, after: 1 },
+    treatment: {
+      interventions: ['exercise', 'manual_therapy'],
+      modalities: ['pemf'],
+      note: 'Grade III',
+    },
+    response: { rating: 'better', note: 'Moving well' },
+    homeProgramme: { note: 'Add step downs' },
+    nextSession: { plan: 'progress', note: 'Add load' },
+  });
+
+  it('copies the treatment, home programme changes and next session, and nothing of today', () => {
+    const today: SessionNote = {
+      ...emptySessionNote(),
+      newSymptoms: { answer: 'no', description: '' },
+      pain: { rest: 5, activity: null, after: null },
+    };
+    const copied = sameAsLastTime(today, last());
+    expect(copied.treatment).toEqual(last().treatment);
+    expect(copied.homeProgramme).toEqual({ note: 'Add step downs' });
+    expect(copied.nextSession).toEqual({ plan: 'progress', note: 'Add load' });
+    expect(copied.newSymptoms).toEqual({ answer: 'no', description: '' });
+    expect(copied.sinceLastVisit).toBe('');
+    expect(copied.pain).toEqual({ rest: 5, activity: null, after: null });
+    expect(copied.response).toEqual({ rating: null, note: '' });
+    // Copies, not the same arrays.
+    expect(copied.treatment.interventions).not.toBe(last().treatment.interventions);
+  });
+
+  it('asks before replacing only what the physio entered in those sections', () => {
+    const opened = prefilledSessionNote({ lastNote: last() });
+    expect(sameAsLastTimeOverwrites(opened, last()), 'as it opened').toBe(false);
+    expect(
+      sameAsLastTimeOverwrites({ ...opened, pain: { rest: 3, activity: 3, after: 3 } }, last()),
+      'today’s fields are not replaced',
+    ).toBe(false);
+    expect(sameAsLastTimeOverwrites(sameAsLastTime(opened, last()), last()), 'already copied').toBe(
+      false,
+    );
+    expect(
+      sameAsLastTimeOverwrites(
+        { ...opened, treatment: { ...opened.treatment, note: 'Taped the knee' } },
+        last(),
+      ),
+    ).toBe(true);
+    expect(
+      sameAsLastTimeOverwrites({ ...opened, nextSession: { plan: 'regress', note: '' } }, last()),
+    ).toBe(true);
   });
 });

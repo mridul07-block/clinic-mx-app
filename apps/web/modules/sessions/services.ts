@@ -81,6 +81,11 @@ export interface SessionNoteView {
   signed: { by: string; at: Date } | null;
   /** The physio writes it: their own draft, with session_notes.write. */
   editable: boolean;
+  /**
+   * The episode's previous signed note, for "Same as last time" (SES-04); only while the physio
+   * writes this one.
+   */
+  lastTime: { number: number; signedAt: Date; note: SessionNote } | null;
   /** Once signed, its addenda, and whether the reader may add one. */
   addenda: AddendumEntry[];
   addsAddenda: boolean;
@@ -121,7 +126,7 @@ export async function openSessionNote(
   const last = await lastSignedSessionNote(tx, visit.episodeId);
   let from: Parameters<typeof prefilledSessionNote>[0];
   if (last) {
-    from = { lastNote: readSessionNote(last) };
+    from = { lastNote: readSessionNote(last.note) };
   } else {
     const planId = await newestPlanOfCareId(tx, visit.episodeId);
     const plan = planId ? await planForSession(tx, planId) : undefined;
@@ -172,6 +177,8 @@ export async function loadSession(
     const stored = await sessionNoteOf(tx, visit.id);
     const plan = stored?.planOfCareId ? await planForSession(tx, stored.planOfCareId) : undefined;
     const signed = stored?.status === 'signed';
+    const editable = own && stored?.status === 'draft' && can(actor, 'session_notes.write');
+    const last = editable ? await lastSignedSessionNote(tx, stored.episodeId) : undefined;
     const note: SessionNoteView | undefined = stored && {
       id: stored.id,
       value: readSessionNote(stored.note),
@@ -180,7 +187,10 @@ export async function loadSession(
         stored.signedAt && stored.signedByName
           ? { by: stored.signedByName, at: stored.signedAt }
           : null,
-      editable: own && stored.status === 'draft' && can(actor, 'session_notes.write'),
+      editable,
+      lastTime: last
+        ? { number: last.number, signedAt: last.signedAt, note: readSessionNote(last.note) }
+        : null,
       addenda: signed ? await sessionAddenda(tx, stored.id) : [],
       addsAddenda:
         signed &&

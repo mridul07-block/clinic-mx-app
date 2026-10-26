@@ -191,6 +191,42 @@ export function prefilledSessionNote(
   };
 }
 
+/**
+ * "Same as last time" (SES-04, user decisions 26 October 2026): the plan side of the episode's
+ * previous signed note, the treatment, home programme changes and next session, copied into
+ * today's note for editing. New symptoms, since last visit, pain and the response are today's to
+ * ask and measure, so they stay as they are.
+ */
+export function sameAsLastTime(current: SessionNote, last: SessionNote): SessionNote {
+  return {
+    ...current,
+    treatment: {
+      interventions: [...last.treatment.interventions],
+      modalities: [...last.treatment.modalities],
+      note: last.treatment.note,
+    },
+    homeProgramme: { ...last.homeProgramme },
+    nextSession: { ...last.nextSession },
+  };
+}
+
+/** The sections "Same as last time" replaces, to compare. */
+function copiedSections(note: SessionNote): string {
+  return JSON.stringify([note.treatment, note.homeProgramme, note.nextSession]);
+}
+
+/**
+ * Whether "Same as last time" would replace something the physio entered: the copied sections
+ * differ both from how the draft opened (prefilled from that same note) and from the note itself.
+ */
+export function sameAsLastTimeOverwrites(current: SessionNote, last: SessionNote): boolean {
+  const now = copiedSections(current);
+  return (
+    now !== copiedSections(prefilledSessionNote({ lastNote: last })) &&
+    now !== copiedSections(sameAsLastTime(current, last))
+  );
+}
+
 /** What still holds Close session back, in the note's order; empty when it can close. */
 export function sessionNoteBlockers(note: SessionNote): string[] {
   const blockers: string[] = [];

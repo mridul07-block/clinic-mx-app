@@ -229,7 +229,11 @@ describe('the session note', () => {
       modalities: ['laser'],
       note: 'Grade III',
     };
-    db.lastSignedSessionNote.mockResolvedValueOnce({ ...complete(), treatment: lastTreatment });
+    db.lastSignedSessionNote.mockResolvedValueOnce({
+      number: 2,
+      signedAt: new Date(),
+      note: { ...complete(), treatment: lastTreatment },
+    });
     await openSessionNote(fakeTx as never, opening);
     expect(db.openSession).toHaveBeenLastCalledWith(fakeTx, {
       appointmentId,
@@ -278,10 +282,22 @@ describe('the session note', () => {
       version: 4,
       editable: true,
       value: complete(),
+      lastTime: null,
       addenda: [],
       addsAddenda: false,
     });
     expect(db.sessionAddenda).not.toHaveBeenCalled();
+
+    // SES-04: the previous signed note, for "Same as last time", only while the physio writes.
+    const signedAt = new Date('2026-10-24T05:00:00Z');
+    db.lastSignedSessionNote.mockResolvedValue({ number: 2, signedAt, note: complete() });
+    expect((await loadSession(staff(), appointmentId))?.note?.lastTime).toEqual({
+      number: 2,
+      signedAt,
+      note: complete(),
+    });
+    expect(db.lastSignedSessionNote).toHaveBeenLastCalledWith(fakeTx, episodeId);
+    expect((await loadSession(superAdmin, appointmentId))?.note?.lastTime).toBeNull();
     expect((await loadSession(superAdmin, appointmentId))?.note?.editable).toBe(false);
     db.sessionNoteOf.mockResolvedValue(
       stored({ status: 'signed', signedAt: new Date(), signedByName: 'Test Physio' }),
@@ -289,6 +305,7 @@ describe('the session note', () => {
     db.sessionAddenda.mockResolvedValue([{ id: 'a1', text: 'Pain 4 at rest, not 2.' }]);
     expect((await loadSession(staff(), appointmentId))?.note).toMatchObject({
       editable: false,
+      lastTime: null,
       signed: { by: 'Test Physio' },
       addenda: [{ id: 'a1' }],
       addsAddenda: true,

@@ -1,12 +1,16 @@
 'use client';
 
 import {
+  formatIstDate,
   formatIstDateTime,
   interventionLabels,
+  istDate,
   nextSessionPlanLabels,
   nextSessionPlans,
   painReadingLabels,
   painReadings,
+  sameAsLastTime,
+  sameAsLastTimeOverwrites,
   sessionNoteBlockers,
   sessionNoteSchema,
   sessionResponseLabels,
@@ -15,7 +19,7 @@ import {
   type SessionNote,
 } from '@clinic-mx/schemas';
 import { startTransition, useActionState, useMemo, useState, type ReactNode } from 'react';
-import { primaryButtonClass } from '../../../../../../components/forms';
+import { primaryButtonClass, secondaryButtonClass } from '../../../../../../components/forms';
 import { PainSlider } from '../../../../../../components/pain-slider';
 import { ConflictNotice } from '../../../../../../lib/drafts/conflict-notice';
 import { SaveStatus } from '../../../../../../lib/drafts/save-status';
@@ -125,6 +129,7 @@ export function SessionNoteForm({
   editable,
   signed,
   plan,
+  lastTime,
 }: {
   appointmentId: string;
   serverValue: SessionNote;
@@ -136,6 +141,8 @@ export function SessionNoteForm({
     modalities: { key: string; name: string }[];
     homeProgramme: { exercise: string; dose: string; note: string }[];
   };
+  /** The episode's previous signed note, for "Same as last time" (SES-04). */
+  lastTime: { number: number; signedAt: Date; note: SessionNote } | null;
 }) {
   const save = useMemo(() => saveSessionNoteDraft(appointmentId), [appointmentId]);
   const draft = useAutosave({
@@ -157,6 +164,15 @@ export function SessionNoteForm({
   const [state, action, pending] = useActionState(closeSessionAction, initialState);
   const [saving, setSaving] = useState(false);
   const [unsaved, setUnsaved] = useState(false);
+  // SES-04: asks first when it would replace what the physio entered.
+  const [confirmingCopy, setConfirmingCopy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyLastTime = () => {
+    if (!lastTime) return;
+    set(sameAsLastTime(note, lastTime.note));
+    setConfirmingCopy(false);
+    setCopied(true);
+  };
 
   // The ticks: the plan's, and any the note carries from last time.
   const interventions = [
@@ -209,6 +225,54 @@ export function SessionNoteForm({
       ) : null}
       {draft.status === 'conflict' ? (
         <ConflictNotice keepMine={draft.keepMine} takeSaved={draft.takeSaved} />
+      ) : null}
+      {editable && lastTime ? (
+        <div className="flex flex-col gap-2" data-testid="same-as-last-time">
+          <button
+            type="button"
+            onClick={() => {
+              if (sameAsLastTimeOverwrites(note, lastTime.note)) setConfirmingCopy(true);
+              else copyLastTime();
+            }}
+            className={`${secondaryButtonClass} md:w-auto md:self-start`}
+          >
+            Same as last time (session {lastTime.number},{' '}
+            {formatIstDate(istDate(lastTime.signedAt))})
+          </button>
+          {confirmingCopy ? (
+            <div className={panel} role="group" aria-label="Replace with last time">
+              <p className="font-medium text-ink">
+                Replace what you have entered with last time&apos;s note?
+              </p>
+              <p className="text-sm text-ink-secondary">
+                Treatment, home programme changes and next session are replaced.
+              </p>
+              <div className="flex flex-col gap-2 md:flex-row">
+                <button
+                  type="button"
+                  onClick={copyLastTime}
+                  className={`${primaryButtonClass} md:w-auto`}
+                >
+                  Replace
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmingCopy(false);
+                  }}
+                  className={`${secondaryButtonClass} md:w-auto`}
+                >
+                  Keep mine
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {copied ? (
+            <p aria-live="polite" className="text-sm text-ink-secondary">
+              Copied from session {lastTime.number}. Check it before closing.
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       <Section title="Any new symptoms?">
