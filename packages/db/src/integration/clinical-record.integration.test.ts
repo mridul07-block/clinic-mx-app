@@ -104,6 +104,8 @@ const manager = member('manager@clinicmx.test');
 const finance = member('finance@clinicmx.test');
 const support = member('support.velyx@clinicmx.test');
 const physioHsr = member('physio.hsr@clinicmx.test');
+/** A Super Admin without the Treats patients tick. */
+const adminWithoutTick = member('admin.phone@clinicmx.test');
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 class Rollback extends Error {}
@@ -2008,6 +2010,10 @@ describe('counter payments', () => {
           await signSession(tx, closing(fixture.colleague.id, sessionId, 1)),
           'not their session',
         ).toBe('stale');
+        expect(
+          await noteAs(tx, adminWithoutTick, appointmentId),
+          'a draft stays with the centre',
+        ).toBeUndefined();
         await asOwner(tx);
         await becomeStaff(tx, fixture.consultant);
         expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 9)), 'stale').toBe(
@@ -2044,6 +2050,13 @@ describe('counter payments', () => {
           .from(task)
           .where(and(eq(task.episodeId, fixture.episodeId), eq(task.kind, 'review.new_symptoms')));
         expect(tasks, 'no new symptoms, no task').toHaveLength(0);
+
+        // Signed, it is part of the record: clinicians read it at any centre (CLN-12), the Super
+        // Admin without the tick too; never Velyx support.
+        expect((await noteAs(tx, adminWithoutTick, appointmentId))?.status).toBe('signed');
+        expect((await noteAs(tx, fixture.elsewhere, appointmentId))?.status).toBe('signed');
+        expect(await noteAs(tx, support, appointmentId)).toBeUndefined();
+        expect(await noteAs(tx, deskHsr, appointmentId)).toBeUndefined();
 
         await asOwner(tx);
         expect(
