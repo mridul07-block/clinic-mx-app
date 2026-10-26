@@ -699,6 +699,7 @@ export {
 export {
   closeSessionSchema,
   consentNotCheckedYet,
+  coversSessionsAt,
   emptySessionNote,
   newSymptomsAnswers,
   nextSessionPlanLabels,

@@ -19,8 +19,8 @@ import { LIVE_HEADER } from '../../../../../lib/live';
 import { shownStatus, shownStatusLabels, stripClass, timeOf } from '../calendar/calendar-block';
 import { StartButton } from './start-button';
 
-/** A visit with its session (SES-01). */
-type MyPatientRow = MyPatientVisit & { session: SessionView | null };
+/** A visit with its session (SES-01), and who covered it (SES-08). */
+type MyPatientRow = MyPatientVisit & { session: SessionView | null; coveredBy: string | null };
 
 type VisitJson = Omit<
   MyPatientRow,
@@ -152,9 +152,11 @@ export function MyPatientsList({
             const label =
               visit.status === 'checked_in' && visit.arrivedAt
                 ? `Here ${String(minutesSince(visit.arrivedAt, now))} min`
-                : visit.status === 'in_progress' && visit.startedAt
-                  ? `With you since ${timeOf(visit.startedAt)}`
-                  : shownStatusLabels[status];
+                : visit.status === 'in_progress' && visit.coveredBy && visit.startedAt
+                  ? `With ${visit.coveredBy} since ${timeOf(visit.startedAt)}`
+                  : visit.status === 'in_progress' && visit.startedAt
+                    ? `With you since ${timeOf(visit.startedAt)}`
+                    : shownStatusLabels[status];
             const form = visitFormStatus(visit, new Date(now));
             const loudest = loudestAlert(visit.alertDisplays);
             return (
@@ -186,6 +188,12 @@ export function MyPatientsList({
                   </span>
                   <span className="flex flex-wrap items-center gap-2">
                     <Tag tone={toneByAppointmentStatus[status]}>{label}</Tag>
+                    {visit.coveredBy ? (
+                      // SES-08: a colleague started it; the note is theirs.
+                      <span data-testid="covered-by">
+                        <Tag tone="info">Covered by {visit.coveredBy}</Tag>
+                      </span>
+                    ) : null}
                     {visit.session?.label ? (
                       <span data-testid="session-label">
                         <Tag tone="outline">{visit.session.label}</Tag>

@@ -31,6 +31,10 @@ import { exclusively, signIn, signInWithCode, temporaryDesk, temporaryWithCode }
 // SES-06 done when: an adverse event requires a description and alerts the consultant. Decisions
 // (user, 26 October 2026): an optional tick under the response; at Close session the consultant
 // and the Clinical Director (the Super Admin role, DECISION SES-06) each get a task.
+// SES-08 done when: physios see colleagues' patients in their centres; notes signed by the writer.
+// Decisions (user, 26 October 2026): "Colleagues today" on My patients; a colleague's checked in
+// session is started to cover it, its note written and signed by the covering physio; the visit
+// stays booked with its own physio and says who covered it.
 
 const physios: string[] = [];
 const visits: string[] = [];
@@ -345,7 +349,6 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
       await expect(
         physioPage.getByTestId('task-card').filter({ hasText: 'Adverse event in session 2' }),
       ).toHaveCount(1);
-      await clinician.close();
 
       // The Clinical Director (the Super Admin role) has its own task, and the record shows it.
       const director = await temporaryWithCode('super_admin');
@@ -370,18 +373,18 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
       );
       await directorContext.close();
 
-      // Another physio at the centre does not even read the appointment (row level security), so
-      // it is not found; the desk is not allowed in.
+      // SES-08: another physio at the centre reads the session screen, read only; the desk is
+      // not allowed in.
       const other = await temporaryWithCode('physiotherapist', ['HSR Layout']);
       physios.push(other.id);
       const otherContext = await browser.newContext(test.info().project.use);
       const otherPage = await otherContext.newPage();
       await signInWithCode(otherPage, other.email, other.secret);
       await otherPage.goto(`/app/sessions/${paidSession.id}`);
-      await expect(
-        otherPage.getByRole('heading', { name: 'This page could not be found.' }),
-      ).toBeVisible();
-      await expect(otherPage.getByTestId('summary-card')).toHaveCount(0);
+      await expect(otherPage.getByTestId('summary-card')).toBeVisible();
+      await expect(otherPage.getByTestId('session-read-only')).toHaveText(
+        `Read only: this is ${physio.name}'s session.`,
+      );
 
       // On the patient record they read session 1's signed note, with the card's last note now
       // session 2, and add an addendum at the episode's centre.
@@ -416,7 +419,68 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
         path: test.info().outputPath('session-on-record.png'),
         fullPage: true,
       });
+
+      // SES-08: session 3, booked with the first physio, is covered by the other one.
+      const third = await startedAppointment(physio.id, paid.patient.id, 195, {
+        minutes: 20,
+        values: { episodeId: paidEpisode, status: 'booked' },
+      });
+      await checkedIn(third.id, desk.id);
+      await otherPage.goto('/app/my-patients');
+      const colleague = otherPage.locator(
+        `[data-testid="colleague-visit"][data-appointment="${third.id}"]`,
+      );
+      await expect(colleague).toContainText(`with ${physio.name}`);
+      await expect(colleague.getByTestId('session-label')).toHaveText('Session 3 of 12');
+      expect(
+        await otherPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      await otherPage.screenshot({
+        path: test.info().outputPath('colleagues-today.png'),
+        fullPage: true,
+      });
+      await colleague
+        .getByRole('button', { name: `Start session for ${paid.patient.name}` })
+        .click();
+      await otherPage.waitForURL((url) => url.pathname === `/app/sessions/${third.id}`);
+      await expect(otherPage.getByTestId('session-covered')).toHaveText(`Covered by ${other.name}`);
+      await expect(otherPage.getByTestId('session-read-only')).toHaveCount(0);
+      const covering = otherPage.getByRole('region', { name: 'Session note' });
+      await covering.locator('label').filter({ hasText: /^No$/ }).click();
+      await covering.getByLabel('Pain at rest').fill('2');
+      await covering.getByLabel('Pain during activity').fill('3');
+      await covering.getByLabel('Pain after treatment').fill('1');
+      await covering
+        .locator('label')
+        .filter({ hasText: /^Better$/ })
+        .click();
+      await covering
+        .locator('label')
+        .filter({ hasText: /^Maintain$/ })
+        .click();
+      await expect(covering.getByTestId('close-blockers')).toHaveCount(0);
+      await expect(covering.getByRole('status')).toHaveText('Saved');
+      await covering.getByRole('button', { name: 'Close session' }).click();
+      await expect(
+        otherPage.getByRole('status').filter({ hasText: 'Session closed.' }),
+      ).toBeVisible();
+      await otherPage.goto(`/app/sessions/${third.id}`);
+      await expect(otherPage.getByTestId('session-signed')).toContainText(
+        `Signed by ${other.name}`,
+      );
       await otherContext.close();
+
+      // The booked physio's own list says who covered it; their screen is read only.
+      await physioPage.goto('/app/my-patients');
+      await expect(mine(third.id).getByTestId('covered-by')).toHaveText(`Covered by ${other.name}`);
+      await physioPage.goto(`/app/sessions/${third.id}`);
+      await expect(physioPage.getByTestId('session-read-only')).toHaveText(
+        `Read only: this is ${other.name}'s session.`,
+      );
+      await expect(physioPage.getByTestId('session-signed')).toContainText(
+        `Signed by ${other.name}`,
+      );
+      await clinician.close();
       await page.goto(`/app/sessions/${paidSession.id}`);
       await expect(
         page.getByRole('heading', { name: 'You do not have access to this page' }),

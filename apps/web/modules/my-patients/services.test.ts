@@ -2,7 +2,7 @@ import type { Db, StaffMember } from '@clinic-mx/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { SchedulingError } from '../scheduling/services';
-import { loadMyPatients, startVisit } from './services';
+import { loadColleagues, loadMyPatients, startVisit } from './services';
 
 const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
@@ -12,6 +12,7 @@ const db = vi.hoisted(() => ({
   openConsultation: vi.fn(),
   startVisit: vi.fn(),
   myPatientsToday: vi.fn(),
+  colleaguesToday: vi.fn(),
   sessionProgress: vi.fn(),
   contentVersion: vi.fn(() => 'v1'),
 }));
@@ -152,7 +153,7 @@ describe('my patients today', () => {
       await expect(startVisit(context(), { appointmentId })).rejects.toThrow(message);
     };
     await refused(
-      { physioId: 'someone-else' },
+      { physioId: 'someone-else', typeKey: 'consultation' },
       'Only the physio of this appointment can start it.',
     );
     await refused({ status: 'booked' }, 'Check the patient in first.');
@@ -165,6 +166,37 @@ describe('my patients today', () => {
     found(undefined);
     await expect(startVisit(context(), { appointmentId })).rejects.toThrow(SchedulingError);
     expect(db.startVisit).not.toHaveBeenCalled();
+  });
+
+  // SES-08 done when: physios see colleagues' patients in their centres; notes signed by the
+  // writer. Decisions (user, 26 October 2026): a colleague's session is started here to cover it.
+  it('lets a physio at its centre cover a colleague’s session, and nothing else', async () => {
+    found(visit({ physioId: 'someone-else' }));
+    await expect(startVisit(context(), { appointmentId })).resolves.toEqual({
+      sessionAppointmentId: appointmentId,
+    });
+    // The note is the covering physio's own.
+    expect(openSessionNote).toHaveBeenLastCalledWith(fakeTx, {
+      id: appointmentId,
+      episodeId: '00000000-0000-4000-8000-000000000501',
+      physioId: physio().id,
+    });
+    // At another centre the access check refuses it first.
+    found(visit({ physioId: 'someone-else', centreId: 'another-centre' }));
+    await expect(startVisit(context(), { appointmentId })).rejects.toThrow(NotAllowedError);
+    expect(db.startVisit).toHaveBeenCalledOnce();
+  });
+
+  it('lists colleagues’ visits at the person’s centres, for those who treat patients', async () => {
+    db.colleaguesToday.mockResolvedValue([
+      { id: 'a1', centreId: hsr, physioId: 'p2' },
+      { id: 'a2', centreId: 'another-centre', physioId: 'p3' },
+    ]);
+    const rows = await loadColleagues(physio());
+    expect(rows.map((row) => row.id)).toEqual(['a1']);
+    expect(rows[0]?.session?.label).toBe('Session 1 of 12');
+    await expect(loadColleagues(physio({ support: true }))).rejects.toThrow(NotAllowedError);
+    expect(db.colleaguesToday).toHaveBeenCalledOnce();
   });
 
   // CLN-02: Start consultation opens the consultation, for a consultant once the form is in.

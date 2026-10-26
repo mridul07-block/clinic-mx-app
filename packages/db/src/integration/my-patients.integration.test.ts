@@ -6,7 +6,7 @@ import { createDb } from '../client';
 import { insertEpisode } from '../episodes';
 import type { StaffMember } from '../identity';
 import { insertRedFlagAlerts } from '../clinical';
-import { myPatientsToday, startVisit } from '../my-patients';
+import { colleaguesToday, myPatientsToday, startVisit } from '../my-patients';
 import { insertPatientLink } from '../patient-links';
 import { appointment, auditEvent, consentRecord, patientLink, redFlagAlert } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
@@ -207,11 +207,29 @@ describe('my patients today', () => {
       expect(visits[1]?.healthForm?.completedAt).toBeNull();
       expect(visits[2]?.healthForm).toBeUndefined();
 
-      // The other physio reads none of it.
+      // SES-08: a colleague at the centre sees them among their colleagues' visits; a physio
+      // elsewhere reads none of it.
       await becomeStaff(tx, other);
+      const seen = (
+        await colleaguesToday(tx, { staffId: other.id, date: istDate(new Date()) })
+      ).map((v) => v.id);
+      expect(seen).toEqual(expect.arrayContaining([here.id, declined.id, later.id]));
+      expect(seen).not.toContain(cancelled.id);
+      expect(seen).not.toContain(theirs.id);
+      await tx.execute(sql`reset role`);
+      const elsewhere = await testPhysio(tx, {
+        centreIds: [centreIds.koramangala],
+        createdBy: superAdmin.id,
+      });
+      await becomeStaff(tx, elsewhere);
       expect(
         (await myPatientsToday(tx, { staffId: physio.id, date: istDate(new Date()) })).length,
       ).toBe(0);
+      expect(
+        (await colleaguesToday(tx, { staffId: elsewhere.id, date: istDate(new Date()) })).map(
+          (v) => v.id,
+        ),
+      ).not.toContain(here.id);
     });
   });
 
@@ -241,7 +259,7 @@ describe('my patients today', () => {
 
   it('is refused before check in, on another day, for someone else, and for any other change', async () => {
     await rolledBack(async (tx) => {
-      const { physio, other, visit, checkedIn } = await setUp(tx);
+      const { physio, visit, checkedIn } = await setUp(tx);
       const booked = await visit(physio.id, 3);
       const here = await visit(physio.id, -3, checkedIn);
       const yesterday = await visit(physio.id, -24 * 60, checkedIn);
@@ -266,11 +284,16 @@ describe('my patients today', () => {
         await failure(tx, set(here.id, { ...start(physio.id), confirmedAt: new Date() })),
       ).toBe('42501');
 
-      // Another physio's update reaches nothing.
-      await becomeStaff(tx, other);
+      // A physio elsewhere reaches nothing (a colleague at the centre covers: see below).
+      await tx.execute(sql`reset role`);
+      const elsewhere = await testPhysio(tx, {
+        centreIds: [centreIds.koramangala],
+        createdBy: superAdmin.id,
+      });
+      await becomeStaff(tx, elsewhere);
       const reached = await tx
         .update(appointment)
-        .set(start(other.id))
+        .set(start(elsewhere.id))
         .where(eq(appointment.id, here.id))
         .returning({ id: appointment.id });
       expect(reached).toEqual([]);
@@ -284,6 +307,57 @@ describe('my patients today', () => {
       ).toBe('23514');
       await tx.execute(sql`reset role`);
       expect(await statusOf(tx, here.id)).toBe('in_progress');
+    });
+  });
+
+  // SES-08 (user decisions 26 October 2026): a colleague at the centre covers a checked in
+  // session by starting it as themselves; never a consultation, nor as someone else.
+  it('lets a colleague at the centre cover a checked in session, as themselves', async () => {
+    await rolledBack(async (tx) => {
+      const { physio, other, visit, checkedIn } = await setUp(tx);
+      const here = await visit(physio.id, -3, checkedIn);
+      const booked = await visit(physio.id, 3);
+      const consultation = await visit(physio.id, 10, {
+        ...checkedIn,
+        appointmentTypeId: await typeId(tx, 'consultation'),
+      });
+      const now = new Date();
+      await becomeStaff(tx, other);
+      expect(
+        await startVisit(tx, { appointmentId: booked.id, by: other.id, now }),
+        'not before check in',
+      ).toBeUndefined();
+      expect(
+        await startVisit(tx, { appointmentId: consultation.id, by: other.id, now }),
+        'never a consultation',
+      ).toBeUndefined();
+      expect(
+        await failure(tx, (sp) =>
+          sp
+            .update(appointment)
+            .set({ status: 'in_progress', startedAt: now, startedBy: physio.id })
+            .where(eq(appointment.id, here.id)),
+        ),
+        'only as themselves',
+      ).toBe('42501');
+      expect(await startVisit(tx, { appointmentId: here.id, by: other.id, now })).toEqual({
+        id: here.id,
+      });
+      await tx.execute(sql`reset role`);
+      const [row] = await tx
+        .select({
+          status: appointment.status,
+          physioId: appointment.physioId,
+          startedBy: appointment.startedBy,
+        })
+        .from(appointment)
+        .where(eq(appointment.id, here.id));
+      expect(row, 'still booked with its own physio').toEqual({
+        status: 'in_progress',
+        physioId: physio.id,
+        startedBy: other.id,
+      });
+      expect(await statusOf(tx, consultation.id)).toBe('checked_in');
     });
   });
 });

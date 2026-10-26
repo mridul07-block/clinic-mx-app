@@ -257,6 +257,18 @@ export function sessionNoteDigest(note: SessionNote): string {
     .join(' · ');
 }
 
+/**
+ * Whether a staff member covers colleagues' sessions at a centre (SES-08, user decisions 26
+ * October 2026): the Treats patients tick, never Velyx support, and working at that centre
+ * (`internal.covers_visit` holds the same in the database).
+ */
+export function coversSessionsAt(
+  staff: { treatsPatients: boolean; support: boolean; centreIds: readonly string[] },
+  centreId: string,
+): boolean {
+  return staff.treatsPatients && !staff.support && staff.centreIds.includes(centreId);
+}
+
 /** What still holds Close session back, in the note's order; empty when it can close. */
 export function sessionNoteBlockers(note: SessionNote): string[] {
   const blockers: string[] = [];
