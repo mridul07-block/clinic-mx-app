@@ -306,3 +306,51 @@ record"). Decisions (user, 26 October 2026):
 | `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: shockwave from the plan warns about pregnancy, blocks until filled (a word in Duration still blocks) and explained; session 2 carries the parameters and asks the reason again; the record shows them |
 
 **Negative check:** let `sessionNoteBlockers` skip the parameters, and the schema test fails.
+
+## Baseline (OUT-01)
+
+Done when consultation measures within 7 days are reused and missing markers are requested at
+session 1 (PRD J5.3 and section 7 "Baseline reuse", a setting). Decisions (user, 26 October 2026):
+
+- **What it is:**
+  - The region's re-testable markers are always in it: the workbook's "Baseline | Current" rows,
+    `kb_measure` of kind `marker` or `grade`. The knee has 7.
+  - Any other measure the consultation took within the window (LSI, range of motion, reference) is
+    reused too.
+  - The region is the consultation's Objective region, or else the health form's
+    (`consultationRegion`).
+- **The window:** a consultation reading counts when it was taken at most
+  `clinical.baseline_reuse_days` (7) days before session 1 started (`session.created_at`). The
+  newest consultation's reading of each measure is used. If session 1 is later than that, every
+  marker is asked for again.
+- **At session 1:**
+  - A Baseline section after Pain lists the reused readings, each with "Consultation, <date>".
+  - It asks for each missing marker: a number with its unit, or 0 to 3 for a grade.
+  - Close session waits until each one has a reading, or is marked "Not tested" with a reason
+    ("Record <marker>, or mark it Not tested with a reason.").
+- **Frozen:** signing session 1 writes the recorded markers as `measure` rows of the session
+  (`session_id`), plus one `baseline_measure` row per measure: reused (`consultation_id`),
+  recorded, or not tested (`not_tested_reason`). These never change, so final testing (OUT-07)
+  lists exactly these. The signed note shows them.
+- **Questionnaires** join the baseline with OUT-02. Other sessions have no Baseline section.
+
+| Piece | Where |
+| --- | --- |
+| Working it out, blockers, what signing records | `packages/schemas/src/baseline.ts` (`episodeBaseline`, `baselineBlockers`, `baselineRecordings`) |
+| The note's entries | `baseline` in `sessionNoteSchema` |
+| Reading and writing | `packages/db/src/baseline.ts` (`consultationMeasuresBetween`, `recordBaseline`, `frozenBaseline`) |
+| The screen's section, worked out or frozen | `apps/web/modules/sessions/baseline.ts`; `closeSession` checks it again and records it after signing |
+| Row level security | `supabase/migrations/20261026141108_baseline_rules.sql`: written only while its physio signs session 1 (`internal.signing_baseline`), a reused reading must be the episode's signed consultation's within the setting's days (`internal.reusable_measure`), a recorded one must be in the session (`internal.session_measured`); read as the session note is (`reads_session`); never updated or deleted; support read only |
+| The form | the Baseline section of `session-note.tsx` |
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `packages/schemas/src/baseline.test.ts` | the window's edges (exactly 7 days in, a minute more out, nothing after the start), the newest consultation, other measures reused but never asked for, no region asks nothing, the blockers and grades, the recordings, the reading text, older notes |
+| `apps/web/modules/sessions/services.test.ts` | the window from the session's start; Close refused until each marker is recorded or explained, then the baseline written after signing; session 3 records none; the frozen view in the workbook's order |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (the baseline) | written while its physio signs session 1 only (not a draft, a colleague, support or session 2); a reading the consultation never took, or a recorded one with no reading, refused; read wherever the note is; never changed; a reading a minute outside the setting's days refused, exactly the days allowed |
+| `apps/web/e2e/baseline.spec.ts` | 360 px and desktop: knee pain and quadriceps from 3 days ago reused, 6 markers asked for, a grade, readings and one Not tested; closed and frozen, 8 rows |
+
+**Negative check:** drop the date condition from `internal.reusable_measure`, and the database
+test fails ("too old").

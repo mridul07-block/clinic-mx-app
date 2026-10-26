@@ -375,6 +375,13 @@ export {
   unsignedNotes,
 } from './unsigned-notes';
 export {
+  consultationMeasuresBetween,
+  frozenBaseline,
+  recordBaseline,
+  signedConsultationOf,
+  type FrozenBaselineMeasure,
+} from './baseline';
+export {
   addAddendum,
   consultationAddenda,
   signConsultation,

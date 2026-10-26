@@ -94,6 +94,7 @@ export default async function SessionPage({
           plan={note.plan}
           lastTime={note.lastTime}
           modalityDefinitions={note.modalities}
+          baseline={note.baseline}
         />
       ) : null}
       {note?.signed ? (

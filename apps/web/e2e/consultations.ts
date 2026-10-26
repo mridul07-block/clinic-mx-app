@@ -5,6 +5,7 @@ import {
   diagnosis,
   intakeResponse,
   kbCondition,
+  measure,
   patientLink,
   planOfCare,
   precaution,
@@ -112,6 +113,7 @@ export async function signedRows(appointmentId: string) {
 export async function signedConsultation(
   appointmentId: string,
   physioId: string,
+  options: { sections?: Record<string, unknown> } = {},
 ): Promise<{ consultationId: string; conditionName: string }> {
   return withActor(db(), systemActor('tests'), async (tx) => {
     const [visit] = await tx
@@ -147,6 +149,7 @@ export async function signedConsultation(
         episodeId,
         physioId,
         kbVersionId: condition.kbVersionId,
+        sections: options.sections ?? {},
         status: 'signed',
         signedBy: physioId,
         signedAt: now,
@@ -185,6 +188,57 @@ export async function signedConsultation(
     });
     return { consultationId: row.id, conditionName: condition.name };
   });
+}
+
+/**
+ * Measures a signed consultation took (OUT-01's baseline), as signing writes them, taken the given
+ * days before now.
+ */
+export async function consultationMeasures(
+  consultationId: string,
+  daysAgo: number,
+  rows: { key: string; limb?: 'involved' | 'uninvolved'; value: number; unit: string }[],
+): Promise<void> {
+  await withActor(db(), systemActor('tests'), async (tx) => {
+    const [taken] = await tx
+      .select({
+        episodeId: consultation.episodeId,
+        kbVersionId: consultation.kbVersionId,
+        physioId: consultation.physioId,
+      })
+      .from(consultation)
+      .where(eq(consultation.id, consultationId));
+    if (!taken) throw new Error('The consultation was not recorded.');
+    await tx.insert(measure).values(
+      rows.map((row) => ({
+        episodeId: taken.episodeId,
+        consultationId,
+        kbVersionId: taken.kbVersionId,
+        measureKey: row.key,
+        limb: row.limb ?? null,
+        value: row.value,
+        unit: row.unit,
+        takenAt: new Date(Date.now() - daysAgo * 24 * 60 * 60_000),
+        createdBy: taken.physioId,
+      })),
+    );
+  });
+}
+
+/** The baseline session 1's signing froze for an episode (OUT-01), by measure key. */
+export async function frozenBaselineOf(
+  episodeId: string,
+): Promise<{ key: string; source: 'consultation' | 'session' | 'not_tested' }[]> {
+  const rows = await db().execute<{
+    key: string;
+    source: 'consultation' | 'session' | 'not_tested';
+  }>(
+    sql`select measure_key as key,
+        case when consultation_id is not null then 'consultation'
+          when not_tested_reason is not null then 'not_tested' else 'session' end as source
+      from baseline_measure where episode_id = ${episodeId} order by measure_key`,
+  );
+  return [...rows];
 }
 
 /** The record views of a patient's record by a staff member (CLN-12). */

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { baselineBlockers, baselineEntrySchema, type BaselineMarker } from './baseline';
 import { recordVersionSchema } from './drafts';
 import { episodeStatusLabels, type EpisodeStatus } from './episodes';
 import { interventionKinds, type InterventionKind, type ModalityParameter } from './plan';
@@ -170,6 +171,17 @@ export const sessionNoteSchema = z.object({
   nextSession: z
     .object({ plan: z.enum(nextSessionPlans).nullable().default(null), note: noteText })
     .default({ plan: null, note: '' }),
+  // OUT-01: session 1's entries for the baseline markers it asks for, by measure key.
+  baseline: z
+    .record(
+      z
+        .string()
+        .regex(/^[a-z_]+\.[a-z0-9_.]+$/)
+        .max(120),
+      baselineEntrySchema,
+    )
+    .default({})
+    .refine((entries) => Object.keys(entries).length <= 50, 'Too many baseline markers.'),
 });
 
 export type SessionNote = z.infer<typeof sessionNoteSchema>;
@@ -332,11 +344,13 @@ export function coversSessionsAt(
 /**
  * What still holds Close session back, in the note's order; empty when it can close. With the
  * note's modalities (SES-05), each ticked one needs its parameters, and a reason when it warns
- * about one of the patient's precautions.
+ * about one of the patient's precautions. At session 1, each baseline marker it asks for (OUT-01)
+ * needs a reading, or Not tested with a reason.
  */
 export function sessionNoteBlockers(
   note: SessionNote,
   modalities: readonly SessionModality[] = [],
+  baselineMissing: readonly BaselineMarker[] = [],
 ): string[] {
   const blockers: string[] = [];
   if (note.newSymptoms.answer === null) blockers.push('Answer "Any new symptoms?".');
@@ -347,6 +361,7 @@ export function sessionNoteBlockers(
     if (note.pain[reading] === null)
       blockers.push(`Set ${painReadingLabels[reading].toLowerCase()}.`);
   }
+  blockers.push(...baselineBlockers(note.baseline, baselineMissing));
   if (note.treatment.interventions.length + note.treatment.modalities.length === 0) {
     blockers.push('Tick the treatment given.');
   }

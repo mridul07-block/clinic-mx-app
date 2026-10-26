@@ -17,6 +17,7 @@ import {
   recordPayment,
   undoPayment,
 } from '../bills';
+import { frozenBaseline, recordBaseline } from '../baseline';
 import { addAddendum, consultationAddenda, signConsultation } from '../clinical-record';
 import { invoiceFacts } from '../invoice';
 import { packageRescheduleState, packagesOfEpisode, usePackageSession } from '../packages';
@@ -54,6 +55,7 @@ import {
   addendum,
   appointment,
   auditEvent,
+  baselineMeasure,
   bill,
   billLine,
   consultation,
@@ -2091,6 +2093,193 @@ describe('counter payments', () => {
           ),
           'nor who signed it or when',
         ).toBe('23514');
+      });
+    });
+
+    // OUT-01: session 1's signing freezes the baseline; row level security holds who writes it,
+    // when, and that a reused reading is the consultation's within the setting's days.
+    describe('the baseline', () => {
+      const pain = 'knee.marker.primary_task_pain_nrs_0_10'; // gitleaks:allow
+      const effusion = 'knee.marker.effusion_grade_0_3'; // gitleaks:allow
+      const quadriceps = 'knee.lsi.quadriceps'; // gitleaks:allow
+      const sessionVersion = async (tx: Tx, sessionId: string) => {
+        await asOwner(tx);
+        const [row] = await tx
+          .select({ kbVersionId: treatmentSession.kbVersionId })
+          .from(treatmentSession)
+          .where(eq(treatmentSession.id, sessionId));
+        return row?.kbVersionId ?? '';
+      };
+      const baselineAs = async (
+        tx: Tx,
+        actor: StaffMember,
+        values: Omit<Parameters<typeof recordBaseline>[1], 'by'>,
+      ) => {
+        await asOwner(tx);
+        await becomeStaff(tx, actor);
+        return failure(tx, (sp) => recordBaseline(sp, { ...values, by: actor.id }));
+      };
+      const readAs = async (tx: Tx, actor: StaffMember, sessionId: string) => {
+        await asOwner(tx);
+        await becomeStaff(tx, actor);
+        return frozenBaseline(tx, sessionId);
+      };
+
+      it('is written while its physio signs session 1 only, and read wherever the note is', async () => {
+        await rolledBack(async (tx) => {
+          const fixture = await chosenPackage(tx, 12);
+          const { sessionId } = await started(tx, fixture);
+          const kbVersionId = await sessionVersion(tx, sessionId);
+          const baseline = {
+            sessionId,
+            episodeId: fixture.episodeId,
+            kbVersionId,
+            reused: [{ key: quadriceps, consultationId: fixture.consultationId }],
+            recordings: [
+              { key: pain, value: 6, unit: '/10' },
+              { key: effusion, notTestedReason: 'Swelling not assessable today' },
+            ],
+          };
+          expect(await baselineAs(tx, fixture.consultant, baseline), 'not while a draft').toBe(
+            '42501',
+          );
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.consultant);
+          expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 1))).toBe(
+            'signed',
+          );
+          expect(await baselineAs(tx, fixture.colleague, baseline), 'not by a colleague').toBe(
+            '42501',
+          );
+          expect(await baselineAs(tx, support, baseline), 'not by support').toBe('42501');
+          expect(
+            await baselineAs(tx, fixture.consultant, {
+              ...baseline,
+              reused: [{ key: pain, consultationId: fixture.consultationId }],
+              recordings: [],
+            }),
+            'a reading the consultation never took',
+          ).toBe('42501');
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.consultant);
+          expect(
+            await failure(tx, (sp) =>
+              sp.insert(baselineMeasure).values({
+                sessionId,
+                episodeId: fixture.episodeId,
+                kbVersionId,
+                measureKey: pain,
+              }),
+            ),
+            'recorded, yet no reading in the session',
+          ).toBe('42501');
+          expect(await baselineAs(tx, fixture.consultant, baseline)).toBeUndefined();
+
+          const frozen = await readAs(tx, fixture.colleague, sessionId);
+          expect(
+            frozen
+              .map((row) => ({
+                ...row,
+                readings: row.readings.map(({ limb, value }) => [limb, value]),
+              }))
+              .sort((a, b) => a.key.localeCompare(b.key)),
+          ).toEqual([
+            {
+              key: quadriceps,
+              consultationId: fixture.consultationId,
+              notTestedReason: null,
+              readings: [
+                ['involved', 32],
+                ['uninvolved', 40],
+              ],
+            },
+            {
+              key: effusion,
+              consultationId: null,
+              notTestedReason: 'Swelling not assessable today',
+              readings: [],
+            },
+            { key: pain, consultationId: null, notTestedReason: null, readings: [[null, 6]] },
+          ]);
+          expect(
+            await readAs(tx, fixture.elsewhere, sessionId),
+            'signed, read anywhere',
+          ).toHaveLength(3);
+          expect(await readAs(tx, deskHsr, sessionId)).toEqual([]);
+          expect(await readAs(tx, support, sessionId)).toEqual([]);
+
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.consultant);
+          expect(
+            await failure(tx, (sp) =>
+              sp
+                .update(baselineMeasure)
+                .set({ notTestedReason: 'Changed later' })
+                .where(eq(baselineMeasure.sessionId, sessionId)),
+            ),
+            'never changes',
+          ).toBe('42501');
+          expect(
+            await failure(tx, (sp) =>
+              sp.delete(baselineMeasure).where(eq(baselineMeasure.sessionId, sessionId)),
+            ),
+          ).toBe('42501');
+
+          // Session 2 records no baseline.
+          const second = await started(tx, fixture);
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.consultant);
+          expect(await signSession(tx, closing(fixture.consultant.id, second.sessionId, 1))).toBe(
+            'signed',
+          );
+          expect(
+            await baselineAs(tx, fixture.consultant, {
+              ...baseline,
+              sessionId: second.sessionId,
+              kbVersionId: await sessionVersion(tx, second.sessionId),
+              reused: [],
+              recordings: [{ key: pain, value: 5, unit: '/10' }],
+            }),
+            'session 2',
+          ).toBe('42501');
+        });
+      });
+
+      it('reuses a consultation reading only within the setting’s days before session 1', async () => {
+        await rolledBack(async (tx) => {
+          const fixture = await chosenPackage(tx, 12);
+          const { sessionId } = await started(tx, fixture);
+          await asOwner(tx);
+          const [setting] = await tx.execute<{ days: number }>(
+            sql`select (value #>> '{}')::int as days from setting
+              where key = 'clinical.baseline_reuse_days'`,
+          );
+          const days = setting?.days ?? 0;
+          // Taken one minute more than the setting's days before session 1 started.
+          await tx.execute(
+            sql`update measure m set taken_at = s.created_at - make_interval(days => ${days}, mins => 1)
+              from session s where s.id = ${sessionId} and m.consultation_id = ${fixture.consultationId}`,
+          );
+          await becomeStaff(tx, fixture.consultant);
+          await signSession(tx, closing(fixture.consultant.id, sessionId, 1));
+          const baseline = {
+            sessionId,
+            episodeId: fixture.episodeId,
+            kbVersionId: await sessionVersion(tx, sessionId),
+            reused: [{ key: quadriceps, consultationId: fixture.consultationId }],
+            recordings: [],
+          };
+          expect(await baselineAs(tx, fixture.consultant, baseline), 'too old').toBe('42501');
+          await asOwner(tx);
+          await tx.execute(
+            sql`update measure m set taken_at = s.created_at - make_interval(days => ${days})
+              from session s where s.id = ${sessionId} and m.consultation_id = ${fixture.consultationId}`,
+          );
+          expect(
+            await baselineAs(tx, fixture.consultant, baseline),
+            'exactly the days',
+          ).toBeUndefined();
+        });
       });
     });
 

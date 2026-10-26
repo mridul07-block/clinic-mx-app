@@ -45,10 +45,9 @@ export const measure = pgTable(
     episodeId: uuid('episode_id')
       .notNull()
       .references(() => episode.id),
-    /** The consultation that took it; sessions take measures with SES and OUT tickets. */
-    consultationId: uuid('consultation_id')
-      .notNull()
-      .references(() => consultation.id),
+    /** The consultation that took it, or else the session (OUT-01: session 1's baseline). */
+    consultationId: uuid('consultation_id').references(() => consultation.id),
+    sessionId: uuid('session_id').references(() => treatmentSession.id),
     kbVersionId: uuid('kb_version_id')
       .notNull()
       .references(() => kbVersion.id),
@@ -63,7 +62,49 @@ export const measure = pgTable(
       .notNull()
       .references(() => staffUser.id),
   },
-  (table) => [index('measure_episode_idx').on(table.episodeId, table.measureKey)],
+  (table) => [
+    index('measure_episode_idx').on(table.episodeId, table.measureKey),
+    index('measure_session_idx').on(table.sessionId),
+    check('measure_taken_in', sql`num_nonnulls(${table.consultationId}, ${table.sessionId}) = 1`),
+  ],
+).enableRLS();
+
+/**
+ * The episode's baseline (OUT-01, PRD J5.3), written once when session 1 is signed and never
+ * changed, so final testing (OUT-07) lists exactly these measures. Each is reused from a
+ * consultation, recorded in the session (its `measure` rows), or not tested with a reason.
+ */
+export const baselineMeasure = pgTable(
+  'baseline_measure',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    episodeId: uuid('episode_id')
+      .notNull()
+      .references(() => episode.id),
+    /** Session 1, whose signing wrote it. */
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => treatmentSession.id),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    measureKey: text('measure_key').notNull(),
+    /** The consultation whose reading is reused; null when session 1 recorded it or not. */
+    consultationId: uuid('consultation_id').references(() => consultation.id),
+    notTestedReason: text('not_tested_reason'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('baseline_measure_episode_key').on(table.episodeId, table.measureKey),
+    check(
+      'baseline_measure_source',
+      sql`${table.consultationId} is null or ${table.notTestedReason} is null`,
+    ),
+    check(
+      'baseline_measure_reason',
+      sql`${table.notTestedReason} is null or length(trim(${table.notTestedReason})) between 1 and 200`,
+    ),
+  ],
 ).enableRLS();
 
 /** A special test's result (TAD `special_test_result`). */

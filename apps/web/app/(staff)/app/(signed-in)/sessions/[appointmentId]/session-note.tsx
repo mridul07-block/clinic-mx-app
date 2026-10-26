@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  BASELINE_REASON_MAX,
   formatIstDate,
   formatIstDateTime,
   interventionLabels,
@@ -15,6 +16,7 @@ import {
   sessionNoteSchema,
   sessionResponseLabels,
   sessionResponses,
+  type BaselineEntry,
   type InterventionKind,
   type SessionModality,
   type SessionNote,
@@ -30,6 +32,7 @@ import {
   closeSessionAction,
   type CloseSessionState,
 } from '../../../../../../modules/sessions/actions';
+import type { BaselineItem, BaselineView } from '../../../../../../modules/sessions/baseline';
 
 const textarea =
   'w-full min-w-0 rounded-control border border-line-control bg-surface px-3 py-2 text-md shadow-xs hover:border-ink-muted read-only:bg-surface-sunken';
@@ -117,11 +120,159 @@ function Note({
   );
 }
 
+const input =
+  'h-row w-full min-w-0 rounded-control border border-line-control bg-surface px-3 text-md shadow-xs hover:border-ink-muted read-only:bg-surface-sunken pointer-coarse:h-row-touch';
+const grades = ['0', '1', '2', '3'] as const;
+const gradeLabels = { 0: '0', 1: '1', 2: '2', 3: '3' } as Record<(typeof grades)[number], string>;
+const emptyEntry: BaselineEntry = { value: null, notTested: false, reason: '' };
+
+/** Where a baseline reading came from, as the section words it. */
+function baselineSource(item: BaselineItem, readOnly: boolean): string {
+  const taken = item.takenAt ? formatIstDate(istDate(item.takenAt)) : '';
+  switch (item.source) {
+    case 'consultation':
+      return `Consultation, ${taken}`;
+    case 'session':
+      return 'Session 1';
+    case 'not_tested':
+      return 'Not tested';
+    case 'requested':
+      return readOnly ? 'Not recorded yet' : 'Record today';
+  }
+}
+
+/**
+ * Session 1's baseline (OUT-01, PRD J5.3): what the consultation measured within the setting's
+ * days is reused as it is; each of the region's markers without a reading is recorded here, or
+ * marked Not tested with a reason. Signing freezes it.
+ */
+function BaselineSection({
+  baseline,
+  entries,
+  readOnly,
+  onChange,
+}: {
+  baseline: BaselineView;
+  entries: SessionNote['baseline'];
+  readOnly: boolean;
+  onChange: (key: string, entry: BaselineEntry) => void;
+}) {
+  return (
+    <Section title="Baseline">
+      <p className="text-sm text-ink-secondary">
+        Consultation measures from the {baseline.reuseDays} days before this session count.
+        {readOnly ? '' : ' Record each marker still missing, or mark it Not tested.'}
+      </p>
+      {baseline.items.length === 0 ? (
+        <p className="text-ink-muted">No measures or markers for this episode&apos;s region.</p>
+      ) : null}
+      <ul className="flex flex-col gap-3" data-testid="baseline">
+        {baseline.items.map((item) => {
+          const entry = entries[item.key] ?? emptyEntry;
+          const asked = item.source === 'requested';
+          const id = ['baseline', item.key].join('-');
+          return (
+            <li
+              key={item.key}
+              data-testid="baseline-item"
+              data-source={item.source}
+              className="flex flex-col gap-2 border-t border-line pt-3 first:border-0 first:pt-0"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                <span className="font-medium text-ink">{item.name}</span>
+                <span className="text-sm text-ink-muted">{baselineSource(item, readOnly)}</span>
+              </div>
+              {item.reading ? <p className="text-ink">{item.reading}</p> : null}
+              {item.reason ? <p className="text-ink-secondary">{item.reason}</p> : null}
+              {asked ? (
+                <div className="flex flex-col gap-2">
+                  {!entry.notTested ? (
+                    item.kind === 'grade' ? (
+                      <Choices
+                        name={id}
+                        options={grades}
+                        labels={gradeLabels}
+                        value={
+                          entry.value === null
+                            ? null
+                            : (String(entry.value) as (typeof grades)[number])
+                        }
+                        readOnly={readOnly}
+                        onChange={(value) => {
+                          onChange(item.key, { ...entry, value: Number(value) });
+                        }}
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <input
+                          id={id}
+                          type="number"
+                          inputMode="decimal"
+                          step="any"
+                          aria-label={item.name}
+                          readOnly={readOnly}
+                          value={entry.value ?? ''}
+                          onChange={(event) => {
+                            const value = event.target.valueAsNumber;
+                            onChange(item.key, {
+                              ...entry,
+                              value: Number.isFinite(value) ? value : null,
+                            });
+                          }}
+                          className={`${input} max-w-40`}
+                        />
+                        <span className="text-ink-secondary">{item.unit}</span>
+                      </div>
+                    )
+                  ) : null}
+                  {item.direction ? (
+                    <p className="text-sm text-ink-muted">{item.direction}</p>
+                  ) : null}
+                  <label className="flex min-h-row items-center gap-3 pointer-coarse:min-h-row-touch">
+                    <input
+                      type="checkbox"
+                      className={tick}
+                      disabled={readOnly}
+                      checked={entry.notTested}
+                      onChange={(event) => {
+                        onChange(item.key, { ...entry, notTested: event.target.checked });
+                      }}
+                    />
+                    Not tested
+                  </label>
+                  {entry.notTested ? (
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-sm font-medium text-ink-secondary">
+                        Why it was not tested
+                      </span>
+                      <input
+                        type="text"
+                        maxLength={BASELINE_REASON_MAX}
+                        readOnly={readOnly}
+                        value={entry.reason}
+                        onChange={(event) => {
+                          onChange(item.key, { ...entry, reason: event.target.value });
+                        }}
+                        className={input}
+                      />
+                    </label>
+                  ) : null}
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </Section>
+  );
+}
+
 /**
  * The session note (SES-03, PRD J5.4; user decisions 26 October 2026): new symptoms first, then
  * since last visit, the three pain sliders, the treatment given as ticks from the plan, the
- * response, home programme changes and the next session; autosaved as it is written. Close
- * session saves what is left and signs it at that version.
+ * response, home programme changes and the next session; autosaved as it is written. Session 1
+ * also records the baseline (OUT-01) after the pain readings. Close session saves what is left and
+ * signs it at that version.
  */
 export function SessionNoteForm({
   appointmentId,
@@ -132,6 +283,7 @@ export function SessionNoteForm({
   plan,
   lastTime,
   modalityDefinitions,
+  baseline,
 }: {
   appointmentId: string;
   serverValue: SessionNote;
@@ -147,6 +299,8 @@ export function SessionNoteForm({
   lastTime: { number: number; signedAt: Date; note: SessionNote } | null;
   /** The modalities at the note's version: parameters and precaution warnings (SES-05). */
   modalityDefinitions: SessionModality[];
+  /** Session 1's baseline (OUT-01); null for any other session. */
+  baseline: BaselineView | null;
 }) {
   const save = useMemo(() => saveSessionNoteDraft(appointmentId), [appointmentId]);
   const draft = useAutosave({
@@ -164,7 +318,11 @@ export function SessionNoteForm({
   const set = (change: Partial<SessionNote>) => {
     draft.setValue({ ...note, ...change });
   };
-  const blockers = sessionNoteBlockers(note, modalityDefinitions);
+  // A signed note's baseline is frozen; only a draft asks for markers.
+  const requested = signed
+    ? []
+    : (baseline?.items.filter((item) => item.source === 'requested') ?? []);
+  const blockers = sessionNoteBlockers(note, modalityDefinitions, requested);
   const definitionOf = (key: string) => modalityDefinitions.find((m) => m.key === key);
   const [state, action, pending] = useActionState(closeSessionAction, initialState);
   const [saving, setSaving] = useState(false);
@@ -334,6 +492,17 @@ export function SessionNoteForm({
           />
         ))}
       </Section>
+
+      {baseline ? (
+        <BaselineSection
+          baseline={baseline}
+          entries={note.baseline}
+          readOnly={readOnly}
+          onChange={(key, entry) => {
+            set({ baseline: { ...note.baseline, [key]: entry } });
+          }}
+        />
+      ) : null}
 
       <Section title="Treatment given">
         <div className="flex flex-col gap-2" data-testid="treatment-ticks">
