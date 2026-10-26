@@ -156,3 +156,38 @@ addenda (CLN-12 follow up, user decisions 26 October 2026):
 | `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: prefilled ticks, Close held back with what is missing, the note filled and kept across a reload, Close session to My patients, the visit Completed, one package session used, the signed note read only, the consultant's task; an addendum on the session screen; a colleague reads the note on the record's Notes with its digest, adds an addendum, and the card's last note is the session |
 
 **Negative check:** let a signed session change in `internal.session_guard`, and the database test fails on "nor who signed it or when". Drop `status = 'signed'` from `internal.adds_session_addendum`, and the addenda test fails on "a draft has none".
+
+## Same as last time (SES-04)
+
+Done when "Same as last time" copies the previous note for editing (PRD M9, Frontend
+Specification "Session note"). Decisions (user, 26 October 2026):
+
+- **What it copies:** from the episode's previous signed session note, the plan side of the note:
+  treatment (ticks and note), home programme changes, and next session (choice and note). "Any
+  new symptoms?", since last visit, the three pain readings and the response are today's to ask
+  and measure, so they stay as they are.
+- **When it asks:** before replacing what the physio entered. If the copied sections differ both
+  from how the draft opened (prefilled from that note, SES-03) and from the note itself, an inline
+  "Replace what you have entered with last time's note?" offers Replace and Keep mine. Otherwise
+  it copies at once. The copy autosaves, stays editable, and says "Copied from session n. Check
+  it before closing."
+- **When it shows:** only on the physio's own draft, and only when the episode has a signed note
+  before. It reads "Same as last time (session n, date)".
+
+| Piece | Where |
+| --- | --- |
+| The copy and when to ask | `sameAsLastTime`, `sameAsLastTimeOverwrites`, `packages/schemas/src/sessions.ts` |
+| The previous note (number, date, note) | `lastSignedSessionNote`, `packages/db/src/sessions.ts`, read under row level security as the physio |
+| Given to the screen | `SessionNoteView.lastTime` in `loadSession`, `apps/web/modules/sessions/services.ts` (null unless the note is editable) |
+| The button and the confirm | `sessions/[appointmentId]/session-note.tsx` |
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `packages/schemas/src/sessions.test.ts` (Same as last time) | the three sections copied and nothing of today; no question on an untouched or already copied draft; a question once a copied field was edited |
+| `apps/web/modules/sessions/services.test.ts` | `lastTime` for the physio's own draft with its number and date; none for the Super Admin, a signed note or without an earlier note |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (closes by signing) | the newest signed note read with its number and date |
+| `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: no button on session 1; on session 2, a typed treatment note asks first, Keep mine keeps it, Replace copies, today's questions stay open, and a reload keeps the copy |
+
+**Negative check:** let `sameAsLastTime` copy the pain readings too, and the schema test fails.

@@ -140,18 +140,26 @@ export async function sessionNoteById(
   return row;
 }
 
-/** The episode's newest signed note, for the next note's treatment (SES-03). */
+/**
+ * The episode's newest signed note: the next note's treatment (SES-03) and "Same as last time"
+ * (SES-04).
+ */
 export async function lastSignedSessionNote(
   db: DbOrTransaction,
   episodeId: string,
-): Promise<Record<string, unknown> | undefined> {
+): Promise<{ number: number; signedAt: Date; note: Record<string, unknown> } | undefined> {
   const [row] = await db
-    .select({ note: treatmentSession.note })
+    .select({
+      number: treatmentSession.number,
+      signedAt: treatmentSession.signedAt,
+      note: treatmentSession.note,
+    })
     .from(treatmentSession)
     .where(and(eq(treatmentSession.episodeId, episodeId), eq(treatmentSession.status, 'signed')))
     .orderBy(desc(treatmentSession.signedAt))
     .limit(1);
-  return row?.note;
+  // Signed, so signed_at is set (check session_signed).
+  return row && { ...row, signedAt: row.signedAt ?? new Date(0) };
 }
 
 /** A plan's interventions, modalities (with names) and home programme, for the note. */

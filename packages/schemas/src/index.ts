@@ -708,6 +708,8 @@ export {
   phaseNotSetUp,
   prefilledSessionNote,
   readSessionNote,
+  sameAsLastTime,
+  sameAsLastTimeOverwrites,
   saveSessionNoteSchema,
   sessionAddendumSchema,
   sessionAppointmentSchema,

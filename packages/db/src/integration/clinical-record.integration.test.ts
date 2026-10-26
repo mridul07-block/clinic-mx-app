@@ -23,6 +23,7 @@ import { packageRescheduleState, packagesOfEpisode, usePackageSession } from '..
 import { latestKnowledgeVersion } from '../knowledge';
 import {
   addSessionAddendum,
+  lastSignedSessionNote,
   openSession,
   saveSessionNote,
   sessionAddenda,
@@ -2024,6 +2025,10 @@ describe('counter payments', () => {
           'stale',
         );
         expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 1))).toBe('signed');
+        // The next note's prefill and "Same as last time" (SES-04) read it, with its number.
+        const last = await lastSignedSessionNote(tx, fixture.episodeId);
+        expect(last).toMatchObject({ number: 1, note: { sinceLastVisit: 'Stairs easier' } });
+        expect(last?.signedAt).toBeInstanceOf(Date);
 
         await asOwner(tx);
         const [visit] = await tx
