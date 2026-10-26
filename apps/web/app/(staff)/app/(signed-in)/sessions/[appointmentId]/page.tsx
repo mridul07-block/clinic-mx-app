@@ -16,7 +16,8 @@ export const metadata: Metadata = { title: 'Session · Clinic Mx' };
 // while it runs. The treating physio's summary card of the episode comes first, from the signed
 // plan with no AI sheet; the session note (SES-03) goes under it, written and closed by the
 // appointment's physio. Only the appointment's physio opens it; the Super Admin reads it (user
-// decision 25 October 2026).
+// decision 25 October 2026). With cover (SES-08) the note is whoever started it; the booked physio
+// and colleagues at the centre read it.
 export default async function SessionPage({
   params,
 }: {
@@ -33,7 +34,7 @@ export default async function SessionPage({
     throw error;
   }
   if (!screen) notFound();
-  const { visit, session, summary, nextVisit, readOnly, note } = screen;
+  const { visit, session, summary, nextVisit, readOnly, writerName, coveredBy, note } = screen;
   return (
     <main className="flex w-full max-w-5xl flex-col gap-4 px-4 py-6">
       <div className="flex flex-col gap-1.5">
@@ -50,6 +51,11 @@ export default async function SessionPage({
               <Tag tone="outline">{session.label}</Tag>
             </span>
           ) : null}
+          {coveredBy ? (
+            <span data-testid="session-covered">
+              <Tag tone="info">Covered by {coveredBy}</Tag>
+            </span>
+          ) : null}
         </span>
         <p className="text-sm text-ink-muted">
           <Link
@@ -62,7 +68,7 @@ export default async function SessionPage({
         </p>
         {readOnly ? (
           <p data-testid="session-read-only" className="text-sm text-ink-muted">
-            Read only: this is {visit.physioName}&apos;s session.
+            Read only: this is {writerName}&apos;s session.
           </p>
         ) : null}
       </div>

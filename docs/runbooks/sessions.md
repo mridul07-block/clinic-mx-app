@@ -68,9 +68,9 @@ Nothing from the consultant's AI preparation sheet is read. Without an episode i
 
 | Who | What happens |
 | --- | --- |
-| The appointment's physio | Opens it |
-| The Super Admin | Reads it, marked "Read only: this is <physio>'s session." |
-| Another physio | Not found: row level security does not show them the appointment (cover between physios is SES-08) |
+| The note's writer: the appointment's physio, or the colleague who covered it (SES-08) | Opens it |
+| The appointment's physio when covered, physios with the Treats patients tick at its centre (SES-08), the Super Admin | Read it, marked "Read only: this is <writer>'s session." |
+| A physio at another centre | Not found: row level security does not show them the appointment |
 | Anyone else who reads the appointment, Velyx support included | Not allowed |
 
 - **Server:** `loadSession` in `apps/web/modules/sessions/services.ts` checks `clinical.read` and the appointment's physio, and logs each open as a record view of the patient.
@@ -127,7 +127,7 @@ The physio lands on My patients with "Session closed. Its note is signed."
 
 | Who | Reads a draft | Reads a signed note | Writes and closes |
 | --- | --- | --- | --- |
-| The appointment's physio | Yes | Yes | Yes, while it is a draft |
+| The note's writer: whoever started the visit, its physio or a colleague covering (SES-08) | Yes | Yes | Yes, while it is a draft |
 | Clinicians who treat patients at the centre | Yes | Yes | No |
 | Clinicians at other centres, and the Super Admin (with or without the tick) | No | Yes: a signed note is part of the record (CLN-12, `20261026054611_session_signed_read.sql`) | No |
 | Front desk, Finance, Centre Managers without the tick | No | No | No |
@@ -227,3 +227,40 @@ Blueprint records them under the response). Decisions (user, 26 October 2026):
 | `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: session 2 ticked, held back until described, closed; the physio (the consultant here) has the task; a Super Admin has the Clinical Director task and reads it on the record's Notes |
 
 **Negative check:** take the adverse event branch out of `internal.session_closed`, and the database test fails.
+
+## Cover between physios (SES-08)
+
+Done when physios see colleagues' patients in their centres, and notes are signed by the writer.
+Decisions (user, 26 October 2026):
+
+- **Colleagues today:** My patients lists the physio's own visits first, unchanged. Below them,
+  "Colleagues today" shows, for each centre they work at, the other physios' visits today: time,
+  patient, type, "with <physio>", status, session label, and "Covered by <name>" when someone
+  covered it. Only staff with the Treats patients tick see it, never Velyx support.
+- **Cover:** a colleague's checked in Session or Zero Gravity Treadmill visit, once its gate is
+  met, has Start session.
+  - Starting it makes the note the covering physio's own: they write it, close it and sign it.
+  - The visit stays booked with its own physio. Their list, and the session screen, show "Covered
+    by <name>".
+  - Consultations are not covered.
+- **Once started:** the starter owns the note. Everyone else who opens it reads it.
+
+| Rule | Where |
+| --- | --- |
+| Physios with the tick read the appointments at the centres they work at | `appointment_read` (`20261026092707_cover_between_physios.sql`) |
+| Who may cover: the tick now, working at the visit's centre, a session kind of visit, not their own | `internal.covers_visit`; `coversSessionsAt` (`packages/schemas/src/sessions.ts`) on the server |
+| A colleague starts it only as themselves, only once checked in | Policy `appointment_cover_start`; `internal.appointment_status_guard` (`started_by` is the physio, or covers the visit) |
+| The note's writer is whoever started it | `internal.session_open` (`physio_id` from `started_by`), policy `session_open`; `session_guard` already signs only as the writer |
+| The lists and the screen | `colleaguesToday` (`packages/db/src/my-patients.ts`), `loadColleagues`, `startVisit` (`apps/web/modules/my-patients/services.ts`), `loadSession` (`apps/web/modules/sessions/services.ts`), `my-patients/colleagues-today.tsx` |
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `apps/web/modules/my-patients/services.test.ts` | a colleague's session started as cover, the note theirs; a colleague's consultation and another centre refused; colleagues listed only at one's centres |
+| `apps/web/modules/sessions/services.test.ts` | a colleague at the centre reads; the covering colleague writes and the booked physio reads; a physio elsewhere is refused |
+| `packages/db/src/integration/my-patients.integration.test.ts` | colleagues' visits at the centre, none elsewhere; cover only once checked in, never a consultation, only as oneself, still booked with its physio |
+| `packages/db/src/integration/clinical-record.integration.test.ts` | a colleague reads the session's visit, a physio elsewhere does not; the covering colleague writes and signs the note, the booked physio cannot, the visit completes |
+| `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: a colleague reads the session screen read only; session 3 is covered from "Colleagues today", closed and "Signed by" the colleague; the booked physio sees "Covered by" and reads it |
+
+**Negative check:** take the cover clause out of `internal.appointment_status_guard`, and both database cover tests fail.

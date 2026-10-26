@@ -68,6 +68,9 @@ const visit = (extra: Record<string, unknown> = {}) => ({
   id: appointmentId,
   physioId: staff().id,
   physioName: 'Test Physio',
+  startedBy: staff().id,
+  startedByName: 'Test Physio',
+  centreId: hsr,
   status: 'in_progress',
   startsAt: new Date(),
   episodeId,
@@ -143,8 +146,10 @@ describe('loadSession', () => {
     expect(db.logClinicalView).toHaveBeenCalledWith(fakeTx, 'patient', patientId);
   });
 
-  it('refuses another physio and Velyx support; the Super Admin reads it', async () => {
-    await expect(loadSession(otherPhysio, appointmentId)).rejects.toThrow(NotAllowedError);
+  it('refuses a physio elsewhere and Velyx support; colleagues and the Super Admin read it', async () => {
+    await expect(
+      loadSession(staff({ id: otherPhysio.id, centreIds: ['another-centre'] }), appointmentId),
+    ).rejects.toThrow(NotAllowedError);
     await expect(loadSession(staff({ support: true }), appointmentId)).rejects.toThrow(
       NotAllowedError,
     );
@@ -155,6 +160,28 @@ describe('loadSession', () => {
     const screen = await loadSession(superAdmin, appointmentId);
     expect(screen?.readOnly).toBe(true);
     expect(db.logClinicalView).toHaveBeenCalledOnce();
+    // SES-08: a colleague at the centre reads it.
+    expect(await loadSession(otherPhysio, appointmentId)).toMatchObject({
+      readOnly: true,
+      writerName: 'Test Physio',
+      coveredBy: null,
+    });
+  });
+
+  // SES-08: covered by a colleague, the note is theirs; the booked physio reads it.
+  it('gives a covered session to the colleague who started it', async () => {
+    db.sessionVisit.mockResolvedValue(
+      visit({ startedBy: otherPhysio.id, startedByName: 'Other Physio' }),
+    );
+    expect(await loadSession(otherPhysio, appointmentId)).toMatchObject({
+      readOnly: false,
+      writerName: 'Other Physio',
+      coveredBy: 'Other Physio',
+    });
+    expect(await loadSession(staff(), appointmentId)).toMatchObject({
+      readOnly: true,
+      coveredBy: 'Other Physio',
+    });
   });
 
   it('is not found for a missing appointment or one that is not a session', async () => {

@@ -1889,7 +1889,7 @@ describe('counter payments', () => {
     });
 
     // SES-02: the session screen's appointment, under row level security (the second check).
-    it('gives the session screen its visit for the physio and the Super Admin, not another physio', async () => {
+    it('gives the session screen its visit for the physio, colleagues at the centre and the Super Admin', async () => {
       await rolledBack(async (tx) => {
         const fixture = await chosenPackage(tx, 12);
         const session = await visitOf(tx, fixture, 'session');
@@ -1906,7 +1906,9 @@ describe('counter payments', () => {
           patientId: fixture.patientId,
         });
         expect((await as(superAdmin))?.id).toBe(session);
-        expect(await as(physioHsr), 'another physio at the centre').toBeUndefined();
+        // SES-08: colleagues at the centre read it, for cover; a physio elsewhere does not.
+        expect((await as(physioHsr))?.id, 'a colleague at the centre').toBe(session);
+        expect(await as(fixture.elsewhere), 'a physio elsewhere').toBeUndefined();
         expect(await as(deskKoramangala)).toBeUndefined();
       });
     });
@@ -2121,6 +2123,59 @@ describe('counter payments', () => {
             assignee: fixture.consultant.id,
           },
         ]);
+      });
+    });
+
+    // SES-08 (user decisions 26 October 2026): a colleague who covers a session writes and signs
+    // its note; the booked physio reads it but cannot write it.
+    it('gives a covered session’s note to the colleague who started it', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        const id = await visitOf(tx, fixture, 'session');
+        await arrive(tx, id);
+        await asOwner(tx);
+        await becomeStaff(tx, fixture.elsewhere);
+        expect(
+          await startVisit(tx, { appointmentId: id, by: fixture.elsewhere.id, now: new Date() }),
+          'not from another centre',
+        ).toBeUndefined();
+        await asOwner(tx);
+        await becomeStaff(tx, fixture.colleague);
+        expect(
+          await startVisit(tx, { appointmentId: id, by: fixture.colleague.id, now: new Date() }),
+        ).toEqual({ id });
+        const sessionId = await openSession(tx, {
+          appointmentId: id,
+          physioId: fixture.colleague.id,
+          kbVersionId: (await latestKnowledgeVersion(tx))?.id ?? '',
+          note: { sinceLastVisit: 'Covered today' },
+        });
+        expect((await sessionNoteOf(tx, id))?.physioId, 'the writer').toBe(fixture.colleague.id);
+
+        // The booked physio reads it but cannot write it.
+        await asOwner(tx);
+        await becomeStaff(tx, fixture.consultant);
+        expect((await sessionNoteOf(tx, id))?.version).toBe(1);
+        expect((await saveSessionNote(tx, sessionId, 1, {})).status).toBe('conflict');
+        expect(
+          await signSession(tx, closing(fixture.consultant.id, sessionId, 1)),
+          'nor sign it',
+        ).toBe('stale');
+
+        await asOwner(tx);
+        await becomeStaff(tx, fixture.colleague);
+        expect(await signSession(tx, closing(fixture.colleague.id, sessionId, 1))).toBe('signed');
+        await asOwner(tx);
+        const [row] = await tx
+          .select({ physioId: treatmentSession.physioId, signedBy: treatmentSession.signedBy })
+          .from(treatmentSession)
+          .where(eq(treatmentSession.id, sessionId));
+        expect(row).toEqual({ physioId: fixture.colleague.id, signedBy: fixture.colleague.id });
+        const [visit] = await tx
+          .select({ status: appointment.status, physioId: appointment.physioId })
+          .from(appointment)
+          .where(eq(appointment.id, id));
+        expect(visit).toEqual({ status: 'completed', physioId: fixture.consultant.id });
       });
     });
 

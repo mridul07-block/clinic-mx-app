@@ -1,17 +1,20 @@
 import 'server-only';
 import {
   NoKnowledgeVersionError,
+  colleaguesToday,
   contentVersion,
   myPatientsToday,
   openConsultation,
   sessionProgress,
   startVisit as startVisitRow,
   visitToStart,
+  type ColleagueVisit,
   type MyPatientVisit,
   type StaffMember,
 } from '@clinic-mx/db';
 import {
   can,
+  coversSessionsAt,
   istDate,
   sessionGate,
   sessionView,
@@ -31,10 +34,24 @@ import { SessionError, openSessionNote } from '../sessions/services';
  * decision 24 October 2026). Start consultation also opens the consultation (CLN-02): only a
  * consultant starts one, and only once the health form has opened the episode (user decision 24
  * October 2026). Start session opens the session screen (SES-02).
+ *
+ * Cover between physios (SES-08, user decisions 26 October 2026): below their own visits, a
+ * physio with the Treats patients tick sees their colleagues' visits today at the centres they
+ * work at, and may start a colleague's checked in session there. The note is then theirs to write
+ * and sign; the visit stays booked with its own physio and says who covered it.
  */
 
-/** A visit with, for a treatment session, its number and gate (SES-01). */
-export type MyPatientRow = MyPatientVisit & { session: SessionView | null };
+/**
+ * A visit with, for a treatment session, its number and gate (SES-01), and who covered it when a
+ * colleague started it (SES-08).
+ */
+export type MyPatientRow = MyPatientVisit & {
+  session: SessionView | null;
+  coveredBy: string | null;
+};
+
+/** A colleague's visit today, with its session's number and gate. */
+export type ColleagueRow = ColleagueVisit & { session: SessionView | null };
 
 export interface MyPatientsView {
   date: string;
@@ -52,9 +69,30 @@ export async function loadMyPatients(actor: StaffMember): Promise<MyPatientsView
       tx,
       rows.map((row) => row.id),
     );
-    return rows.map((row) => ({ ...row, session: sessionView(progress.get(row.id)) }));
+    return rows.map((row) => ({
+      ...row,
+      session: sessionView(progress.get(row.id)),
+      coveredBy: row.startedBy && row.startedBy !== actor.id ? row.startedByName : null,
+    }));
   });
   return { date, visits, version: contentVersion(visits) };
+}
+
+/** Colleagues' visits today at the centres the person works at, for cover (SES-08). */
+export async function loadColleagues(actor: StaffMember): Promise<ColleagueRow[]> {
+  assertMay(actor, 'visits.start');
+  if (!actor.treatsPatients || actor.support) return [];
+  const date = istDate(new Date());
+  return asStaff(actor, async (tx) => {
+    const rows = (await colleaguesToday(tx, { staffId: actor.id, date })).filter((row) =>
+      coversSessionsAt(actor, row.centreId),
+    );
+    const progress = await sessionProgress(
+      tx,
+      rows.map((row) => row.id),
+    );
+    return rows.map((row) => ({ ...row, session: sessionView(progress.get(row.id)) }));
+  });
 }
 
 /** What Start opened: the consultation, or the session screen of a treatment session. */
@@ -74,7 +112,9 @@ export const startVisit = staffService({
   run: async (tx, input, actor): Promise<StartedVisit> => {
     const found = await visitToStart(tx, input.appointmentId);
     if (!found) throw new SchedulingError('That appointment was not found.');
-    if (found.physioId !== actor.id) {
+    const session = (await sessionProgress(tx, [found.id])).get(found.id);
+    // SES-08: a colleague at its centre covers a session; anything else is its own physio's.
+    if (found.physioId !== actor.id && !(session && coversSessionsAt(actor, found.centreId))) {
       throw new SchedulingError('Only the physio of this appointment can start it.');
     }
     if (found.status === 'in_progress') {
@@ -91,7 +131,6 @@ export const startVisit = staffService({
     }
     if (consulting && !found.episodeId) throw new SchedulingError(HEALTH_FORM_NEEDED);
     // SES-01: a treatment session starts only once its gate is met.
-    const session = (await sessionProgress(tx, [found.id])).get(found.id);
     if (session) {
       const gate = sessionGate(session.episodeStatus);
       if (!gate.met) throw new SchedulingError(gate.message);

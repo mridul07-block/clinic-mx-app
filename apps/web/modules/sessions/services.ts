@@ -27,6 +27,7 @@ import {
 import {
   can,
   closeSessionSchema,
+  coversSessionsAt,
   prefilledSessionNote,
   readSessionNote,
   saveSessionNoteSchema,
@@ -102,8 +103,12 @@ export interface SessionScreen {
   /** The appointment's own episode's card; undefined outside an episode. */
   summary: PatientSummary | undefined;
   nextVisit: NextVisitEntry | undefined;
-  /** The Super Admin reading another physio's session. */
+  /** Anyone but the note's writer: the booked physio, a colleague, the Super Admin. */
   readOnly: boolean;
+  /** Who writes the note: whoever started it, else the booked physio (SES-08). */
+  writerName: string;
+  /** The colleague who covered it, when not the booked physio (SES-08). */
+  coveredBy: string | null;
   /** The note, once Start session opened it. */
   note: SessionNoteView | undefined;
 }
@@ -148,8 +153,9 @@ export async function openSessionNote(
 }
 
 /**
- * The session screen of an appointment; undefined when it is not found or not a session. Refuses
- * anyone but its physio and the Super Admin.
+ * The session screen of an appointment; undefined when it is not found or not a session. Its
+ * note's writer edits it; the booked physio, colleagues with the Treats patients tick at its
+ * centre (SES-08) and the Super Admin read it; anyone else is refused.
  */
 export async function loadSession(
   actor: StaffMember,
@@ -162,8 +168,15 @@ export async function loadSession(
     if (!visit) return undefined;
     const session = sessionView((await sessionProgress(tx, [visit.id])).get(visit.id));
     if (!session) return undefined;
-    const own = visit.physioId === actor.id;
-    if (!own && !(actor.role === 'super_admin' && !actor.support)) throw new NotAllowedError();
+    const stored = await sessionNoteOf(tx, visit.id);
+    const writer = stored?.physioId ?? visit.startedBy ?? visit.physioId;
+    const own = writer === actor.id;
+    const reads =
+      own ||
+      visit.physioId === actor.id ||
+      coversSessionsAt(actor, visit.centreId) ||
+      (actor.role === 'super_admin' && !actor.support);
+    if (!reads) throw new NotAllowedError();
     const episode = visit.episodeId ? await episodeRecord(tx, visit.episodeId) : undefined;
     const summary =
       episode &&
@@ -174,7 +187,6 @@ export async function loadSession(
         await patientAlertHistory(tx, visit.patientId),
       ));
     const nextVisit = await nextVisitOf(tx, visit.patientId, now);
-    const stored = await sessionNoteOf(tx, visit.id);
     const plan = stored?.planOfCareId ? await planForSession(tx, stored.planOfCareId) : undefined;
     const signed = stored?.status === 'signed';
     const editable = own && stored?.status === 'draft' && can(actor, 'session_notes.write');
@@ -200,7 +212,17 @@ export async function loadSession(
       plan: plan ?? { interventions: [], modalities: [], homeProgramme: [] },
     };
     await logClinicalView(tx, 'patient', visit.patientId);
-    return { visit, session, summary, nextVisit, readOnly: !own, note };
+    const covered = visit.startedBy !== null && visit.startedBy !== visit.physioId;
+    return {
+      visit,
+      session,
+      summary,
+      nextVisit,
+      readOnly: !own,
+      writerName: (covered ? visit.startedByName : null) ?? visit.physioName,
+      coveredBy: covered ? visit.startedByName : null,
+      note,
+    };
   });
 }
 

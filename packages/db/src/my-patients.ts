@@ -4,7 +4,8 @@ import {
   type AlertDisplay,
   type AppointmentStatus,
 } from '@clinic-mx/schemas';
-import { and, asc, desc, eq, gte, inArray, lt, notInArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lt, ne, notInArray, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { partAConsentDeclined } from './consent';
 import {
   appointment,
@@ -17,6 +18,9 @@ import {
 } from './schema';
 import type { DbOrTransaction } from './versioned';
 
+/** Who started a visit: its own physio, or a colleague covering a session (SES-08). */
+const starter = alias(staffUser, 'started_by_staff');
+
 /** A visit on a physio's My patients today (CLN-01). */
 export interface MyPatientVisit {
   id: string;
@@ -26,6 +30,9 @@ export interface MyPatientVisit {
   status: AppointmentStatus;
   arrivedAt: Date | null;
   startedAt: Date | null;
+  /** Who started it; a colleague covering a session when not the physio (SES-08). */
+  startedBy: string | null;
+  startedByName: string | null;
   patientId: string;
   patientName: string;
   opNumber: string;
@@ -63,6 +70,8 @@ export async function myPatientsToday(
       status: appointment.status,
       arrivedAt: appointment.arrivedAt,
       startedAt: appointment.startedAt,
+      startedBy: appointment.startedBy,
+      startedByName: starter.name,
       patientId: appointment.patientId,
       patientName: patient.name,
       opNumber: patient.opNumber,
@@ -84,6 +93,7 @@ export async function myPatientsToday(
     .innerJoin(centre, eq(centre.id, appointment.centreId))
     .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
     .leftJoin(consultation, eq(consultation.appointmentId, appointment.id))
+    .leftJoin(starter, eq(starter.id, appointment.startedBy))
     .where(
       and(
         eq(appointment.physioId, query.staffId),
@@ -126,6 +136,70 @@ export async function myPatientsToday(
   });
 }
 
+/** A colleague's visit today at the reader's centres, for cover (SES-08). */
+export interface ColleagueVisit {
+  id: string;
+  startsAt: Date;
+  status: AppointmentStatus;
+  physioId: string;
+  physioName: string;
+  startedBy: string | null;
+  startedByName: string | null;
+  patientId: string;
+  patientName: string;
+  opNumber: string;
+  centreId: string;
+  centreName: string;
+  typeKey: string;
+  typeName: string;
+  episodeId: string | null;
+}
+
+/**
+ * The other physios' appointments on an IST day at the centres the reader sees, by start,
+ * leaving out Cancelled and Rescheduled (SES-08). Under the reader's row level security: a physio
+ * with the Treats patients tick reads the appointments of their centres.
+ */
+export async function colleaguesToday(
+  db: DbOrTransaction,
+  query: { staffId: string; date: string },
+): Promise<ColleagueVisit[]> {
+  const physio = alias(staffUser, 'booked_physio');
+  return db
+    .select({
+      id: appointment.id,
+      startsAt: appointment.startsAt,
+      status: appointment.status,
+      physioId: appointment.physioId,
+      physioName: physio.name,
+      startedBy: appointment.startedBy,
+      startedByName: starter.name,
+      patientId: appointment.patientId,
+      patientName: patient.name,
+      opNumber: patient.opNumber,
+      centreId: appointment.centreId,
+      centreName: centre.name,
+      typeKey: appointmentType.key,
+      typeName: appointmentType.name,
+      episodeId: appointment.episodeId,
+    })
+    .from(appointment)
+    .innerJoin(patient, eq(patient.id, appointment.patientId))
+    .innerJoin(centre, eq(centre.id, appointment.centreId))
+    .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
+    .innerJoin(physio, eq(physio.id, appointment.physioId))
+    .leftJoin(starter, eq(starter.id, appointment.startedBy))
+    .where(
+      and(
+        ne(appointment.physioId, query.staffId),
+        gte(appointment.startsAt, startOfIstDay(query.date)),
+        lt(appointment.startsAt, startOfIstDay(addDays(query.date, 1))),
+        notInArray(appointment.status, ['cancelled', 'rescheduled']),
+      ),
+    )
+    .orderBy(asc(centre.name), asc(appointment.startsAt));
+}
+
 /** What Start needs to know about a visit (CLN-01, CLN-02), or undefined when not found. */
 export async function visitToStart(
   db: DbOrTransaction,
@@ -134,6 +208,7 @@ export async function visitToStart(
   | {
       id: string;
       physioId: string;
+      centreId: string;
       status: AppointmentStatus;
       startsAt: Date;
       episodeId: string | null;
@@ -145,6 +220,7 @@ export async function visitToStart(
     .select({
       id: appointment.id,
       physioId: appointment.physioId,
+      centreId: appointment.centreId,
       status: appointment.status,
       startsAt: appointment.startsAt,
       episodeId: appointment.episodeId,
@@ -161,6 +237,10 @@ export interface SessionVisit {
   id: string;
   physioId: string;
   physioName: string;
+  /** Who started it: the note's writer, a colleague when covered (SES-08). */
+  startedBy: string | null;
+  startedByName: string | null;
+  centreId: string;
   status: AppointmentStatus;
   startsAt: Date;
   episodeId: string | null;
@@ -185,6 +265,9 @@ export async function sessionVisit(
       id: appointment.id,
       physioId: appointment.physioId,
       physioName: staffUser.name,
+      startedBy: appointment.startedBy,
+      startedByName: starter.name,
+      centreId: appointment.centreId,
       status: appointment.status,
       startsAt: appointment.startsAt,
       episodeId: appointment.episodeId,
@@ -200,6 +283,7 @@ export async function sessionVisit(
     .innerJoin(patient, eq(patient.id, appointment.patientId))
     .innerJoin(centre, eq(centre.id, appointment.centreId))
     .innerJoin(staffUser, eq(staffUser.id, appointment.physioId))
+    .leftJoin(starter, eq(starter.id, appointment.startedBy))
     .where(eq(appointment.id, appointmentId));
   return row;
 }

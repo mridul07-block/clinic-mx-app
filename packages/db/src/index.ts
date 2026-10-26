@@ -275,9 +275,11 @@ export {
 export { todayBoard, type TodayAppointment } from './today';
 export {
   myPatientsToday,
+  colleaguesToday,
   sessionVisit,
   startVisit,
   visitToStart,
+  type ColleagueVisit,
   type MyPatientVisit,
   type SessionVisit,
 } from './my-patients';

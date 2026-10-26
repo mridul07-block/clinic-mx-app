@@ -2,8 +2,9 @@ import { formatIstDate, staffRoleLabels } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requirePermission } from '../../../../../modules/access/require-permission';
-import { loadMyPatients } from '../../../../../modules/my-patients/services';
+import { loadColleagues, loadMyPatients } from '../../../../../modules/my-patients/services';
 import { getSetting } from '../../../../../modules/settings/settings';
+import { ColleaguesToday } from './colleagues-today';
 import { MyPatientsList } from './my-patients-list';
 
 export const metadata: Metadata = { title: 'My patients today · Clinic Mx' };
@@ -12,6 +13,7 @@ export const metadata: Metadata = { title: 'My patients today · Clinic Mx' };
 // signed in clinician's own visits today in time order with status, form status and open alerts;
 // Start consultation or Start session on a checked in visit (user decisions 24 October 2026).
 // "Preparation sheet ready" (Consultant tick) joins each visit once AI-03 stores the sheets.
+// Below them, colleagues' visits at the same centres, for cover (SES-08).
 export default async function MyPatientsPage({
   searchParams,
 }: {
@@ -25,6 +27,7 @@ export default async function MyPatientsPage({
     await getSetting('live.refresh_seconds'),
   ];
   const { date, visits, version } = await loadMyPatients(staff);
+  const colleagues = await loadColleagues(staff);
   return (
     <main className="flex w-full max-w-5xl flex-col gap-4 px-4 py-6">
       <div className="flex flex-col gap-1.5">
@@ -53,6 +56,7 @@ export default async function MyPatientsPage({
         refreshSeconds={refreshSeconds}
         showCentre={staff.centreIds.length > 1 || staff.role === 'super_admin'}
       />
+      {staff.treatsPatients && !staff.support ? <ColleaguesToday colleagues={colleagues} /> : null}
     </main>
   );
 }
