@@ -15,7 +15,7 @@ import {
   task,
   withActor,
 } from '@clinic-mx/db';
-import { earlierToday, istDate, istInstant, type Block } from '@clinic-mx/schemas';
+import { addDays, earlierToday, istDate, istInstant, type Block } from '@clinic-mx/schemas';
 import { eq, inArray, sql } from 'drizzle-orm';
 
 // The calendar for end to end tests (SCH-05). Each test uses its own temporary physio, so tests
@@ -69,7 +69,9 @@ export async function physioAtHsr(
     await tx.insert(roster).values({
       staffUserId: physioId,
       centreId: hsr,
-      effectiveFrom: istDate(new Date()),
+      // From yesterday: a visit placed minutes ago just after midnight IST falls on yesterday, and
+      // the calendar lists only physios with hours that day.
+      effectiveFrom: addDays(istDate(new Date()), -1),
       weekly: Array.from({ length: 7 }, () => options.hours ?? [{ starts: 9 * 60, ends: 13 * 60 }]),
       createdBy: admin,
     });
@@ -211,6 +213,10 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
       );
     }
     await tx.execute(sql`delete from session where physio_id in ${physioIds}`);
+    // Final testing they signed (OUT-07), after its readings.
+    const theirFinalTests = sql`(select id from final_test where signed_by in ${physioIds})`;
+    await tx.execute(sql`delete from measure where final_test_id in ${theirFinalTests}`);
+    await tx.execute(sql`delete from final_test where signed_by in ${physioIds}`);
     const consultations = sql`(select id from consultation where physio_id in ${physioIds})`;
     // The patient's choices on their plans (BIL-02), with what "I'll think about it" raised.
     const plans = sql`(select id from plan_of_care where consultation_id in ${consultations})`;

@@ -45,9 +45,13 @@ export const measure = pgTable(
     episodeId: uuid('episode_id')
       .notNull()
       .references(() => episode.id),
-    /** The consultation that took it, or else the session (OUT-01: session 1's baseline). */
+    /**
+     * The consultation that took it, or else the session (OUT-01: session 1's baseline), or else
+     * the episode's final testing (OUT-07).
+     */
     consultationId: uuid('consultation_id').references(() => consultation.id),
     sessionId: uuid('session_id').references(() => treatmentSession.id),
+    finalTestId: uuid('final_test_id').references(() => finalTest.id),
     kbVersionId: uuid('kb_version_id')
       .notNull()
       .references(() => kbVersion.id),
@@ -65,7 +69,11 @@ export const measure = pgTable(
   (table) => [
     index('measure_episode_idx').on(table.episodeId, table.measureKey),
     index('measure_session_idx').on(table.sessionId),
-    check('measure_taken_in', sql`num_nonnulls(${table.consultationId}, ${table.sessionId}) = 1`),
+    index('measure_final_test_idx').on(table.finalTestId),
+    check(
+      'measure_taken_in',
+      sql`num_nonnulls(${table.consultationId}, ${table.sessionId}, ${table.finalTestId}) = 1`,
+    ),
   ],
 ).enableRLS();
 
@@ -172,6 +180,30 @@ export const reassessment = pgTable(
     ),
   ],
 ).enableRLS();
+
+/**
+ * The episode's final testing (OUT-07, PRD J6.2): exactly the baseline's measures retested on the
+ * Review and discharge screen, once, by anyone with the Consultant tick, and signed as it is
+ * written (`internal.final_test_guard`). Its readings are `measure` rows of it; it never changes.
+ */
+export const finalTest = pgTable('final_test', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  episodeId: uuid('episode_id')
+    .notNull()
+    .unique()
+    .references(() => episode.id),
+  /** The baseline's version, so the measure keys are the baseline's. */
+  kbVersionId: uuid('kb_version_id')
+    .notNull()
+    .references(() => kbVersion.id),
+  /** Measures not tested, by key, with the reason. */
+  notTested: jsonb('not_tested').$type<Record<string, string>>().notNull().default({}),
+  signedBy: uuid('signed_by')
+    .notNull()
+    .references(() => staffUser.id),
+  signedAt: timestamp('signed_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
 
 /** The four part working diagnosis (TAD `diagnosis`), one per consultation. */
 export const diagnosis = pgTable(

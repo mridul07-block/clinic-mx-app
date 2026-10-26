@@ -9,7 +9,7 @@ describe('my patients today', () => {
   it('starts a consultation as one and every other type as a session', () => {
     expect(startLabel('consultation')).toBe('Start consultation');
     expect(startLabel('session')).toBe('Start session');
-    expect(startLabel('review')).toBe('Start session');
+    expect(startLabel('review')).toBe('Start review');
     expect(startVisitSchema.safeParse({ appointmentId: 'nope' }).success).toBe(false);
   });
 

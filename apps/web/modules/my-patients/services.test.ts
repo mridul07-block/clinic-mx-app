@@ -199,6 +199,16 @@ describe('my patients today', () => {
     expect(db.colleaguesToday).toHaveBeenCalledOnce();
   });
 
+  // OUT-07: Start review opens the episode's Review and discharge screen.
+  it('opens the Review and discharge screen when a review starts', async () => {
+    found(visit({ typeKey: 'review' }));
+    await expect(startVisit(context(), { appointmentId })).resolves.toEqual({
+      reviewEpisodeId: '00000000-0000-4000-8000-000000000501',
+    });
+    expect(db.startVisit).toHaveBeenCalledOnce();
+    expect(db.openConsultation).not.toHaveBeenCalled();
+  });
+
   // CLN-02: Start consultation opens the consultation, for a consultant once the form is in.
   it('opens the consultation when a consultant starts one', async () => {
     const consultant = physio({ consultant: true });

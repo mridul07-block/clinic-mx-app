@@ -86,6 +86,15 @@ export async function reassessedRows(
     sessionId,
     items.map((item) => item.measure.key),
   );
+  return retestRows(items, readings, notTested);
+}
+
+/** Baseline against a retest's readings (session 4, or final testing, OUT-07), with the change. */
+export function retestRows(
+  items: ReassessedItem[],
+  readings: { key: string; limb: 'involved' | 'uninvolved' | null; value: number }[],
+  notTested: Record<string, string>,
+): ReassessedRow[] {
   return items.map((item) => {
     const mine = readings.filter((r) => r.key === item.measure.key);
     const now = entryOfReadings(mine);

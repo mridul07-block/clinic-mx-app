@@ -397,6 +397,14 @@ export {
   type ReassessmentRecord,
 } from './reassessment';
 export {
+  baselineVersionOfEpisode,
+  finalTestOfEpisode,
+  finalTestReadings,
+  reassessmentOfEpisode,
+  recordFinalTest,
+  type FinalTestRecord,
+} from './final-testing';
+export {
   addAddendum,
   consultationAddenda,
   signConsultation,

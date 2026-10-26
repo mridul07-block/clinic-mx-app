@@ -18,6 +18,7 @@ import {
   undoPayment,
 } from '../bills';
 import { frozenBaseline, recordBaseline } from '../baseline';
+import { finalTestOfEpisode, finalTestReadings, recordFinalTest } from '../final-testing';
 import {
   reassessmentById,
   recordReassessment,
@@ -70,6 +71,7 @@ import {
   payment,
   diagnosis,
   episode,
+  finalTest,
   job,
   kbCondition,
   measure,
@@ -2487,6 +2489,203 @@ describe('counter payments', () => {
             ),
             'session 2',
           ).toBe('42501');
+        });
+      });
+    });
+
+    // OUT-07 (user decisions 27 October 2026): final testing retests exactly the baseline, once,
+    // signed as it is written by anyone with the Consultant tick, while the episode is treated.
+    describe('final testing', () => {
+      const pain = 'knee.marker.primary_task_pain_nrs_0_10'; // gitleaks:allow
+      const effusion = 'knee.marker.effusion_grade_0_3'; // gitleaks:allow
+      const quadriceps = 'knee.lsi.quadriceps'; // gitleaks:allow
+      /** An Active episode whose session 1 froze quadriceps (reused) and pain as its baseline. */
+      const withBaseline = async (tx: Tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        await pay(tx, deskHsr, fixture.feeBillId);
+        await pay(tx, deskHsr, fixture.packageBillId);
+        expect(await statusOf(tx, fixture.episodeId)).toBe('active');
+        const { sessionId } = await started(tx, fixture);
+        await asOwner(tx);
+        const [row] = await tx
+          .select({ kbVersionId: treatmentSession.kbVersionId })
+          .from(treatmentSession)
+          .where(eq(treatmentSession.id, sessionId));
+        const kbVersionId = row?.kbVersionId ?? '';
+        await becomeStaff(tx, fixture.consultant);
+        expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 1))).toBe('signed');
+        await recordBaseline(tx, {
+          sessionId,
+          episodeId: fixture.episodeId,
+          kbVersionId,
+          reused: [{ key: quadriceps, consultationId: fixture.consultationId }],
+          recordings: [{ key: pain, value: 6, unit: '/10' }],
+          by: fixture.consultant.id,
+        });
+        return { ...fixture, kbVersionId };
+      };
+      const signAs = async (
+        tx: Tx,
+        actor: StaffMember,
+        values: Omit<Parameters<typeof recordFinalTest>[1], 'by'>,
+      ) => {
+        await asOwner(tx);
+        await becomeStaff(tx, actor);
+        let id: string | undefined;
+        const code = await failure(tx, async (sp) => {
+          id = await recordFinalTest(sp, { ...values, by: actor.id });
+        });
+        return { code, id };
+      };
+
+      it('is signed once by a consultant with both ticks, baseline measures only, never changed', async () => {
+        await rolledBack(async (tx) => {
+          const fixture = await withBaseline(tx);
+          const values = {
+            episodeId: fixture.episodeId,
+            kbVersionId: fixture.kbVersionId,
+            readings: [
+              { key: quadriceps, limb: 'involved' as const, value: 38, unit: 'kg' },
+              { key: quadriceps, limb: 'uninvolved' as const, value: 40, unit: 'kg' },
+            ],
+            notTested: { [pain]: 'Not assessable today' },
+          };
+          expect((await signAs(tx, fixture.colleague, values)).code, 'no Consultant tick').toBe(
+            '42501',
+          );
+          expect((await signAs(tx, support, values)).code, 'not support').toBe('42501');
+          expect(
+            (
+              await signAs(tx, fixture.consultant, {
+                ...values,
+                readings: [{ key: effusion, limb: null, value: 1, unit: 'grade' }],
+              })
+            ).code,
+            'a reading outside the baseline',
+          ).toBe('42501');
+          expect(
+            (
+              await signAs(tx, fixture.consultant, {
+                ...values,
+                notTested: { [effusion]: 'Not in the baseline' },
+              })
+            ).code,
+            'not tested outside the baseline',
+          ).toBe('23514');
+          const signed = await signAs(tx, fixture.consultant, values);
+          expect(signed.code).toBeUndefined();
+          const id = signed.id ?? '';
+          expect((await signAs(tx, fixture.consultant, values)).code, 'once per episode').toBe(
+            '23505',
+          );
+
+          // Signed by the caller now, whatever the client says; audited as them.
+          await asOwner(tx);
+          const [row] = await tx.select().from(finalTest).where(eq(finalTest.id, id));
+          expect(row).toMatchObject({
+            episodeId: fixture.episodeId,
+            signedBy: fixture.consultant.id,
+            notTested: { [pain]: 'Not assessable today' },
+          });
+          const audited = await tx
+            .select({ actor: auditEvent.actor })
+            .from(auditEvent)
+            .where(and(eq(auditEvent.entity, 'final_test'), eq(auditEvent.entityId, id)));
+          expect(audited).toEqual([{ actor: `staff:${fixture.consultant.id}` }]);
+
+          // Read by clinicians at any centre; not the desk or support.
+          for (const reader of [fixture.colleague, fixture.elsewhere]) {
+            await asOwner(tx);
+            await becomeStaff(tx, reader);
+            expect((await finalTestOfEpisode(tx, fixture.episodeId))?.id).toBe(id);
+            expect(await finalTestReadings(tx, id, [quadriceps])).toHaveLength(2);
+          }
+          for (const outsider of [deskHsr, support]) {
+            await asOwner(tx);
+            await becomeStaff(tx, outsider);
+            expect(await finalTestOfEpisode(tx, fixture.episodeId)).toBeUndefined();
+          }
+
+          // Never changed or deleted, its readings never added to later.
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.consultant);
+          expect(
+            await failure(tx, (sp) =>
+              sp.update(finalTest).set({ notTested: {} }).where(eq(finalTest.id, id)),
+            ),
+          ).toBe('42501');
+          expect(await failure(tx, (sp) => sp.delete(finalTest).where(eq(finalTest.id, id)))).toBe(
+            '42501',
+          );
+          await asOwner(tx);
+          expect(
+            await failure(tx, (sp) =>
+              sp.update(finalTest).set({ notTested: {} }).where(eq(finalTest.id, id)),
+            ),
+            'not even by the owner',
+          ).toBe('23514');
+        });
+      });
+
+      it('takes readings only with the signer’s own final test, in its transaction', async () => {
+        await rolledBack(async (tx) => {
+          const fixture = await withBaseline(tx);
+          const signed = await signAs(tx, fixture.consultant, {
+            episodeId: fixture.episodeId,
+            kbVersionId: fixture.kbVersionId,
+            readings: [{ key: pain, limb: null, value: 2, unit: '/10' }],
+            notTested: { [quadriceps]: 'Knee sore today' },
+          });
+          expect(signed.code).toBeUndefined();
+          const reading = {
+            episodeId: fixture.episodeId,
+            finalTestId: signed.id ?? '',
+            kbVersionId: fixture.kbVersionId,
+            measureKey: quadriceps,
+            limb: 'involved' as const,
+            value: 30,
+            unit: 'kg',
+          };
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.colleague);
+          expect(
+            await failure(tx, (sp) =>
+              sp.insert(measure).values({ ...reading, createdBy: fixture.colleague.id }),
+            ),
+            'not someone else’s',
+          ).toBe('42501');
+          // A later transaction: its signing time is no longer now.
+          await asOwner(tx);
+          await tx.execute(sql`set local session_replication_role = replica`);
+          await tx.update(finalTest).set({ signedAt: sql`now() - interval '1 minute'` });
+          await tx.execute(sql`set local session_replication_role = origin`);
+          await becomeStaff(tx, fixture.consultant);
+          expect(
+            await failure(tx, (sp) =>
+              sp.insert(measure).values({ ...reading, createdBy: fixture.consultant.id }),
+            ),
+            'not after signing',
+          ).toBe('42501');
+        });
+      });
+
+      it('waits for a treated episode with a baseline', async () => {
+        await rolledBack(async (tx) => {
+          const fixture = await chosenPackage(tx, 12);
+          const kbVersionId = (await latestKnowledgeVersion(tx))?.id ?? '';
+          const values = {
+            episodeId: fixture.episodeId,
+            kbVersionId,
+            readings: [],
+            notTested: {},
+          };
+          expect(
+            (await signAs(tx, fixture.consultant, values)).code,
+            'plan proposed, no baseline',
+          ).toBe('23514');
+          await pay(tx, deskHsr, fixture.feeBillId);
+          await pay(tx, deskHsr, fixture.packageBillId);
+          expect((await signAs(tx, fixture.consultant, values)).code, 'no baseline').toBe('23514');
         });
       });
     });

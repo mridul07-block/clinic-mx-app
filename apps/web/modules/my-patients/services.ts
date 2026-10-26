@@ -95,10 +95,14 @@ export async function loadColleagues(actor: StaffMember): Promise<ColleagueRow[]
   });
 }
 
-/** What Start opened: the consultation, or the session screen of a treatment session. */
+/**
+ * What Start opened: the consultation, the session screen of a treatment session, or the
+ * episode's Review and discharge screen of a review (OUT-07).
+ */
 export interface StartedVisit {
   consultationId?: string;
   sessionAppointmentId?: string;
+  reviewEpisodeId?: string;
 }
 
 export const HEALTH_FORM_NEEDED =
@@ -148,6 +152,7 @@ export const startVisit = staffService({
       }
       return { sessionAppointmentId: found.id };
     }
+    if (found.typeKey === 'review' && found.episodeId) return { reviewEpisodeId: found.episodeId };
     if (!consulting || !found.episodeId) return {};
     try {
       const consultationId = await openConsultation(tx, {
