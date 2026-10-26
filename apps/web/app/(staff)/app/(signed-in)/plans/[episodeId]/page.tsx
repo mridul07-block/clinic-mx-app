@@ -2,6 +2,7 @@ import type { BillEntry, PlanChoiceEntry } from '@clinic-mx/db';
 import {
   billKindLabels,
   billStatusLabels,
+  can,
   documentDate,
   documentDateTime,
   documentTime,
@@ -21,9 +22,14 @@ import { PackageMeter } from '../../../../../../components/package-meter';
 import { Tag } from '../../../../../../components/tag';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { planSheetOf, type PlanSheet } from '../../../../../../modules/billing/plan-sheet';
+import {
+  planSessionsOf,
+  type PlanSessionsView,
+} from '../../../../../../modules/scheduling/plan-sessions';
 import { MakeBillForm } from './make-bill-form';
 import { PaymentForm, UndoPaymentForm } from './payment-forms';
 import { PlanChoiceForm, type ChoiceOption } from './plan-choice-form';
+import { PlanSessionsForm } from './plan-sessions-form';
 
 export const metadata: Metadata = { title: 'Plan and payment · Clinic Mx' };
 
@@ -187,6 +193,49 @@ function Packages({ sheet }: { sheet: PlanSheet }) {
   );
 }
 
+/**
+ * Book plan sessions (SCH-11, PRD J4.8): what the plan asks for and what is booked, and for those
+ * who book at the centre, the pattern form once the episode is Active.
+ */
+function PlanSessions({ view }: { view: PlanSessionsView }) {
+  return (
+    <section
+      aria-labelledby="plan-sessions"
+      className="flex flex-col gap-2"
+      data-testid="plan-sessions"
+    >
+      <h2 id="plan-sessions" className="font-semibold text-ink">
+        Book plan sessions
+      </h2>
+      {view.planned === null ? (
+        <p className="text-sm text-ink-muted">
+          The plan sets no frequency, so there are no plan sessions to book.
+        </p>
+      ) : (
+        <p className="text-sm tabular-nums text-ink-secondary" data-testid="plan-sessions-counts">
+          {view.planned} planned · {view.booked} booked · {view.done} done · {view.toBook} to book
+          {view.packageLeft !== null ? ` · package: ${String(view.packageLeft)} left` : ''}
+        </p>
+      )}
+      {view.planned === null ? null : view.episodeStatus !== 'active' ? (
+        <p className="text-sm text-ink-muted" data-testid="plan-sessions-unpaid">
+          Book plan sessions once the plan is paid.
+        </p>
+      ) : view.mayBook && view.appointmentTypeId ? (
+        <PlanSessionsForm
+          episodeId={view.episodeId}
+          toBook={view.toBook}
+          today={view.today}
+          physios={view.physios}
+          suggestedPhysioId={view.suggestedPhysioId}
+        />
+      ) : view.toBook === 0 ? (
+        <p className="text-sm text-ink-muted">All planned sessions are booked.</p>
+      ) : null}
+    </section>
+  );
+}
+
 /** What was chosen, in words: the package or the session type with it. */
 function choiceText(entry: PlanChoiceEntry): string {
   if (entry.choice === 'package') return `Package: ${entry.packageName ?? 'not found'}`;
@@ -243,6 +292,10 @@ export default async function PlanSheetPage({
   const query = planSheetQuerySchema.parse(await searchParams);
   const sheet = await planSheetOf(staff, episodeId, query.session);
   if (!sheet) notFound();
+  const planSessions =
+    sheet.plan && can(staff, 'bookings.manage')
+      ? await planSessionsOf(staff, episodeId)
+      : undefined;
   const { plan, options } = sheet;
   const [current, ...earlier] = sheet.choices;
   const choiceOptions: ChoiceOption[] = options
@@ -434,6 +487,7 @@ export default async function PlanSheetPage({
 
           <Bills sheet={sheet} />
           <Packages sheet={sheet} />
+          {planSessions ? <PlanSessions view={planSessions} /> : null}
 
           <section aria-labelledby="choice" className="flex flex-col gap-2">
             <h2 id="choice" className="font-semibold text-ink">

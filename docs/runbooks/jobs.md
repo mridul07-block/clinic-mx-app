@@ -53,7 +53,10 @@ the WhatsApp tickets, whose sender skips a payment since undone);
 `whatsapp.package_expiry_reminder` (queued by the database when a package is activated, key
 `package_expiry:<package id>`, `packages.expiry_reminder_days` before its last day at
 `packages.expiry_reminder_time` IST; does nothing until the WhatsApp tickets, whose sender sends
-only while the package is still active; BIL-08).
+only while the package is still active; BIL-08); `whatsapp.plan_sessions_list` (queued by the
+database once per series booked with Book plan sessions, key
+`whatsapp.plan_sessions_list:<plan booking id>`; does nothing until WA-06, whose sender lists the
+series' appointments still Booked or Confirmed; SCH-11).
 
 End to end tests run the queue themselves: `apps/web/e2e/jobs.ts` posts to the tick with a test
 secret that `playwright.config.ts` gives the server. Tests run in parallel and share the queue, so

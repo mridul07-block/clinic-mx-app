@@ -12,6 +12,8 @@ export interface PlanForPricing {
   weeks: number | null;
   reviewDate: string;
   treatingPhysio: string | null;
+  /** Suggested as the physio for the plan's sessions (SCH-11). */
+  treatingPhysioId: string | null;
   modalities: { key: string; name: string }[];
 }
 
@@ -26,6 +28,7 @@ export async function planForPricing(
     weeks: number | null;
     review_date: string;
     treating_physio: string | null;
+    treating_physio_id: string | null;
     modalities: { key: string; name: string }[];
   }>(sql`select * from internal.plan_for_pricing(${episodeId}::uuid)`);
   if (!row) return undefined;
@@ -35,6 +38,7 @@ export async function planForPricing(
     weeks: row.weeks,
     reviewDate: row.review_date,
     treatingPhysio: row.treating_physio,
+    treatingPhysioId: row.treating_physio_id,
     modalities: row.modalities,
   };
 }

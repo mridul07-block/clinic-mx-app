@@ -19,6 +19,7 @@ const stored: Settings = {
   'assessment.irritability_low_below': 3,
   'assessment.acute_weeks_below': 3,
   'assessment.chronic_weeks_above': 12,
+  'booking.plan_clash_alternatives': 3,
   'booking.self_booking_block_reschedules': 2,
   'booking.self_booking_block_no_shows': 2,
   'packages.reschedules_per_10_sessions': 1,

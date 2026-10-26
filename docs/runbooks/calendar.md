@@ -219,6 +219,69 @@ PRD section 7 (Package reschedules) and the Frontend Specification's Reschedule 
 - **Enforced in the database:** `internal.package_reschedule()`, a BEFORE trigger on the appointment's change to Rescheduled. A refusal stops the whole move, and the old appointment stays as it was. The front desk and the WhatsApp Flow (WA-04) follow the same rule, and the trigger lowers `package.reschedules_left` for any reader.
 - **Shown:** the reschedule sheets carry a line for those who see packages (not the Centre Manager): "Package session: 1 reschedule left. A move asked by the patient uses one.", "no reschedules left", or "never moved at the patient's request". The package meter shows the reschedules left.
 
+## Book plan sessions (SCH-11)
+
+PRD J4.8: "Book plan sessions" books the whole series at once, resolving clashes on the spot, and
+one WhatsApp message lists the dates. The Frontend Specification puts it on the Plan and payment
+sheet. Decisions made by the user on 26 October 2026.
+
+- **Where and when:** a "Book plan sessions" section on the Plan and payment sheet (after
+  Package), with "12 planned · 2 booked · 0 done · 10 to book · package: 8 left".
+  - Before payment: "Book plan sessions once the plan is paid." The form appears once the episode
+    is Active.
+  - Who: those who book at the episode's centre and see the sheet (the Super Admin, the front
+    desk), never a support login. Finance sees the counts only.
+- **How many:** the plan's sessions a week × weeks, less the episode's session appointments
+  booked (Booked, Confirmed, Checked in, In progress) or done (Completed). With a package, never
+  more than its sessions left less those booked (`planSessionsToBook`). Session appointments are
+  the types in `packages.session_appointment_types`; the series books the first of them (Session).
+- **Pattern:** a start date (today or later), as many weekdays as the plan's sessions a week
+  ("Tick 2 days: the plan is 2 a week."), one time on the grid, and a physio who takes sessions at
+  the centre, the plan's treating physio suggested.
+- **Check dates:** the dates are the ticked weekdays from the start date (`seriesDates`), checked
+  by the slot engine in one load (`seriesFit`). A date that is not free shows why ("The physio is
+  booked then", "The physio is not working then") and offers:
+  - the `booking.plan_clash_alternatives` (3) nearest free times that day with the same physio
+  - the nearest free time the next day
+  - Skip
+
+  The series' own sessions count as busy for these, so a next day pick never lands on another
+  session of the series (`seriesRows`).
+- **Book sessions:** needs a pick or Skip on every date that is not free. One transaction records
+  the series (`plan_booking`) and books each start with the engine's recheck under lock, as the
+  desk (channel Front desk). Any start no longer free refuses the whole series: "Tue 27 Oct 2026,
+  10:00 AM is no longer free. Nothing was booked. Check dates again." The desk's own hold is left
+  alone (the series books as `plan-series:<staff id>`).
+- **Database:**
+  - `plan_booking`: the pattern and who booked it; audited; read and recorded by those who book
+    at its centre, as themselves; never changed or deleted.
+  - `plan_booking_guard`: only into an Active episode at its own centre.
+  - `appointment.plan_booking_id`: the series' appointments, with its episode, centre, physio and
+    type (`appointment_plan_booking`); the link never changes (`appointment_fixed`).
+  - `plan_sessions_list`: queues one `whatsapp.plan_sessions_list` job per series. It completes
+    without sending until WA-06 (template `plan_sessions_list`).
+- **Done:** "Booked 12 sessions. The plan sessions list is queued for WhatsApp." with each date and
+  appointment number; with nothing left, "All planned sessions are booked."
+
+| Piece | Where |
+| --- | --- |
+| The count, dates, clash rows and pattern | `packages/schemas/src/plan-sessions.ts` |
+| The series check and the counts | `seriesFit`, `physiosForType` (`packages/db/src/slots.ts`); `packages/db/src/plan-sessions.ts` |
+| Check and book | `apps/web/modules/scheduling/plan-sessions.ts`, `plan-sessions-actions.ts` |
+| The form | `apps/web/app/(staff)/app/(signed-in)/plans/[episodeId]/plan-sessions-form.tsx` |
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `packages/schemas/src/plan-sessions.test.ts` | the count with and without a package; dates across weeks and months; the nearest times; a clash's alternatives, never on the series' own session; the pattern and the starts |
+| `apps/web/modules/scheduling/plan-sessions.test.ts` | the counts and the package cap; not offered before payment, to Finance or at another centre; the check's settings; refusals (days, start date, physio, unpaid, all booked); the series recorded then booked; more than left and a start no longer free refused; support read only |
+| `packages/db/src/integration/plan-sessions.integration.test.ts` | the series check in one load; a series booked by the desk with one list queued; the link fixed, never deleted; refused for another centre's desk, a physio, support, an unpaid episode, another booker, and another physio's appointment |
+| `apps/web/e2e/plan-sessions.spec.ts` | 360 px and desktop: unpaid, then paid with 12 to book; one day refused; 12 dates with one clash and its choices; booking waits for a pick, then books 12 with one list queued; nothing left |
+
+**Negative check:** let the clash alternatives ignore the series' own sessions, and the schema
+test "never offers a next day time on the series' own session that day" fails.
+
 ## Running late and no show (INT-11)
 
 PRD J2.9: "Running late" shows at 15 minutes past the start; the front desk can mark a no show

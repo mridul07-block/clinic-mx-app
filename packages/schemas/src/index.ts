@@ -736,3 +736,18 @@ export {
   type SessionStatus,
   type SessionView,
 } from './sessions';
+export {
+  bookPlanSessionsSchema,
+  nearestStarts,
+  planSessionsPatternSchema,
+  planSessionsToBook,
+  seriesDates,
+  seriesClashLabels,
+  seriesRows,
+  seriesStartText,
+  weekdaysMessage,
+  type BookPlanSessionsInput,
+  type PlanSessionCounts,
+  type PlanSessionsPattern,
+  type SeriesRow,
+} from './plan-sessions';
