@@ -11,6 +11,7 @@ import {
   REFERRAL_LETTER_JOB,
   THINK_ABOUT_IT_FOLLOW_UP_JOB,
   THINK_ABOUT_IT_MESSAGE_JOB,
+  UNSIGNED_NOTES_FLAG_JOB,
   defineJob,
   type JobHandlers,
 } from '@clinic-mx/db';
@@ -20,6 +21,7 @@ import { generateConsultationSummary } from '../documents/consultation-summary';
 import { generateInvoice } from '../documents/invoice';
 import { generateReferralLetter } from '../documents/referral-letter';
 import { AI_PREPARATION_SHEET_JOB, processIntakeSubmission } from '../intake/pipeline';
+import { runUnsignedNotesFlag } from '../tasks/unsigned-notes';
 
 /**
  * Every job kind the tick can run (TAD section 8). Each ticket that adds a job adds its handler
@@ -85,6 +87,17 @@ export const jobHandlers: JobHandlers = {
    * appointments still Booked or Confirmed with the `plan_sessions_list` template. Until then the
    * job completes without sending.
    */
+  /**
+   * The unsigned notes flag (CLN-10), every night at 9:00 PM IST: it queues the next night, then
+   * gives each centre's Centre Manager the notes still unsigned. A migration queued the first
+   * night; running a night twice changes nothing.
+   */
+  [UNSIGNED_NOTES_FLAG_JOB]: defineJob({
+    payload: z.object({ date: z.iso.date() }),
+    run: async ({ date }, { db }) => {
+      await runUnsignedNotesFlag(db, { date });
+    },
+  }),
   [PLAN_SESSIONS_LIST_JOB]: defineJob({
     payload: z.object({ planBookingId: z.guid() }),
     run: () => Promise.resolve(),

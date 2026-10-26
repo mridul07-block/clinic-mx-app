@@ -56,7 +56,10 @@ the WhatsApp tickets, whose sender skips a payment since undone);
 only while the package is still active; BIL-08); `whatsapp.plan_sessions_list` (queued by the
 database once per series booked with Book plan sessions, key
 `whatsapp.plan_sessions_list:<plan booking id>`; does nothing until WA-06, whose sender lists the
-series' appointments still Booked or Confirmed; SCH-11).
+series' appointments still Booked or Confirmed; SCH-11); `notes.unsigned_flag` (every night at
+9:00 PM IST, key `notes.unsigned_flag:<IST date>`; each night first queues the next night in its
+own transaction, then flags; a migration queued the first night; CLN-10, see
+`docs/runbooks/tasks.md`).
 
 End to end tests run the queue themselves: `apps/web/e2e/jobs.ts` posts to the tick with a test
 secret that `playwright.config.ts` gives the server. Tests run in parallel and share the queue, so

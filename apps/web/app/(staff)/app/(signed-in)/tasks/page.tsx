@@ -1,10 +1,13 @@
 import type { TaskEntry } from '@clinic-mx/db';
 import {
+  UNSIGNED_NOTES_TASK,
   can,
+  documentDateTime,
   formatIstDateTime,
   staffRoleLabels,
   taskKindLabel,
   taskPriorityLabels,
+  unsignedNotesOf,
   type TaskPriority,
 } from '@clinic-mx/schemas';
 import type { Tone } from '@clinic-mx/ui';
@@ -45,6 +48,23 @@ function JobFailure({ details }: { details: Record<string, unknown> }) {
       Job <span className="font-mono">{kind}</span>
       {attempts === null ? '' : `, ${String(attempts)} attempts`}. See the jobs runbook.
     </p>
+  );
+}
+
+/** The notes an unsigned notes task lists (CLN-10): the visit and the physio, never the patient. */
+function UnsignedNotes({ details }: { details: Record<string, unknown> }) {
+  const notes = unsignedNotesOf(details);
+  if (notes.length === 0) return null;
+  return (
+    <ul className="flex flex-col gap-1 text-sm text-ink-secondary" data-testid="unsigned-notes">
+      {notes.map((note) => (
+        <li key={[note.number, note.kind].join('-')}>
+          {note.kind === 'consultation' ? 'Consultation' : 'Session'} · {note.physio} ·{' '}
+          {documentDateTime(new Date(note.startsAt))} ·{' '}
+          <span className="whitespace-nowrap font-mono">{note.number}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -105,6 +125,7 @@ function TaskCard({
           )
         ) : null}
         {task.kind === 'job.failed' ? <JobFailure details={task.details} /> : null}
+        {task.kind === UNSIGNED_NOTES_TASK ? <UnsignedNotes details={task.details} /> : null}
       </div>
       {task.decision ? (
         <p className="text-sm text-ink-secondary" data-testid="task-decision">
