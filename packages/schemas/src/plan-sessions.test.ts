@@ -3,6 +3,7 @@ import { istInstant } from './ist';
 import {
   bookPlanSessionsSchema,
   nearestStarts,
+  nextSessionDate,
   planSessionsPatternSchema,
   planSessionsToBook,
   seriesDates,
@@ -151,5 +152,16 @@ describe('the pattern', () => {
 
   it('reads a start with its weekday', () => {
     expect(seriesStartText(at('2026-11-04', 600))).toBe('Wed 4 Nov 2026, 10:00 AM');
+  });
+});
+
+// SCH-12: the physio's next session is offered first after the plan's gap between sessions.
+describe('nextSessionDate', () => {
+  it('adds 7 over the sessions a week, rounded, at least a day; a week without a frequency', () => {
+    expect(nextSessionDate('2026-11-02', 2)).toBe('2026-11-06');
+    expect(nextSessionDate('2026-11-02', 3)).toBe('2026-11-04');
+    expect(nextSessionDate('2026-11-02', 7)).toBe('2026-11-03');
+    expect(nextSessionDate('2026-11-30', 1)).toBe('2026-12-07');
+    expect(nextSessionDate('2026-11-02', null)).toBe('2026-11-09');
   });
 });
