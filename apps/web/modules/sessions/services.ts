@@ -1,6 +1,7 @@
 import 'server-only';
 import {
   addSessionAddendum as addSessionAddendumRow,
+  episodePrecautions,
   episodeRecord,
   lastSignedSessionNote,
   latestKnowledgeVersion,
@@ -12,6 +13,7 @@ import {
   planForSession,
   saveSessionNote as saveSessionNoteRow,
   sessionAddenda,
+  sessionModalities,
   sessionNoteById,
   sessionNoteOf,
   sessionProgress,
@@ -28,6 +30,7 @@ import {
   can,
   closeSessionSchema,
   coversSessionsAt,
+  modalityWarnings,
   prefilledSessionNote,
   readSessionNote,
   saveSessionNoteSchema,
@@ -37,6 +40,7 @@ import {
   worksAtCentre,
   type DraftSaveResponse,
   type InterventionKind,
+  type SessionModality,
   type SessionNote,
   type SessionView,
 } from '@clinic-mx/schemas';
@@ -87,6 +91,11 @@ export interface SessionNoteView {
    * writes this one.
    */
   lastTime: { number: number; signedAt: Date; note: SessionNote } | null;
+  /**
+   * Every modality at the note's knowledge base version, with its parameters and the episode's
+   * precautions it warns about (SES-05).
+   */
+  modalities: SessionModality[];
   /** Once signed, its addenda, and whether the reader may add one. */
   addenda: AddendumEntry[];
   addsAddenda: boolean;
@@ -111,6 +120,30 @@ export interface SessionScreen {
   coveredBy: string | null;
   /** The note, once Start session opened it. */
   note: SessionNoteView | undefined;
+}
+
+/**
+ * The modalities of a knowledge base version as the note records them (SES-05), each with the
+ * episode's signed precautions it warns about (as the plan's own check, `modalityWarnings`).
+ */
+async function noteModalities(
+  tx: DbOrTransaction,
+  kbVersionId: string,
+  episodeId: string,
+): Promise<SessionModality[]> {
+  const inForce = (await episodePrecautions(tx, episodeId)).map((precaution) => ({
+    ...precaution,
+    by: 'clinician' as const,
+  }));
+  return (await sessionModalities(tx, kbVersionId)).map((modality) => ({
+    key: modality.key,
+    name: modality.name,
+    parameters: modality.parameters,
+    warnings: modalityWarnings({ ...modality, signedOff: false }, inForce).map((warning) => ({
+      label: warning.label,
+      source: warning.source,
+    })),
+  }));
 }
 
 /**
@@ -203,6 +236,7 @@ export async function loadSession(
       lastTime: last
         ? { number: last.number, signedAt: last.signedAt, note: readSessionNote(last.note) }
         : null,
+      modalities: await noteModalities(tx, stored.kbVersionId, stored.episodeId),
       addenda: signed ? await sessionAddenda(tx, stored.id) : [],
       addsAddenda:
         signed &&
@@ -271,7 +305,10 @@ export const closeSession = staffService({
       throw new SessionError('Your latest changes are still saving. Try again.', 'stale');
     }
     const note = readSessionNote(found.note);
-    const blockers = sessionNoteBlockers(note);
+    const blockers = sessionNoteBlockers(
+      note,
+      await noteModalities(tx, found.kbVersionId, found.episodeId),
+    );
     if (blockers.length > 0) throw new SessionError(blockers.join(' '), 'refused');
     const { rest, activity, after } = note.pain;
     if (rest === null || activity === null || after === null) {

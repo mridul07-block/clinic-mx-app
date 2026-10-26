@@ -2,6 +2,7 @@ import {
   knowledgeRegionKeys,
   knowledgeVersionStatuses,
   measureKinds,
+  type ModalityParameter,
   type MeasureRule,
   onsets,
   redFlagTiers,
@@ -325,6 +326,11 @@ export const kbModality = pgTable(
     key: text('key').notNull(),
     name: text('name').notNull(),
     precautions: jsonb('precautions').$type<{ precaution: string; source: string }[]>().notNull(),
+    /** What a session note records for it (SES-05). */
+    parameters: jsonb('parameters')
+      .$type<ModalityParameter[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     signedOff: boolean('signed_off').notNull(),
     sort: integer('sort').notNull(),
   },

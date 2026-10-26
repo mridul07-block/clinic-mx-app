@@ -18,7 +18,10 @@ import {
 } from '@clinic-mx/schemas';
 import type { Tone } from '@clinic-mx/ui';
 import Link from 'next/link';
-import { SignedSessionNote } from '../../../../../../components/signed-session-note';
+import {
+  SignedSessionNote,
+  type SignedNoteModalities,
+} from '../../../../../../components/signed-session-note';
 import { Tag } from '../../../../../../components/tag';
 import type {
   ClinicalRecord,
@@ -280,7 +283,7 @@ export function NotesTab({
                     ) : (
                       <SessionNoteEntry
                         note={readSessionNote(note.note)}
-                        modalityNames={note.modalityNames}
+                        modalities={note.modalities}
                       />
                     )}
                     <details>
@@ -313,10 +316,10 @@ export function NotesTab({
 
 function SessionNoteEntry({
   note,
-  modalityNames,
+  modalities,
 }: {
   note: ReturnType<typeof readSessionNote>;
-  modalityNames: Record<string, string>;
+  modalities: SignedNoteModalities;
 }) {
   const digest = sessionNoteDigest(note);
   return (
@@ -325,7 +328,7 @@ function SessionNoteEntry({
       <details>
         <summary className="cursor-pointer text-accent pointer-coarse:py-3">Open note</summary>
         <div className="mt-3">
-          <SignedSessionNote note={note} modalityNames={modalityNames} />
+          <SignedSessionNote note={note} modalities={modalities} />
         </div>
       </details>
     </>

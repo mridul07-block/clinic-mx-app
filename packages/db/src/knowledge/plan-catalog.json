@@ -1,5 +1,5 @@
 {
-  "source": "Modalities: Blueprint Module 3 Part B (six statements) and the Clinical Management Software document's consent list (Dry needling, Zero gravity); precaution links drafted from the Part B statements and Consultation SOP v2 §12.3, awaiting clinical sign-off. Questionnaires: Blueprint Module 8, condition-specific outcome measure library, word for word.",
+  "source": "Modalities: Blueprint Module 3 Part B (six statements) and the Clinical Management Software document's consent list (Dry needling, Zero gravity); precaution links drafted from the Part B statements and Consultation SOP v2 §12.3, awaiting clinical sign-off. Questionnaires: Blueprint Module 8, condition-specific outcome measure library, word for word. Session note parameters (SES-05): area treated, duration and settings on each modality, awaiting the clinic's own lists (DECISION SES-05); shockwave energy flux density and frequency from Consultation SOP v2 §12.3.",
   "modalities": [
     {
       "key": "electrotherapy",
@@ -14,7 +14,28 @@
           "source": "Blueprint Module 3, Part B modality statement (pregnancy status)"
         }
       ],
-      "signedOff": false
+      "signedOff": false,
+      "parameters": [
+        {
+          "key": "area",
+          "label": "Area treated",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "duration",
+          "label": "Duration",
+          "kind": "number",
+          "unit": "min",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "settings",
+          "label": "Settings",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        }
+      ]
     },
     {
       "key": "radial_shockwave",
@@ -37,7 +58,42 @@
           "source": "Consultation SOP v2 §12.3 (shockwave contraindications): active infection over treatment area"
         }
       ],
-      "signedOff": false
+      "signedOff": false,
+      "parameters": [
+        {
+          "key": "area",
+          "label": "Area treated",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "duration",
+          "label": "Duration",
+          "kind": "number",
+          "unit": "min",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "energy_flux_density",
+          "label": "Energy flux density",
+          "kind": "number",
+          "unit": "mJ/mm²",
+          "source": "Consultation SOP v2 §12.3 (shockwave parameters: energy flux density and frequency per tissue type)"
+        },
+        {
+          "key": "frequency",
+          "label": "Frequency",
+          "kind": "number",
+          "unit": "Hz",
+          "source": "Consultation SOP v2 §12.3 (shockwave parameters: energy flux density and frequency per tissue type)"
+        },
+        {
+          "key": "settings",
+          "label": "Settings",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        }
+      ]
     },
     {
       "key": "focused_shockwave",
@@ -60,7 +116,42 @@
           "source": "Consultation SOP v2 §12.3 (shockwave contraindications): active infection over treatment area"
         }
       ],
-      "signedOff": false
+      "signedOff": false,
+      "parameters": [
+        {
+          "key": "area",
+          "label": "Area treated",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "duration",
+          "label": "Duration",
+          "kind": "number",
+          "unit": "min",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "energy_flux_density",
+          "label": "Energy flux density",
+          "kind": "number",
+          "unit": "mJ/mm²",
+          "source": "Consultation SOP v2 §12.3 (shockwave parameters: energy flux density and frequency per tissue type)"
+        },
+        {
+          "key": "frequency",
+          "label": "Frequency",
+          "kind": "number",
+          "unit": "Hz",
+          "source": "Consultation SOP v2 §12.3 (shockwave parameters: energy flux density and frequency per tissue type)"
+        },
+        {
+          "key": "settings",
+          "label": "Settings",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        }
+      ]
     },
     {
       "key": "pemf",
@@ -75,7 +166,28 @@
           "source": "Blueprint Module 3, Part B modality statement (pregnancy status)"
         }
       ],
-      "signedOff": false
+      "signedOff": false,
+      "parameters": [
+        {
+          "key": "area",
+          "label": "Area treated",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "duration",
+          "label": "Duration",
+          "kind": "number",
+          "unit": "min",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "settings",
+          "label": "Settings",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        }
+      ]
     },
     {
       "key": "spinal_traction",
@@ -86,25 +198,109 @@
           "source": "Blueprint Module 3, Part B modality statement (osteoporosis)"
         }
       ],
-      "signedOff": false
+      "signedOff": false,
+      "parameters": [
+        {
+          "key": "area",
+          "label": "Area treated",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "duration",
+          "label": "Duration",
+          "kind": "number",
+          "unit": "min",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "settings",
+          "label": "Settings",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        }
+      ]
     },
     {
       "key": "laser",
       "name": "Laser",
       "precautions": [],
-      "signedOff": false
+      "signedOff": false,
+      "parameters": [
+        {
+          "key": "area",
+          "label": "Area treated",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "duration",
+          "label": "Duration",
+          "kind": "number",
+          "unit": "min",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "settings",
+          "label": "Settings",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        }
+      ]
     },
     {
       "key": "dry_needling",
       "name": "Dry needling",
       "precautions": [],
-      "signedOff": false
+      "signedOff": false,
+      "parameters": [
+        {
+          "key": "area",
+          "label": "Area treated",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "duration",
+          "label": "Duration",
+          "kind": "number",
+          "unit": "min",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "settings",
+          "label": "Settings",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        }
+      ]
     },
     {
       "key": "zero_gravity_treadmill",
       "name": "Zero Gravity Treadmill",
       "precautions": [],
-      "signedOff": false
+      "signedOff": false,
+      "parameters": [
+        {
+          "key": "area",
+          "label": "Area treated",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "duration",
+          "label": "Duration",
+          "kind": "number",
+          "unit": "min",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        },
+        {
+          "key": "settings",
+          "label": "Settings",
+          "kind": "text",
+          "source": "Blueprint, session note \"Treatment dosage\": duration, intensity, frequency and modality-specific parameters; fields awaiting the clinic's own lists (DECISION SES-05)"
+        }
+      ]
     }
   ],
   "questionnaires": [

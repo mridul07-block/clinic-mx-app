@@ -5,7 +5,8 @@ import { PLAN_CATALOG_FILE_NAME } from './paths';
 
 /**
  * The plan catalog in a knowledge base version (CLN-07): the modalities a plan of care may include,
- * with the precautions each warns about, and the outcome questionnaires, from the committed file.
+ * with the precautions each warns about and the parameters a session note records for each
+ * (SES-05), and the outcome questionnaires, from the committed file.
  * The file's hash is part of the version's source.
  */
 
@@ -49,6 +50,10 @@ export function buildPlanCatalog(text: string): BuiltPlanCatalog {
     const links = modality.precautions.map((p) => p.precaution);
     if (new Set(links).size !== links.length) {
       problems.push(`${PLAN_CATALOG_FILE_NAME}: ${modality.key} lists a precaution twice`);
+    }
+    const fields = modality.parameters.map((p) => p.key);
+    if (new Set(fields).size !== fields.length) {
+      problems.push(`${PLAN_CATALOG_FILE_NAME}: ${modality.key} lists a parameter twice`);
     }
   }
   if (problems.length > 0) throw new KnowledgeImportError(problems);

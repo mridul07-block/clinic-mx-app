@@ -3,10 +3,18 @@ import {
   nextSessionPlanLabels,
   painReadingLabels,
   painReadings,
+  sessionParameterLine,
   sessionResponseLabels,
+  type ModalityParameter,
   type SessionNote,
 } from '@clinic-mx/schemas';
 import type { ReactNode } from 'react';
+
+/** The modalities a signed note names, at its knowledge base version (SES-05). */
+export type SignedNoteModalities = Record<
+  string,
+  { name: string; parameters: ModalityParameter[] }
+>;
 
 function Row({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -29,15 +37,28 @@ function withNote(choice: string, note: string): string {
  */
 export function SignedSessionNote({
   note,
-  modalityNames,
+  modalities,
 }: {
   note: SessionNote;
-  modalityNames: Record<string, string>;
+  modalities: SignedNoteModalities;
 }) {
   const treatment = [
     ...note.treatment.interventions.map((kind) => interventionLabels[kind]),
-    ...note.treatment.modalities.map((key) => modalityNames[key] ?? key),
+    ...note.treatment.modalities.map((key) => modalities[key]?.name ?? key),
   ];
+  // SES-05: each modality's parameters, and why it was given despite a precaution.
+  const dosage = note.treatment.modalities.flatMap((key) => {
+    const line = sessionParameterLine(
+      note.treatment.parameters[key],
+      modalities[key]?.parameters ?? [],
+    );
+    const reason = (note.treatment.reasons[key] ?? '').trim();
+    const name = modalities[key]?.name ?? key;
+    return [
+      ...(line ? [`${name}: ${line}`] : []),
+      ...(reason ? [`${name}, given despite a precaution: ${reason}`] : []),
+    ];
+  });
   return (
     <dl data-testid="signed-session-note" className="flex flex-col gap-3">
       <Row title="Any new symptoms?">
@@ -61,6 +82,7 @@ export function SignedSessionNote({
       <Row title="Treatment given">
         {withNote(treatment.length > 0 ? treatment.join(', ') : 'None ticked', note.treatment.note)}
       </Row>
+      {dosage.length > 0 ? <Row title="Parameters">{dosage.join('\n')}</Row> : null}
       <Row title="Response">
         {withNote(
           note.response.rating ? sessionResponseLabels[note.response.rating] : 'Not chosen',

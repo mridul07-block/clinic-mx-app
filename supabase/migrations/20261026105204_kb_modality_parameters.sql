@@ -1,0 +1,1 @@
+ALTER TABLE "kb_modality" ADD COLUMN "parameters" jsonb DEFAULT '[]'::jsonb NOT NULL;

@@ -114,12 +114,19 @@ from its name once (`knee_pfps` for "Knee - PFPS"; the client's spelling is kept
   and Zero Gravity Treadmill. Keys follow the price master where one exists (`radial_shockwave`).
   Each lists the Health check precautions it warns about, with the source of each link, and
   `signedOff: false` until the client's clinical lead signs the links off (DECISION CLN-07).
+  Each also lists the `parameters` a session note records for it (SES-05). Each parameter has a
+  key, a label, a kind (`text` or `number`), an optional unit and its source.
+  - Every modality has Area treated, Duration (min) and Settings, awaiting the clinic's own lists
+    (DECISION SES-05).
+  - Radial and Focused Shockwave add Energy flux density (mJ/mm²) and Frequency (Hz), from
+    Consultation SOP v2 §12.3.
 - **Questionnaires:** Blueprint Module 8's outcome measure library word for word (19 instruments),
   each with the workbooks it is for (Elbow / wrist–hand is Elbow and Forearm and wrist; PSFS is for
   any region) and its "Use for". Items and scoring arrive with SET-08.
 
-The import checks it (`plan-catalog.ts`): known precaution keys and regions, no repeated keys or
-links; any problem stops the import. Each version stores `kb_modality` and `kb_questionnaire`. The
+The import checks it (`plan-catalog.ts`): known precaution keys and regions, no repeated keys,
+links or parameters; any problem stops the import. Adding the parameters made version 2: notes
+written before it keep version 1, whose modalities have none. Each version stores `kb_modality` and `kb_questionnaire`. The
 file's SHA-256 is part of the version's source, so changing a link or signing one off makes a new
 version. Never change a key once used: plans store it.
 

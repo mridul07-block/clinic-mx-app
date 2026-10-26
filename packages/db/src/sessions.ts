@@ -1,4 +1,9 @@
-import type { EpisodeStatus, InterventionKind, SessionStatus } from '@clinic-mx/schemas';
+import type {
+  EpisodeStatus,
+  InterventionKind,
+  ModalityParameter,
+  SessionStatus,
+} from '@clinic-mx/schemas';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { addendaOf, type AddendumEntry } from './clinical-record';
 import {
@@ -55,6 +60,8 @@ export interface SessionNoteEntry {
   centreId: string;
   physioId: string;
   number: number;
+  /** The knowledge base version it was written at (rule 4). */
+  kbVersionId: string;
   planOfCareId: string | null;
   /** As `sessionNoteSchema` reads it. */
   note: Record<string, unknown>;
@@ -72,6 +79,7 @@ const noteColumns = {
   centreId: treatmentSession.centreId,
   physioId: treatmentSession.physioId,
   number: treatmentSession.number,
+  kbVersionId: treatmentSession.kbVersionId,
   planOfCareId: treatmentSession.planOfCareId,
   note: treatmentSession.note,
   status: treatmentSession.status,
@@ -160,6 +168,33 @@ export async function lastSignedSessionNote(
     .limit(1);
   // Signed, so signed_at is set (check session_signed).
   return row && { ...row, signedAt: row.signedAt ?? new Date(0) };
+}
+
+/**
+ * The modalities of a knowledge base version as a session note records them (SES-05): the
+ * precautions each warns about and its parameters, in the catalogue's order.
+ */
+export function sessionModalities(
+  db: DbOrTransaction,
+  kbVersionId: string,
+): Promise<
+  {
+    key: string;
+    name: string;
+    precautions: { precaution: string; source: string }[];
+    parameters: ModalityParameter[];
+  }[]
+> {
+  return db
+    .select({
+      key: kbModality.key,
+      name: kbModality.name,
+      precautions: kbModality.precautions,
+      parameters: kbModality.parameters,
+    })
+    .from(kbModality)
+    .where(eq(kbModality.kbVersionId, kbVersionId))
+    .orderBy(kbModality.sort);
 }
 
 /** A plan's interventions, modalities (with names) and home programme, for the note. */

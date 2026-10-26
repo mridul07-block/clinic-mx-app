@@ -264,3 +264,45 @@ Decisions (user, 26 October 2026):
 | `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: a colleague reads the session screen read only; session 3 is covered from "Colleagues today", closed and "Signed by" the colleague; the booked physio sees "Covered by" and reads it |
 
 **Negative check:** take the cover clause out of `internal.appointment_status_guard`, and both database cover tests fail.
+
+## Modality parameters (SES-05)
+
+Done when each modality has its parameter fields and a precaution warns when relevant (PRD J5.4;
+Blueprint "Treatment dosage" and "equipment use alone does not count as a complete treatment
+record"). Decisions (user, 26 October 2026):
+
+- **Fields:** knowledge base data (rule 4) in `plan-catalog.json`, read at the note's own version:
+  - every modality has Area treated, Duration (min) and Settings
+  - Radial and Focused Shockwave add Energy flux density (mJ/mm²) and Frequency (Hz) (SOP 12.3)
+  - all of them are "Awaiting clinical sign-off", and the clinic replaces them with its own lists
+    (DECISION SES-05)
+- **Before closing:** each ticked modality needs every field filled, and number fields as numbers
+  ("Fill the parameters for <modality>.").
+- **Precautions:** a ticked modality that warns about one of the episode's signed precautions
+  shows "Precaution: <precaution> (<source>)". It needs "Reason it is still given today" before
+  closing ("Give a reason for <modality> despite <precaution>."), as the consultation's plan does
+  (`modalityWarnings`).
+- **Carry over:** the next note's prefill and "Same as last time" bring the parameters; the
+  reason is asked again each session.
+- **Signed:** the note and the record's Notes show "Parameters": "<modality>: <values with
+  units>", and the reason given.
+
+| Piece | Where |
+| --- | --- |
+| The fields | `plan-catalog.json`, `kb_modality.parameters` (`modalityParameterSchema`) |
+| The note's values and reasons | `treatment.parameters`, `treatment.reasons` in `sessionNoteSchema` |
+| What blocks closing | `sessionNoteBlockers(note, modalities)`, `packages/schemas/src/sessions.ts`, on the screen and again in `closeSession` |
+| The note's modalities with warnings | `sessionModalities` (`packages/db/src/sessions.ts`) and `noteModalities` in `apps/web/modules/sessions/services.ts` |
+| The form | the Treatment given section of `session-note.tsx` |
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `packages/db/src/knowledge/plan-catalog.test.ts` | every modality's fields with sources, shockwave's two more; a repeated or unknown kind of field stops the import |
+| `packages/schemas/src/sessions.test.ts` (modality parameters) | blank and non numeric fields block; a warned modality needs a reason; unticked and older notes ask nothing; carried by Same as last time with today's reasons; the line with units |
+| `apps/web/modules/sessions/services.test.ts` | the note's modalities with the episode's precautions; Close refused until filled and explained |
+| `packages/db/src/integration/clinical-record.integration.test.ts` | the imported modalities' parameters read by a physio, not the desk |
+| `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: shockwave from the plan warns about pregnancy, blocks until filled (a word in Duration still blocks) and explained; session 2 carries the parameters and asks the reason again; the record shows them |
+
+**Negative check:** let `sessionNoteBlockers` skip the parameters, and the schema test fails.

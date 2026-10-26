@@ -27,6 +27,7 @@ import {
   openSession,
   saveSessionNote,
   sessionAddenda,
+  sessionModalities,
   sessionNoteOf,
   sessionProgress,
   signSession,
@@ -2123,6 +2124,34 @@ describe('counter payments', () => {
             assignee: fixture.consultant.id,
           },
         ]);
+      });
+    });
+
+    // SES-05: the modalities of an imported knowledge base version give their parameters, read by
+    // a physio writing a note (the fixture's own version holds no modalities).
+    it('gives the imported modalities their session parameters', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        await asOwner(tx);
+        const [imported] = await tx.execute<{ id: string }>(
+          sql`select v.id from kb_version v where exists
+            (select 1 from kb_modality m where m.kb_version_id = v.id) order by v.number desc limit 1`,
+        );
+        await becomeStaff(tx, fixture.consultant);
+        const modalities = await sessionModalities(tx, imported?.id ?? '');
+        const shockwave = modalities.find((m) => m.key === 'radial_shockwave');
+        expect(shockwave?.parameters.map((p) => p.key)).toEqual([
+          'area',
+          'duration',
+          'energy_flux_density',
+          'frequency',
+          'settings',
+        ]);
+        expect(shockwave?.precautions.map((p) => p.precaution)).toContain('pregnancy');
+        expect(modalities.every((m) => m.parameters.length >= 3)).toBe(true);
+        await asOwner(tx);
+        await becomeStaff(tx, deskHsr);
+        expect(await sessionModalities(tx, imported?.id ?? ''), 'not the desk').toEqual([]);
       });
     });
 
