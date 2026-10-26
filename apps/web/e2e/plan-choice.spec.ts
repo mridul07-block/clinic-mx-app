@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { centreIdByCode, removeCalendarRows, startedAppointment } from './calendar';
 import { signedConsultation } from './consultations';
 import { removePipelineRows } from './intake';
-import { runDueJobs } from './jobs';
+import { tickUntil } from './jobs';
 import { consultationTypeId, submittedWithAlert } from './my-patients';
 import { testPatient } from './patients';
 import { proposedPlan, testPackage, thinkAboutItDueNow } from './plan-sheet';
@@ -82,13 +82,14 @@ test('the desk records the choice, and "I’ll think about it" is followed up', 
 
       // Two days on: the desk's call task (the nudge is queued for the WhatsApp tickets).
       expect(await thinkAboutItDueNow(patient.id)).toBe(1);
-      await runDueJobs(page.request);
-      await page.goto('/app/tasks');
       const call = page
         .getByTestId('open-tasks')
         .getByTestId('task-card')
         .filter({ hasText: patient.name });
-      await expect(call).toHaveCount(1);
+      await tickUntil(page.request, async () => {
+        await page.goto('/app/tasks');
+        await expect(call).toHaveCount(1, { timeout: 1_000 });
+      });
       await expect(call).toContainText('Call about the proposed plan (thinking it over since');
       await expect(call).toContainText('Call about a proposed plan');
 

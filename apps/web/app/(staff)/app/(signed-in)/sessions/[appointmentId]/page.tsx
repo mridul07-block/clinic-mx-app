@@ -6,6 +6,7 @@ import { Tag } from '../../../../../../components/tag';
 import { NotAllowedError } from '../../../../../../modules/access/guard';
 import { requireStaff } from '../../../../../../modules/auth/session';
 import { loadSession, type SessionScreen } from '../../../../../../modules/sessions/services';
+import { Addenda } from '../../consultations/[consultationId]/addenda';
 import { SummaryCard } from '../../patients/[patientId]/clinical-record';
 import { SessionNoteForm } from './session-note';
 
@@ -82,6 +83,16 @@ export default async function SessionPage({
           signed={note.signed}
           plan={note.plan}
         />
+      ) : null}
+      {note?.signed ? (
+        <div className="rounded-panel border border-line bg-surface p-4">
+          <Addenda
+            target={{ sessionId: note.id }}
+            addenda={note.addenda}
+            adds={note.addsAddenda}
+            patientId={visit.patientId}
+          />
+        </div>
       ) : null}
     </main>
   );

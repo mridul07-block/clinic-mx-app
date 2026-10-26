@@ -20,6 +20,8 @@ import { consultation } from './consultations';
 import { episode } from './episodes';
 import { staffUser } from './identity';
 import { kbCondition, kbVersion } from './knowledge';
+// Circular with ./sessions, which is safe: references are read lazily.
+import { treatmentSession } from './sessions';
 
 /**
  * The signed clinical record (CLN-09, TAD section 4): what a consultation's signing writes from
@@ -187,14 +189,16 @@ export const planModality = pgTable(
   (table) => [unique('plan_modality_plan_key').on(table.planOfCareId, table.modalityKey)],
 ).enableRLS();
 
-/** A change to a signed consultation, written after (TAD `addendum`, rule 5). */
+/**
+ * A change to a signed consultation or session note, written after (TAD `addendum`, rule 5): it
+ * belongs to exactly one of them.
+ */
 export const addendum = pgTable(
   'addendum',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    consultationId: uuid('consultation_id')
-      .notNull()
-      .references(() => consultation.id),
+    consultationId: uuid('consultation_id').references(() => consultation.id),
+    sessionId: uuid('session_id').references(() => treatmentSession.id),
     episodeId: uuid('episode_id')
       .notNull()
       .references(() => episode.id),
@@ -206,6 +210,8 @@ export const addendum = pgTable(
   },
   (table) => [
     index('addendum_consultation_idx').on(table.consultationId, table.createdAt),
+    index('addendum_session_idx').on(table.sessionId, table.createdAt),
+    check('addendum_note', sql`num_nonnulls(${table.consultationId}, ${table.sessionId}) = 1`),
     check('addendum_text', sql`length(trim(${table.text})) between 1 and 5000`),
   ],
 ).enableRLS();

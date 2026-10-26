@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   emptySessionNote,
   prefilledSessionNote,
+  readSessionNote,
+  sessionAddendumSchema,
   sessionGate,
   sessionLabel,
   sessionNoteBlockers,
@@ -111,5 +113,26 @@ describe('the session note', () => {
         .treatment,
     ).toEqual({ interventions: ['exercise'], modalities: ['pemf'], note: '' });
     expect(prefilledSessionNote(undefined)).toEqual(emptySessionNote());
+  });
+});
+
+describe('a signed session note on the record', () => {
+  it('reads a stored note, and one that no longer parses as empty', () => {
+    const note = emptySessionNote();
+    note.pain.rest = 3;
+    expect(readSessionNote(note as unknown as Record<string, unknown>).pain.rest).toBe(3);
+    expect(readSessionNote({ pain: { rest: 'high' } })).toEqual(emptySessionNote());
+  });
+
+  it('takes an addendum of 1 to 5000 characters on a session', () => {
+    const sessionId = '00000000-0000-4000-8000-000000000001';
+    expect(sessionAddendumSchema.parse({ sessionId, text: '  Pain was 4 at rest.  ' }).text).toBe(
+      'Pain was 4 at rest.',
+    );
+    expect(sessionAddendumSchema.safeParse({ sessionId, text: '   ' }).success).toBe(false);
+    expect(sessionAddendumSchema.safeParse({ sessionId, text: 'x'.repeat(5001) }).success).toBe(
+      false,
+    );
+    expect(sessionAddendumSchema.safeParse({ sessionId: 'nope', text: 'x' }).success).toBe(false);
   });
 });

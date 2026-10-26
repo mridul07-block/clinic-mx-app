@@ -5,7 +5,10 @@ import { expect, type APIRequestContext } from '@playwright/test';
 // test value playwright.config.ts gives the server; staging's own is never used here.
 export const TEST_JOBS_SECRET = 'e2e-only-jobs-secret-never-on-a-deployment';
 
-/** Runs every due job once, as one tick of the scheduler. */
+/**
+ * Runs every due job once, as one tick of the scheduler. Only for checking that nothing appears:
+ * to wait for something a job makes, use `tickUntil`.
+ */
 export async function runDueJobs(request: APIRequestContext): Promise<void> {
   const ticked = await request.post('/api/jobs/tick', {
     headers: { authorization: `Bearer ${TEST_JOBS_SECRET}` },

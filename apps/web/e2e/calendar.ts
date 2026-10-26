@@ -191,7 +191,12 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
     const theirs = sql`(select id::text from appointment where physio_id in ${physioIds})`;
     await tx.delete(task).where(sql`${task.details} ->> 'appointmentId' in ${theirs}`);
     await tx.delete(job).where(sql`${job.payload} ->> 'appointmentId' in ${theirs}`);
-    // Their sessions' notes (SES-03), which point at the visit, its plan and its package.
+    // Their sessions' notes (SES-03), which point at the visit, its plan and its package, after
+    // the addenda on them (CLN-12 follow up).
+    await tx.execute(
+      sql`delete from addendum where session_id in
+        (select id from session where physio_id in ${physioIds})`,
+    );
     await tx.execute(sql`delete from session where physio_id in ${physioIds}`);
     const consultations = sql`(select id from consultation where physio_id in ${physioIds})`;
     // The patient's choices on their plans (BIL-02), with what "I'll think about it" raised.

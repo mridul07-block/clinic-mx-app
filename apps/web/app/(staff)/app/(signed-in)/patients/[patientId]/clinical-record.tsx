@@ -7,6 +7,7 @@ import {
   interventionLabels,
   irritabilityLabels,
   istDate,
+  readSessionNote,
   redFlagAlertStatusLabels,
   redFlagTriageLabels,
   screeningRegionLabels,
@@ -16,10 +17,15 @@ import {
 } from '@clinic-mx/schemas';
 import type { Tone } from '@clinic-mx/ui';
 import Link from 'next/link';
+import {
+  SignedSessionNote,
+  sessionNoteDigest,
+} from '../../../../../../components/signed-session-note';
 import { Tag } from '../../../../../../components/tag';
 import type {
   ClinicalRecord,
   PatientSummary,
+  RecordConsultation,
   RecordNote,
 } from '../../../../../../modules/patients/record';
 import { Addenda } from '../../consultations/[consultationId]/addenda';
@@ -72,7 +78,7 @@ export function EpisodeHeading({ episode }: { episode: EpisodeEntry }) {
   );
 }
 
-function DiagnosisLine({ note }: { note: RecordNote }) {
+function DiagnosisLine({ note }: { note: RecordConsultation }) {
   if (!note.diagnosis) return null;
   const { conditionName, conditionId, movementDx, irritability, stage, provisional } =
     note.diagnosis;
@@ -118,7 +124,7 @@ export function SummaryCard({
       </section>
     );
   }
-  const { episode, plan, precautions, lastNote, openAlerts } = summary;
+  const { episode, plan, precautions, consultation, lastNote, openAlerts } = summary;
   return (
     <section aria-labelledby="summary" className={panelClass} data-testid="summary-card">
       <h2 id="summary" className="font-semibold text-ink">
@@ -155,11 +161,11 @@ export function SummaryCard({
           {phase}
         </p>
       ) : null}
-      {lastNote ? (
+      {consultation ? (
         <>
           <div className="flex flex-col gap-1" data-testid="summary-diagnosis">
             <h3 className="text-sm font-medium text-ink-secondary">Diagnosis</h3>
-            {lastNote.diagnosis ? <DiagnosisLine note={lastNote} /> : <p>Not recorded.</p>}
+            {consultation.diagnosis ? <DiagnosisLine note={consultation} /> : <p>Not recorded.</p>}
           </div>
           {plan ? (
             <div className="flex flex-col gap-1" data-testid="summary-plan">
@@ -198,14 +204,17 @@ export function SummaryCard({
               ) : null}
             </div>
           ) : null}
-          <p className="text-sm text-ink-secondary">
-            Last signed note {formatIstDateTime(lastNote.signedAt)}
-            {lastNote.signedByName ? ` by ${lastNote.signedByName}` : null}
-          </p>
         </>
       ) : (
         <p className="text-ink-muted">No signed consultation yet.</p>
       )}
+      {lastNote ? (
+        // Either kind (user decision 26 October 2026); the diagnosis stays the consultation's.
+        <p className="text-sm text-ink-secondary" data-testid="summary-last-note">
+          Last signed note: {noteTitle(lastNote)}, {formatIstDateTime(lastNote.signedAt)}
+          {lastNote.signedByName ? ` by ${lastNote.signedByName}` : null}
+        </p>
+      ) : null}
       <p className="text-sm text-ink-secondary" data-testid="summary-next-visit">
         {nextVisit
           ? `Next visit ${formatIstDateTime(nextVisit.startsAt)} · ${nextVisit.typeName}${
@@ -217,7 +226,16 @@ export function SummaryCard({
   );
 }
 
-/** Each episode with its signed notes, newest first; each note opens to its addenda (CLN-12). */
+/** "Consultation" or "Session 3". */
+function noteTitle(note: RecordNote): string {
+  return note.kind === 'session' ? `Session ${String(note.number)}` : 'Consultation';
+}
+
+/**
+ * Each episode with its signed notes, newest first, consultations and session notes (CLN-12 and
+ * its follow up); each note opens to its addenda. A session note opens here, read only, as the
+ * session screen is its physio's (SES-02).
+ */
 export function NotesTab({
   patientId,
   episodes,
@@ -248,23 +266,36 @@ export function NotesTab({
                     className="flex flex-col gap-2 rounded-control border border-line p-3"
                   >
                     <p className="font-medium text-ink">
-                      Consultation · {formatIstDateTime(note.signedAt)}
+                      {noteTitle(note)} · {formatIstDateTime(note.signedAt)}
                       {note.signedByName ? ` · ${note.signedByName}` : null}
                     </p>
-                    <DiagnosisLine note={note} />
-                    <Link
-                      href={`/app/consultations/${note.id}`}
-                      className="self-start text-accent underline underline-offset-2 pointer-coarse:py-3"
-                    >
-                      Open note
-                    </Link>
+                    {note.kind === 'consultation' ? (
+                      <>
+                        <DiagnosisLine note={note} />
+                        <Link
+                          href={`/app/consultations/${note.id}`}
+                          className="self-start text-accent underline underline-offset-2 pointer-coarse:py-3"
+                        >
+                          Open note
+                        </Link>
+                      </>
+                    ) : (
+                      <SessionNoteEntry
+                        note={readSessionNote(note.note)}
+                        modalityNames={note.modalityNames}
+                      />
+                    )}
                     <details>
                       <summary className="cursor-pointer text-accent pointer-coarse:py-3">
                         Addenda ({note.addenda.length})
                       </summary>
                       <div className="mt-3">
                         <Addenda
-                          consultationId={note.id}
+                          target={
+                            note.kind === 'session'
+                              ? { sessionId: note.id }
+                              : { consultationId: note.id }
+                          }
                           addenda={note.addenda}
                           adds={note.addsAddenda}
                           patientId={patientId}
@@ -279,6 +310,27 @@ export function NotesTab({
         );
       })}
     </ul>
+  );
+}
+
+function SessionNoteEntry({
+  note,
+  modalityNames,
+}: {
+  note: ReturnType<typeof readSessionNote>;
+  modalityNames: Record<string, string>;
+}) {
+  const digest = sessionNoteDigest(note);
+  return (
+    <>
+      {digest ? <p className="text-ink-secondary">{digest}</p> : null}
+      <details>
+        <summary className="cursor-pointer text-accent pointer-coarse:py-3">Open note</summary>
+        <div className="mt-3">
+          <SignedSessionNote note={note} modalityNames={modalityNames} />
+        </div>
+      </details>
+    </>
   );
 }
 

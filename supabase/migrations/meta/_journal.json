@@ -764,6 +764,20 @@
       "when": 1792993571315,
       "tag": "20261026054611_session_signed_read",
       "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1792996171314,
+      "tag": "20261026062931_session_addendum",
+      "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1792996189392,
+      "tag": "20261026062949_session_addendum_rules",
+      "breakpoints": true
     }
   ]
 }

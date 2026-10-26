@@ -186,11 +186,14 @@ export function signedRecord(
 /** The longest addendum (CLN-09). */
 export const ADDENDUM_MAX = 5000;
 
+/** An addendum's text, on a signed consultation or session note. */
+export const addendumTextSchema = z
+  .string()
+  .trim()
+  .min(1, 'Write the addendum.')
+  .max(ADDENDUM_MAX, `Keep the addendum to ${ADDENDUM_MAX.toLocaleString('en-IN')} characters.`);
+
 export const addendumSchema = z.object({
   consultationId: z.guid(),
-  text: z
-    .string()
-    .trim()
-    .min(1, 'Write the addendum.')
-    .max(ADDENDUM_MAX, `Keep the addendum to ${ADDENDUM_MAX.toLocaleString('en-IN')} characters.`),
+  text: addendumTextSchema,
 });

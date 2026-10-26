@@ -408,7 +408,9 @@ export function ConsultationStepper({
                 saveNow={draft.saveNow}
               />
             ) : null}
-            {signedBy ? <Addenda consultationId={id} addenda={addenda} adds={addsAddenda} /> : null}
+            {signedBy ? (
+              <Addenda target={{ consultationId: id }} addenda={addenda} adds={addsAddenda} />
+            ) : null}
           </div>
         )}
 

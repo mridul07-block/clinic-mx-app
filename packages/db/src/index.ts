@@ -380,10 +380,12 @@ export {
   patientAlertHistory,
   recordStaffName,
   signedNotesOf,
+  signedSessionNotesOf,
   type AlertHistoryEntry,
   type EpisodePlanEntry,
   type NextVisitEntry,
   type SignedNoteEntry,
+  type SignedSessionNoteEntry,
 } from './patient-record';
 export {
   documentByGenerationKey,
@@ -440,11 +442,14 @@ export {
   type PackageListRow,
 } from './packages';
 export {
+  addSessionAddendum,
   lastSignedSessionNote,
   newestPlanOfCareId,
   openSession,
   planForSession,
   saveSessionNote,
+  sessionAddenda,
+  sessionNoteById,
   sessionNoteOf,
   sessionProgress,
   signSession,

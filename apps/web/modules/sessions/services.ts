@@ -1,5 +1,6 @@
 import 'server-only';
 import {
+  addSessionAddendum as addSessionAddendumRow,
   episodeRecord,
   lastSignedSessionNote,
   latestKnowledgeVersion,
@@ -10,11 +11,14 @@ import {
   patientAlertHistory,
   planForSession,
   saveSessionNote as saveSessionNoteRow,
+  sessionAddenda,
+  sessionNoteById,
   sessionNoteOf,
   sessionProgress,
   sessionVisit,
   signSession,
   staffTreatsNow,
+  type AddendumEntry,
   type DbOrTransaction,
   type NextVisitEntry,
   type SessionVisit,
@@ -24,10 +28,12 @@ import {
   can,
   closeSessionSchema,
   prefilledSessionNote,
+  readSessionNote,
   saveSessionNoteSchema,
+  sessionAddendumSchema,
   sessionNoteBlockers,
-  sessionNoteSchema,
   sessionView,
+  worksAtCentre,
   type DraftSaveResponse,
   type InterventionKind,
   type SessionNote,
@@ -49,6 +55,10 @@ import { episodeSummary, recordNotes, type PatientSummary } from '../patients/re
  * opened by Start session, written by the appointment's physio with autosave, and signed by Close
  * session, which completes the visit, uses a package session and gives the consultant a task for
  * new symptoms (the database does those, `internal.session_closed`).
+ *
+ * A signed note changes only by addenda (CLN-12 follow up, user decisions 26 October 2026), added
+ * here or on the patient record's Notes as for a consultation: the Treats patients tick, at the
+ * episode's centre or on one's own note.
  */
 
 /** Why a session note was refused, for the screen. */
@@ -64,11 +74,16 @@ export class SessionError extends Error {
 
 /** The note on the session screen, with what its form needs from the plan. */
 export interface SessionNoteView {
+  /** The session's own id. */
+  id: string;
   value: SessionNote;
   version: number;
   signed: { by: string; at: Date } | null;
   /** The physio writes it: their own draft, with session_notes.write. */
   editable: boolean;
+  /** Once signed, its addenda, and whether the reader may add one. */
+  addenda: AddendumEntry[];
+  addsAddenda: boolean;
   plan: {
     interventions: InterventionKind[];
     modalities: { key: string; name: string }[];
@@ -86,12 +101,6 @@ export interface SessionScreen {
   readOnly: boolean;
   /** The note, once Start session opened it. */
   note: SessionNoteView | undefined;
-}
-
-/** A stored note as today's schema reads it (an older shape gets today's defaults). */
-function readNote(stored: Record<string, unknown>): SessionNote {
-  const read = sessionNoteSchema.safeParse(stored);
-  return read.success ? read.data : prefilledSessionNote(undefined);
 }
 
 /**
@@ -112,7 +121,7 @@ export async function openSessionNote(
   const last = await lastSignedSessionNote(tx, visit.episodeId);
   let from: Parameters<typeof prefilledSessionNote>[0];
   if (last) {
-    from = { lastNote: readNote(last) };
+    from = { lastNote: readSessionNote(last) };
   } else {
     const planId = await newestPlanOfCareId(tx, visit.episodeId);
     const plan = planId ? await planForSession(tx, planId) : undefined;
@@ -162,14 +171,22 @@ export async function loadSession(
     const nextVisit = await nextVisitOf(tx, visit.patientId, now);
     const stored = await sessionNoteOf(tx, visit.id);
     const plan = stored?.planOfCareId ? await planForSession(tx, stored.planOfCareId) : undefined;
+    const signed = stored?.status === 'signed';
     const note: SessionNoteView | undefined = stored && {
-      value: readNote(stored.note),
+      id: stored.id,
+      value: readSessionNote(stored.note),
       version: stored.version,
       signed:
         stored.signedAt && stored.signedByName
           ? { by: stored.signedByName, at: stored.signedAt }
           : null,
       editable: own && stored.status === 'draft' && can(actor, 'session_notes.write'),
+      addenda: signed ? await sessionAddenda(tx, stored.id) : [],
+      addsAddenda:
+        signed &&
+        actor.treatsPatients &&
+        !actor.support &&
+        (own || worksAtCentre(actor, stored.centreId)),
       plan: plan ?? { interventions: [], modalities: [], homeProgramme: [] },
     };
     await logClinicalView(tx, 'patient', visit.patientId);
@@ -197,7 +214,11 @@ export const saveSessionNote = staffService({
     const found = await ownDraft(tx, input.appointmentId, actor);
     const saved = await saveSessionNoteRow(tx, found.id, input.baseVersion, input.value);
     if (saved.status === 'saved') return saved;
-    return { status: 'conflict', version: saved.version, value: readNote(saved.row.note) };
+    return {
+      status: 'conflict',
+      version: saved.version,
+      value: readSessionNote(saved.row.note),
+    };
   },
 });
 
@@ -217,7 +238,7 @@ export const closeSession = staffService({
     if (found.version !== input.baseVersion) {
       throw new SessionError('Your latest changes are still saving. Try again.', 'stale');
     }
-    const note = readNote(found.note);
+    const note = readSessionNote(found.note);
     const blockers = sessionNoteBlockers(note);
     if (blockers.length > 0) throw new SessionError(blockers.join(' '), 'refused');
     const { rest, activity, after } = note.pain;
@@ -234,5 +255,31 @@ export const closeSession = staffService({
       throw new SessionError('Your latest changes are still saving. Try again.', 'stale');
     }
     return { status: 'signed' };
+  },
+});
+
+/**
+ * Adds an addendum to a signed session note (CLN-12 follow up), with the Treats patients tick read
+ * now. Row level security decides the centre: the episode's, or the writer's own note.
+ */
+export const addSessionAddendum = staffService({
+  action: 'clinical.read',
+  input: sessionAddendumSchema,
+  run: async (tx, input, actor): Promise<{ id: string; appointmentId: string }> => {
+    const found = await sessionNoteById(tx, input.sessionId);
+    if (!found) throw new SessionError('That session was not found.', 'not_found');
+    if (found.status !== 'signed') {
+      throw new SessionError('Addenda are added once the session is closed.', 'refused');
+    }
+    if (!(await staffTreatsNow(tx, actor.id))) {
+      throw new SessionError('Adding an addendum needs the Treats patients tick.', 'refused');
+    }
+    const added = await addSessionAddendumRow(tx, {
+      sessionId: found.id,
+      episodeId: found.episodeId,
+      text: input.text,
+      authorId: actor.id,
+    });
+    return { id: added.id, appointmentId: found.appointmentId };
   },
 });

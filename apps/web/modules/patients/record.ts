@@ -7,11 +7,13 @@ import {
   nextVisitOf,
   patientAlertHistory,
   signedNotesOf,
+  signedSessionNotesOf,
   type AlertHistoryEntry,
   type EpisodeEntry,
   type EpisodePlanEntry,
   type NextVisitEntry,
   type SignedNoteEntry,
+  type SignedSessionNoteEntry,
   type DbOrTransaction,
   type StaffMember,
 } from '@clinic-mx/db';
@@ -26,19 +28,21 @@ import { asStaffViewing } from '../access/staff-db';
  * holds the same: anyone else reads none of it.
  */
 
-export interface RecordNote extends SignedNoteEntry {
-  /**
-   * Whether the reader may add an addendum, as addendum_add allows: the Treats patients tick, at
-   * the episode's centre or on their own note.
-   */
-  addsAddenda: boolean;
-}
+/**
+ * A signed note on the record, a consultation or a session note (CLN-12 follow up, user decision
+ * 26 October 2026), with whether the reader may add an addendum, as addendum_add allows: the
+ * Treats patients tick, at the episode's centre or on their own note.
+ */
+export type RecordNote = (SignedNoteEntry | SignedSessionNoteEntry) & { addsAddenda: boolean };
+export type RecordConsultation = Extract<RecordNote, { kind: 'consultation' }>;
 
 export interface PatientSummary {
   episode: EpisodeEntry;
   plan: EpisodePlanEntry | undefined;
   precautions: { key: string; label: string }[];
-  /** The episode's newest signed note, whose diagnosis the card shows. */
+  /** The episode's newest signed consultation, whose diagnosis the card shows. */
+  consultation: RecordConsultation | undefined;
+  /** The episode's newest signed note of either kind. */
   lastNote: RecordNote | undefined;
   openAlerts: number;
 }
@@ -50,24 +54,33 @@ export interface ClinicalRecord {
   nextVisit: NextVisitEntry | undefined;
 }
 
-/** The reader's signed notes of the patient, each with whether they may add an addendum. */
+/**
+ * The reader's signed notes of the patient, consultations and session notes, newest first, each
+ * with whether they may add an addendum.
+ */
 export async function recordNotes(
   tx: DbOrTransaction,
   actor: StaffMember,
   patientId: string,
 ): Promise<RecordNote[]> {
-  return (await signedNotesOf(tx, patientId)).map((note) => ({
-    ...note,
-    addsAddenda:
-      actor.treatsPatients &&
-      !actor.support &&
-      (note.signedBy === actor.id || worksAtCentre(actor, note.centreId)),
-  }));
+  const notes: (SignedNoteEntry | SignedSessionNoteEntry)[] = [
+    ...(await signedNotesOf(tx, patientId)),
+    ...(await signedSessionNotesOf(tx, patientId)),
+  ];
+  return notes
+    .sort((a, b) => b.signedAt.getTime() - a.signedAt.getTime())
+    .map((note) => ({
+      ...note,
+      addsAddenda:
+        actor.treatsPatients &&
+        !actor.support &&
+        (note.signedBy === actor.id || worksAtCentre(actor, note.centreId)),
+    }));
 }
 
 /**
- * The summary card of one episode (CLN-12, SES-02): its plan, precautions, newest signed note and
- * open alerts. Nothing from the consultant's preparation sheet (PRD J5.2: no AI sheet).
+ * The summary card of one episode (CLN-12, SES-02): its plan, precautions, newest signed
+ * consultation (for the diagnosis) and newest signed note of either kind, and open alerts. Nothing from the consultant's preparation sheet (PRD J5.2: no AI sheet).
  */
 export async function episodeSummary(
   tx: DbOrTransaction,
@@ -79,6 +92,10 @@ export async function episodeSummary(
     episode,
     plan: await episodePlan(tx, episode.id),
     precautions: await episodePrecautions(tx, episode.id),
+    consultation: notes.find(
+      (note): note is RecordConsultation =>
+        note.kind === 'consultation' && note.episodeId === episode.id,
+    ),
     lastNote: notes.find((note) => note.episodeId === episode.id),
     openAlerts: alerts.filter(
       (alert) => alert.episodeId === episode.id && alert.status !== 'closed',

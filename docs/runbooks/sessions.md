@@ -133,7 +133,17 @@ The physio lands on My patients with "Session closed. Its note is signed."
 | Front desk, Finance, Centre Managers without the tick | No | No | No |
 | Velyx support | No | No | Never (restrictive policies) |
 
-A signed note never changes (`internal.session_guard`), not even who signed it or when. Signed notes on the patient record and their addenda come next.
+A signed note never changes (`internal.session_guard`), not even who signed it or when. Changes are
+addenda (CLN-12 follow up, user decisions 26 October 2026):
+
+- **Where:** under the signed note on the session screen, and on the patient record's Notes, where
+  the note is listed with the consultations and opens read only in place.
+- **Who adds:** as on a consultation, the Treats patients tick now, at the episode's centre or on
+  one's own note; never Velyx support. `addSessionAddendum`
+  (`apps/web/modules/sessions/services.ts`); in the database `internal.adds_session_addendum`.
+- **Who reads:** whoever reads the note (`internal.reads_session`).
+- **What they do:** a session addendum queues no document; `internal.addendum_summary_job` skips
+  it.
 
 ### Tests
 
@@ -142,6 +152,7 @@ A signed note never changes (`internal.session_guard`), not even who signed it o
 | `packages/schemas/src/sessions.test.ts` | the note's defaults, the blockers in order, the prefill |
 | `apps/web/modules/sessions/services.test.ts` | opening prefilled from the last note or the plan; the screen's note for its physio and read only for the Super Admin; save and close refusals (someone else's, signed, stale, without the tick, blocked) |
 | `packages/db/src/integration/clinical-record.integration.test.ts` (session check in) | one row per visit numbered from the appointment; only the note changes; a colleague reads but cannot write; the desk, another centre and support cannot; once signed, the Super Admin without the tick and another centre's physio read it, support and the desk do not; closing completes the visit and uses one package session; no package still closes; Yes gives the consultant one task; a signed note never changes |
-| `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: prefilled ticks, Close held back with what is missing, the note filled and kept across a reload, Close session to My patients, the visit Completed, one package session used, the signed note read only, the consultant's task |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (takes addenda once signed) | none on a draft; its physio and a colleague at the centre add, another centre, the Super Admin without the tick, the desk, support and another episode do not; read at any centre, not by the desk or support; on the record with names at another centre; no job queued; exactly one target |
+| `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: prefilled ticks, Close held back with what is missing, the note filled and kept across a reload, Close session to My patients, the visit Completed, one package session used, the signed note read only, the consultant's task; an addendum on the session screen; a colleague reads the note on the record's Notes with its digest, adds an addendum, and the card's last note is the session |
 
-**Negative check:** let a signed session change in `internal.session_guard`, and the database test fails on "nor who signed it or when".
+**Negative check:** let a signed session change in `internal.session_guard`, and the database test fails on "nor who signed it or when". Drop `status = 'signed'` from `internal.adds_session_addendum`, and the addenda test fails on "a draft has none".
