@@ -86,3 +86,61 @@ Nothing from the consultant's AI preparation sheet is read. Without an episode i
 | `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: Start session lands on the screen with the card and the phase line, Open session opens it again, another physio gets not found and the desk Not allowed |
 
 **Negative check:** drop the own physio check in `loadSession`, and the "another physio" unit test fails; row level security still keeps another physio out in the database test and end to end.
+
+## Session note and Close session (SES-03, SES-07)
+
+Sources: PRD J5.4 (the note's fields) and J5.5 ("Closing a session marks it completed, uses a package session and signs the note"), the Frontend Specification ("Session note", "Pain slider"), the TAD `session` table and Blueprint 11A. Decisions made by the user on 26 October 2026.
+
+### Opening
+
+Start session (`startVisit`, then `openSessionNote` in `apps/web/modules/sessions/services.ts`) opens one `session` row per visit. The database (`internal.session_open`) takes the episode, patient, centre, physio, the number (as SES-01 counts it) and the newest plan from the appointment, never from the caller. The service adds the knowledge base version (rule 4) and the prefilled note:
+
+- the treatment given in the episode's last signed note, or
+- for the first session, the plan's interventions and modalities.
+
+### The note
+
+Under the summary card, autosaved (draft kind `session`, `PUT /app/sessions/<appointmentId>/save`):
+
+1. **Any new symptoms?** No or Yes. Yes needs a description.
+2. **Since last visit:** what the patient reports.
+3. **Pain:** at rest, during activity and after treatment, 0 to 10 (`components/pain-slider.tsx`).
+4. **Treatment given:** ticks for the plan's interventions and modalities, and a note.
+5. **Response:** Better, Same or Worse, and a note.
+6. **Home programme:** the plan's exercises, read only (the plan stays the consultant's), and today's changes.
+7. **Next session:** Progress, Maintain, Regress, Reassess or Escalate, and a note.
+
+`sessionNoteSchema` and `sessionNoteBlockers` (`packages/schemas/src/sessions.ts`) define it and what holds Close session back: the new symptoms answer (and description), all three pain readings, a treatment tick, a response and a next session choice.
+
+### Close session
+
+`closeSession` signs the physio's own draft at the version just saved, with the Treats patients tick read at that moment. In the same transaction the database:
+
+- stores the three pain readings in `pain_rest`, `pain_activity` and `pain_after` (the pain line, OUT-03, reads the activity one)
+- uses a session of the episode's active package, oldest payment first (`internal.session_sign` calls `internal.use_package_session`) and keeps which in `package_id`; with no active package nothing is used and it still closes
+- completes the visit (`internal.session_closed`; `internal.appointment_physio_change` accepts a signed session note)
+- for Yes to new symptoms, gives the consultant who signed the episode's consultation a high priority task, "New symptoms reported in session n" (`review.new_symptoms`); without one, the centre's Centre Managers get it
+
+The physio lands on My patients with "Session closed. Its note is signed."
+
+### Who
+
+| Who | Reads | Writes and closes |
+| --- | --- | --- |
+| The appointment's physio | Yes | Yes, while it is a draft |
+| Clinicians who treat patients at the centre | Yes | No |
+| Front desk, Finance, other centres | No | No |
+| Velyx support | As the role allows | Never (restrictive policies) |
+
+A signed note never changes (`internal.session_guard`), not even who signed it or when. Signed notes on the patient record and their addenda come next.
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `packages/schemas/src/sessions.test.ts` | the note's defaults, the blockers in order, the prefill |
+| `apps/web/modules/sessions/services.test.ts` | opening prefilled from the last note or the plan; the screen's note for its physio and read only for the Super Admin; save and close refusals (someone else's, signed, stale, without the tick, blocked) |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (session check in) | one row per visit numbered from the appointment; only the note changes; a colleague reads but cannot write; the desk, another centre and support cannot; closing completes the visit and uses one package session; no package still closes; Yes gives the consultant one task; a signed note never changes |
+| `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: prefilled ticks, Close held back with what is missing, the note filled and kept across a reload, Close session to My patients, the visit Completed, one package session used, the signed note read only, the consultant's task |
+
+**Negative check:** let a signed session change in `internal.session_guard`, and the database test fails on "nor who signed it or when".

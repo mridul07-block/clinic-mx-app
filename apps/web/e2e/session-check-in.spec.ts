@@ -5,7 +5,7 @@ import { recordViews, signedConsultation } from './consultations';
 import { removePipelineRows } from './intake';
 import { checkedIn, consultationTypeId, submittedWithAlert } from './my-patients';
 import { testPatient } from './patients';
-import { proposedPlan, testPackage } from './plan-sheet';
+import { packageSessionsUsed, proposedPlan, testPackage } from './plan-sheet';
 import { restorePrices, snapshotPrices } from './prices';
 import { exclusively, signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
 
@@ -17,6 +17,10 @@ import { exclusively, signIn, signInWithCode, temporaryDesk, temporaryWithCode }
 // the signed plan with no AI sheet. Decisions (user, 25 October 2026): a session screen opened by
 // Start session and Open session; the phase line waits for OUT-04 (DECISION SES-02); only the
 // appointment's physio opens it, the Super Admin reads it.
+// SES-03 done when: the physio writes the note on the phone and Close session signs it, completes
+// the visit and uses a package session. Decisions (user, 26 October 2026): pain at rest, during
+// activity and after; new symptoms need a description and give the consultant a task; treatment
+// ticks from the plan; response and next session in one tap.
 
 const physios: string[] = [];
 const visits: string[] = [];
@@ -49,6 +53,7 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
   page,
   browser,
 }) => {
+  test.slow();
   const physio = await temporaryWithCode('physiotherapist', ['HSR Layout'], { consultant: true });
   physios.push(physio.id);
   await consultantFee(physio.id, 'consultation');
@@ -177,6 +182,65 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
         .click();
       await expect(physioPage.getByTestId('summary-card')).toBeVisible();
       expect(new URL(physioPage.url()).pathname).toBe(`/app/sessions/${paidSession.id}`);
+
+      // SES-03: the note, its treatment prefilled from the plan; Close waits for what is missing.
+      const note = physioPage.getByRole('region', { name: 'Session note' });
+      await expect(note.getByRole('checkbox', { name: 'Exercise' })).toBeChecked();
+      await expect(note.getByTestId('close-blockers')).toContainText('Answer "Any new symptoms?".');
+      await expect(note.getByRole('button', { name: 'Close session' })).toBeDisabled();
+      await note.locator('label').filter({ hasText: /^Yes$/ }).click();
+      await note.getByLabel('Describe the new symptoms').fill('Tingling in the foot since Sunday');
+      await note.getByLabel('What the patient reports').fill('Stairs are easier this week');
+      await note.getByLabel('Pain at rest').fill('2');
+      await note.getByLabel('Pain during activity').fill('4');
+      await note.getByLabel('Pain after treatment').fill('1');
+      await note
+        .locator('label')
+        .filter({ hasText: /^Better$/ })
+        .click();
+      await note
+        .locator('label')
+        .filter({ hasText: /^Progress$/ })
+        .click();
+      await expect(note.getByTestId('close-blockers')).toHaveCount(0);
+      await expect(note.getByRole('status')).toHaveText('Saved');
+      expect(
+        await physioPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      await physioPage.screenshot({
+        path: test.info().outputPath('session-note.png'),
+        fullPage: true,
+      });
+
+      // Autosaved: a reload keeps it.
+      await physioPage.reload();
+      await expect(note.getByLabel('Describe the new symptoms')).toHaveValue(
+        'Tingling in the foot since Sunday',
+      );
+      await expect(note.getByLabel('Pain during activity')).toHaveValue('4');
+
+      // Close session signs it, completes the visit and uses one package session.
+      await note.getByRole('button', { name: 'Close session' }).click();
+      await expect(
+        physioPage.getByRole('status').filter({ hasText: 'Session closed.' }),
+      ).toBeVisible();
+      expect(new URL(physioPage.url()).pathname).toBe('/app/my-patients');
+      await expect(mine(paidSession.id)).toContainText('Completed');
+      expect(await packageSessionsUsed(paid.patient.id)).toBe(1);
+      await physioPage.goto(`/app/sessions/${paidSession.id}`);
+      await expect(physioPage.getByTestId('session-signed')).toContainText(
+        `Signed by ${physio.name}`,
+      );
+      await expect(note.getByRole('button', { name: 'Close session' })).toHaveCount(0);
+      await expect(note.getByLabel('Describe the new symptoms')).toHaveAttribute('readonly', '');
+
+      // New symptoms: the consultant (here the same physio) has a task to review them.
+      await physioPage.goto('/app/tasks');
+      await expect(
+        physioPage
+          .getByTestId('task-card')
+          .filter({ hasText: 'New symptoms reported in session 1' }),
+      ).toHaveCount(1);
       await clinician.close();
 
       // Another physio at the centre does not even read the appointment (row level security), so

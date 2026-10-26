@@ -7,13 +7,15 @@ import { NotAllowedError } from '../../../../../../modules/access/guard';
 import { requireStaff } from '../../../../../../modules/auth/session';
 import { loadSession, type SessionScreen } from '../../../../../../modules/sessions/services';
 import { SummaryCard } from '../../patients/[patientId]/clinical-record';
+import { SessionNoteForm } from './session-note';
 
 export const metadata: Metadata = { title: 'Session · Clinic Mx' };
 
 // The session screen (SES-02, PRD J5.2): Start session opens it, and Open session on My patients
 // while it runs. The treating physio's summary card of the episode comes first, from the signed
-// plan with no AI sheet; the session note (SES-03) goes under it. Only the appointment's physio
-// opens it; the Super Admin reads it (user decision 25 October 2026).
+// plan with no AI sheet; the session note (SES-03) goes under it, written and closed by the
+// appointment's physio. Only the appointment's physio opens it; the Super Admin reads it (user
+// decision 25 October 2026).
 export default async function SessionPage({
   params,
 }: {
@@ -30,7 +32,7 @@ export default async function SessionPage({
     throw error;
   }
   if (!screen) notFound();
-  const { visit, session, summary, nextVisit, readOnly } = screen;
+  const { visit, session, summary, nextVisit, readOnly, note } = screen;
   return (
     <main className="flex w-full max-w-5xl flex-col gap-4 px-4 py-6">
       <div className="flex flex-col gap-1.5">
@@ -71,6 +73,16 @@ export default async function SessionPage({
         phase={phaseNotSetUp}
         empty="Not part of an episode yet."
       />
+      {note ? (
+        <SessionNoteForm
+          appointmentId={visit.id}
+          serverValue={note.value}
+          serverVersion={note.version}
+          editable={note.editable}
+          signed={note.signed}
+          plan={note.plan}
+        />
+      ) : null}
     </main>
   );
 }

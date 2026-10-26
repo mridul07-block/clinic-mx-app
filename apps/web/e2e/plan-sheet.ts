@@ -105,3 +105,12 @@ export async function packageValidUntil(patientId: string, validUntil: string): 
       .where(eq(patientPackage.patientId, patientId));
   });
 }
+
+/** How many sessions the patient's packages have used (SES-03 Close session uses one). */
+export async function packageSessionsUsed(patientId: string): Promise<number> {
+  const rows = await db()
+    .select({ used: patientPackage.sessionsUsed })
+    .from(patientPackage)
+    .where(eq(patientPackage.patientId, patientId));
+  return rows.reduce((total, row) => total + row.used, 0);
+}

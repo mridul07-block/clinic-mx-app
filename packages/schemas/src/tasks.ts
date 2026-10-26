@@ -20,6 +20,7 @@ export const taskKindLabels: Record<string, string> = {
   'call.no_show': 'Call after a no show',
   'review.no_shows': 'Clinical review: missed appointments',
   'call.think_about_it': 'Call about a proposed plan',
+  'review.new_symptoms': 'Clinical review: new symptoms',
 };
 
 export function taskKindLabel(kind: string): string {

@@ -1,4 +1,7 @@
+import { z } from 'zod';
+import { recordVersionSchema } from './drafts';
 import { episodeStatusLabels, type EpisodeStatus } from './episodes';
+import { interventionKinds, type InterventionKind } from './plan';
 
 /**
  * Treatment session check in (SES-01, PRD J5.1, M9; user decisions 25 October 2026). A
@@ -67,3 +70,148 @@ export function sessionGate(episodeStatus: EpisodeStatus | null): SessionGate {
  * gives each programme its phases. DECISION SES-02.
  */
 export const phaseNotSetUp = 'Phase: not set up yet';
+
+/**
+ * The session note (SES-03, PRD J5.4 and J5.5, Blueprint 11A; user decisions 26 October 2026):
+ * any new symptoms first (Yes needs a description, and closing then gives the episode's
+ * consultant a task), since last visit, pain at rest, during activity and after treatment (0 to
+ * 10), the treatment given as ticks from the plan (prefilled from the last signed note, or the
+ * plan for the first), the response, changes to the home programme (the plan itself stays the
+ * consultant's) and what the next session does. Close session signs it.
+ */
+
+const noteText = z
+  .string()
+  .max(2000, { error: 'Keep each note under 2000 characters.' })
+  .default('');
+const painReading = z.number().int().min(0).max(10).nullable().default(null);
+
+/** A session note is a draft until Close session signs it. */
+export const sessionStatuses = ['draft', 'signed'] as const;
+export type SessionStatus = (typeof sessionStatuses)[number];
+
+export const newSymptomsAnswers = ['no', 'yes'] as const;
+export type NewSymptomsAnswer = (typeof newSymptomsAnswers)[number];
+
+export const sessionResponses = ['better', 'same', 'worse'] as const;
+export type SessionResponse = (typeof sessionResponses)[number];
+export const sessionResponseLabels: Record<SessionResponse, string> = {
+  better: 'Better',
+  same: 'Same',
+  worse: 'Worse',
+};
+
+export const nextSessionPlans = [
+  'progress',
+  'maintain',
+  'regress',
+  'reassess',
+  'escalate',
+] as const;
+export type NextSessionPlan = (typeof nextSessionPlans)[number];
+export const nextSessionPlanLabels: Record<NextSessionPlan, string> = {
+  progress: 'Progress',
+  maintain: 'Maintain',
+  regress: 'Regress',
+  reassess: 'Reassess',
+  escalate: 'Escalate',
+};
+
+export const painReadings = ['rest', 'activity', 'after'] as const;
+export type PainReading = (typeof painReadings)[number];
+export const painReadingLabels: Record<PainReading, string> = {
+  rest: 'Pain at rest',
+  activity: 'Pain during activity',
+  after: 'Pain after treatment',
+};
+
+export const sessionNoteSchema = z.object({
+  newSymptoms: z
+    .object({
+      answer: z.enum(newSymptomsAnswers).nullable().default(null),
+      description: noteText,
+    })
+    .default({ answer: null, description: '' }),
+  sinceLastVisit: noteText,
+  pain: z
+    .object({ rest: painReading, activity: painReading, after: painReading })
+    .default({ rest: null, activity: null, after: null }),
+  treatment: z
+    .object({
+      interventions: z.array(z.enum(interventionKinds)).max(interventionKinds.length).default([]),
+      modalities: z.array(z.string().min(1).max(80)).max(20).default([]),
+      note: noteText,
+    })
+    .default({ interventions: [], modalities: [], note: '' }),
+  response: z
+    .object({ rating: z.enum(sessionResponses).nullable().default(null), note: noteText })
+    .default({ rating: null, note: '' }),
+  homeProgramme: z.object({ note: noteText }).default({ note: '' }),
+  nextSession: z
+    .object({ plan: z.enum(nextSessionPlans).nullable().default(null), note: noteText })
+    .default({ plan: null, note: '' }),
+});
+
+export type SessionNote = z.infer<typeof sessionNoteSchema>;
+
+/** An empty note. */
+export function emptySessionNote(): SessionNote {
+  return sessionNoteSchema.parse({});
+}
+
+/**
+ * A new note: the treatment given last time (the episode's last signed note), or for the first
+ * session the plan's interventions and modalities; everything else starts empty.
+ */
+export function prefilledSessionNote(
+  from:
+    | { lastNote: SessionNote }
+    | { plan: { interventions: readonly InterventionKind[]; modalities: readonly string[] } }
+    | undefined,
+): SessionNote {
+  const note = emptySessionNote();
+  if (!from) return note;
+  if ('lastNote' in from) {
+    return { ...note, treatment: { ...from.lastNote.treatment } };
+  }
+  return {
+    ...note,
+    treatment: {
+      interventions: [...from.plan.interventions],
+      modalities: [...from.plan.modalities],
+      note: '',
+    },
+  };
+}
+
+/** What still holds Close session back, in the note's order; empty when it can close. */
+export function sessionNoteBlockers(note: SessionNote): string[] {
+  const blockers: string[] = [];
+  if (note.newSymptoms.answer === null) blockers.push('Answer "Any new symptoms?".');
+  else if (note.newSymptoms.answer === 'yes' && note.newSymptoms.description.trim() === '') {
+    blockers.push('Describe the new symptoms.');
+  }
+  for (const reading of painReadings) {
+    if (note.pain[reading] === null)
+      blockers.push(`Set ${painReadingLabels[reading].toLowerCase()}.`);
+  }
+  if (note.treatment.interventions.length + note.treatment.modalities.length === 0) {
+    blockers.push('Tick the treatment given.');
+  }
+  if (note.response.rating === null) blockers.push('Choose the response.');
+  if (note.nextSession.plan === null) blockers.push('Choose what the next session does.');
+  return blockers;
+}
+
+export const sessionAppointmentSchema = z.object({ appointmentId: z.guid() });
+
+export const saveSessionNoteSchema = z.object({
+  appointmentId: z.guid(),
+  value: sessionNoteSchema,
+  baseVersion: recordVersionSchema,
+});
+
+export const closeSessionSchema = z.object({
+  appointmentId: z.guid(),
+  baseVersion: recordVersionSchema,
+});

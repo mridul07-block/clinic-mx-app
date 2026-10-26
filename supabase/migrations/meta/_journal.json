@@ -743,6 +743,20 @@
       "when": 1792950942991,
       "tag": "20261025175542_session_progress_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1792990952896,
+      "tag": "20261026050232_session",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1792991004277,
+      "tag": "20261026050324_session_rules",
+      "breakpoints": true
     }
   ]
 }
