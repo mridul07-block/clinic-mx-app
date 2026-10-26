@@ -44,19 +44,10 @@ import { SchedulingError } from './services';
  * October 2026.
  */
 
-export interface PlanSessionsView {
+export interface PlanSessionsView extends SessionsLeft {
   episodeId: string;
   centreId: string;
   episodeStatus: EpisodeStatus;
-  sessionsPerWeek: number | null;
-  weeks: number | null;
-  /** Sessions a week × weeks; null when the plan sets no frequency. */
-  planned: number | null;
-  booked: number;
-  done: number;
-  /** With a package bought: its sessions left; null for pay per session. */
-  packageLeft: number | null;
-  toBook: number;
   appointmentTypeId: string | undefined;
   /** Who may take sessions at the centre, by name. */
   physios: { id: string; name: string }[];
@@ -68,6 +59,54 @@ export interface PlanSessionsView {
   canBook: boolean;
   /** Today in IST, the earliest start date. */
   today: string;
+}
+
+/** What the plan asks for and what is booked: the cap for Book plan sessions and SCH-12. */
+export interface SessionsLeft {
+  sessionsPerWeek: number | null;
+  weeks: number | null;
+  /** Sessions a week × weeks; null when the plan sets no frequency. */
+  planned: number | null;
+  booked: number;
+  done: number;
+  /** With a package bought: its sessions left; null for pay per session. */
+  packageLeft: number | null;
+  toBook: number;
+}
+
+/**
+ * The plan's sessions left to book in an episode (SCH-11, SCH-12): its frequency less the session
+ * appointments booked or done, never more than an active package has left less those booked.
+ */
+export async function sessionsLeft(
+  tx: DbOrTransaction,
+  episodeId: string,
+  frequency: { sessionsPerWeek: number | null; weeks: number | null } | undefined,
+  sessionKeys: readonly string[],
+  now: Date,
+): Promise<SessionsLeft> {
+  const { booked, done } = await episodeSessionCounts(tx, episodeId, sessionKeys);
+  const bought = (await packagesOfEpisode(tx, episodeId, now)).filter(
+    (entry) => entry.state !== 'cancelled',
+  );
+  const packageLeft =
+    bought.length === 0
+      ? null
+      : bought
+          .filter((entry) => entry.state === 'active')
+          .reduce((sum, entry) => sum + entry.sessionsLeft, 0);
+  const sessionsPerWeek = frequency?.sessionsPerWeek ?? null;
+  const weeks = frequency?.weeks ?? null;
+  const planned = sessionsPerWeek !== null && weeks !== null ? sessionsPerWeek * weeks : null;
+  return {
+    sessionsPerWeek,
+    weeks,
+    planned,
+    booked,
+    done,
+    packageLeft,
+    toBook: planSessionsToBook({ planned, booked, done, packageLeft }),
+  };
 }
 
 /** The holder name of a series booking: never the person's own hold, so that stays busy. */
@@ -84,20 +123,8 @@ async function viewOf(
   if (!episode) return undefined;
   const today = istDate(now);
   const plan = await planForPricing(tx, episodeId);
-  const { booked, done } = await episodeSessionCounts(tx, episodeId, sessionKeys);
-  const bought = (await packagesOfEpisode(tx, episodeId, now)).filter(
-    (entry) => entry.state !== 'cancelled',
-  );
-  const packageLeft =
-    bought.length === 0
-      ? null
-      : bought
-          .filter((entry) => entry.state === 'active')
-          .reduce((sum, entry) => sum + entry.sessionsLeft, 0);
-  const sessionsPerWeek = plan?.sessionsPerWeek ?? null;
-  const weeks = plan?.weeks ?? null;
-  const planned = sessionsPerWeek !== null && weeks !== null ? sessionsPerWeek * weeks : null;
-  const toBook = planSessionsToBook({ planned, booked, done, packageLeft });
+  const left = await sessionsLeft(tx, episodeId, plan, sessionKeys, now);
+  const { toBook } = left;
   const typeKey = sessionKeys.at(0);
   const appointmentTypeId = typeKey ? await appointmentTypeIdByKey(tx, typeKey) : undefined;
   const physios = appointmentTypeId
@@ -111,13 +138,7 @@ async function viewOf(
     episodeId,
     centreId: episode.centreId,
     episodeStatus: episode.status,
-    sessionsPerWeek,
-    weeks,
-    planned,
-    booked,
-    done,
-    packageLeft,
-    toBook,
+    ...left,
     appointmentTypeId,
     physios,
     suggestedPhysioId: physios.some((p) => p.id === suggested) ? suggested : undefined,

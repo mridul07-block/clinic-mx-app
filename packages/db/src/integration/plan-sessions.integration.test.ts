@@ -261,3 +261,139 @@ describe('Book plan sessions', () => {
     });
   });
 });
+
+// SCH-12: a physio books the next session of an Active episode they have a visit in, with
+// themselves; counts include their colleagues' appointments, which they cannot read.
+describe('the physio books the next session', () => {
+  /** A physio with hours at HSR Layout and a visit in progress in an episode of `status`. */
+  async function treating(tx: Tx, status: 'plan_proposed' | 'active') {
+    const physio = await testPhysio(tx, {
+      centreIds: [centreIds.hsrLayout],
+      createdBy: superAdmin.id,
+    });
+    const session = await typeId(tx, 'session');
+    const { patientId, episodeId } = await testEpisode(tx, status);
+    const started = new Date(Date.now() - 20 * 60_000);
+    await tx.insert(appointment).values({
+      number: '',
+      patientId,
+      centreId: centreIds.hsrLayout,
+      physioId: physio.id,
+      appointmentTypeId: session,
+      episodeId,
+      startsAt: started,
+      endsAt: new Date(started.getTime() + 45 * 60_000),
+      channel: 'front_desk',
+      bookedBy: superAdmin.id,
+      status: 'in_progress',
+      arrivedAt: started,
+      checkedInBy: superAdmin.id,
+      startedAt: started,
+      startedBy: physio.id,
+    });
+    return { physio, session, patientId, episodeId };
+  }
+
+  const next = (
+    sp: Tx,
+    who: StaffMember,
+    at: { physioId: string; session: string; patientId: string; episodeId: string },
+  ) =>
+    bookAppointment(sp, {
+      centreId: centreIds.hsrLayout,
+      physioId: at.physioId,
+      appointmentTypeId: at.session,
+      startsAt: on(600),
+      holder: `next-session:${who.id}`,
+      patientId: at.patientId,
+      episodeId: at.episodeId,
+      channel: 'front_desk',
+      bookedBy: who.id,
+      step: 15,
+      now: new Date(),
+    });
+
+  it('books with themselves in their own Active episode, counting colleagues’ sessions', async () => {
+    await rolledBack(async (tx) => {
+      const { physio, session, patientId, episodeId } = await treating(tx, 'active');
+      const colleague = await testPhysio(tx, {
+        centreIds: [centreIds.hsrLayout],
+        createdBy: superAdmin.id,
+      });
+      await tx.insert(appointment).values({
+        number: '',
+        patientId,
+        centreId: centreIds.hsrLayout,
+        physioId: colleague.id,
+        appointmentTypeId: session,
+        episodeId,
+        startsAt: on(660, addDays(testDate, 1)),
+        endsAt: on(705, addDays(testDate, 1)),
+        channel: 'front_desk',
+        bookedBy: superAdmin.id,
+      });
+      await becomeStaff(tx, physio);
+      const booked = await next(tx, physio, { physioId: physio.id, session, patientId, episodeId });
+      expect(booked.number).toMatch(/^[A-Z]+-\d{5}$/);
+      expect(await episodeSessionCounts(tx, episodeId, ['session'])).toEqual({
+        booked: 3,
+        done: 0,
+      });
+    });
+  });
+
+  it('refuses another physio’s episode, a colleague’s slot, an unpaid plan and support', async () => {
+    await rolledBack(async (tx) => {
+      const own = await treating(tx, 'active');
+      const unpaid = await treating(tx, 'plan_proposed');
+      const stranger = await testPhysio(tx, {
+        centreIds: [centreIds.hsrLayout],
+        createdBy: superAdmin.id,
+      });
+      await becomeStaff(tx, stranger);
+      expect(await failure(tx, (sp) => next(sp, stranger, { ...own, physioId: stranger.id }))).toBe(
+        '42501',
+      );
+      expect(await episodeSessionCounts(tx, own.episodeId, ['session'])).toEqual({
+        booked: 1,
+        done: 0,
+      });
+      await asOwner(tx);
+      await becomeStaff(tx, own.physio);
+      expect(
+        await failure(tx, (sp) => next(sp, own.physio, { ...own, physioId: stranger.id })),
+      ).toBe('42501');
+      await asOwner(tx);
+      await becomeStaff(tx, unpaid.physio);
+      expect(
+        await failure(tx, (sp) =>
+          next(sp, unpaid.physio, { ...unpaid, physioId: unpaid.physio.id }),
+        ),
+      ).toBe('42501');
+      await asOwner(tx);
+      await becomeStaff(tx, support);
+      // Straight to the table: the slot engine would refuse support first (no hours).
+      expect(
+        await failure(tx, (sp) =>
+          sp.insert(appointment).values({
+            number: '',
+            patientId: own.patientId,
+            centreId: centreIds.hsrLayout,
+            physioId: support.id,
+            appointmentTypeId: own.session,
+            episodeId: own.episodeId,
+            startsAt: on(600),
+            endsAt: on(645),
+            channel: 'front_desk',
+            bookedBy: support.id,
+          }),
+        ),
+      ).toBe('42501');
+      // Support reads (IAM-08): nothing was added by any refused booking.
+      expect(await episodeSessionCounts(tx, own.episodeId, ['session'])).toEqual({
+        booked: 1,
+        done: 0,
+      });
+    });
+  });
+});

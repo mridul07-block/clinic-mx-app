@@ -737,8 +737,11 @@ export {
   type SessionView,
 } from './sessions';
 export {
+  bookNextSessionSchema,
   bookPlanSessionsSchema,
   nearestStarts,
+  nextSessionDate,
+  nextSessionTimesSchema,
   planSessionsPatternSchema,
   planSessionsToBook,
   seriesDates,

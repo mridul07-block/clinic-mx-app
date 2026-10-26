@@ -178,3 +178,23 @@ export function weekdaysMessage(ticked: number, sessionsPerWeek: number): string
   const days = sessionsPerWeek === 1 ? '1 day' : `${String(sessionsPerWeek)} days`;
   return `Tick ${days}: the plan is ${String(sessionsPerWeek)} a week.`;
 }
+
+/**
+ * The physio's next session (SCH-12): the date offered first, today plus the days between the
+ * plan's sessions (7 over its sessions a week, rounded, at least 1; a week without a frequency).
+ */
+export function nextSessionDate(today: string, sessionsPerWeek: number | null): string {
+  return addDays(today, Math.max(1, Math.round(7 / (sessionsPerWeek ?? 1))));
+}
+
+/** The physio's free times on a date for the session's next one (SCH-12). */
+export const nextSessionTimesSchema = z.object({
+  appointmentId: z.guid(),
+  date: calendarDateSchema,
+});
+
+/** Booking the session's next one at a picked time (SCH-12). */
+export const bookNextSessionSchema = z.object({
+  appointmentId: z.guid(),
+  startsAt: z.coerce.date({ error: 'Pick a time.' }),
+});

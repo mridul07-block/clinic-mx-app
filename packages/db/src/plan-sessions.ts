@@ -1,5 +1,5 @@
-import { and, count, eq, inArray } from 'drizzle-orm';
-import { appointment, appointmentType, planBooking } from './schema';
+import { desc, eq, sql } from 'drizzle-orm';
+import { appointmentType, planBooking, planOfCare } from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /**
@@ -12,7 +12,9 @@ export const PLAN_SESSIONS_LIST_JOB = 'whatsapp.plan_sessions_list';
 /**
  * An episode's session appointments (types in `packages.session_appointment_types`): booked and
  * not yet done (booked, confirmed, checked in, in progress), and completed. Cancelled,
- * rescheduled and no show ones are neither.
+ * rescheduled and no show ones are neither. Counted by `internal.episode_session_counts`, so a
+ * physio's count includes appointments with colleagues they cannot read (SCH-12); zero for a
+ * reader the function does not serve.
  */
 export async function episodeSessionCounts(
   db: DbOrTransaction,
@@ -20,20 +22,24 @@ export async function episodeSessionCounts(
   sessionTypeKeys: readonly string[],
 ): Promise<{ booked: number; done: number }> {
   if (sessionTypeKeys.length === 0) return { booked: 0, done: 0 };
-  const rows = await db
-    .select({ status: appointment.status, count: count() })
-    .from(appointment)
-    .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
-    .where(
-      and(eq(appointment.episodeId, episodeId), inArray(appointmentType.key, [...sessionTypeKeys])),
-    )
-    .groupBy(appointment.status);
-  const of = (statuses: string[]) =>
-    rows.filter((row) => statuses.includes(row.status)).reduce((sum, row) => sum + row.count, 0);
-  return {
-    booked: of(['booked', 'confirmed', 'checked_in', 'in_progress']),
-    done: of(['completed']),
-  };
+  const [row] = await db.execute<{ booked: number; done: number }>(
+    sql`select booked, done from internal.episode_session_counts(${episodeId}::uuid, ${`{${sessionTypeKeys.join(',')}}`}::text[])`,
+  );
+  return { booked: row?.booked ?? 0, done: row?.done ?? 0 };
+}
+
+/** The newest plan of care's frequency for an episode, as those who read it see it (SCH-12). */
+export async function planFrequencyOf(
+  db: DbOrTransaction,
+  episodeId: string,
+): Promise<{ sessionsPerWeek: number | null; weeks: number | null } | undefined> {
+  const [row] = await db
+    .select({ sessionsPerWeek: planOfCare.sessionsPerWeek, weeks: planOfCare.weeks })
+    .from(planOfCare)
+    .where(eq(planOfCare.episodeId, episodeId))
+    .orderBy(desc(planOfCare.version))
+    .limit(1);
+  return row;
 }
 
 /** The id of the appointment type with a key, active or not. */

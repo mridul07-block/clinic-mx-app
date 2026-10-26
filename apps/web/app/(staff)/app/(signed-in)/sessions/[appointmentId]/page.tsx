@@ -5,9 +5,11 @@ import { notFound, redirect } from 'next/navigation';
 import { Tag } from '../../../../../../components/tag';
 import { NotAllowedError } from '../../../../../../modules/access/guard';
 import { requireStaff } from '../../../../../../modules/auth/session';
+import { nextSessionPanel } from '../../../../../../modules/scheduling/next-session';
 import { loadSession, type SessionScreen } from '../../../../../../modules/sessions/services';
 import { Addenda } from '../../consultations/[consultationId]/addenda';
 import { SummaryCard } from '../../patients/[patientId]/clinical-record';
+import { NextSessionPanel } from './next-session';
 import { SessionNoteForm } from './session-note';
 
 export const metadata: Metadata = { title: 'Session · Clinic Mx' };
@@ -34,6 +36,8 @@ export default async function SessionPage({
     throw error;
   }
   if (!screen) notFound();
+  // SCH-12: the note's writer books the patient's next session here; readers never see it.
+  const nextSession = screen.readOnly ? undefined : await nextSessionPanel(staff, appointmentId);
   const { visit, session, summary, nextVisit, readOnly, writerName, coveredBy, note } = screen;
   return (
     <main className="flex w-full max-w-5xl flex-col gap-4 px-4 py-6">
@@ -101,6 +105,14 @@ export default async function SessionPage({
             patientId={visit.patientId}
           />
         </div>
+      ) : null}
+      {nextSession ? (
+        <NextSessionPanel
+          appointmentId={nextSession.appointmentId}
+          toBook={nextSession.toBook}
+          defaultDate={nextSession.defaultDate}
+          today={nextSession.today}
+        />
       ) : null}
     </main>
   );

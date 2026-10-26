@@ -268,6 +268,7 @@ export {
   PLAN_SESSIONS_LIST_JOB,
   appointmentTypeIdByKey,
   episodeSessionCounts,
+  planFrequencyOf,
   recordPlanBooking,
   type PlanBookingRecord,
 } from './plan-sessions';

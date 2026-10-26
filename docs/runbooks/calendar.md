@@ -282,6 +282,53 @@ sheet. Decisions made by the user on 26 October 2026.
 **Negative check:** let the clash alternatives ignore the series' own sessions, and the schema
 test "never offers a next day time on the series' own session that day" fails.
 
+## Physio books the next session (SCH-12)
+
+The PRD's access table gives physios "Own schedule; book a patient's next session". Decisions
+made by the user on 26 October 2026.
+
+- **Where:** a "Next session" panel on the session screen, under the note. It is there while the
+  draft is open and once the session is signed, for the note's writer only: whoever started it
+  (cover, SES-08), else the booked physio. Readers (the booked physio when covered, colleagues,
+  the Super Admin) and support logins never see it. It needs `bookings.book_next_session`.
+- **When:** only in an Active episode. It shows "11 to book", with the same cap as Book plan
+  sessions (`sessionsLeft`, shared with SCH-11); with nothing left, "All planned sessions are
+  booked."
+- **Picking:**
+  - a date, offered first as today plus 7 over the plan's sessions a week (rounded, at least a
+    day; `nextSessionDate`), today or later
+  - "Show times" lists their own free starts that day at the visit's centre (the slot engine,
+    Session type)
+  - tap one, then "Book next session"
+- **Booking:** with the physio, in the visit's episode, booked by them (channel Front desk, a staff
+  booking), rechecked under lock with no hold (holder `next-session:<staff id>`). A time taken
+  meanwhile is refused in the slot engine's words. The panel then shows "Booked Tue 27 Oct 2026,
+  9:00 AM · MVH-00251", and the summary card's next visit updates.
+- **Database:**
+  - `appointment_next_session`: a physio inserts an appointment only with themselves, booked by
+    themselves, at a centre they work at, with the Treats patients tick, into an Active episode
+    they have a visit in (booked on or started, in progress or done: `internal.books_next_session`).
+  - `internal.episode_session_counts`: counts only, so a physio's cap includes appointments with
+    colleagues they cannot read. `episodeSessionCounts` uses it for both SCH-11 and SCH-12.
+
+| Piece | Where |
+| --- | --- |
+| The panel, the times, booking | `apps/web/modules/scheduling/next-session.ts`, `next-session-actions.ts` |
+| The cap | `sessionsLeft` in `apps/web/modules/scheduling/plan-sessions.ts` |
+| The form | `apps/web/app/(staff)/app/(signed-in)/sessions/[appointmentId]/next-session.tsx` |
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `packages/schemas/src/plan-sessions.test.ts` (nextSessionDate) | the date from the frequency, at least a day, a week without one |
+| `apps/web/modules/scheduling/next-session.test.ts` | the panel for the writer only, in an Active episode; their own times only; booked as them in the visit's episode; refused for a reader, an unpaid plan, nothing left, another centre, Finance, support |
+| `packages/db/src/integration/plan-sessions.integration.test.ts` (SCH-12) | a physio books in their own Active episode and counts colleagues' sessions; refused for an episode they have no visit in, another physio's slot, an unpaid plan, support |
+| `apps/web/e2e/next-session.spec.ts` | 360 px and desktop: 11 to book with the date 4 days on; their times; a pick needed; booked, 10 left, the card's next visit; a colleague reads with no panel |
+
+**Negative check:** let `internal.books_next_session` skip "they have a visit in the episode", and
+the database test refusing another physio's episode fails.
+
 ## Running late and no show (INT-11)
 
 PRD J2.9: "Running late" shows at 15 minutes past the start; the front desk can mark a no show

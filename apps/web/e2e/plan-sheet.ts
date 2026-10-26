@@ -134,3 +134,20 @@ export async function planSeriesOf(patientId: string) {
           );
   return { appointments: rows.length, series: series.length, lists: lists.length };
 }
+
+/**
+ * Moves the consultation's episode on to Active, as paying for the chosen plan does (SCH-12 books
+ * next sessions only then); its id.
+ */
+export async function activePlan(consultationId: string): Promise<string> {
+  await proposedPlan(consultationId);
+  return withActor(db(), systemActor('tests'), async (tx) => {
+    const [row] = await tx
+      .select({ episodeId: consultation.episodeId })
+      .from(consultation)
+      .where(eq(consultation.id, consultationId));
+    if (!row) throw new Error('The consultation has no episode.');
+    await tx.update(episode).set({ status: 'active' }).where(eq(episode.id, row.episodeId));
+    return row.episodeId;
+  });
+}
