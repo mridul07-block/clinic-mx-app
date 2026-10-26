@@ -195,6 +195,15 @@ export function suggestedQuestionnaires(
 export const defaultReviewDate = (visitDate: string, reviewWeeks: number) =>
   addDays(visitDate, reviewWeeks * 7);
 
+/**
+ * The days tried for the automatic 6 week review (OUT-06; user decisions 26 October 2026): from the
+ * plan's review date, or today when that has passed, `days` of them.
+ */
+export function reviewSearchDates(reviewDate: string, today: string, days: number): string[] {
+  const from = reviewDate < today ? today : reviewDate;
+  return Array.from({ length: days }, (_, index) => addDays(from, index));
+}
+
 export const GOAL_MAX = 200;
 export const REASON_MAX = 200;
 /** The longest investigations or referral advice (ALT-06). */

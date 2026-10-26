@@ -142,10 +142,11 @@ export const appointment = pgTable(
     index('appointment_patient_start_idx').on(table.patientId, table.startsAt),
     index('appointment_plan_booking_idx').on(table.planBookingId),
     check('appointment_span', sql`${table.endsAt} > ${table.startsAt}`),
-    // A booking made by staff (Front desk or Walk in) records who made it (PRD J1.5).
+    // A booking made by staff (Front desk or Walk in) records who made it (PRD J1.5); the
+    // patient's own WhatsApp booking and Clinic Mx's automatic ones (OUT-06) have none.
     check(
       'appointment_staff_booked_by',
-      sql`${table.channel} = 'whatsapp' or ${table.bookedBy} is not null`,
+      sql`${table.channel} in ('whatsapp', 'automatic') or ${table.bookedBy} is not null`,
     ),
     check('appointment_machine', machineCheck(table.machine)),
     check(

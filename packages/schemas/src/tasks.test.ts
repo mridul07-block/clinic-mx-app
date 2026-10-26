@@ -5,6 +5,7 @@ import {
   nextUnsignedNotesRun,
   takeTaskSchema,
   taskKindLabel,
+  reviewToBookOf,
   unsignedNotesOf,
   unsignedNotesTitle,
 } from './tasks';
@@ -76,6 +77,10 @@ describe('the unsigned notes flag', () => {
       startsAt: '2026-11-02T04:30:00.000Z',
     };
     expect(unsignedNotesOf({ date: '2026-11-02', notes: [note] })).toEqual([note]);
+    // OUT-06: the review booking task's details.
+    const review = { reviewDate: '2026-12-05', searchedTo: '2026-12-11', consultant: 'Dr Test' };
+    expect(reviewToBookOf(review)).toEqual(review);
+    expect(reviewToBookOf({ reviewDate: 'soon' })).toBeUndefined();
     expect(unsignedNotesOf({ notes: [{ ...note, kind: 'other' }] })).toEqual([]);
     expect(unsignedNotesOf({})).toEqual([]);
   });

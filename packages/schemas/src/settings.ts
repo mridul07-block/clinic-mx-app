@@ -225,6 +225,13 @@ export const settingDefinitions = {
     source: 'PRD section 7: Reassessment',
     description: 'Weeks into the plan of the review with the consultant.',
   },
+  'scheduling.review_search_days': {
+    schema: days,
+    source:
+      'User decision 26 October 2026 (OUT-06): the review goes to the first free time from its date, within 7 days',
+    description:
+      'Days from the plan’s review date searched for the consultant’s first free time when the 6 week review is booked automatically.',
+  },
   'clinical.no_show_review_after': {
     schema: z.int().positive().max(10),
     source: 'PRD J5.12: two missed in a row add a clinical review task (ALT-04)',

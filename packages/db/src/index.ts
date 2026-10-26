@@ -382,6 +382,12 @@ export {
   type FrozenBaselineMeasure,
 } from './baseline';
 export {
+  REVIEW_BOOK_JOB,
+  addReviewBookingTask,
+  reviewBookingFacts,
+  type ReviewBookingFacts,
+} from './review-booking';
+export {
   addAddendum,
   consultationAddenda,
   signConsultation,

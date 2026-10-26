@@ -26,6 +26,7 @@ export const taskKindLabels: Record<string, string> = {
   'review.adverse_event': 'Clinical review: adverse event',
   'review.adverse_event_director': 'Adverse event: Clinical Director review',
   'review.unsigned_notes': 'Unsigned notes',
+  'book.review': 'Book the 6 week review',
 };
 
 export function taskKindLabel(kind: string): string {
@@ -83,6 +84,23 @@ export const unsignedNoteSchema = z.object({
 });
 
 export type UnsignedNote = z.infer<typeof unsignedNoteSchema>;
+
+/** The front desk's task when the 6 week review could not be booked automatically (OUT-06). */
+export const REVIEW_BOOKING_TASK = 'book.review';
+
+export const reviewToBookSchema = z.object({
+  reviewDate: z.iso.date(),
+  searchedTo: z.iso.date(),
+  consultant: z.string(),
+});
+
+export type ReviewToBook = z.infer<typeof reviewToBookSchema>;
+
+/** What a review booking task says; undefined when it cannot be read. */
+export function reviewToBookOf(details: Record<string, unknown>): ReviewToBook | undefined {
+  const parsed = reviewToBookSchema.safeParse(details);
+  return parsed.success ? parsed.data : undefined;
+}
 
 /** The notes in an unsigned notes task's details; none when they cannot be read. */
 export function unsignedNotesOf(details: Record<string, unknown>): UnsignedNote[] {

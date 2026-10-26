@@ -1,0 +1,1 @@
+ALTER TYPE "public"."booking_channel" ADD VALUE 'automatic';

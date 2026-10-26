@@ -848,6 +848,27 @@
       "when": 1793023868431,
       "tag": "20261026141108_baseline_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1793028228686,
+      "tag": "20261026152348_review_channel",
+      "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1793028241947,
+      "tag": "20261026152401_review_booking",
+      "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1793028605284,
+      "tag": "20261026153005_automatic_booker",
+      "breakpoints": true
     }
   ]
 }

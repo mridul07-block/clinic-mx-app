@@ -27,6 +27,16 @@ const db = () => {
   return database.db;
 };
 
+/** Moves the 6 week review date of the consultation's plan (OUT-06). */
+export async function planReviewDate(consultationId: string, reviewDate: string): Promise<void> {
+  await withActor(db(), systemActor('tests'), async (tx) => {
+    await tx
+      .update(planOfCare)
+      .set({ reviewDate })
+      .where(eq(planOfCare.consultationId, consultationId));
+  });
+}
+
 /** Plans a modality on the consultation's plan of care, as signing writes it. */
 export async function plannedModality(consultationId: string, modalityKey: string): Promise<void> {
   await withActor(db(), systemActor('tests'), async (tx) => {
