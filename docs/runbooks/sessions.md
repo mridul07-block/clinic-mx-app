@@ -191,3 +191,39 @@ Specification "Session note"). Decisions (user, 26 October 2026):
 | `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: no button on session 1; on session 2, a typed treatment note asks first, Keep mine keeps it, Replace copies, today's questions stay open, and a reload keeps the copy |
 
 **Negative check:** let `sameAsLastTime` copy the pain readings too, and the schema test fails.
+
+## Adverse events (SES-06)
+
+Done when an adverse event requires a description and alerts the consultant (PRD M9; PRD J7.2
+and Consultation SOP 15.2: adverse events go to the Clinical Director within 24 hours; the
+Blueprint records them under the response). Decisions (user, 26 October 2026):
+
+- **Recording:** an optional "Adverse event" tick under Response in the session note. Ticked, it
+  needs "Describe the adverse event" before Close session ("Describe the adverse event." in
+  Before closing). It records the description only. When nothing happened, nothing extra is
+  needed.
+- **Who is alerted, and when:** at Close session, from the signed note, two high priority tasks:
+  - "Adverse event in session n" for the consultant who signed the episode's consultation (the
+    Centre Manager role at the centre when there is none)
+  - "Adverse event in session n: Clinical Director review" for the Super Admin role, which stands
+    in for the Clinical Director (DECISION SES-06)
+- **Where it shows:** a signed note shows the tick and description read only. On the record's
+  Notes, the digest ends "Adverse event" and the note shows its description. "Same as last time"
+  never copies it.
+
+| Piece | Where |
+| --- | --- |
+| The tick, the description, the blocker | `sessionNoteSchema.response.adverseEvent`, `sessionNoteBlockers`, `packages/schemas/src/sessions.ts` |
+| The stored description | `session.adverse_event` (check `session_adverse_event`), taken from the note by `internal.session_sign` on signing; nobody sets it (it is not among `session_guard`'s signing columns); ticked and blank is refused (23514) |
+| The two tasks | `internal.session_closed` (`20261026083950_session_adverse_event_rules.sql`), kinds `review.adverse_event` and `review.adverse_event_director` |
+| The form | `sessions/[appointmentId]/session-note.tsx`; read only on the record in `components/signed-session-note.tsx` |
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `packages/schemas/src/sessions.test.ts` (an adverse event, sessionNoteDigest) | none on an older note; the blocker until described; the 2000 character limit; never copied; the digest names it |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (adverse event) | nobody sets the column; ticked and blank refused; signed with one: the description stored, one consultant task and one Super Admin role task; without the tick: nothing stored and no task |
+| `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: session 2 ticked, held back until described, closed; the physio (the consultant here) has the task; a Super Admin has the Clinical Director task and reads it on the record's Notes |
+
+**Negative check:** take the adverse event branch out of `internal.session_closed`, and the database test fails.

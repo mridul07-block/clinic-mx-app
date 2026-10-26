@@ -9,6 +9,7 @@ import {
   sessionGate,
   sessionLabel,
   sessionNoteBlockers,
+  sessionNoteDigest,
   sessionNoteSchema,
   sessionView,
   type SessionNote,
@@ -65,7 +66,7 @@ describe('the session note', () => {
     newSymptoms: { answer: 'no', description: '' },
     pain: { rest: 2, activity: 4, after: 1 },
     treatment: { interventions: ['exercise'], modalities: [], note: '' },
-    response: { rating: 'better', note: '' },
+    response: { rating: 'better', note: '', adverseEvent: { reported: false, description: '' } },
     nextSession: { plan: 'progress', note: '' },
   });
 
@@ -152,7 +153,11 @@ describe('Same as last time', () => {
       modalities: ['pemf'],
       note: 'Grade III',
     },
-    response: { rating: 'better', note: 'Moving well' },
+    response: {
+      rating: 'better',
+      note: 'Moving well',
+      adverseEvent: { reported: false, description: '' },
+    },
     homeProgramme: { note: 'Add step downs' },
     nextSession: { plan: 'progress', note: 'Add load' },
   });
@@ -170,7 +175,7 @@ describe('Same as last time', () => {
     expect(copied.newSymptoms).toEqual({ answer: 'no', description: '' });
     expect(copied.sinceLastVisit).toBe('');
     expect(copied.pain).toEqual({ rest: 5, activity: null, after: null });
-    expect(copied.response).toEqual({ rating: null, note: '' });
+    expect(copied.response).toEqual(emptySessionNote().response);
     // Copies, not the same arrays.
     expect(copied.treatment.interventions).not.toBe(last().treatment.interventions);
   });
@@ -194,5 +199,53 @@ describe('Same as last time', () => {
     expect(
       sameAsLastTimeOverwrites({ ...opened, nextSession: { plan: 'regress', note: '' } }, last()),
     ).toBe(true);
+  });
+});
+
+// SES-06 done when: an adverse event requires a description and alerts the consultant. Decisions
+// (user, 26 October 2026): an optional tick under the response; its description only.
+describe('an adverse event', () => {
+  it('is not reported on a note written before it existed', () => {
+    const old = sessionNoteSchema.parse({ response: { rating: 'better', note: '' } });
+    expect(old.response.adverseEvent).toEqual({ reported: false, description: '' });
+    expect(emptySessionNote().response.adverseEvent.reported).toBe(false);
+  });
+
+  it('holds Close session back until it is described, and is never copied', () => {
+    const note: SessionNote = {
+      ...emptySessionNote(),
+      newSymptoms: { answer: 'no', description: '' },
+      pain: { rest: 2, activity: 4, after: 1 },
+      treatment: { interventions: ['exercise'], modalities: [], note: '' },
+      response: { rating: 'worse', note: '', adverseEvent: { reported: true, description: '  ' } },
+      nextSession: { plan: 'regress', note: '' },
+    };
+    expect(sessionNoteBlockers(note)).toEqual(['Describe the adverse event.']);
+    note.response.adverseEvent.description = 'Dizzy after shockwave, settled in 10 minutes';
+    expect(sessionNoteBlockers(note)).toEqual([]);
+    expect(sameAsLastTime(emptySessionNote(), note).response.adverseEvent.reported).toBe(false);
+    expect(
+      sessionNoteSchema.safeParse({
+        response: { adverseEvent: { reported: true, description: 'x'.repeat(2001) } },
+      }).success,
+    ).toBe(false);
+  });
+});
+
+// The one line a signed session note shows on the record's Notes (CLN-12 follow up), naming an
+// adverse event (SES-06).
+describe('sessionNoteDigest', () => {
+  it('reads the pain, the response and an adverse event', () => {
+    const note = emptySessionNote();
+    expect(sessionNoteDigest(note)).toBe('');
+    note.pain = { rest: 2, activity: 4, after: 1 };
+    note.response.rating = 'worse';
+    expect(sessionNoteDigest(note)).toBe(
+      'Pain 2 at rest · 4 during activity · 1 after treatment · Worse',
+    );
+    note.response.adverseEvent = { reported: true, description: 'Dizzy after shockwave' };
+    expect(sessionNoteDigest(note)).toBe(
+      'Pain 2 at rest · 4 during activity · 1 after treatment · Worse · Adverse event',
+    );
   });
 });

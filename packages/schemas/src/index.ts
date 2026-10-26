@@ -716,6 +716,7 @@ export {
   sessionGate,
   sessionLabel,
   sessionNoteBlockers,
+  sessionNoteDigest,
   sessionNoteSchema,
   sessionResponseLabels,
   sessionResponses,

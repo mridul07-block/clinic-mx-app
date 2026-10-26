@@ -2124,6 +2124,105 @@ describe('counter payments', () => {
       });
     });
 
+    // SES-06 (user decisions 26 October 2026): an adverse event, ticked under the response with a
+    // description, is taken from the note on closing and alerts the consultant and the Clinical
+    // Director (the Super Admin role, DECISION SES-06).
+    it('takes an adverse event from the signed note and alerts the consultant and the Clinical Director', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        const { sessionId } = await started(tx, fixture);
+        await becomeStaff(tx, fixture.consultant);
+        expect(
+          await failure(tx, (sp) =>
+            sp
+              .update(treatmentSession)
+              .set({ adverseEvent: 'Set by hand' })
+              .where(eq(treatmentSession.id, sessionId)),
+          ),
+          'nobody sets it themselves',
+        ).toBe('23514');
+        const adverse = (description: string) => ({
+          response: { rating: 'worse', note: '', adverseEvent: { reported: true, description } },
+        });
+        expect(await saveSessionNote(tx, sessionId, 1, adverse('   '))).toEqual({
+          status: 'saved',
+          version: 2,
+        });
+        expect(
+          await failure(tx, (sp) => signSession(sp, closing(fixture.consultant.id, sessionId, 2))),
+          'ticked needs a description',
+        ).toBe('23514');
+        expect(
+          await saveSessionNote(tx, sessionId, 2, adverse(' Dizzy after shockwave, settled ')),
+        ).toEqual({ status: 'saved', version: 3 });
+        expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 3))).toBe('signed');
+
+        await asOwner(tx);
+        const [row] = await tx
+          .select({ adverseEvent: treatmentSession.adverseEvent })
+          .from(treatmentSession)
+          .where(eq(treatmentSession.id, sessionId));
+        expect(row?.adverseEvent).toBe('Dizzy after shockwave, settled');
+        const tasks = await tx
+          .select({
+            kind: task.kind,
+            title: task.title,
+            priority: task.priority,
+            assignee: task.assigneeStaffUserId,
+            role: task.assigneeRole,
+          })
+          .from(task)
+          .where(
+            and(eq(task.episodeId, fixture.episodeId), sql`${task.kind} like 'review.adverse%'`),
+          )
+          .orderBy(task.kind);
+        expect(tasks).toEqual([
+          {
+            kind: 'review.adverse_event',
+            title: 'Adverse event in session 1',
+            priority: 'high',
+            assignee: fixture.consultant.id,
+            role: null,
+          },
+          {
+            kind: 'review.adverse_event_director',
+            title: 'Adverse event in session 1: Clinical Director review',
+            priority: 'high',
+            assignee: null,
+            role: 'super_admin',
+          },
+        ]);
+      });
+    });
+
+    it('raises no adverse event task and stores none when none is ticked', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        const { sessionId } = await started(tx, fixture);
+        await becomeStaff(tx, fixture.consultant);
+        // Described but not ticked: not an adverse event.
+        expect(
+          await saveSessionNote(tx, sessionId, 1, {
+            response: { adverseEvent: { reported: false, description: 'Leftover text' } },
+          }),
+        ).toEqual({ status: 'saved', version: 2 });
+        expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 2))).toBe('signed');
+        await asOwner(tx);
+        const [row] = await tx
+          .select({ adverseEvent: treatmentSession.adverseEvent })
+          .from(treatmentSession)
+          .where(eq(treatmentSession.id, sessionId));
+        expect(row?.adverseEvent).toBeNull();
+        const tasks = await tx
+          .select({ id: task.id })
+          .from(task)
+          .where(
+            and(eq(task.episodeId, fixture.episodeId), sql`${task.kind} like 'review.adverse%'`),
+          );
+        expect(tasks).toHaveLength(0);
+      });
+    });
+
     // CLN-12 follow up (user decisions 26 October 2026): a signed session note changes only by
     // addenda, added as on a consultation: the Treats patients tick, at the episode's centre or on
     // one's own note.

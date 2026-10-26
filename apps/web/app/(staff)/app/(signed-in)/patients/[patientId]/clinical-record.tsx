@@ -9,6 +9,7 @@ import {
   istDate,
   readSessionNote,
   redFlagAlertStatusLabels,
+  sessionNoteDigest,
   redFlagTriageLabels,
   screeningRegionLabels,
   stageLabels,
@@ -17,10 +18,7 @@ import {
 } from '@clinic-mx/schemas';
 import type { Tone } from '@clinic-mx/ui';
 import Link from 'next/link';
-import {
-  SignedSessionNote,
-  sessionNoteDigest,
-} from '../../../../../../components/signed-session-note';
+import { SignedSessionNote } from '../../../../../../components/signed-session-note';
 import { Tag } from '../../../../../../components/tag';
 import type {
   ClinicalRecord,

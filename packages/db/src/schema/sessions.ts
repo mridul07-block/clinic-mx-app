@@ -7,6 +7,7 @@ import {
   pgEnum,
   pgTable,
   smallint,
+  text,
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
@@ -61,6 +62,8 @@ export const treatmentSession = pgTable(
     painRest: smallint('pain_rest'),
     painActivity: smallint('pain_activity'),
     painAfter: smallint('pain_after'),
+    /** SES-06: the adverse event's description, taken from the note when it is signed. */
+    adverseEvent: text('adverse_event'),
     status: sessionStatus('status').notNull().default('draft'),
     signedBy: uuid('signed_by').references(() => staffUser.id),
     signedAt: timestamp('signed_at', { withTimezone: true }),
@@ -84,6 +87,10 @@ export const treatmentSession = pgTable(
       sql`${table.painRest} between 0 and 10 and ${table.painActivity} between 0 and 10 and ${table.painAfter} between 0 and 10`,
     ),
     check('session_number', sql`${table.number} >= 1`),
+    check(
+      'session_adverse_event',
+      sql`${table.adverseEvent} is null or length(trim(${table.adverseEvent})) between 1 and 2000`,
+    ),
   ],
 ).enableRLS();
 

@@ -417,6 +417,46 @@ export function SessionNoteForm({
             set({ response: { ...note.response, note: value } });
           }}
         />
+        {/* SES-06: an adverse event, described, alerts the consultant and the Clinical Director. */}
+        <label className="flex min-h-row items-center gap-3 pointer-coarse:min-h-row-touch">
+          <input
+            type="checkbox"
+            className={tick}
+            disabled={readOnly}
+            checked={note.response.adverseEvent.reported}
+            onChange={(event) => {
+              set({
+                response: {
+                  ...note.response,
+                  adverseEvent: { ...note.response.adverseEvent, reported: event.target.checked },
+                },
+              });
+            }}
+          />
+          Adverse event
+        </label>
+        {note.response.adverseEvent.reported ? (
+          <>
+            <Note
+              label="Describe the adverse event"
+              value={note.response.adverseEvent.description}
+              readOnly={readOnly}
+              onChange={(description) => {
+                set({
+                  response: {
+                    ...note.response,
+                    adverseEvent: { ...note.response.adverseEvent, description },
+                  },
+                });
+              }}
+            />
+            {editable ? (
+              <p className="text-sm text-waiting-strong">
+                Closing the session gives the consultant and the Clinical Director a task.
+              </p>
+            ) : null}
+          </>
+        ) : null}
       </Section>
 
       <Section title="Home programme">

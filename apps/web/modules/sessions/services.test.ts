@@ -186,7 +186,7 @@ describe('the session note', () => {
     newSymptoms: { answer: 'no', description: '' },
     pain: { rest: 2, activity: 4, after: 1 },
     treatment: { interventions: ['exercise'], modalities: [], note: '' },
-    response: { rating: 'better', note: '' },
+    response: { rating: 'better', note: '', adverseEvent: { reported: false, description: '' } },
     nextSession: { plan: 'progress', note: '' },
   });
   const stored = (extra: Record<string, unknown> = {}) => ({

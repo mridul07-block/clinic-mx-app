@@ -1,0 +1,2 @@
+ALTER TABLE "session" ADD COLUMN "adverse_event" text;--> statement-breakpoint
+ALTER TABLE "session" ADD CONSTRAINT "session_adverse_event" CHECK ("session"."adverse_event" is null or length(trim("session"."adverse_event")) between 1 and 2000);
