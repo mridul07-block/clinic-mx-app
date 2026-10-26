@@ -5,7 +5,7 @@ import { recordViews, signedConsultation } from './consultations';
 import { removePipelineRows } from './intake';
 import { checkedIn, consultationTypeId, submittedWithAlert } from './my-patients';
 import { testPatient } from './patients';
-import { packageSessionsUsed, proposedPlan, testPackage } from './plan-sheet';
+import { packageSessionsUsed, plannedModality, proposedPlan, testPackage } from './plan-sheet';
 import { restorePrices, snapshotPrices } from './prices';
 import { exclusively, signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
 
@@ -35,6 +35,10 @@ import { exclusively, signIn, signInWithCode, temporaryDesk, temporaryWithCode }
 // Decisions (user, 26 October 2026): "Colleagues today" on My patients; a colleague's checked in
 // session is started to cover it, its note written and signed by the covering physio; the visit
 // stays booked with its own physio and says who covered it.
+// SES-05 done when: each modality has its parameter fields, and a precaution warns when relevant.
+// Decisions (user, 26 October 2026): common fields and shockwave's from SOP 12.3, filled before
+// closing; a reason for a modality that warns about one of the patient's precautions; parameters
+// carried over, the reason asked again.
 
 const physios: string[] = [];
 const visits: string[] = [];
@@ -72,6 +76,8 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
   physios.push(physio.id);
   await consultantFee(physio.id, 'consultation');
   const paid = await proposedPatient(physio.id, 50);
+  // SES-05: the plan includes Radial Shockwave, which warns about the patient's pregnancy.
+  await plannedModality(paid.consultationId, 'radial_shockwave');
   const unpaid = await proposedPatient(physio.id, 110);
   const desk = await temporaryDesk();
   const hsr = await centreIdByCode('HSR');
@@ -217,6 +223,30 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
         .filter({ hasText: /^Progress$/ })
         .click();
       await note.getByLabel('Plan for next time').fill('Add step downs');
+      // SES-05: shockwave, from the plan, needs its parameters and a reason despite pregnancy.
+      const shockwave = note.locator(
+        '[data-testid="modality-parameters"][data-modality="radial_shockwave"]',
+      );
+      await expect(note.getByRole('checkbox', { name: 'Radial Shockwave (RSW)' })).toBeChecked();
+      await expect(shockwave).toContainText('Precaution: Pregnancy');
+      await expect(note.getByTestId('close-blockers')).toContainText(
+        'Fill the parameters for Radial Shockwave (RSW).',
+      );
+      await expect(note.getByTestId('close-blockers')).toContainText(
+        'Give a reason for Radial Shockwave (RSW) despite Pregnancy.',
+      );
+      await shockwave.getByLabel('Area treated').fill('Patellar tendon');
+      await shockwave.getByLabel('Duration').fill('ten');
+      await shockwave.getByLabel('Energy flux density').fill('0.12');
+      await shockwave.getByLabel('Frequency').fill('8');
+      await shockwave.getByLabel('Settings').fill('2000 shocks');
+      await expect(note.getByTestId('close-blockers')).toContainText(
+        'Fill the parameters for Radial Shockwave (RSW).',
+      );
+      await shockwave.getByLabel('Duration').fill('10');
+      await shockwave
+        .getByLabel('Reason it is still given today')
+        .fill('Postpartum; cleared by the obstetrician');
       // Session 1 has no earlier note to copy.
       await expect(note.getByTestId('same-as-last-time')).toHaveCount(0);
       await expect(note.getByTestId('close-blockers')).toHaveCount(0);
@@ -324,6 +354,15 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
         .locator('label')
         .filter({ hasText: /^Worse$/ })
         .click();
+      // SES-05: the parameters came along; the reason is asked again.
+      const again = note.locator(
+        '[data-testid="modality-parameters"][data-modality="radial_shockwave"]',
+      );
+      await expect(again.getByLabel('Area treated')).toHaveValue('Patellar tendon');
+      await expect(again.getByLabel('Reason it is still given today')).toHaveValue('');
+      await again
+        .getByLabel('Reason it is still given today')
+        .fill('Postpartum; cleared by the obstetrician');
       await note.getByRole('checkbox', { name: 'Adverse event' }).check();
       await expect(note.getByTestId('close-blockers')).toHaveText('Describe the adverse event.');
       await expect(note.getByRole('button', { name: 'Close session' })).toBeDisabled();
@@ -406,6 +445,9 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
       await expect(signedNote).toContainText('Stairs are easier this week');
       await expect(signedNote).toContainText('Exercise');
       await expect(signedNote).toContainText('Progress');
+      await expect(signedNote).toContainText(
+        'Radial Shockwave (RSW): Patellar tendon · 10 min · 0.12 mJ/mm² · 8 Hz · 2000 shocks',
+      );
       await sessionNote.getByText('Addenda (1)').click();
       await expect(sessionNote.getByTestId('addendum')).toContainText('Pain at rest was 3, not 2.');
       await sessionNote.getByLabel('Add addendum').fill('Reviewed the foot: no change.');
@@ -458,6 +500,10 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
         .locator('label')
         .filter({ hasText: /^Maintain$/ })
         .click();
+      await covering
+        .locator('[data-testid="modality-parameters"][data-modality="radial_shockwave"]')
+        .getByLabel('Reason it is still given today')
+        .fill('Postpartum; cleared by the obstetrician');
       await expect(covering.getByTestId('close-blockers')).toHaveCount(0);
       await expect(covering.getByRole('status')).toHaveText('Saved');
       await covering.getByRole('button', { name: 'Close session' }).click();

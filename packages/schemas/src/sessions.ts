@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { recordVersionSchema } from './drafts';
 import { episodeStatusLabels, type EpisodeStatus } from './episodes';
-import { interventionKinds, type InterventionKind } from './plan';
+import { interventionKinds, type InterventionKind, type ModalityParameter } from './plan';
 import { addendumTextSchema } from './signed-record';
 
 /**
@@ -86,6 +86,7 @@ const noteText = z
   .max(2000, { error: 'Keep each note under 2000 characters.' })
   .default('');
 const painReading = z.number().int().min(0).max(10).nullable().default(null);
+const modalityKey = z.string().min(1).max(80);
 
 /** A session note is a draft until Close session signs it. */
 export const sessionStatuses = ['draft', 'signed'] as const;
@@ -140,10 +141,21 @@ export const sessionNoteSchema = z.object({
   treatment: z
     .object({
       interventions: z.array(z.enum(interventionKinds)).max(interventionKinds.length).default([]),
-      modalities: z.array(z.string().min(1).max(80)).max(20).default([]),
+      modalities: z.array(modalityKey).max(20).default([]),
       note: noteText,
+      // SES-05: each modality's parameters by field, and why it is given despite a precaution.
+      parameters: z
+        .record(
+          modalityKey,
+          z.record(
+            z.string().min(1).max(80),
+            z.string().max(200, { error: 'Keep each parameter under 200 characters.' }),
+          ),
+        )
+        .default({}),
+      reasons: z.record(modalityKey, noteText).default({}),
     })
-    .default({ interventions: [], modalities: [], note: '' }),
+    .default({ interventions: [], modalities: [], note: '', parameters: {}, reasons: {} }),
   response: z
     .object({
       rating: z.enum(sessionResponses).nullable().default(null),
@@ -173,6 +185,50 @@ export function readSessionNote(stored: Record<string, unknown>): SessionNote {
   return read.success ? read.data : emptySessionNote();
 }
 
+/** A note's treatment as a copy, its parameters included (SES-05). */
+function copiedTreatment(note: SessionNote): Omit<SessionNote['treatment'], 'reasons'> {
+  return {
+    interventions: [...note.treatment.interventions],
+    modalities: [...note.treatment.modalities],
+    note: note.treatment.note,
+    parameters: Object.fromEntries(
+      Object.entries(note.treatment.parameters).map(([key, values]) => [key, { ...values }]),
+    ),
+  };
+}
+
+/**
+ * A modality as a session note needs it (SES-05): its name and parameters at the note's knowledge
+ * base version, and the patient's precautions it warns about.
+ */
+export interface SessionModality {
+  key: string;
+  name: string;
+  parameters: ModalityParameter[];
+  warnings: { label: string; source: string }[];
+}
+
+/** Whether a parameter holds a value of its kind. */
+function parameterFilled(field: ModalityParameter, value: string | undefined): boolean {
+  const text = (value ?? '').trim();
+  if (text === '') return false;
+  return field.kind === 'text' || Number.isFinite(Number(text));
+}
+
+/** "Achilles · 10 min · 0.12 mJ/mm² · 8 Hz", a modality's parameters in its fields' order. */
+export function sessionParameterLine(
+  values: Record<string, string> | undefined,
+  fields: readonly ModalityParameter[],
+): string {
+  return fields
+    .flatMap((field) => {
+      const text = (values?.[field.key] ?? '').trim();
+      if (text === '') return [];
+      return [field.unit ? `${text} ${field.unit}` : text];
+    })
+    .join(' · ');
+}
+
 /**
  * A new note: the treatment given last time (the episode's last signed note), or for the first
  * session the plan's interventions and modalities; everything else starts empty.
@@ -186,7 +242,8 @@ export function prefilledSessionNote(
   const note = emptySessionNote();
   if (!from) return note;
   if ('lastNote' in from) {
-    return { ...note, treatment: { ...from.lastNote.treatment } };
+    // Parameters carry over (SES-05); a precaution's reason is asked again each time.
+    return { ...note, treatment: { ...copiedTreatment(from.lastNote), reasons: {} } };
   }
   return {
     ...note,
@@ -194,6 +251,8 @@ export function prefilledSessionNote(
       interventions: [...from.plan.interventions],
       modalities: [...from.plan.modalities],
       note: '',
+      parameters: {},
+      reasons: {},
     },
   };
 }
@@ -207,19 +266,20 @@ export function prefilledSessionNote(
 export function sameAsLastTime(current: SessionNote, last: SessionNote): SessionNote {
   return {
     ...current,
-    treatment: {
-      interventions: [...last.treatment.interventions],
-      modalities: [...last.treatment.modalities],
-      note: last.treatment.note,
-    },
+    treatment: { ...copiedTreatment(last), reasons: current.treatment.reasons },
     homeProgramme: { ...last.homeProgramme },
     nextSession: { ...last.nextSession },
   };
 }
 
-/** The sections "Same as last time" replaces, to compare. */
+/** The sections "Same as last time" replaces, to compare (reasons are today's own). */
 function copiedSections(note: SessionNote): string {
-  return JSON.stringify([note.treatment, note.homeProgramme, note.nextSession]);
+  const { interventions, modalities, note: text, parameters } = note.treatment;
+  return JSON.stringify([
+    { interventions, modalities, note: text, parameters },
+    note.homeProgramme,
+    note.nextSession,
+  ]);
 }
 
 /**
@@ -269,8 +329,15 @@ export function coversSessionsAt(
   return staff.treatsPatients && !staff.support && staff.centreIds.includes(centreId);
 }
 
-/** What still holds Close session back, in the note's order; empty when it can close. */
-export function sessionNoteBlockers(note: SessionNote): string[] {
+/**
+ * What still holds Close session back, in the note's order; empty when it can close. With the
+ * note's modalities (SES-05), each ticked one needs its parameters, and a reason when it warns
+ * about one of the patient's precautions.
+ */
+export function sessionNoteBlockers(
+  note: SessionNote,
+  modalities: readonly SessionModality[] = [],
+): string[] {
   const blockers: string[] = [];
   if (note.newSymptoms.answer === null) blockers.push('Answer "Any new symptoms?".');
   else if (note.newSymptoms.answer === 'yes' && note.newSymptoms.description.trim() === '') {
@@ -282,6 +349,19 @@ export function sessionNoteBlockers(note: SessionNote): string[] {
   }
   if (note.treatment.interventions.length + note.treatment.modalities.length === 0) {
     blockers.push('Tick the treatment given.');
+  }
+  for (const key of note.treatment.modalities) {
+    const modality = modalities.find((m) => m.key === key);
+    if (!modality) continue;
+    const values = note.treatment.parameters[key];
+    if (modality.parameters.some((field) => !parameterFilled(field, values?.[field.key]))) {
+      blockers.push(`Fill the parameters for ${modality.name}.`);
+    }
+    if (modality.warnings.length > 0 && (note.treatment.reasons[key] ?? '').trim() === '') {
+      blockers.push(
+        `Give a reason for ${modality.name} despite ${modality.warnings.map((w) => w.label).join(', ')}.`,
+      );
+    }
   }
   if (note.response.rating === null) blockers.push('Choose the response.');
   if (note.response.adverseEvent.reported && note.response.adverseEvent.description.trim() === '') {

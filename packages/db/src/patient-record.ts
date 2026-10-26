@@ -1,6 +1,7 @@
 import type {
   AlertDisplay,
   InterventionKind,
+  ModalityParameter,
   Irritability,
   RedFlagAlertStatus,
   RedFlagTriage,
@@ -122,8 +123,8 @@ export interface SignedSessionNoteEntry {
   signedByName: string | null;
   /** As `sessionNoteSchema` reads it. */
   note: Record<string, unknown>;
-  /** The names of the modalities it names, at the note's knowledge base version. */
-  modalityNames: Record<string, string>;
+  /** The modalities it names, at the note's knowledge base version: names and parameters. */
+  modalities: Record<string, { name: string; parameters: ModalityParameter[] }>;
   addenda: AddendumEntry[];
 }
 
@@ -156,7 +157,12 @@ export async function signedSessionNotesOf(
     rows.map((row) => row.id),
   );
   const modalities = await db
-    .select({ kbVersionId: kbModality.kbVersionId, key: kbModality.key, name: kbModality.name })
+    .select({
+      kbVersionId: kbModality.kbVersionId,
+      key: kbModality.key,
+      name: kbModality.name,
+      parameters: kbModality.parameters,
+    })
     .from(kbModality)
     .where(inArray(kbModality.kbVersionId, [...new Set(rows.map((row) => row.kbVersionId))]));
   return rows.map(({ kbVersionId, ...note }) => ({
@@ -164,10 +170,13 @@ export async function signedSessionNotesOf(
     ...note,
     // Signed, so signed_at is set (check session_signed).
     signedAt: note.signedAt ?? new Date(0),
-    modalityNames: Object.fromEntries(
+    modalities: Object.fromEntries(
       modalities
         .filter((modality) => modality.kbVersionId === kbVersionId)
-        .map((modality) => [modality.key, modality.name]),
+        .map((modality) => [
+          modality.key,
+          { name: modality.name, parameters: modality.parameters },
+        ]),
     ),
     addenda: addenda.get(note.id) ?? [],
   }));

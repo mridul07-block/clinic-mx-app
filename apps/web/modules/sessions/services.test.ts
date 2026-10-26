@@ -34,6 +34,7 @@ const db = vi.hoisted(() => ({
   patientAlertHistory: vi.fn(),
   episodePlan: vi.fn(),
   episodePrecautions: vi.fn(),
+  sessionModalities: vi.fn(),
   nextVisitOf: vi.fn(),
   logClinicalView: vi.fn(),
 }));
@@ -57,6 +58,12 @@ const staff = (extra: Partial<StaffMember> = {}): StaffMember => ({
   support: false,
   ...extra,
 });
+const shockwave = {
+  key: 'radial_shockwave',
+  name: 'Radial Shockwave (RSW)',
+  precautions: [{ precaution: 'pregnancy', source: 'SOP 12.3' }],
+  parameters: [{ key: 'area', label: 'Area treated', kind: 'text' as const, source: 's' }],
+};
 const otherPhysio = staff({ id: '00000000-0000-4000-8000-000000000205' });
 const superAdmin = staff({
   id: '00000000-0000-4000-8000-000000000201',
@@ -212,7 +219,13 @@ describe('the session note', () => {
     ...emptySessionNote(),
     newSymptoms: { answer: 'no', description: '' },
     pain: { rest: 2, activity: 4, after: 1 },
-    treatment: { interventions: ['exercise'], modalities: [], note: '' },
+    treatment: {
+      interventions: ['exercise'],
+      modalities: [],
+      note: '',
+      parameters: {},
+      reasons: {},
+    },
     response: { rating: 'better', note: '', adverseEvent: { reported: false, description: '' } },
     nextSession: { plan: 'progress', note: '' },
   });
@@ -223,6 +236,7 @@ describe('the session note', () => {
     centreId: hsr,
     physioId: staff().id,
     number: 3,
+    kbVersionId: 'kb-1',
     planOfCareId: 'plan-1',
     note: complete(),
     status: 'draft',
@@ -242,6 +256,8 @@ describe('the session note', () => {
     );
     db.sessionNoteOf.mockResolvedValue(stored());
     db.sessionNoteById.mockResolvedValue(stored({ status: 'signed' }));
+    db.sessionModalities.mockResolvedValue([shockwave]);
+    db.episodePrecautions.mockResolvedValue([]);
     db.sessionAddenda.mockResolvedValue([]);
     db.addSessionAddendum.mockResolvedValue({ id: 'addendum-1' });
     db.staffTreatsNow.mockResolvedValue(true);
@@ -255,6 +271,8 @@ describe('the session note', () => {
       interventions: ['manual_therapy'],
       modalities: ['laser'],
       note: 'Grade III',
+      parameters: {},
+      reasons: {},
     };
     db.lastSignedSessionNote.mockResolvedValueOnce({
       number: 2,
@@ -281,6 +299,8 @@ describe('the session note', () => {
       interventions: ['exercise'],
       modalities: ['pemf'],
       note: '',
+      parameters: {},
+      reasons: {},
     });
     db.latestKnowledgeVersion.mockResolvedValueOnce(undefined);
     await expect(openSessionNote(fakeTx as never, opening)).rejects.toThrow(
@@ -403,6 +423,54 @@ describe('the session note', () => {
       by: staff().id,
       pain: { rest: 2, activity: 4, after: 1 },
     });
+  });
+
+  // SES-05: each ticked modality's parameters, and a reason when it warns about a precaution.
+  it('gives the note its modalities with the episode’s precautions, and closes only when filled', async () => {
+    db.planForSession.mockResolvedValue({ interventions: [], modalities: [], homeProgramme: [] });
+    db.sessionVisit.mockResolvedValue(visit());
+    db.sessionProgress.mockResolvedValue(
+      new Map([[appointmentId, { number: 3, planned: 12, episodeStatus: 'active' }]]),
+    );
+    db.episodeRecord.mockResolvedValue({ id: episodeId, status: 'active', centreId: hsr });
+    db.signedNotesOf.mockResolvedValue([]);
+    db.signedSessionNotesOf.mockResolvedValue([]);
+    db.patientAlertHistory.mockResolvedValue([]);
+    db.episodePrecautions.mockResolvedValue([{ key: 'pregnancy', label: 'Pregnancy' }]);
+    const screen = await loadSession(staff(), appointmentId);
+    expect(screen?.note?.modalities).toEqual([
+      {
+        key: 'radial_shockwave',
+        name: 'Radial Shockwave (RSW)',
+        parameters: shockwave.parameters,
+        warnings: [{ label: 'Pregnancy', source: 'SOP 12.3' }],
+      },
+    ]);
+    expect(db.sessionModalities).toHaveBeenCalledWith(fakeTx, 'kb-1');
+
+    const ticked = (extra: Partial<SessionNote['treatment']>) =>
+      stored({
+        note: {
+          ...complete(),
+          treatment: { ...complete().treatment, modalities: ['radial_shockwave'], ...extra },
+        },
+      });
+    const close = () => closeSession(context(), { appointmentId, baseVersion: 4 });
+    db.sessionNoteOf.mockResolvedValueOnce(ticked({}));
+    await expect(close()).rejects.toThrow('Fill the parameters for Radial Shockwave (RSW).');
+    db.sessionNoteOf.mockResolvedValueOnce(
+      ticked({ parameters: { radial_shockwave: { area: 'Achilles' } } }),
+    );
+    await expect(close()).rejects.toThrow(
+      'Give a reason for Radial Shockwave (RSW) despite Pregnancy.',
+    );
+    db.sessionNoteOf.mockResolvedValueOnce(
+      ticked({
+        parameters: { radial_shockwave: { area: 'Achilles' } },
+        reasons: { radial_shockwave: 'Postpartum, cleared by the obstetrician' },
+      }),
+    );
+    await expect(close()).resolves.toEqual({ status: 'signed' });
   });
 
   it("refuses to close what is missing, someone else's, a stale version, or without the tick", async () => {

@@ -10,8 +10,10 @@ import {
   sessionLabel,
   sessionNoteBlockers,
   sessionNoteDigest,
+  sessionParameterLine,
   sessionNoteSchema,
   sessionView,
+  type SessionModality,
   type SessionNote,
 } from './sessions';
 
@@ -65,7 +67,13 @@ describe('the session note', () => {
     ...emptySessionNote(),
     newSymptoms: { answer: 'no', description: '' },
     pain: { rest: 2, activity: 4, after: 1 },
-    treatment: { interventions: ['exercise'], modalities: [], note: '' },
+    treatment: {
+      interventions: ['exercise'],
+      modalities: [],
+      note: '',
+      parameters: {},
+      reasons: {},
+    },
     response: { rating: 'better', note: '', adverseEvent: { reported: false, description: '' } },
     nextSession: { plan: 'progress', note: '' },
   });
@@ -97,7 +105,13 @@ describe('the session note', () => {
     expect(
       sessionNoteBlockers({
         ...complete(),
-        treatment: { interventions: [], modalities: ['pemf'], note: '' },
+        treatment: {
+          interventions: [],
+          modalities: ['pemf'],
+          note: '',
+          parameters: {},
+          reasons: {},
+        },
       }),
     ).toEqual([]);
   });
@@ -105,16 +119,29 @@ describe('the session note', () => {
   it('prefills the treatment from the last signed note, or from the plan the first time', () => {
     const last = {
       ...complete(),
-      treatment: { interventions: ['manual_therapy'], modalities: ['laser'], note: 'Grade III' },
+      treatment: {
+        interventions: ['manual_therapy'],
+        modalities: ['laser'],
+        note: 'Grade III',
+        parameters: { laser: { area: 'Achilles', duration: '8' } },
+        reasons: { laser: 'Asked again' },
+      },
     } as SessionNote;
+    // SES-05: the parameters come along; a precaution's reason is asked again.
     expect(prefilledSessionNote({ lastNote: last })).toEqual({
       ...emptySessionNote(),
-      treatment: last.treatment,
+      treatment: { ...last.treatment, reasons: {} },
     });
     expect(
       prefilledSessionNote({ plan: { interventions: ['exercise'], modalities: ['pemf'] } })
         .treatment,
-    ).toEqual({ interventions: ['exercise'], modalities: ['pemf'], note: '' });
+    ).toEqual({
+      interventions: ['exercise'],
+      modalities: ['pemf'],
+      note: '',
+      parameters: {},
+      reasons: {},
+    });
     expect(prefilledSessionNote(undefined)).toEqual(emptySessionNote());
   });
 });
@@ -152,6 +179,8 @@ describe('Same as last time', () => {
       interventions: ['exercise', 'manual_therapy'],
       modalities: ['pemf'],
       note: 'Grade III',
+      parameters: {},
+      reasons: {},
     },
     response: {
       rating: 'better',
@@ -216,7 +245,13 @@ describe('an adverse event', () => {
       ...emptySessionNote(),
       newSymptoms: { answer: 'no', description: '' },
       pain: { rest: 2, activity: 4, after: 1 },
-      treatment: { interventions: ['exercise'], modalities: [], note: '' },
+      treatment: {
+        interventions: ['exercise'],
+        modalities: [],
+        note: '',
+        parameters: {},
+        reasons: {},
+      },
       response: { rating: 'worse', note: '', adverseEvent: { reported: true, description: '  ' } },
       nextSession: { plan: 'regress', note: '' },
     };
@@ -247,5 +282,93 @@ describe('sessionNoteDigest', () => {
     expect(sessionNoteDigest(note)).toBe(
       'Pain 2 at rest · 4 during activity · 1 after treatment · Worse · Adverse event',
     );
+  });
+});
+
+// SES-05 done when: each modality has its parameter fields, and a precaution warns when relevant.
+// Decisions (user, 26 October 2026): the fields filled before closing; a reason for a warned
+// modality; parameters carried over, the reason asked again.
+describe('modality parameters', () => {
+  const shockwave: SessionModality = {
+    key: 'radial_shockwave',
+    name: 'Radial Shockwave (RSW)',
+    parameters: [
+      { key: 'area', label: 'Area treated', kind: 'text', source: 's' },
+      { key: 'duration', label: 'Duration', kind: 'number', unit: 'min', source: 's' },
+      { key: 'frequency', label: 'Frequency', kind: 'number', unit: 'Hz', source: 's' },
+    ],
+    warnings: [{ label: 'Pregnancy', source: 'SOP 12.3' }],
+  };
+  const laser: SessionModality = { ...shockwave, key: 'laser', name: 'Laser', warnings: [] };
+  const ready = (): SessionNote => ({
+    ...emptySessionNote(),
+    newSymptoms: { answer: 'no', description: '' },
+    pain: { rest: 2, activity: 4, after: 1 },
+    treatment: {
+      interventions: [],
+      modalities: ['radial_shockwave'],
+      note: '',
+      parameters: { radial_shockwave: { area: 'Achilles', duration: '10', frequency: '8' } },
+      reasons: { radial_shockwave: 'Second trimester excluded by the obstetrician' },
+    },
+    response: { rating: 'better', note: '', adverseEvent: { reported: false, description: '' } },
+    nextSession: { plan: 'progress', note: '' },
+  });
+
+  it('needs each ticked modality’s parameters, as numbers where they are numbers', () => {
+    expect(sessionNoteBlockers(ready(), [shockwave, laser])).toEqual([]);
+    const blank = ready();
+    blank.treatment.parameters.radial_shockwave = {
+      area: 'Achilles',
+      duration: '',
+      frequency: '8',
+    };
+    expect(sessionNoteBlockers(blank, [shockwave])).toEqual([
+      'Fill the parameters for Radial Shockwave (RSW).',
+    ]);
+    const words = ready();
+    words.treatment.parameters.radial_shockwave = {
+      area: 'Achilles',
+      duration: 'ten',
+      frequency: '8',
+    };
+    expect(sessionNoteBlockers(words, [shockwave])).toEqual([
+      'Fill the parameters for Radial Shockwave (RSW).',
+    ]);
+    // Without the note's modalities nothing more is asked (an older note's version has none).
+    expect(sessionNoteBlockers(blank)).toEqual([]);
+    // An unticked modality asks for nothing.
+    const unticked = {
+      ...ready(),
+      treatment: { ...ready().treatment, interventions: ['exercise' as const], modalities: [] },
+    };
+    expect(sessionNoteBlockers(unticked, [shockwave])).toEqual([]);
+  });
+
+  it('needs a reason for a modality that warns about a precaution', () => {
+    const note = ready();
+    note.treatment.reasons = {};
+    expect(sessionNoteBlockers(note, [shockwave])).toEqual([
+      'Give a reason for Radial Shockwave (RSW) despite Pregnancy.',
+    ]);
+    expect(sessionNoteBlockers(note, [{ ...shockwave, warnings: [] }])).toEqual([]);
+  });
+
+  it('carries the parameters into Same as last time, keeping today’s reasons', () => {
+    const today = {
+      ...emptySessionNote(),
+      treatment: { ...emptySessionNote().treatment, reasons: { radial_shockwave: 'Today' } },
+    };
+    const copied = sameAsLastTime(today, ready());
+    expect(copied.treatment.parameters).toEqual(ready().treatment.parameters);
+    expect(copied.treatment.reasons).toEqual({ radial_shockwave: 'Today' });
+    expect(copied.treatment.parameters).not.toBe(ready().treatment.parameters);
+  });
+
+  it('reads the parameters in one line with their units', () => {
+    expect(
+      sessionParameterLine(ready().treatment.parameters.radial_shockwave, shockwave.parameters),
+    ).toBe('Achilles · 10 min · 8 Hz');
+    expect(sessionParameterLine(undefined, shockwave.parameters)).toBe('');
   });
 });

@@ -66,5 +66,36 @@ describe('plan catalog', () => {
         file([{ ...pemf, precautions: [{ precaution: 'pacemaker', source: 'a' }] }]),
       ),
     ).toThrow('Unknown precaution');
+    const area = { key: 'area', label: 'Area treated', kind: 'text', source: 'a' };
+    expect(() => buildPlanCatalog(file([{ ...pemf, parameters: [area, area] }]))).toThrow(
+      'pemf lists a parameter twice',
+    );
+    expect(() =>
+      buildPlanCatalog(file([{ ...pemf, parameters: [{ ...area, kind: 'date' }] }])),
+    ).toThrow();
+  });
+
+  // SES-05 (user decisions 26 October 2026): each modality's session note parameters, common
+  // fields until the clinic lists its own (DECISION SES-05), shockwave's from the SOP.
+  it('gives every modality its session parameters, shockwave the SOP’s two more', async () => {
+    const built = buildPlanCatalog(await readPlanCatalogFile());
+    const fields = (key: string) =>
+      built.modalities.find((m) => m.key === key)?.parameters.map((p) => p.key);
+    for (const modality of built.modalities) {
+      expect(modality.parameters.map((p) => p.key)).toEqual(
+        expect.arrayContaining(['area', 'duration', 'settings']),
+      );
+      expect(modality.parameters.every((p) => p.source.length > 0)).toBe(true);
+    }
+    expect(fields('radial_shockwave')).toEqual([
+      'area',
+      'duration',
+      'energy_flux_density',
+      'frequency',
+      'settings',
+    ]);
+    expect(fields('laser')).toEqual(['area', 'duration', 'settings']);
+    const duration = built.modalities[0]?.parameters.find((p) => p.key === 'duration');
+    expect(duration).toMatchObject({ kind: 'number', unit: 'min' });
   });
 });

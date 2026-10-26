@@ -451,6 +451,7 @@ export {
   planForSession,
   saveSessionNote,
   sessionAddenda,
+  sessionModalities,
   sessionNoteById,
   sessionNoteOf,
   sessionProgress,

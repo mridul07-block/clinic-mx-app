@@ -61,6 +61,20 @@ const catalogKey = z
   .regex(/^[a-z][a-z0-9_]*$/)
   .max(80);
 
+/**
+ * A parameter recorded for a modality in the session note (SES-05): its label, whether it is a
+ * number (with its unit) or text, and where it comes from. Knowledge data, awaiting the clinic's
+ * own lists (DECISION SES-05).
+ */
+export const modalityParameterSchema = z.strictObject({
+  key: catalogKey,
+  label: z.string().trim().min(1).max(80),
+  kind: z.enum(['text', 'number']),
+  unit: z.string().trim().min(1).max(20).optional(),
+  source: z.string().trim().min(1),
+});
+export type ModalityParameter = z.infer<typeof modalityParameterSchema>;
+
 /** The committed plan catalog file (`packages/db/src/knowledge/plan-catalog.json`). */
 export const planCatalogFileSchema = z.strictObject({
   source: z.string().min(1),
@@ -76,6 +90,7 @@ export const planCatalogFileSchema = z.strictObject({
           }),
         ),
         signedOff: z.boolean(),
+        parameters: z.array(modalityParameterSchema).default([]),
       }),
     )
     .min(1),

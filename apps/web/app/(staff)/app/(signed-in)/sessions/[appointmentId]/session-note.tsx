@@ -16,6 +16,7 @@ import {
   sessionResponseLabels,
   sessionResponses,
   type InterventionKind,
+  type SessionModality,
   type SessionNote,
 } from '@clinic-mx/schemas';
 import { startTransition, useActionState, useMemo, useState, type ReactNode } from 'react';
@@ -130,6 +131,7 @@ export function SessionNoteForm({
   signed,
   plan,
   lastTime,
+  modalityDefinitions,
 }: {
   appointmentId: string;
   serverValue: SessionNote;
@@ -143,6 +145,8 @@ export function SessionNoteForm({
   };
   /** The episode's previous signed note, for "Same as last time" (SES-04). */
   lastTime: { number: number; signedAt: Date; note: SessionNote } | null;
+  /** The modalities at the note's version: parameters and precaution warnings (SES-05). */
+  modalityDefinitions: SessionModality[];
 }) {
   const save = useMemo(() => saveSessionNoteDraft(appointmentId), [appointmentId]);
   const draft = useAutosave({
@@ -160,7 +164,8 @@ export function SessionNoteForm({
   const set = (change: Partial<SessionNote>) => {
     draft.setValue({ ...note, ...change });
   };
-  const blockers = sessionNoteBlockers(note);
+  const blockers = sessionNoteBlockers(note, modalityDefinitions);
+  const definitionOf = (key: string) => modalityDefinitions.find((m) => m.key === key);
   const [state, action, pending] = useActionState(closeSessionAction, initialState);
   const [saving, setSaving] = useState(false);
   const [unsaved, setUnsaved] = useState(false);
@@ -182,7 +187,7 @@ export function SessionNoteForm({
     ...plan.modalities,
     ...note.treatment.modalities
       .filter((key) => !plan.modalities.some((modality) => modality.key === key))
-      .map((key) => ({ key, name: key })),
+      .map((key) => ({ key, name: definitionOf(key)?.name ?? key })),
   ];
   const toggle = <T extends string>(list: readonly T[], item: T, on: boolean) =>
     on ? [...list, item] : list.filter((entry) => entry !== item);
@@ -358,32 +363,105 @@ export function SessionNoteForm({
               {interventionLabels[kind]}
             </label>
           ))}
-          {modalities.map((modality) => (
-            <label
-              key={modality.key}
-              className="flex min-h-row items-center gap-3 pointer-coarse:min-h-row-touch"
-            >
-              <input
-                type="checkbox"
-                className={tick}
-                disabled={readOnly}
-                checked={note.treatment.modalities.includes(modality.key)}
-                onChange={(event) => {
-                  set({
-                    treatment: {
-                      ...note.treatment,
-                      modalities: toggle(
-                        note.treatment.modalities,
-                        modality.key,
-                        event.target.checked,
-                      ),
-                    },
-                  });
-                }}
-              />
-              {modality.name}
-            </label>
-          ))}
+          {modalities.map((modality) => {
+            const ticked = note.treatment.modalities.includes(modality.key);
+            const definition = definitionOf(modality.key);
+            const values = note.treatment.parameters[modality.key] ?? {};
+            return (
+              <div key={modality.key} className="flex flex-col gap-2">
+                <label className="flex min-h-row items-center gap-3 pointer-coarse:min-h-row-touch">
+                  <input
+                    type="checkbox"
+                    className={tick}
+                    disabled={readOnly}
+                    checked={ticked}
+                    onChange={(event) => {
+                      set({
+                        treatment: {
+                          ...note.treatment,
+                          modalities: toggle(
+                            note.treatment.modalities,
+                            modality.key,
+                            event.target.checked,
+                          ),
+                        },
+                      });
+                    }}
+                  />
+                  {modality.name}
+                </label>
+                {ticked && definition ? (
+                  // SES-05: its parameters, and a reason when it warns about a precaution.
+                  <div
+                    data-testid="modality-parameters"
+                    data-modality={modality.key}
+                    className="ml-8 flex flex-col gap-3 border-l-2 border-line pl-3"
+                  >
+                    {definition.warnings.length > 0 ? (
+                      <div className="flex flex-col gap-2 rounded-control border border-waiting-line bg-waiting-soft px-3 py-2">
+                        {definition.warnings.map((warning) => (
+                          <p key={warning.label} className="text-sm text-waiting-strong">
+                            Precaution: {warning.label} ({warning.source})
+                          </p>
+                        ))}
+                        <Note
+                          label="Reason it is still given today"
+                          value={note.treatment.reasons[modality.key] ?? ''}
+                          readOnly={readOnly}
+                          onChange={(reason) => {
+                            set({
+                              treatment: {
+                                ...note.treatment,
+                                reasons: { ...note.treatment.reasons, [modality.key]: reason },
+                              },
+                            });
+                          }}
+                        />
+                      </div>
+                    ) : null}
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      {definition.parameters.map((field) => {
+                        const id = `${modality.key}-${field.key}`;
+                        return (
+                          <div key={field.key} className="flex flex-col gap-1.5">
+                            <label htmlFor={id} className="text-sm font-medium text-ink">
+                              {field.label}
+                              {field.unit ? (
+                                <span className="font-normal text-ink-muted"> ({field.unit})</span>
+                              ) : null}
+                            </label>
+                            <input
+                              id={id}
+                              type="text"
+                              inputMode={field.kind === 'number' ? 'decimal' : 'text'}
+                              maxLength={200}
+                              readOnly={readOnly}
+                              value={values[field.key] ?? ''}
+                              onChange={(event) => {
+                                set({
+                                  treatment: {
+                                    ...note.treatment,
+                                    parameters: {
+                                      ...note.treatment.parameters,
+                                      [modality.key]: {
+                                        ...values,
+                                        [field.key]: event.target.value,
+                                      },
+                                    },
+                                  },
+                                });
+                              }}
+                              className="h-row w-full min-w-0 rounded-control border border-line-control bg-surface px-3 text-md shadow-xs hover:border-ink-muted read-only:bg-surface-sunken pointer-coarse:h-row-touch"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
           {interventions.length + modalities.length === 0 ? (
             <p className="text-ink-muted">The plan names no treatment yet.</p>
           ) : null}

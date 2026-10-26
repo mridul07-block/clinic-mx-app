@@ -579,7 +579,7 @@ Yes or no screens, ratios, readiness summaries and worded checks; they belong wi
 
 ## Plan catalog (CLN-07)
 
-8 modalities and 19 questionnaires from `packages/db/src/knowledge/plan-catalog.json` (SHA-256 89d4855a0316). A modality warns in the plan when the patient has a precaution it lists; the links are drafted from the Blueprint’s Part B statements and the Consultation SOP v2 §12.3 and await clinical sign-off (`docs/runbooks/consultation.md`).
+8 modalities and 19 questionnaires from `packages/db/src/knowledge/plan-catalog.json` (SHA-256 6ef54af8015f). A modality warns in the plan when the patient has a precaution it lists; the links are drafted from the Blueprint’s Part B statements and the Consultation SOP v2 §12.3 and await clinical sign-off (`docs/runbooks/consultation.md`).
 
 | Modality | Warns about | Signed off |
 | --- | --- | --- |
