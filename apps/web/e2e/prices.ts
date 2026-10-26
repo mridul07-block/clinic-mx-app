@@ -45,6 +45,8 @@ export async function restorePrices(snapshot: PriceSnapshot): Promise<void> {
       // The packages those bills bought (BIL-08), and their expiry reminders.
       const bought = sql`(select id::text from package where bill_id in ${chosenBills})`;
       await tx.execute(sql`delete from job where payload ->> 'packageId' in ${bought}`);
+      // Session notes that used those packages (SES-03).
+      await tx.execute(sql`delete from session where package_id::text in ${bought}`);
       await tx.execute(sql`delete from package where bill_id in ${chosenBills}`);
       await tx.execute(sql`delete from payment where bill_id in ${chosenBills}`);
       await tx.execute(sql`delete from bill_line where bill_id in ${chosenBills}`);

@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { sessionGate, sessionLabel, sessionView } from './sessions';
+import {
+  emptySessionNote,
+  prefilledSessionNote,
+  sessionGate,
+  sessionLabel,
+  sessionNoteBlockers,
+  sessionNoteSchema,
+  sessionView,
+  type SessionNote,
+} from './sessions';
 
 // SES-01: "Session n of N" and the gate a session starts behind.
 describe('sessionLabel', () => {
@@ -42,5 +51,65 @@ describe('sessionGate', () => {
     expect(sessionGate('discharged').message).toBe('The episode is Discharged.');
     expect(sessionGate('lost_to_follow_up').met).toBe(false);
     expect(sessionGate(null)).toEqual({ met: false, message: 'Not part of an episode yet.' });
+  });
+});
+
+// SES-03: the session note and what holds Close session back.
+describe('the session note', () => {
+  const complete = (): SessionNote => ({
+    ...emptySessionNote(),
+    newSymptoms: { answer: 'no', description: '' },
+    pain: { rest: 2, activity: 4, after: 1 },
+    treatment: { interventions: ['exercise'], modalities: [], note: '' },
+    response: { rating: 'better', note: '' },
+    nextSession: { plan: 'progress', note: '' },
+  });
+
+  it('reads an empty or partial note with its defaults', () => {
+    expect(sessionNoteSchema.parse({})).toEqual(emptySessionNote());
+    expect(sessionNoteSchema.parse({ pain: { rest: 3 } }).pain).toEqual({
+      rest: 3,
+      activity: null,
+      after: null,
+    });
+    expect(sessionNoteSchema.safeParse({ pain: { rest: 11 } }).success).toBe(false);
+  });
+
+  it('names everything still missing before it can close, in order', () => {
+    expect(sessionNoteBlockers(emptySessionNote())).toEqual([
+      'Answer "Any new symptoms?".',
+      'Set pain at rest.',
+      'Set pain during activity.',
+      'Set pain after treatment.',
+      'Tick the treatment given.',
+      'Choose the response.',
+      'Choose what the next session does.',
+    ]);
+    expect(sessionNoteBlockers(complete())).toEqual([]);
+    expect(
+      sessionNoteBlockers({ ...complete(), newSymptoms: { answer: 'yes', description: ' ' } }),
+    ).toEqual(['Describe the new symptoms.']);
+    expect(
+      sessionNoteBlockers({
+        ...complete(),
+        treatment: { interventions: [], modalities: ['pemf'], note: '' },
+      }),
+    ).toEqual([]);
+  });
+
+  it('prefills the treatment from the last signed note, or from the plan the first time', () => {
+    const last = {
+      ...complete(),
+      treatment: { interventions: ['manual_therapy'], modalities: ['laser'], note: 'Grade III' },
+    } as SessionNote;
+    expect(prefilledSessionNote({ lastNote: last })).toEqual({
+      ...emptySessionNote(),
+      treatment: last.treatment,
+    });
+    expect(
+      prefilledSessionNote({ plan: { interventions: ['exercise'], modalities: ['pemf'] } })
+        .treatment,
+    ).toEqual({ interventions: ['exercise'], modalities: ['pemf'], note: '' });
+    expect(prefilledSessionNote(undefined)).toEqual(emptySessionNote());
   });
 });

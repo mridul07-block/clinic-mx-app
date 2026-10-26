@@ -439,4 +439,15 @@ export {
   type PackageEntry,
   type PackageListRow,
 } from './packages';
-export { sessionProgress, type SessionProgress } from './sessions';
+export {
+  lastSignedSessionNote,
+  newestPlanOfCareId,
+  openSession,
+  planForSession,
+  saveSessionNote,
+  sessionNoteOf,
+  sessionProgress,
+  signSession,
+  type SessionNoteEntry,
+  type SessionProgress,
+} from './sessions';

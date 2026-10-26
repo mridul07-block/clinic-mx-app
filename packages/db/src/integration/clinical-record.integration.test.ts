@@ -20,7 +20,14 @@ import {
 import { addAddendum, consultationAddenda, signConsultation } from '../clinical-record';
 import { invoiceFacts } from '../invoice';
 import { packageRescheduleState, packagesOfEpisode, usePackageSession } from '../packages';
-import { sessionProgress } from '../sessions';
+import { latestKnowledgeVersion } from '../knowledge';
+import {
+  openSession,
+  saveSessionNote,
+  sessionNoteOf,
+  sessionProgress,
+  signSession,
+} from '../sessions';
 import { changeAppointment, checkIn, undoCheckIn } from '../slots';
 import { consultationSummaryFacts } from '../consultation-summary';
 import { consultationRecord, openConsultation } from '../consultations';
@@ -61,6 +68,7 @@ import {
   specialTestResult,
   staffUser,
   task,
+  treatmentSession,
 } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import { becomeStaff, testPatient, testPhysio, typeId } from './fake-schedule';
@@ -1784,7 +1792,13 @@ describe('counter payments', () => {
       key: string,
     ) => {
       await asOwner(tx);
-      minutes += 45;
+      // Clear of the fixture's consultation, which is booked around now.
+      do {
+        minutes += 45;
+      } while (
+        Math.abs(istInstant(istDate(new Date()), minutes).getTime() - Date.now()) <
+        45 * 60_000
+      );
       const startsAt = istInstant(istDate(new Date()), minutes);
       const [row] = await tx
         .insert(appointment)
@@ -1887,6 +1901,204 @@ describe('counter payments', () => {
         expect((await as(superAdmin))?.id).toBe(session);
         expect(await as(physioHsr), 'another physio at the centre').toBeUndefined();
         expect(await as(deskKoramangala)).toBeUndefined();
+      });
+    });
+
+    // SES-03: the session note, opened by Start session and signed by Close session.
+    const started = async (
+      tx: Tx,
+      fixture: { patientId: string; episodeId: string; consultant: StaffMember },
+    ) => {
+      const id = await visitOf(tx, fixture, 'session');
+      await arrive(tx, id);
+      await asOwner(tx);
+      await becomeStaff(tx, fixture.consultant);
+      await startVisit(tx, { appointmentId: id, by: fixture.consultant.id, now: new Date() });
+      const version = await latestKnowledgeVersion(tx);
+      const sessionId = await openSession(tx, {
+        appointmentId: id,
+        physioId: fixture.consultant.id,
+        kbVersionId: version?.id ?? '',
+        note: { sinceLastVisit: 'Stairs easier' },
+      });
+      return { appointmentId: id, sessionId };
+    };
+    const noteAs = async (tx: Tx, actor: StaffMember, appointmentId: string) => {
+      await asOwner(tx);
+      await becomeStaff(tx, actor);
+      return sessionNoteOf(tx, appointmentId);
+    };
+    const closing = (by: string, sessionId: string, baseVersion: number) => ({
+      sessionId,
+      baseVersion,
+      by,
+      pain: { rest: 2, activity: 4, after: 1 },
+    });
+
+    it('opens one session per visit, numbered from the appointment, written by its physio only', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        const { appointmentId, sessionId } = await started(tx, fixture);
+        expect(
+          await openSession(tx, {
+            appointmentId,
+            physioId: fixture.consultant.id,
+            kbVersionId: (await latestKnowledgeVersion(tx))?.id ?? '',
+            note: {},
+          }),
+          'once per visit',
+        ).toBe(sessionId);
+        await asOwner(tx);
+        const [row] = await tx
+          .select()
+          .from(treatmentSession)
+          .where(eq(treatmentSession.id, sessionId));
+        expect(row).toMatchObject({
+          number: 1,
+          episodeId: fixture.episodeId,
+          patientId: fixture.patientId,
+          physioId: fixture.consultant.id,
+          planOfCareId: fixture.planOfCareId,
+          status: 'draft',
+          version: 1,
+        });
+
+        // Its physio saves at the version; a stale save answers with what is saved.
+        await becomeStaff(tx, fixture.consultant);
+        expect(await saveSessionNote(tx, sessionId, 1, { sinceLastVisit: 'Better' })).toEqual({
+          status: 'saved',
+          version: 2,
+        });
+        expect((await saveSessionNote(tx, sessionId, 1, {})).status).toBe('conflict');
+        expect(
+          await failure(tx, (sp) =>
+            sp
+              .update(treatmentSession)
+              .set({ number: 5 })
+              .where(eq(treatmentSession.id, sessionId)),
+          ),
+          'only the note changes',
+        ).toBe('23514');
+
+        // A colleague at the centre reads it but cannot write it; the desk and another centre
+        // read nothing.
+        expect((await noteAs(tx, fixture.colleague, appointmentId))?.version).toBe(2);
+        expect((await saveSessionNote(tx, sessionId, 2, {})).status).toBe('conflict');
+        expect(await noteAs(tx, deskHsr, appointmentId)).toBeUndefined();
+        expect(await noteAs(tx, fixture.elsewhere, appointmentId)).toBeUndefined();
+        await asOwner(tx);
+        await becomeStaff(tx, support);
+        const touched = await tx
+          .update(treatmentSession)
+          .set({ note: {} })
+          .where(eq(treatmentSession.id, sessionId))
+          .returning({ id: treatmentSession.id });
+        expect(touched, 'support is read only').toHaveLength(0);
+      });
+    });
+
+    it('closes by signing: the visit completes and the package uses one session; it never changes again', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        await pay(tx, deskHsr, fixture.packageBillId);
+        const { appointmentId, sessionId } = await started(tx, fixture);
+        await asOwner(tx);
+        await becomeStaff(tx, fixture.colleague);
+        expect(
+          await signSession(tx, closing(fixture.colleague.id, sessionId, 1)),
+          'not their session',
+        ).toBe('stale');
+        await asOwner(tx);
+        await becomeStaff(tx, fixture.consultant);
+        expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 9)), 'stale').toBe(
+          'stale',
+        );
+        expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 1))).toBe('signed');
+
+        await asOwner(tx);
+        const [visit] = await tx
+          .select({ status: appointment.status, completedAt: appointment.completedAt })
+          .from(appointment)
+          .where(eq(appointment.id, appointmentId));
+        expect(visit?.status).toBe('completed');
+        expect(visit?.completedAt).not.toBeNull();
+        const [held] = await tx
+          .select({ id: patientPackage.id, used: patientPackage.sessionsUsed })
+          .from(patientPackage)
+          .where(eq(patientPackage.episodeId, fixture.episodeId));
+        expect(held?.used).toBe(1);
+        const [row] = await tx
+          .select()
+          .from(treatmentSession)
+          .where(eq(treatmentSession.id, sessionId));
+        expect(row).toMatchObject({
+          status: 'signed',
+          signedBy: fixture.consultant.id,
+          packageId: held?.id,
+          painRest: 2,
+          painActivity: 4,
+          painAfter: 1,
+        });
+        const tasks = await tx
+          .select({ id: task.id })
+          .from(task)
+          .where(and(eq(task.episodeId, fixture.episodeId), eq(task.kind, 'review.new_symptoms')));
+        expect(tasks, 'no new symptoms, no task').toHaveLength(0);
+
+        await asOwner(tx);
+        expect(
+          await failure(tx, (sp) =>
+            sp
+              .update(treatmentSession)
+              .set({ note: { sinceLastVisit: 'Changed later' } })
+              .where(eq(treatmentSession.id, sessionId)),
+          ),
+          'not even by the owner of the database',
+        ).toBe('23514');
+        expect(
+          await failure(tx, (sp) =>
+            sp
+              .update(treatmentSession)
+              .set({ signedAt: new Date(Date.now() - 60_000) })
+              .where(eq(treatmentSession.id, sessionId)),
+          ),
+          'nor who signed it or when',
+        ).toBe('23514');
+      });
+    });
+
+    it('still closes without a package, and new symptoms give the consultant a task', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        const { sessionId } = await started(tx, fixture);
+        await becomeStaff(tx, fixture.consultant);
+        expect(
+          await saveSessionNote(tx, sessionId, 1, {
+            newSymptoms: { answer: 'yes', description: 'Tingling in the foot since Sunday' },
+          }),
+        ).toEqual({ status: 'saved', version: 2 });
+        expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 2))).toBe('signed');
+        await asOwner(tx);
+        const [row] = await tx
+          .select({ packageId: treatmentSession.packageId })
+          .from(treatmentSession)
+          .where(eq(treatmentSession.id, sessionId));
+        expect(row?.packageId, 'no active package').toBeNull();
+        const tasks = await tx
+          .select({
+            title: task.title,
+            priority: task.priority,
+            assignee: task.assigneeStaffUserId,
+          })
+          .from(task)
+          .where(and(eq(task.episodeId, fixture.episodeId), eq(task.kind, 'review.new_symptoms')));
+        expect(tasks).toEqual([
+          {
+            title: 'New symptoms reported in session 1',
+            priority: 'high',
+            assignee: fixture.consultant.id,
+          },
+        ]);
       });
     });
   });

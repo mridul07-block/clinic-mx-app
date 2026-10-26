@@ -23,6 +23,11 @@ vi.mock('../access/staff-db', () => ({
   asStaff: (_actor: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
 }));
 vi.mock('../settings/settings', () => ({ getSetting: vi.fn(() => Promise.resolve(1)) }));
+const openSessionNote = vi.hoisted(() => vi.fn(() => Promise.resolve('session-id')));
+vi.mock('../sessions/services', () => ({
+  openSessionNote,
+  SessionError: class SessionError extends Error {},
+}));
 
 const hsr = '00000000-0000-4000-8000-000000000101';
 const appointmentId = '00000000-0000-4000-8000-000000000901';
@@ -101,6 +106,12 @@ describe('my patients today', () => {
       sessionAppointmentId: appointmentId,
     });
     expect(db.openConsultation).not.toHaveBeenCalled();
+    // SES-03: the session's note opens with it.
+    expect(openSessionNote).toHaveBeenCalledWith(fakeTx, {
+      id: appointmentId,
+      episodeId: '00000000-0000-4000-8000-000000000501',
+      physioId: physio().id,
+    });
     expect(db.startVisit).toHaveBeenCalledWith(
       fakeTx,
       expect.objectContaining({ appointmentId, by: physio().id }),

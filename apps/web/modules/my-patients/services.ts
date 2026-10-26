@@ -22,6 +22,7 @@ import { assertMay } from '../access/guard';
 import { staffService } from '../access/service';
 import { asStaff } from '../access/staff-db';
 import { SchedulingError, appointmentTarget } from '../scheduling/services';
+import { SessionError, openSessionNote } from '../sessions/services';
 
 /**
  * My patients today (CLN-01, Frontend Specification "Physiotherapist"): the signed in clinician's
@@ -98,7 +99,16 @@ export const startVisit = staffService({
     if (!(await startVisitRow(tx, { appointmentId: found.id, by: actor.id, now }))) {
       throw new SchedulingError('Check the patient in first.');
     }
-    if (session) return { sessionAppointmentId: found.id };
+    if (session && found.episodeId) {
+      // SES-03: the session's note opens with it, prefilled.
+      try {
+        await openSessionNote(tx, { id: found.id, episodeId: found.episodeId, physioId: actor.id });
+      } catch (error) {
+        if (error instanceof SessionError) throw new SchedulingError(error.message);
+        throw error;
+      }
+      return { sessionAppointmentId: found.id };
+    }
     if (!consulting || !found.episodeId) return {};
     try {
       const consultationId = await openConsultation(tx, {

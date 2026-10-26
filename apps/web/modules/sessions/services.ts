@@ -1,17 +1,40 @@
 import 'server-only';
 import {
   episodeRecord,
+  lastSignedSessionNote,
+  latestKnowledgeVersion,
   logClinicalView,
+  newestPlanOfCareId,
   nextVisitOf,
+  openSession,
   patientAlertHistory,
+  planForSession,
+  saveSessionNote as saveSessionNoteRow,
+  sessionNoteOf,
   sessionProgress,
   sessionVisit,
+  signSession,
+  staffTreatsNow,
+  type DbOrTransaction,
   type NextVisitEntry,
   type SessionVisit,
   type StaffMember,
 } from '@clinic-mx/db';
-import { can, sessionView, type SessionView } from '@clinic-mx/schemas';
+import {
+  can,
+  closeSessionSchema,
+  prefilledSessionNote,
+  saveSessionNoteSchema,
+  sessionNoteBlockers,
+  sessionNoteSchema,
+  sessionView,
+  type DraftSaveResponse,
+  type InterventionKind,
+  type SessionNote,
+  type SessionView,
+} from '@clinic-mx/schemas';
 import { NotAllowedError } from '../access/guard';
+import { staffService } from '../access/service';
 import { asStaffViewing } from '../access/staff-db';
 import { episodeSummary, recordNotes, type PatientSummary } from '../patients/record';
 
@@ -21,7 +44,37 @@ import { episodeSummary, recordNotes, type PatientSummary } from '../patients/re
  * with no AI sheet. Only the appointment's own physio opens it, and the Super Admin reads it (user
  * decision 25 October 2026; cover between physios is SES-08). Each open is logged as a record
  * view. Row level security holds the same reads: nobody outside the centre reads any of it.
+ *
+ * Under the card, the session note (SES-03, PRD J5.4 and J5.5; user decisions 26 October 2026):
+ * opened by Start session, written by the appointment's physio with autosave, and signed by Close
+ * session, which completes the visit, uses a package session and gives the consultant a task for
+ * new symptoms (the database does those, `internal.session_closed`).
  */
+
+/** Why a session note was refused, for the screen. */
+export class SessionError extends Error {
+  constructor(
+    message: string,
+    readonly reason: 'not_found' | 'signed' | 'refused' | 'stale',
+  ) {
+    super(message);
+    this.name = 'SessionError';
+  }
+}
+
+/** The note on the session screen, with what its form needs from the plan. */
+export interface SessionNoteView {
+  value: SessionNote;
+  version: number;
+  signed: { by: string; at: Date } | null;
+  /** The physio writes it: their own draft, with session_notes.write. */
+  editable: boolean;
+  plan: {
+    interventions: InterventionKind[];
+    modalities: { key: string; name: string }[];
+    homeProgramme: { exercise: string; dose: string; note: string }[];
+  };
+}
 
 export interface SessionScreen {
   visit: SessionVisit;
@@ -31,6 +84,53 @@ export interface SessionScreen {
   nextVisit: NextVisitEntry | undefined;
   /** The Super Admin reading another physio's session. */
   readOnly: boolean;
+  /** The note, once Start session opened it. */
+  note: SessionNoteView | undefined;
+}
+
+/** A stored note as today's schema reads it (an older shape gets today's defaults). */
+function readNote(stored: Record<string, unknown>): SessionNote {
+  const read = sessionNoteSchema.safeParse(stored);
+  return read.success ? read.data : prefilledSessionNote(undefined);
+}
+
+/**
+ * Opens the note of a session the physio has just started (SES-03), once: the treatment given last
+ * time in the episode, or the plan's for the first session. Run inside Start session.
+ */
+export async function openSessionNote(
+  tx: DbOrTransaction,
+  visit: { id: string; episodeId: string; physioId: string },
+): Promise<string> {
+  const version = await latestKnowledgeVersion(tx);
+  if (!version) {
+    throw new SessionError(
+      'The knowledge base is not loaded yet. Ask the Super Admin to import it.',
+      'refused',
+    );
+  }
+  const last = await lastSignedSessionNote(tx, visit.episodeId);
+  let from: Parameters<typeof prefilledSessionNote>[0];
+  if (last) {
+    from = { lastNote: readNote(last) };
+  } else {
+    const planId = await newestPlanOfCareId(tx, visit.episodeId);
+    const plan = planId ? await planForSession(tx, planId) : undefined;
+    if (plan) {
+      from = {
+        plan: {
+          interventions: plan.interventions,
+          modalities: plan.modalities.map((modality) => modality.key),
+        },
+      };
+    }
+  }
+  return openSession(tx, {
+    appointmentId: visit.id,
+    physioId: visit.physioId,
+    kbVersionId: version.id,
+    note: prefilledSessionNote(from),
+  });
 }
 
 /**
@@ -60,7 +160,79 @@ export async function loadSession(
         await patientAlertHistory(tx, visit.patientId),
       ));
     const nextVisit = await nextVisitOf(tx, visit.patientId, now);
+    const stored = await sessionNoteOf(tx, visit.id);
+    const plan = stored?.planOfCareId ? await planForSession(tx, stored.planOfCareId) : undefined;
+    const note: SessionNoteView | undefined = stored && {
+      value: readNote(stored.note),
+      version: stored.version,
+      signed:
+        stored.signedAt && stored.signedByName
+          ? { by: stored.signedByName, at: stored.signedAt }
+          : null,
+      editable: own && stored.status === 'draft' && can(actor, 'session_notes.write'),
+      plan: plan ?? { interventions: [], modalities: [], homeProgramme: [] },
+    };
     await logClinicalView(tx, 'patient', visit.patientId);
-    return { visit, session, summary, nextVisit, readOnly: !own };
+    return { visit, session, summary, nextVisit, readOnly: !own, note };
   });
 }
+
+/** The caller's own draft note of an appointment, or a refusal. */
+async function ownDraft(tx: DbOrTransaction, appointmentId: string, actor: StaffMember) {
+  const found = await sessionNoteOf(tx, appointmentId);
+  if (!found || found.physioId !== actor.id) {
+    throw new SessionError('That session was not found.', 'not_found');
+  }
+  if (found.status === 'signed') {
+    throw new SessionError('This session is closed. Its note is signed.', 'signed');
+  }
+  return found;
+}
+
+/** Autosave of the note (FND-08): the physio's own draft, only at the version they saw. */
+export const saveSessionNote = staffService({
+  action: 'session_notes.write',
+  input: saveSessionNoteSchema,
+  run: async (tx, input, actor): Promise<DraftSaveResponse<SessionNote>> => {
+    const found = await ownDraft(tx, input.appointmentId, actor);
+    const saved = await saveSessionNoteRow(tx, found.id, input.baseVersion, input.value);
+    if (saved.status === 'saved') return saved;
+    return { status: 'conflict', version: saved.version, value: readNote(saved.row.note) };
+  },
+});
+
+/**
+ * Close session (SES-03, PRD J5.5): signs the physio's own note at the version they saw, once
+ * nothing holds it back, with the Treats patients tick read now. The database then completes the
+ * visit, uses a session of the episode's active package and raises any new symptoms task.
+ */
+export const closeSession = staffService({
+  action: 'session_notes.write',
+  input: closeSessionSchema,
+  run: async (tx, input, actor): Promise<{ status: 'signed' }> => {
+    const found = await ownDraft(tx, input.appointmentId, actor);
+    if (!(await staffTreatsNow(tx, actor.id))) {
+      throw new SessionError('Closing a session needs the Treats patients tick.', 'refused');
+    }
+    if (found.version !== input.baseVersion) {
+      throw new SessionError('Your latest changes are still saving. Try again.', 'stale');
+    }
+    const note = readNote(found.note);
+    const blockers = sessionNoteBlockers(note);
+    if (blockers.length > 0) throw new SessionError(blockers.join(' '), 'refused');
+    const { rest, activity, after } = note.pain;
+    if (rest === null || activity === null || after === null) {
+      throw new SessionError('Set the three pain readings.', 'refused');
+    }
+    const signed = await signSession(tx, {
+      sessionId: found.id,
+      baseVersion: input.baseVersion,
+      by: actor.id,
+      pain: { rest, activity, after },
+    });
+    if (signed === 'stale') {
+      throw new SessionError('Your latest changes are still saving. Try again.', 'stale');
+    }
+    return { status: 'signed' };
+  },
+});
