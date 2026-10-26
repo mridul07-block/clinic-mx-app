@@ -494,16 +494,23 @@ export {
   type TemplateVariables,
 } from './message-templates';
 export {
+  UNSIGNED_NOTES_FLAG_TIME,
+  UNSIGNED_NOTES_TASK,
   closeTaskSchema,
+  nextUnsignedNotesRun,
   takeTaskSchema,
   taskIdSchema,
   taskKindLabel,
   taskKindLabels,
   taskPriorities,
   taskPriorityLabels,
+  unsignedNoteSchema,
+  unsignedNotesOf,
+  unsignedNotesTitle,
   type CloseTaskInput,
   type TakeTaskInput,
   type TaskPriority,
+  type UnsignedNote,
 } from './tasks';
 export {
   CONSULTATION_NOTES_MAX,

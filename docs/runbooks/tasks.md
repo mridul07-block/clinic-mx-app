@@ -66,6 +66,54 @@ Kinds so far:
 | `review.no_shows` | Missed appointments in a row (ALT-04) | The physio of the missed appointment |
 | `call.think_about_it` | "I'll think about it" still the patient's choice on day 2 (BIL-02, `docs/runbooks/plan-sheet.md`) | The Front Desk at the episode's centre |
 
+## Unsigned notes flag (CLN-10)
+
+PRD J3.9 ("Unsigned notes are flagged at end of day") and section 7 ("Flagged to the Centre
+Manager at end of day", Fixed); TAD job table: 9:00 PM IST daily. Decisions made by the user on
+26 October 2026.
+
+- **What counts:** every consultation and session note started and not signed (status draft),
+  whatever day it was started, so yesterday's leftovers keep showing until signed.
+- **The task:** one per centre with unsigned notes, for the Centre Manager role there
+  (`review.unsigned_notes`, "Unsigned notes"), titled "Unsigned notes: 3 at HSR Layout". The card
+  lists each note as "Session · <physio> · 26 Oct 2026, 10:00 AM · MVH-00012". There is no patient
+  name in the task (rule 12) and no link, since managers do not open clinical notes. Centres with
+  none get no task.
+- **Next night:** tonight's task replaces last night's open one, which closes as the system with
+  "Replaced by tonight's list." (or "Nothing unsigned tonight." when none are left). The manager
+  can also close it with a decision as usual. The physio is not told.
+- **The job:** `notes.unsigned_flag` `{ date }` at 9:00 PM IST (`UNSIGNED_NOTES_FLAG_TIME`, a named
+  constant since the PRD marks it Fixed).
+  - Each run first queues the next night in its own transaction (`nextUnsignedNotesRun`: the next
+    9 PM after now and after its own night), so a failed night never breaks the chain, and a run
+    late after downtime catches up to tonight rather than every missed night.
+  - Then it flags (`flagUnsignedNotes`). A centre already flagged for that night is left alone,
+    so a repeated run changes nothing.
+  - The migration `unsigned_notes_flag` queued the first night.
+- **Checking it on an environment:** `select run_at, payload from job where kind =
+  'notes.unsigned_flag' and status = 'queued'` shows tonight's run.
+
+| Piece | Where |
+| --- | --- |
+| The next night, the title, reading the notes | `packages/schemas/src/tasks.ts` |
+| The notes and the flag | `packages/db/src/unsigned-notes.ts` |
+| The night's run | `apps/web/modules/tasks/unsigned-notes.ts`, handler in `apps/web/modules/jobs/handlers.ts` |
+| The card's list | `UnsignedNotes` in `apps/web/app/(staff)/app/(signed-in)/tasks/page.tsx` |
+
+Tests:
+
+- `packages/schemas/src/tasks.test.ts`: the next night (before and after 9 PM, late, early) and
+  the title.
+- `apps/web/modules/tasks/unsigned-notes.test.ts`: the next night is queued before the flag, and
+  stays queued when the flag fails.
+- `packages/db/src/integration/unsigned-notes.integration.test.ts`: per centre for the manager,
+  signed and other centres' notes left out, no patient; a second run is a no-op; replaced, then
+  closed with nothing left; the next night queued once.
+- `apps/web/e2e/unsigned-notes.spec.ts`: 360 px and desktop; a consultation and a session draft;
+  the job due now; the manager's card lists both without the patient.
+
+**Negative check:** count signed session notes as unsigned, and the database test fails.
+
 ## Checking it
 
 | Test | What it checks |

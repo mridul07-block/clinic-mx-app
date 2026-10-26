@@ -369,6 +369,12 @@ export {
   type TaskForUpdate,
 } from './tasks';
 export {
+  UNSIGNED_NOTES_FLAG_JOB,
+  flagUnsignedNotes,
+  queueNextUnsignedNotesFlag,
+  unsignedNotes,
+} from './unsigned-notes';
+export {
   addAddendum,
   consultationAddenda,
   signConsultation,
