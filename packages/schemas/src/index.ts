@@ -761,3 +761,23 @@ export {
   type PlanSessionsPattern,
   type SeriesRow,
 } from './plan-sessions';
+export {
+  BASELINE_REASON_MAX,
+  baselineBlockers,
+  baselineEntrySchema,
+  baselineMarkers,
+  baselineReadingText,
+  baselineRecordings,
+  baselineWindowStart,
+  consultationRegion,
+  entryOfReadings,
+  episodeBaseline,
+  isBaselineMarker,
+  measureValueText,
+  type BaselineEntry,
+  type BaselineMarker,
+  type BaselineRecording,
+  type EpisodeBaseline,
+  type ReusedMeasure,
+  type TakenMeasure,
+} from './baseline';

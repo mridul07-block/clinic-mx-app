@@ -1,7 +1,8 @@
 import type { Db, StaffMember } from '@clinic-mx/db';
-import { emptySessionNote, type SessionNote } from '@clinic-mx/schemas';
+import { emptySessionNote, type KnowledgeMeasure, type SessionNote } from '@clinic-mx/schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
+import { baselineView } from './baseline';
 import {
   SessionError,
   addSessionAddendum,
@@ -37,8 +38,18 @@ const db = vi.hoisted(() => ({
   sessionModalities: vi.fn(),
   nextVisitOf: vi.fn(),
   logClinicalView: vi.fn(),
+  knowledgeObjective: vi.fn(),
+  signedConsultationOf: vi.fn(),
+  consultationIntake: vi.fn(),
+  consultationMeasuresBetween: vi.fn(),
+  frozenBaseline: vi.fn(),
+  recordBaseline: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
+vi.mock('../settings/settings', () => ({
+  getSetting: (key: string) =>
+    key === 'clinical.baseline_reuse_days' ? Promise.resolve(7) : Promise.reject(new Error(key)),
+}));
 vi.mock('../access/staff-db', () => ({
   asStaffViewing: (_actor: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
 }));
@@ -239,11 +250,12 @@ describe('the session note', () => {
     kbVersionId: 'kb-1',
     planOfCareId: 'plan-1',
     note: complete(),
-    status: 'draft',
+    status: 'draft' as 'draft' | 'signed',
     signedAt: null,
     signedByName: null,
     packageId: null,
     version: 4,
+    startedAt: new Date('2026-11-10T04:30:00Z'),
     ...extra,
   });
   const context = (actor = staff()) => ({ db: {} as Db, actor });
@@ -422,6 +434,169 @@ describe('the session note', () => {
       baseVersion: 4,
       by: staff().id,
       pain: { rest: 2, activity: 4, after: 1 },
+    });
+    expect(db.recordBaseline, 'only session 1 records the baseline').not.toHaveBeenCalled();
+  });
+
+  // OUT-01 done when: consultation measures within 7 days are reused; missing markers are asked
+  // for at session 1, recorded or not tested with a reason before it closes.
+  describe('session 1’s baseline', () => {
+    const marker = (extra: Partial<KnowledgeMeasure>): KnowledgeMeasure => ({
+      key: 'knee.marker.primary_task_pain_nrs_0_10', // gitleaks:allow
+      region: 'knee',
+      section: 'RE-TESTABLE MARKERS — BASELINE vs CURRENT',
+      name: 'Primary task pain (NRS 0-10)',
+      unit: '/10',
+      kind: 'marker',
+      inverted: false,
+      rule: { kind: 'none' },
+      direction: 'Lower is better',
+      note: null,
+      ...extra,
+    });
+    const pain = marker({});
+    const effusion = marker({
+      key: 'knee.marker.effusion_grade_0_3', // gitleaks:allow
+      name: 'Effusion grade (0-3)',
+      unit: 'grade',
+      kind: 'grade',
+    });
+    const quadriceps = marker({
+      key: 'knee.lsi.quadriceps', // gitleaks:allow
+      section: 'STRENGTH',
+      name: 'Quadriceps',
+      unit: 'kg',
+      kind: 'lsi',
+      rule: { kind: 'lsi', passAt: 0.9 },
+      direction: null,
+    });
+    const startedAt = new Date('2026-11-10T04:30:00Z');
+    const takenAt = new Date('2026-11-07T06:00:00Z');
+    const first = (baseline: SessionNote['baseline'] = {}) =>
+      stored({ number: 1, note: { ...complete(), baseline } });
+
+    beforeEach(() => {
+      db.knowledgeObjective.mockResolvedValue({
+        measures: [quadriceps, pain, effusion],
+        specialTests: [],
+      });
+      db.signedConsultationOf.mockResolvedValue({
+        id: 'c1',
+        appointmentId: 'consultation-visit',
+        sections: { objective: { region: 'knee' } },
+      });
+      db.consultationIntake.mockResolvedValue(undefined);
+      db.consultationMeasuresBetween.mockResolvedValue([
+        { key: quadriceps.key, limb: 'involved', value: 32, takenAt, consultationId: 'c1' },
+        { key: quadriceps.key, limb: 'uninvolved', value: 40, takenAt, consultationId: 'c1' },
+      ]);
+    });
+
+    it('reuses the consultation’s readings from the setting’s days and asks for the markers', async () => {
+      const view = await baselineView(fakeTx as never, first());
+      expect(db.consultationMeasuresBetween).toHaveBeenCalledWith(
+        fakeTx,
+        episodeId,
+        new Date('2026-11-03T04:30:00Z'),
+        startedAt,
+      );
+      expect(view).toEqual({
+        reuseDays: 7,
+        items: [
+          expect.objectContaining({
+            key: quadriceps.key,
+            source: 'consultation',
+            reading: 'Involved 32 kg, uninvolved 40 kg · LSI 80% · Not yet',
+            takenAt,
+          }),
+          expect.objectContaining({ key: pain.key, source: 'requested', reading: null }),
+          expect.objectContaining({ key: effusion.key, source: 'requested', kind: 'grade' }),
+        ],
+      });
+      expect(await baselineView(fakeTx as never, stored()), 'session 3').toBeNull();
+    });
+
+    it('holds Close session until each is recorded or not tested, then freezes it after signing', async () => {
+      const close = () => closeSession(context(), { appointmentId, baseVersion: 4 });
+      db.sessionNoteOf.mockResolvedValueOnce(first());
+      await expect(close()).rejects.toThrow(
+        'Record Primary task pain (NRS 0-10), or mark it Not tested with a reason. Record Effusion grade (0-3), or mark it Not tested with a reason.',
+      );
+      db.sessionNoteOf.mockResolvedValueOnce(
+        first({
+          [pain.key]: { value: 6, notTested: false, reason: '' },
+          [effusion.key]: { value: null, notTested: true, reason: '' },
+        }),
+      );
+      await expect(close()).rejects.toThrow('Give the reason Effusion grade (0-3) was not tested.');
+      expect(db.signSession).not.toHaveBeenCalled();
+
+      const order: string[] = [];
+      db.signSession.mockImplementationOnce(() => {
+        order.push('sign');
+        return Promise.resolve('signed');
+      });
+      db.recordBaseline.mockImplementationOnce(() => {
+        order.push('baseline');
+        return Promise.resolve();
+      });
+      db.sessionNoteOf.mockResolvedValueOnce(
+        first({
+          [pain.key]: { value: 6, notTested: false, reason: '' },
+          [effusion.key]: { value: null, notTested: true, reason: 'Swelling not assessable' },
+        }),
+      );
+      await expect(close()).resolves.toEqual({ status: 'signed' });
+      expect(order).toEqual(['sign', 'baseline']);
+      expect(db.recordBaseline).toHaveBeenCalledWith(fakeTx, {
+        sessionId,
+        episodeId,
+        kbVersionId: 'kb-1',
+        by: staff().id,
+        reused: [{ key: quadriceps.key, consultationId: 'c1' }],
+        recordings: [
+          { key: pain.key, value: 6, unit: '/10' },
+          { key: effusion.key, notTestedReason: 'Swelling not assessable' },
+        ],
+      });
+    });
+
+    it('shows the frozen baseline once signed, in the workbook’s order', async () => {
+      db.frozenBaseline.mockResolvedValue([
+        { key: effusion.key, consultationId: null, notTestedReason: 'Swelling', readings: [] },
+        {
+          key: quadriceps.key,
+          consultationId: 'c1',
+          notTestedReason: null,
+          readings: [
+            { limb: 'involved', value: 32, takenAt },
+            { limb: 'uninvolved', value: 40, takenAt },
+          ],
+        },
+        {
+          key: pain.key,
+          consultationId: null,
+          notTestedReason: null,
+          readings: [{ limb: null, value: 6, takenAt: startedAt }],
+        },
+      ]);
+      const view = await baselineView(fakeTx as never, stored({ number: 1, status: 'signed' }));
+      expect(view?.items.map((item) => [item.key, item.source, item.reading, item.reason])).toEqual(
+        [
+          [
+            quadriceps.key,
+            'consultation',
+            'Involved 32 kg, uninvolved 40 kg · LSI 80% · Not yet',
+            null,
+          ],
+          [pain.key, 'session', '6/10', null],
+          [effusion.key, 'not_tested', null, 'Swelling'],
+        ],
+      );
+      expect(
+        db.consultationMeasuresBetween,
+        'a signed baseline is never worked out again',
+      ).not.toHaveBeenCalled();
     });
   });
 

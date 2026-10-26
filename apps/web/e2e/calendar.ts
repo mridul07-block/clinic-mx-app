@@ -197,6 +197,13 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
       sql`delete from addendum where session_id in
         (select id from session where physio_id in ${physioIds})`,
     );
+    // Session 1's baseline (OUT-01): its rows and the markers it recorded.
+    for (const table of ['baseline_measure', 'measure']) {
+      await tx.execute(
+        sql`delete from ${sql.identifier(table)} where session_id in
+          (select id from session where physio_id in ${physioIds})`,
+      );
+    }
     await tx.execute(sql`delete from session where physio_id in ${physioIds}`);
     const consultations = sql`(select id from consultation where physio_id in ${physioIds})`;
     // The patient's choices on their plans (BIL-02), with what "I'll think about it" raised.
@@ -225,6 +232,7 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
       'plan_of_care',
       'diagnosis',
       'special_test_result',
+      'baseline_measure',
       'measure',
       'addendum',
     ]) {

@@ -50,6 +50,12 @@ export async function restorePrices(snapshot: PriceSnapshot): Promise<void> {
         sql`delete from addendum where session_id in
           (select id from session where package_id::text in ${bought})`,
       );
+      for (const table of ['baseline_measure', 'measure']) {
+        await tx.execute(
+          sql`delete from ${sql.identifier(table)} where session_id in
+            (select id from session where package_id::text in ${bought})`,
+        );
+      }
       await tx.execute(sql`delete from session where package_id::text in ${bought}`);
       await tx.execute(sql`delete from package where bill_id in ${chosenBills}`);
       await tx.execute(sql`delete from payment where bill_id in ${chosenBills}`);

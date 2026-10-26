@@ -1,11 +1,10 @@
 import { z } from 'zod';
 import type { AssessmentCatalog, Irritability, Stage } from './assessment';
-import { consultationScreening, type ConsultationSections } from './consultations';
+import { consultationRegion } from './baseline';
+import type { ConsultationSections } from './consultations';
 import type { HealthFormAnswers } from './health-form';
-import type { KnowledgeRegion } from './knowledge';
 import {
   isPaired,
-  knowledgeRegionOfScreening,
   type KnowledgeMeasure,
   type KnowledgeSpecialTest,
   type SpecialTestResult,
@@ -131,9 +130,7 @@ export function signedRecord(
     problems.push('The working diagnosis needs its four parts.');
   }
 
-  const screening = consultationScreening(sections, context.patientAnswers);
-  const region: KnowledgeRegion | '' =
-    objective.region || (screening.region ? knowledgeRegionOfScreening[screening.region] : '');
+  const region = consultationRegion(sections, context.patientAnswers);
   const suggested = suggestedQuestionnaires(
     planQuestionnaires(context.planCatalog, region),
     condition,

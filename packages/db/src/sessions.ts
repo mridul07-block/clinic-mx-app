@@ -70,6 +70,8 @@ export interface SessionNoteEntry {
   signedByName: string | null;
   packageId: string | null;
   version: number;
+  /** When Start session opened it: session 1's baseline window runs back from here (OUT-01). */
+  startedAt: Date;
 }
 
 const noteColumns = {
@@ -87,6 +89,7 @@ const noteColumns = {
   signedByName: staffUser.name,
   packageId: treatmentSession.packageId,
   version: treatmentSession.version,
+  startedAt: treatmentSession.createdAt,
 };
 
 /**
