@@ -1,4 +1,3 @@
-import { istDate } from '@clinic-mx/schemas';
 import { expect, test, type Page } from '@playwright/test';
 import { pastToday, removeCalendarRows, startedAppointment } from './calendar';
 import { testPatient } from './patients';
@@ -40,8 +39,9 @@ test('the desk lands on Today; chips count and filter; tags and timers show', as
   const done = await testPatient();
   const dropped = await testPatient();
   const upcoming = await startedAppointment(person.id, later.id, -120, { minutes: 5 });
-  // An appointment after 22:00 IST would be tomorrow's; the board is today's.
-  test.skip(istDate(upcoming.startsAt) !== istDate(new Date()), 'Too late in the IST day.');
+  // Booked needs a start two hours ahead on today's board: impossible after 22:00 IST, where
+  // `earlierToday` keeps the visit today by moving it two hours back instead.
+  test.skip(upcoming.startsAt <= new Date(), 'Too late in the IST day.');
   // Running late, here, seen and cancelled need starts up to an hour back on today's board.
   test.skip(!pastToday(60), 'Within an hour after midnight in IST.');
   await startedAppointment(person.id, late.id, 20, {
