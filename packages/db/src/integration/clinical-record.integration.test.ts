@@ -22,8 +22,10 @@ import { invoiceFacts } from '../invoice';
 import { packageRescheduleState, packagesOfEpisode, usePackageSession } from '../packages';
 import { latestKnowledgeVersion } from '../knowledge';
 import {
+  addSessionAddendum,
   openSession,
   saveSessionNote,
+  sessionAddenda,
   sessionNoteOf,
   sessionProgress,
   signSession,
@@ -40,12 +42,14 @@ import {
   logClinicalView,
   patientAlertHistory,
   signedNotesOf,
+  signedSessionNotesOf,
 } from '../patient-record';
 import { insertConsultationRedFlag, moveRedFlagAlert, openRedFlagAlerts } from '../red-flag-alerts';
 import { planChoicesOf, recordPlanChoice, thinkAboutItFollowUp } from '../plan-choice';
 import { planForPricing } from '../plan-sheet';
 import { referralLetterFacts } from '../referral-letter';
 import {
+  addendum,
   appointment,
   auditEvent,
   bill,
@@ -2112,6 +2116,119 @@ describe('counter payments', () => {
             assignee: fixture.consultant.id,
           },
         ]);
+      });
+    });
+
+    // CLN-12 follow up (user decisions 26 October 2026): a signed session note changes only by
+    // addenda, added as on a consultation: the Treats patients tick, at the episode's centre or on
+    // one's own note.
+    it('takes addenda once signed, at its centre or from its physio, read wherever the note is', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        const { appointmentId, sessionId } = await started(tx, fixture);
+        const addAs = async (actor: StaffMember, text: string, episodeId = fixture.episodeId) => {
+          await asOwner(tx);
+          await becomeStaff(tx, actor);
+          return failure(tx, (sp) =>
+            addSessionAddendum(sp, { sessionId, episodeId, text, authorId: actor.id }),
+          );
+        };
+        const readAs = async (actor: StaffMember) => {
+          await asOwner(tx);
+          await becomeStaff(tx, actor);
+          // Both are written in one transaction here, at the same time.
+          return (await sessionAddenda(tx, sessionId)).map((entry) => entry.text).sort();
+        };
+        expect(await addAs(fixture.consultant, 'Too early'), 'a draft has none').toBe('42501');
+
+        await asOwner(tx);
+        await becomeStaff(tx, fixture.consultant);
+        expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 1))).toBe('signed');
+        await asOwner(tx);
+        const [jobsBefore] = await tx.select({ count: sql<number>`count(*)::int` }).from(job);
+
+        expect(await addAs(fixture.consultant, 'Pain at rest was 3, not 2.')).toBeUndefined();
+        expect(await addAs(fixture.colleague, 'Reviewed with the patient.')).toBeUndefined();
+        expect(await addAs(fixture.elsewhere, 'From another centre'), 'not their centre').toBe(
+          '42501',
+        );
+        expect(await addAs(adminWithoutTick, 'No tick'), 'no Treats patients tick').toBe('42501');
+        expect(await addAs(deskHsr, 'The desk')).toBe('42501');
+        expect(await addAs(support, 'Support')).toBe('42501');
+        await asOwner(tx);
+        const otherEpisode = await insertEpisode(tx, {
+          patientId: fixture.patientId,
+          centreId: centreIds.hsrLayout,
+        });
+        expect(
+          await addAs(fixture.consultant, 'Another episode', otherEpisode),
+          'only on its own episode',
+        ).toBe('42501');
+
+        const both = ['Pain at rest was 3, not 2.', 'Reviewed with the patient.'].sort();
+        expect(await readAs(fixture.consultant)).toEqual(both);
+        expect(await readAs(fixture.elsewhere), 'read at any centre').toEqual(both);
+        expect(await readAs(adminWithoutTick)).toEqual(both);
+        expect(await readAs(deskHsr)).toEqual([]);
+        expect(await readAs(support)).toEqual([]);
+
+        // On the record, with names, at another centre.
+        await asOwner(tx);
+        await becomeStaff(tx, fixture.elsewhere);
+        const [onRecord] = await signedSessionNotesOf(tx, fixture.patientId);
+        expect(onRecord).toMatchObject({
+          kind: 'session',
+          id: sessionId,
+          appointmentId,
+          number: 1,
+          signedBy: fixture.consultant.id,
+          signedByName: fixture.consultant.name,
+          note: { sinceLastVisit: 'Stairs easier' },
+        });
+        expect(onRecord?.centreName).not.toBeNull();
+        expect(onRecord?.addenda.map((entry) => entry.authorName).sort()).toEqual(
+          [fixture.consultant.name, fixture.colleague.name].sort(),
+        );
+        await asOwner(tx);
+        await becomeStaff(tx, deskHsr);
+        expect(await signedSessionNotesOf(tx, fixture.patientId)).toEqual([]);
+
+        await asOwner(tx);
+        const [jobsAfter] = await tx.select({ count: sql<number>`count(*)::int` }).from(job);
+        expect(jobsAfter?.count, 'a session addendum queues no document').toBe(jobsBefore?.count);
+        expect(
+          await failure(tx, (sp) =>
+            sp.insert(addendum).values({
+              sessionId,
+              consultationId: null,
+              episodeId: fixture.episodeId,
+              text: 'x',
+              authorId: fixture.consultant.id,
+            }),
+          ),
+          'the database owner may write one',
+        ).toBeUndefined();
+        expect(
+          await failure(tx, (sp) =>
+            sp.insert(addendum).values({
+              episodeId: fixture.episodeId,
+              text: 'On nothing',
+              authorId: fixture.consultant.id,
+            }),
+          ),
+          'an addendum belongs to exactly one note',
+        ).toBe('23514');
+        expect(
+          await failure(tx, (sp) =>
+            sp.insert(addendum).values({
+              sessionId,
+              consultationId: fixture.consultationId,
+              episodeId: fixture.episodeId,
+              text: 'On both',
+              authorId: fixture.consultant.id,
+            }),
+          ),
+        ).toBe('23514');
       });
     });
   });

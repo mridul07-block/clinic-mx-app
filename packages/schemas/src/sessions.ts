@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { recordVersionSchema } from './drafts';
 import { episodeStatusLabels, type EpisodeStatus } from './episodes';
 import { interventionKinds, type InterventionKind } from './plan';
+import { addendumTextSchema } from './signed-record';
 
 /**
  * Treatment session check in (SES-01, PRD J5.1, M9; user decisions 25 October 2026). A
@@ -159,6 +160,12 @@ export function emptySessionNote(): SessionNote {
   return sessionNoteSchema.parse({});
 }
 
+/** A stored note as today's schema reads it; one that no longer parses reads as empty. */
+export function readSessionNote(stored: Record<string, unknown>): SessionNote {
+  const read = sessionNoteSchema.safeParse(stored);
+  return read.success ? read.data : emptySessionNote();
+}
+
 /**
  * A new note: the treatment given last time (the episode's last signed note), or for the first
  * session the plan's interventions and modalities; everything else starts empty.
@@ -214,4 +221,10 @@ export const saveSessionNoteSchema = z.object({
 export const closeSessionSchema = z.object({
   appointmentId: z.guid(),
   baseVersion: recordVersionSchema,
+});
+
+/** An addendum on a signed session note (CLN-12 follow up). */
+export const sessionAddendumSchema = z.object({
+  sessionId: z.guid(),
+  text: addendumTextSchema,
 });

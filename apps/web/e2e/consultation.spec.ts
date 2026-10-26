@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { removeCalendarRows, startedAppointment } from './calendar';
 import { draftSections, savedConsultation, signedRows, submittedAnswers } from './consultations';
 import { pipelineOf, removePipelineRows } from './intake';
-import { runDueJobs } from './jobs';
+import { runDueJobs, tickUntil } from './jobs';
 import { checkedIn, consultationTypeId, submittedWithAlert } from './my-patients';
 import { testPatient } from './patients';
 import { signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
@@ -725,10 +725,11 @@ test('signing generates the consultation summary, and an addendum its next versi
   await page.getByRole('button', { name: 'Sign and finish' }).click();
   await page.getByTestId('sign-confirm').getByRole('button', { name: 'Sign', exact: true }).click();
   await page.waitForURL(/\/app\/my-patients$/);
-  await runDueJobs(page.request);
-  await page.goto(`/app/patients/${patient.id}?tab=documents`);
   const documents = page.getByTestId('patient-documents');
-  await expect(documents.getByTestId('patient-document')).toHaveCount(1);
+  await tickUntil(page.request, async () => {
+    await page.goto(`/app/patients/${patient.id}?tab=documents`);
+    await expect(documents.getByTestId('patient-document')).toHaveCount(1, { timeout: 1_000 });
+  });
   await expect(documents).toContainText('Consultation summary');
   await expect(documents).toContainText('Version 1 ·');
   const first =
@@ -746,10 +747,11 @@ test('signing generates the consultation summary, and an addendum its next versi
   await page.getByLabel('Add addendum').fill('Corrected: the right knee is the involved side.');
   await page.getByRole('button', { name: 'Add addendum' }).click();
   await expect(page.getByTestId('addendum')).toHaveCount(1);
-  await runDueJobs(page.request);
-  await page.goto(`/app/patients/${patient.id}?tab=documents`);
+  await tickUntil(page.request, async () => {
+    await page.goto(`/app/patients/${patient.id}?tab=documents`);
+    await expect(documents).toContainText('Version 2 ·', { timeout: 1_000 });
+  });
   await expect(documents.getByTestId('patient-document')).toHaveCount(1);
-  await expect(documents).toContainText('Version 2 ·');
   await expect(documents.getByRole('link', { name: /^Version 1, / })).toHaveAttribute(
     'href',
     first,
@@ -807,10 +809,11 @@ test('a red flag found in the consultation holds the episode and generates the r
   await expect.poll(async () => (await pipelineOf(visit.id)).status).toBe('on_hold');
 
   // The queue makes the letter, on the patient record's Documents tab.
-  await runDueJobs(page.request);
-  await page.goto(`/app/patients/${patient.id}?tab=documents`);
   const documents = page.getByTestId('patient-documents');
-  await expect(documents).toContainText('Referral letter');
+  await tickUntil(page.request, async () => {
+    await page.goto(`/app/patients/${patient.id}?tab=documents`);
+    await expect(documents).toContainText('Referral letter', { timeout: 1_000 });
+  });
   const href = (await documents.getByRole('link', { name: 'Open PDF' }).getAttribute('href')) ?? '';
   const opened = await page.request.get(href);
   expect(opened.status()).toBe(200);

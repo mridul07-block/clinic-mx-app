@@ -29,7 +29,7 @@ Decisions (user, 24 October 2026):
 | Tab | Shows |
 | --- | --- |
 | Overview | For clinicians, the summary card first. Then the contact details (or the edit form), episodes for those without clinical access, their invoices for those who see amounts (BIL-09), their packages' meters for the desk, physios and Finance (BIL-08), self booking, guardians and "Also on this mobile" |
-| Notes | Each episode (region, status, centre, dates, discharge reason) with its signed notes, newest first: "Consultation · date, time · consultant", the diagnosis, "Open note" (the read-only consultation) and "Addenda (n)" |
+| Notes | Each episode (region, status, centre, dates, discharge reason) with its signed notes, consultations and session notes together, newest first. A consultation: "Consultation · date, time · consultant", the diagnosis, "Open note" (the read-only consultation) and "Addenda (n)". A session note (CLN-12 follow up): "Session n · date, time · physio", a digest ("Pain 2 at rest · 4 during activity · 1 after treatment · Better"), "Open note" opening the whole note read only in place (the session screen stays its physio's, SES-02) and "Addenda (n)" |
 | Documents | Documents (each with its newest version to open and "Earlier versions"; until one is generated, "Consultation summaries and letters appear here once they are generated."), then Reports |
 | Alerts | The patient's red flag alerts at every centre, open first: rule, triage, status, lifecycle (raised, reviewed, referred, closed, who and when), decision; "Open in Alerts" for an open one the reader acts on at its centre |
 
@@ -41,9 +41,9 @@ closed one (`currentEpisode`, `packages/schemas/src/patient-record.ts`). It show
 1. open red flag alerts on it (linking to Alerts);
 2. its precautions;
 3. region, status, centre and dates;
-4. the diagnosis from its newest signed note: condition, movement diagnosis, irritability, stage, Provisional;
+4. the diagnosis from its newest signed consultation: condition, movement diagnosis, irritability, stage, Provisional;
 5. the plan of care at its newest version: goals (the patient's marked), sessions a week for weeks, review date, treating physio, interventions and modalities, home programme size;
-6. "Last signed note <date, time> by <name>";
+6. "Last signed note: <Consultation or Session n>, <date, time> by <name>", the newest signed note of either kind (user decision 26 October 2026);
 7. the next Booked or Confirmed visit the reader can see, or "No visit booked."
 
 ## Where it lives
@@ -54,7 +54,8 @@ closed one (`currentEpisode`, `packages/schemas/src/patient-record.ts`). It show
 | Summary card, Notes, Alerts | `.../patients/[patientId]/clinical-record.tsx` |
 | Tabs (links, `aria-current`) | `apps/web/components/record-tabs.tsx` |
 | Clinical part, record view | `clinicalRecordOf`, `apps/web/modules/patients/record.ts` |
-| Reads | `signedNotesOf`, `episodePlan`, `episodePrecautions`, `patientAlertHistory`, `nextVisitOf`, `logClinicalView`, `packages/db/src/patient-record.ts` |
+| Session note, read only | `apps/web/components/signed-session-note.tsx` |
+| Reads | `signedNotesOf`, `signedSessionNotesOf`, `episodePlan`, `episodePrecautions`, `patientAlertHistory`, `nextVisitOf`, `logClinicalView`, `packages/db/src/patient-record.ts` |
 | Tab and episode choice | `patientRecordTab`, `currentEpisode`, `worksAtCentre`, `packages/schemas/src/patient-record.ts` |
 
 ## Rules
@@ -70,6 +71,7 @@ Enforced twice: the service gives the clinical part only for `clinical.read`; th
 | The alert history is given to clinicians only; `red_flag_alert` itself stays centre scoped | `internal.patient_alert_history(patient_id)` |
 | Names on a record from another centre (who signed, wrote, treats; the centre) are read by clinicians | `internal.record_staff_name`, `internal.record_centre_name` |
 | Addenda are added only at the episode's centre, or on one's own note | `internal.adds_addendum` (the centre tested directly) |
+| An addendum belongs to exactly one signed consultation or session note; a session note's addenda follow the same rules, and queue no document | Check `addendum_note`; `internal.reads_session`, `internal.adds_session_addendum`, policies `addendum_read` and `addendum_add` (`20261026062949_session_addendum_rules.sql`) |
 | A record view is written only by a clinician, as the transaction's own staff member | `internal.record_view(entity, id)` |
 
 ## Checking it
@@ -77,7 +79,7 @@ Enforced twice: the service gives the clinical part only for `clinical.read`; th
 | Test | Covers |
 | --- | --- |
 | `packages/schemas/src/patient-record.test.ts` | Tabs for clinicians and others; the current episode; who works at a centre |
-| `apps/web/modules/patients/record.test.ts` | The summary for the open episode; one record view; addenda only at one's centres or on one's own note; nothing and no view for the desk, a manager or support |
+| `apps/web/modules/patients/record.test.ts` | The summary for the open episode; one record view; addenda only at one's centres or on one's own note; session notes listed with consultations newest first, the card's diagnosis from the consultation and its last note of either kind; nothing and no view for the desk, a manager or support |
 | `apps/web/modules/consultations/services.test.ts` | A signed consultation from another centre: read only, no addendum form, the treating physio's name, a record view; none for its own consultant |
 | `packages/db/src/integration/clinical-record.integration.test.ts` ("the patient record") | Under row level security: a Koramangala physio and the Super Admin without the tick read an HSR signed note, its diagnosis, plan, addenda, precautions, alert history and visit, but the Alerts list still leaves the alert out; drafts stay at their centre; another centre adds no addendum; the desk, a manager, Finance and support read none of it; a record view is written as the clinician and refused for the desk |
 | `apps/web/e2e/patient-record.spec.ts` | At 360 px and desktop: a Koramangala physio reads the summary, Notes (no addendum form), Documents and Alerts, with a record view logged; the consultant adds an addendum from Notes; the desk sees no tabs and no clinical details |

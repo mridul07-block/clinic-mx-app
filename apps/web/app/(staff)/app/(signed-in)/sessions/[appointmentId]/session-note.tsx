@@ -189,7 +189,10 @@ export function SessionNoteForm({
   };
 
   return (
-    <section aria-labelledby="session-note" className="flex flex-col gap-4 pb-24 md:pb-0">
+    <section
+      aria-labelledby="session-note"
+      className={`flex flex-col gap-4 ${editable ? 'pb-24 md:pb-0' : ''}`}
+    >
       <div className="flex items-baseline justify-between gap-3">
         <h2 id="session-note" className="text-lg font-semibold">
           Session note
@@ -229,9 +232,11 @@ export function SessionNoteForm({
                 set({ newSymptoms: { ...note.newSymptoms, description } });
               }}
             />
-            <p className="text-sm text-waiting-strong">
-              Closing the session gives the consultant a task to review them.
-            </p>
+            {editable ? (
+              <p className="text-sm text-waiting-strong">
+                Closing the session gives the consultant a task to review them.
+              </p>
+            ) : null}
           </>
         ) : null}
       </Section>

@@ -11,7 +11,7 @@ import {
 import { testLink } from './patient-links';
 import { testPatient } from './patients';
 import { signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
-import { runDueJobs } from './jobs';
+import { tickUntil } from './jobs';
 
 // ALT-01 done when: alerts go raised, reviewed, referred, closed; the emergency banner stays until
 // a clinician acknowledges it; the front desk sees the non clinical banner. Decisions (user, 23
@@ -98,9 +98,12 @@ test('an emergency: the desk’s banner, the physio reviews, refers and closes, 
   expect((await pipelineOf(visit.id)).status).toBe('on_hold');
 
   // The queue makes the referral letter, on the patient record's Documents tab.
-  await runDueJobs(page.request);
-  await page.goto(`/app/patients/${patient.id}?tab=documents`);
-  await expect(page.getByTestId('patient-documents')).toContainText('Referral letter');
+  await tickUntil(page.request, async () => {
+    await page.goto(`/app/patients/${patient.id}?tab=documents`);
+    await expect(page.getByTestId('patient-documents')).toContainText('Referral letter', {
+      timeout: 1_000,
+    });
+  });
   const letter =
     (await page
       .getByTestId('patient-documents')

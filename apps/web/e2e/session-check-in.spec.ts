@@ -21,6 +21,10 @@ import { exclusively, signIn, signInWithCode, temporaryDesk, temporaryWithCode }
 // the visit and uses a package session. Decisions (user, 26 October 2026): pain at rest, during
 // activity and after; new symptoms need a description and give the consultant a task; treatment
 // ticks from the plan; response and next session in one tap.
+// CLN-12 follow up: signed session notes join the patient record and change only by addenda.
+// Decisions (user, 26 October 2026): listed inline on Notes with consultations; addenda as on a
+// consultation (the tick, at the episode's centre or on one's own note), on Notes and on the
+// session screen; the card's last signed note is either kind.
 
 const physios: string[] = [];
 const visits: string[] = [];
@@ -233,6 +237,16 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
       );
       await expect(note.getByRole('button', { name: 'Close session' })).toHaveCount(0);
       await expect(note.getByLabel('Describe the new symptoms')).toHaveAttribute('readonly', '');
+      await expect(note.getByText('Closing the session gives the consultant a task')).toHaveCount(
+        0,
+      );
+
+      // Signed, it changes only by addenda: its physio adds one on the session screen.
+      await physioPage.getByLabel('Add addendum').fill('Pain at rest was 3, not 2.');
+      await physioPage.getByRole('button', { name: 'Add addendum' }).click();
+      await expect(physioPage.getByTestId('addendum')).toHaveCount(1);
+      await expect(physioPage.getByTestId('addendum')).toContainText('Pain at rest was 3, not 2.');
+      await expect(physioPage.getByTestId('addendum')).toContainText(physio.name);
 
       // New symptoms: the consultant (here the same physio) has a task to review them.
       await physioPage.goto('/app/tasks');
@@ -255,6 +269,39 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
         otherPage.getByRole('heading', { name: 'This page could not be found.' }),
       ).toBeVisible();
       await expect(otherPage.getByTestId('summary-card')).toHaveCount(0);
+
+      // On the patient record they read the signed note, with the card's last note now the
+      // session, and add an addendum at the episode's centre.
+      await otherPage.goto(`/app/patients/${paid.patient.id}`);
+      await expect(otherPage.getByTestId('summary-last-note')).toContainText(
+        `Last signed note: Session 1,`,
+      );
+      await expect(otherPage.getByTestId('summary-diagnosis')).toContainText(paid.conditionName);
+      await otherPage.goto(`/app/patients/${paid.patient.id}?tab=notes`);
+      const sessionNote = otherPage.getByTestId('signed-note').filter({ hasText: 'Session 1 ·' });
+      await expect(otherPage.getByTestId('signed-note').first()).toContainText('Session 1 ·');
+      await expect(sessionNote).toContainText(
+        'Pain 2 at rest · 4 during activity · 1 after treatment · Better',
+      );
+      await sessionNote.getByText('Open note').click();
+      const signedNote = sessionNote.getByTestId('signed-session-note');
+      await expect(signedNote).toContainText('Yes. Tingling in the foot since Sunday');
+      await expect(signedNote).toContainText('Stairs are easier this week');
+      await expect(signedNote).toContainText('Exercise');
+      await expect(signedNote).toContainText('Progress');
+      await sessionNote.getByText('Addenda (1)').click();
+      await expect(sessionNote.getByTestId('addendum')).toContainText('Pain at rest was 3, not 2.');
+      await sessionNote.getByLabel('Add addendum').fill('Reviewed the foot: no change.');
+      await sessionNote.getByRole('button', { name: 'Add addendum' }).click();
+      await expect(sessionNote.getByTestId('addendum')).toHaveCount(2);
+      await expect(sessionNote.getByTestId('addendum').nth(1)).toContainText(other.name);
+      expect(
+        await otherPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      await otherPage.screenshot({
+        path: test.info().outputPath('session-on-record.png'),
+        fullPage: true,
+      });
       await otherContext.close();
       await page.goto(`/app/sessions/${paidSession.id}`);
       await expect(

@@ -1,5 +1,5 @@
 import type { SignedRows } from '@clinic-mx/schemas';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import {
   addendum,
   appointment,
@@ -159,6 +159,36 @@ export function consultationAddenda(
     .from(addendum)
     .where(eq(addendum.consultationId, consultationId))
     .orderBy(asc(addendum.createdAt), asc(addendum.id));
+}
+
+/**
+ * The addenda of these signed consultations or session notes, oldest first, by the note they
+ * belong to, with who wrote them.
+ */
+export async function addendaOf(
+  db: DbOrTransaction,
+  of: 'consultation' | 'session',
+  noteIds: string[],
+): Promise<Map<string, AddendumEntry[]>> {
+  const byNote = new Map<string, AddendumEntry[]>();
+  if (noteIds.length === 0) return byNote;
+  const column = of === 'consultation' ? addendum.consultationId : addendum.sessionId;
+  const rows = await db
+    .select({
+      noteId: column,
+      id: addendum.id,
+      text: addendum.text,
+      authorId: addendum.authorId,
+      authorName: sql<string>`coalesce(internal.record_staff_name(${addendum.authorId}), '')`,
+      createdAt: addendum.createdAt,
+    })
+    .from(addendum)
+    .where(inArray(column, noteIds))
+    .orderBy(asc(addendum.createdAt), asc(addendum.id));
+  for (const { noteId, ...entry } of rows) {
+    if (noteId) byNote.set(noteId, [...(byNote.get(noteId) ?? []), entry]);
+  }
+  return byNote;
 }
 
 /** Adds an addendum to a signed consultation; row level security decides who may. */

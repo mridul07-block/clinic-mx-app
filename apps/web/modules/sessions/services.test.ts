@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import {
   SessionError,
+  addSessionAddendum,
   closeSession,
   loadSession,
   openSessionNote,
@@ -14,6 +15,10 @@ const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
   sessionNoteOf: vi.fn(),
+  sessionNoteById: vi.fn(),
+  sessionAddenda: vi.fn(),
+  addSessionAddendum: vi.fn(),
+  signedSessionNotesOf: vi.fn(),
   planForSession: vi.fn(),
   saveSessionNote: vi.fn(),
   signSession: vi.fn(),
@@ -82,9 +87,35 @@ describe('loadSession', () => {
       new Map([[appointmentId, { number: 3, planned: 12, episodeStatus: 'active' }]]),
     );
     db.episodeRecord.mockResolvedValue({ id: episodeId, status: 'active', centreId: hsr });
+    const signedAt = new Date('2026-10-20T05:00:00Z');
     db.signedNotesOf.mockResolvedValue([
-      { id: 'c1', episodeId, centreId: hsr, signedBy: 'consultant', addenda: [] },
-      { id: 'c0', episodeId: 'older', centreId: hsr, signedBy: 'consultant', addenda: [] },
+      {
+        kind: 'consultation',
+        id: 'c1',
+        episodeId,
+        centreId: hsr,
+        signedBy: 'consultant',
+        signedAt,
+      },
+      {
+        kind: 'consultation',
+        id: 'c0',
+        episodeId: 'older',
+        centreId: hsr,
+        signedBy: 'consultant',
+        signedAt: new Date('2026-09-01T05:00:00Z'),
+      },
+    ]);
+    db.signedSessionNotesOf.mockResolvedValue([
+      {
+        kind: 'session',
+        id: 's2',
+        number: 2,
+        episodeId,
+        centreId: hsr,
+        signedBy: 'p',
+        signedAt: new Date('2026-10-24T05:00:00Z'),
+      },
     ]);
     db.patientAlertHistory.mockResolvedValue([
       { id: 'a1', episodeId, status: 'raised' },
@@ -105,7 +136,8 @@ describe('loadSession', () => {
     expect(screen?.summary).toMatchObject({
       plan: { sessionsPerWeek: 2, weeks: 6 },
       precautions: [{ key: 'pregnancy', label: 'Pregnancy' }],
-      lastNote: { id: 'c1' },
+      consultation: { id: 'c1' },
+      lastNote: { id: 's2' },
       openAlerts: 1,
     });
     expect(db.logClinicalView).toHaveBeenCalledWith(fakeTx, 'patient', patientId);
@@ -161,6 +193,7 @@ describe('the session note', () => {
     id: sessionId,
     appointmentId,
     episodeId,
+    centreId: hsr,
     physioId: staff().id,
     number: 3,
     planOfCareId: 'plan-1',
@@ -181,6 +214,9 @@ describe('the session note', () => {
       (_db: Db, _context: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
     );
     db.sessionNoteOf.mockResolvedValue(stored());
+    db.sessionNoteById.mockResolvedValue(stored({ status: 'signed' }));
+    db.sessionAddenda.mockResolvedValue([]);
+    db.addSessionAddendum.mockResolvedValue({ id: 'addendum-1' });
     db.staffTreatsNow.mockResolvedValue(true);
     db.signSession.mockResolvedValue('signed');
     db.latestKnowledgeVersion.mockResolvedValue({ id: 'kb-1' });
@@ -233,18 +269,57 @@ describe('the session note', () => {
     );
     db.episodeRecord.mockResolvedValue({ id: episodeId, status: 'active', centreId: hsr });
     db.signedNotesOf.mockResolvedValue([]);
+    db.signedSessionNotesOf.mockResolvedValue([]);
     db.patientAlertHistory.mockResolvedValue([]);
     db.episodePrecautions.mockResolvedValue([]);
     const own = await loadSession(staff(), appointmentId);
-    expect(own?.note).toMatchObject({ version: 4, editable: true, value: complete() });
+    expect(own?.note).toMatchObject({
+      id: sessionId,
+      version: 4,
+      editable: true,
+      value: complete(),
+      addenda: [],
+      addsAddenda: false,
+    });
+    expect(db.sessionAddenda).not.toHaveBeenCalled();
     expect((await loadSession(superAdmin, appointmentId))?.note?.editable).toBe(false);
     db.sessionNoteOf.mockResolvedValue(
       stored({ status: 'signed', signedAt: new Date(), signedByName: 'Test Physio' }),
     );
+    db.sessionAddenda.mockResolvedValue([{ id: 'a1', text: 'Pain 4 at rest, not 2.' }]);
     expect((await loadSession(staff(), appointmentId))?.note).toMatchObject({
       editable: false,
       signed: { by: 'Test Physio' },
+      addenda: [{ id: 'a1' }],
+      addsAddenda: true,
     });
+    expect(db.sessionAddenda).toHaveBeenCalledWith(fakeTx, sessionId);
+    // The Super Admin reads it; without the Treats patients tick they add nothing.
+    expect((await loadSession(superAdmin, appointmentId))?.note?.addsAddenda).toBe(false);
+  });
+
+  // The follow up of 26 October 2026: a signed note changes only by addenda.
+  it('adds an addendum to a signed note, with the tick, and names the visit', async () => {
+    const add = (actor = staff()) =>
+      addSessionAddendum(context(actor), { sessionId, text: ' Pain 4 at rest, not 2. ' });
+    await expect(add()).resolves.toEqual({ id: 'addendum-1', appointmentId });
+    expect(db.addSessionAddendum).toHaveBeenCalledWith(fakeTx, {
+      sessionId,
+      episodeId,
+      text: 'Pain 4 at rest, not 2.',
+      authorId: staff().id,
+    });
+    db.sessionNoteById.mockResolvedValueOnce(undefined);
+    await expect(add()).rejects.toThrow('That session was not found.');
+    db.sessionNoteById.mockResolvedValueOnce(stored());
+    await expect(add()).rejects.toThrow('Addenda are added once the session is closed.');
+    db.staffTreatsNow.mockResolvedValueOnce(false);
+    await expect(add()).rejects.toThrow('Adding an addendum needs the Treats patients tick.');
+    await expect(add(staff({ role: 'front_desk', treatsPatients: false }))).rejects.toThrow(
+      NotAllowedError,
+    );
+    await expect(add(staff({ support: true }))).rejects.toThrow(ReadOnlyError);
+    expect(db.addSessionAddendum).toHaveBeenCalledOnce();
   });
 
   it("saves only the physio's own draft, at the version they saw", async () => {

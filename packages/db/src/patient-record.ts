@@ -7,9 +7,8 @@ import type {
   Stage,
 } from '@clinic-mx/schemas';
 import { and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
-import type { AddendumEntry } from './clinical-record';
+import { addendaOf, type AddendumEntry } from './clinical-record';
 import {
-  addendum,
   appointment,
   appointmentType,
   consultation,
@@ -20,6 +19,7 @@ import {
   planModality,
   planOfCare,
   precaution,
+  treatmentSession,
 } from './schema';
 import type { DbOrTransaction } from './versioned';
 
@@ -32,6 +32,7 @@ import type { DbOrTransaction } from './versioned';
  */
 
 export interface SignedNoteEntry {
+  kind: 'consultation';
   id: string;
   episodeId: string;
   centreId: string;
@@ -87,10 +88,12 @@ export async function signedNotesOf(
     .orderBy(desc(consultation.signedAt), asc(consultation.id));
   const addenda = await addendaOf(
     db,
+    'consultation',
     rows.map((row) => row.id),
   );
   return rows.map(
     ({ conditionId, conditionName, movementDx, irritability, stage, provisional, ...note }) => ({
+      kind: 'consultation' as const,
       ...note,
       // Signed, so signed_at is set (check consultation_signed).
       signedAt: note.signedAt ?? new Date(0),
@@ -103,29 +106,71 @@ export async function signedNotesOf(
   );
 }
 
-/** The addenda of these consultations, oldest first, by consultation. */
-async function addendaOf(
+/** A signed session note on the record (CLN-12 follow up, SES-03). */
+export interface SignedSessionNoteEntry {
+  kind: 'session';
+  id: string;
+  appointmentId: string;
+  episodeId: string;
+  centreId: string;
+  centreName: string | null;
+  /** Session n of its episode. */
+  number: number;
+  signedAt: Date;
+  /** Its physio, who signed it. */
+  signedBy: string | null;
+  signedByName: string | null;
+  /** As `sessionNoteSchema` reads it. */
+  note: Record<string, unknown>;
+  /** The names of the modalities it names, at the note's knowledge base version. */
+  modalityNames: Record<string, string>;
+  addenda: AddendumEntry[];
+}
+
+/** A patient's signed session notes, newest first, each with its addenda. */
+export async function signedSessionNotesOf(
   db: DbOrTransaction,
-  consultationIds: string[],
-): Promise<Map<string, AddendumEntry[]>> {
-  const byConsultation = new Map<string, AddendumEntry[]>();
-  if (consultationIds.length === 0) return byConsultation;
+  patientId: string,
+): Promise<SignedSessionNoteEntry[]> {
   const rows = await db
     .select({
-      consultationId: addendum.consultationId,
-      id: addendum.id,
-      text: addendum.text,
-      authorId: addendum.authorId,
-      authorName: sql<string>`coalesce(internal.record_staff_name(${addendum.authorId}), '')`,
-      createdAt: addendum.createdAt,
+      id: treatmentSession.id,
+      appointmentId: treatmentSession.appointmentId,
+      episodeId: treatmentSession.episodeId,
+      centreId: treatmentSession.centreId,
+      centreName: sql<string | null>`internal.record_centre_name(${treatmentSession.centreId})`,
+      number: treatmentSession.number,
+      signedAt: treatmentSession.signedAt,
+      signedBy: treatmentSession.signedBy,
+      signedByName: sql<string | null>`internal.record_staff_name(${treatmentSession.signedBy})`,
+      kbVersionId: treatmentSession.kbVersionId,
+      note: treatmentSession.note,
     })
-    .from(addendum)
-    .where(inArray(addendum.consultationId, consultationIds))
-    .orderBy(asc(addendum.createdAt), asc(addendum.id));
-  for (const { consultationId, ...entry } of rows) {
-    byConsultation.set(consultationId, [...(byConsultation.get(consultationId) ?? []), entry]);
-  }
-  return byConsultation;
+    .from(treatmentSession)
+    .where(and(eq(treatmentSession.patientId, patientId), eq(treatmentSession.status, 'signed')))
+    .orderBy(desc(treatmentSession.signedAt), asc(treatmentSession.id));
+  if (rows.length === 0) return [];
+  const addenda = await addendaOf(
+    db,
+    'session',
+    rows.map((row) => row.id),
+  );
+  const modalities = await db
+    .select({ kbVersionId: kbModality.kbVersionId, key: kbModality.key, name: kbModality.name })
+    .from(kbModality)
+    .where(inArray(kbModality.kbVersionId, [...new Set(rows.map((row) => row.kbVersionId))]));
+  return rows.map(({ kbVersionId, ...note }) => ({
+    kind: 'session' as const,
+    ...note,
+    // Signed, so signed_at is set (check session_signed).
+    signedAt: note.signedAt ?? new Date(0),
+    modalityNames: Object.fromEntries(
+      modalities
+        .filter((modality) => modality.kbVersionId === kbVersionId)
+        .map((modality) => [modality.key, modality.name]),
+    ),
+    addenda: addenda.get(note.id) ?? [],
+  }));
 }
 
 export interface EpisodePlanEntry {

@@ -6,6 +6,7 @@ const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
   episodesOf: vi.fn(),
   signedNotesOf: vi.fn(),
+  signedSessionNotesOf: vi.fn(),
   patientAlertHistory: vi.fn(),
   episodePlan: vi.fn(),
   episodePrecautions: vi.fn(),
@@ -32,12 +33,17 @@ const physio = (extra: Partial<StaffMember> = {}): StaffMember => ({
   ...extra,
 });
 const episode = (id: string, status: string, centreId = hsr) => ({ id, status, centreId });
-const note = (id: string, episodeId: string, centreId = hsr, signedBy = 'someone-else') => ({
-  id,
-  episodeId,
-  centreId,
-  signedBy,
-  addenda: [],
+const note = (
+  id: string,
+  episodeId: string,
+  centreId = hsr,
+  signedBy = 'someone-else',
+  signedAt = new Date('2026-10-20T05:00:00Z'),
+) => ({ kind: 'consultation', id, episodeId, centreId, signedBy, signedAt, addenda: [] });
+const sessionNote = (id: string, episodeId: string, signedAt: Date, centreId = hsr) => ({
+  ...note(id, episodeId, centreId, 'someone-else', signedAt),
+  kind: 'session',
+  number: 1,
 });
 
 // CLN-12 done when: the record shows the summary card, episodes, signed notes, documents and
@@ -49,7 +55,11 @@ describe('clinicalRecordOf', () => {
       episode('e2', 'active', koramangala),
       episode('e1', 'discharged'),
     ]);
-    db.signedNotesOf.mockResolvedValue([note('c2', 'e2', koramangala), note('c1', 'e1')]);
+    db.signedNotesOf.mockResolvedValue([
+      note('c2', 'e2', koramangala),
+      note('c1', 'e1', hsr, 'someone-else', new Date('2026-09-01T05:00:00Z')),
+    ]);
+    db.signedSessionNotesOf.mockResolvedValue([]);
     db.patientAlertHistory.mockResolvedValue([
       { id: 'a1', episodeId: 'e2', status: 'raised' },
       { id: 'a2', episodeId: 'e2', status: 'closed' },
@@ -67,6 +77,7 @@ describe('clinicalRecordOf', () => {
       episode: { id: 'e2' },
       plan: { version: 1 },
       precautions: [{ key: 'pregnancy', label: 'Pregnancy' }],
+      consultation: { id: 'c2' },
       lastNote: { id: 'c2' },
       openAlerts: 1,
     });
@@ -89,6 +100,22 @@ describe('clinicalRecordOf', () => {
     const admin = physio({ role: 'super_admin', treatsPatients: false, centreIds: [] });
     const adminNotes = (await clinicalRecordOf(admin, patientId))?.notes ?? [];
     expect(adminNotes.every((n) => !n.addsAddenda)).toBe(true);
+  });
+
+  // The follow up of 26 October 2026: signed session notes join the record.
+  it('lists session notes with consultations, newest first; the card keeps the diagnosis', async () => {
+    db.signedSessionNotesOf.mockResolvedValue([
+      sessionNote('s2', 'e2', new Date('2026-10-24T05:00:00Z'), koramangala),
+      sessionNote('s1', 'e1', new Date('2026-09-10T05:00:00Z')),
+    ]);
+    const record = await clinicalRecordOf(physio(), patientId);
+    expect(record?.notes.map((n) => [n.kind, n.id, n.addsAddenda])).toEqual([
+      ['session', 's2', false],
+      ['consultation', 'c2', false],
+      ['session', 's1', true],
+      ['consultation', 'c1', true],
+    ]);
+    expect(record?.summary).toMatchObject({ consultation: { id: 'c2' }, lastNote: { id: 's2' } });
   });
 
   it('gives no summary without episodes', async () => {

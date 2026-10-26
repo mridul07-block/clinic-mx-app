@@ -584,6 +584,7 @@ export {
 export {
   ADDENDUM_MAX,
   addendumSchema,
+  addendumTextSchema,
   signedRecord,
   type Limb,
   type SignContext,
@@ -706,7 +707,9 @@ export {
   painReadings,
   phaseNotSetUp,
   prefilledSessionNote,
+  readSessionNote,
   saveSessionNoteSchema,
+  sessionAddendumSchema,
   sessionAppointmentSchema,
   sessionGate,
   sessionLabel,

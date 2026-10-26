@@ -3,12 +3,10 @@
 import { ADDENDUM_MAX, formatIstDateTime } from '@clinic-mx/schemas';
 import { useActionState, useId } from 'react';
 import { primaryButtonClass } from '../../../../../../components/forms';
-import {
-  addAddendumAction,
-  type ConsultationFormState,
-} from '../../../../../../modules/consultations/actions';
+import { addAddendumAction } from '../../../../../../modules/consultations/actions';
+import { addSessionAddendumAction } from '../../../../../../modules/sessions/actions';
 
-const initialState: ConsultationFormState = {};
+const initialState: { error?: string; notice?: string } = {};
 
 export interface AddendumView {
   id: string;
@@ -17,23 +15,29 @@ export interface AddendumView {
   createdAt: Date;
 }
 
+/** The signed note an addendum belongs to. */
+export type AddendumTarget = { consultationId: string } | { sessionId: string };
+
 /**
- * A signed consultation's addenda (CLN-09, PRD J3.9): written after signing, never changed, each
- * with who wrote it and when; clinicians who may add one do it here, on the consultation or on the
- * patient record's Notes (CLN-12, `patientId` given).
+ * A signed note's addenda (CLN-09, PRD J3.9): written after signing, never changed, each with who
+ * wrote it and when; clinicians who may add one do it here, on the consultation, on the session
+ * screen (CLN-12 follow up) or on the patient record's Notes (CLN-12, `patientId` given).
  */
 export function Addenda({
-  consultationId,
+  target,
   addenda,
   adds,
   patientId,
 }: {
-  consultationId: string;
+  target: AddendumTarget;
   addenda: AddendumView[];
   adds: boolean;
   patientId?: string;
 }) {
-  const [state, action, pending] = useActionState(addAddendumAction, initialState);
+  const [state, action, pending] = useActionState(
+    'sessionId' in target ? addSessionAddendumAction : addAddendumAction,
+    initialState,
+  );
   const fieldId = useId();
   return (
     <section aria-labelledby={[fieldId, 'title'].join('-')} className="flex flex-col gap-3">
@@ -57,7 +61,11 @@ export function Addenda({
       {adds ? (
         // A fresh form after each addendum, so the box empties.
         <form key={addenda.length} action={action} className="flex flex-col gap-2">
-          <input type="hidden" name="consultationId" value={consultationId} />
+          {'sessionId' in target ? (
+            <input type="hidden" name="sessionId" value={target.sessionId} />
+          ) : (
+            <input type="hidden" name="consultationId" value={target.consultationId} />
+          )}
           {patientId ? <input type="hidden" name="patientId" value={patientId} /> : null}
           <label htmlFor={fieldId} className="font-medium">
             Add addendum

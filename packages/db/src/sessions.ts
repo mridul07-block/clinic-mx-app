@@ -1,6 +1,8 @@
 import type { EpisodeStatus, InterventionKind, SessionStatus } from '@clinic-mx/schemas';
 import { and, desc, eq, sql } from 'drizzle-orm';
+import { addendaOf, type AddendumEntry } from './clinical-record';
 import {
+  addendum,
   consultation,
   kbModality,
   planModality,
@@ -50,6 +52,7 @@ export interface SessionNoteEntry {
   id: string;
   appointmentId: string;
   episodeId: string;
+  centreId: string;
   physioId: string;
   number: number;
   planOfCareId: string | null;
@@ -66,6 +69,7 @@ const noteColumns = {
   id: treatmentSession.id,
   appointmentId: treatmentSession.appointmentId,
   episodeId: treatmentSession.episodeId,
+  centreId: treatmentSession.centreId,
   physioId: treatmentSession.physioId,
   number: treatmentSession.number,
   planOfCareId: treatmentSession.planOfCareId,
@@ -120,6 +124,19 @@ export async function sessionNoteOf(
     .from(treatmentSession)
     .leftJoin(staffUser, eq(staffUser.id, treatmentSession.signedBy))
     .where(eq(treatmentSession.appointmentId, appointmentId));
+  return row;
+}
+
+/** A session and its note by the session's own id (an addendum names the session). */
+export async function sessionNoteById(
+  db: DbOrTransaction,
+  sessionId: string,
+): Promise<SessionNoteEntry | undefined> {
+  const [row] = await db
+    .select(noteColumns)
+    .from(treatmentSession)
+    .leftJoin(staffUser, eq(staffUser.id, treatmentSession.signedBy))
+    .where(eq(treatmentSession.id, sessionId));
   return row;
 }
 
@@ -241,4 +258,22 @@ export async function newestPlanOfCareId(
     .orderBy(desc(planOfCare.version))
     .limit(1);
   return row?.id;
+}
+
+/** A signed session note's addenda, oldest first, with who wrote them (CLN-12 follow up). */
+export async function sessionAddenda(
+  db: DbOrTransaction,
+  sessionId: string,
+): Promise<AddendumEntry[]> {
+  return (await addendaOf(db, 'session', [sessionId])).get(sessionId) ?? [];
+}
+
+/** Adds an addendum to a signed session note; row level security decides who may. */
+export async function addSessionAddendum(
+  tx: DbOrTransaction,
+  entry: { sessionId: string; episodeId: string; text: string; authorId: string },
+): Promise<{ id: string }> {
+  const [row] = await tx.insert(addendum).values(entry).returning({ id: addendum.id });
+  if (!row) throw new Error('The addendum was not written.');
+  return row;
 }
