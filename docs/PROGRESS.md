@@ -178,6 +178,9 @@ the code location.
   today's IST date (just after midnight they start ahead instead of behind), and lint refuses
   `startsAt` from `Date.now()` give or take minutes in tests; 17 end to end specs no longer skip
   after midnight and the database tests no longer fail then, so the local gate runs at any hour.
+- 26 October 2026 (SES-03 follow up): a signed session note is read by clinicians at any centre
+  and the Super Admin, as a signed consultation is (CLN-12); the staging check found the Super Admin
+  without the tick could not read it.
 - 26 October 2026 (SES-03): the session note takes pain at rest, during activity and after
   treatment; Yes to new symptoms needs a description and gives the consultant a task; Close session
   (SES-07) signs the note, completes the visit and uses a package session; treatment, response and

@@ -125,12 +125,13 @@ The physio lands on My patients with "Session closed. Its note is signed."
 
 ### Who
 
-| Who | Reads | Writes and closes |
-| --- | --- | --- |
-| The appointment's physio | Yes | Yes, while it is a draft |
-| Clinicians who treat patients at the centre | Yes | No |
-| Front desk, Finance, other centres | No | No |
-| Velyx support | As the role allows | Never (restrictive policies) |
+| Who | Reads a draft | Reads a signed note | Writes and closes |
+| --- | --- | --- | --- |
+| The appointment's physio | Yes | Yes | Yes, while it is a draft |
+| Clinicians who treat patients at the centre | Yes | Yes | No |
+| Clinicians at other centres, and the Super Admin (with or without the tick) | No | Yes: a signed note is part of the record (CLN-12, `20261026054611_session_signed_read.sql`) | No |
+| Front desk, Finance, Centre Managers without the tick | No | No | No |
+| Velyx support | No | No | Never (restrictive policies) |
 
 A signed note never changes (`internal.session_guard`), not even who signed it or when. Signed notes on the patient record and their addenda come next.
 
@@ -140,7 +141,7 @@ A signed note never changes (`internal.session_guard`), not even who signed it o
 | --- | --- |
 | `packages/schemas/src/sessions.test.ts` | the note's defaults, the blockers in order, the prefill |
 | `apps/web/modules/sessions/services.test.ts` | opening prefilled from the last note or the plan; the screen's note for its physio and read only for the Super Admin; save and close refusals (someone else's, signed, stale, without the tick, blocked) |
-| `packages/db/src/integration/clinical-record.integration.test.ts` (session check in) | one row per visit numbered from the appointment; only the note changes; a colleague reads but cannot write; the desk, another centre and support cannot; closing completes the visit and uses one package session; no package still closes; Yes gives the consultant one task; a signed note never changes |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (session check in) | one row per visit numbered from the appointment; only the note changes; a colleague reads but cannot write; the desk, another centre and support cannot; once signed, the Super Admin without the tick and another centre's physio read it, support and the desk do not; closing completes the visit and uses one package session; no package still closes; Yes gives the consultant one task; a signed note never changes |
 | `apps/web/e2e/session-check-in.spec.ts` | 360 px and desktop: prefilled ticks, Close held back with what is missing, the note filled and kept across a reload, Close session to My patients, the visit Completed, one package session used, the signed note read only, the consultant's task |
 
 **Negative check:** let a signed session change in `internal.session_guard`, and the database test fails on "nor who signed it or when".
