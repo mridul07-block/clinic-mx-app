@@ -7,7 +7,7 @@ import {
   type SignedRows,
 } from '@clinic-mx/schemas';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
 import {
@@ -18,6 +18,12 @@ import {
   undoPayment,
 } from '../bills';
 import { frozenBaseline, recordBaseline } from '../baseline';
+import {
+  reassessmentById,
+  recordReassessment,
+  sessionReadings,
+  signReassessment,
+} from '../reassessment';
 import { addAddendum, consultationAddenda, signConsultation } from '../clinical-record';
 import { invoiceFacts } from '../invoice';
 import { packageRescheduleState, packagesOfEpisode, usePackageSession } from '../packages';
@@ -57,6 +63,8 @@ import {
   auditEvent,
   baselineMeasure,
   bill,
+  measure as measureRow,
+  reassessment,
   billLine,
   consultation,
   payment,
@@ -1797,6 +1805,11 @@ describe('counter payments', () => {
   describe('session check in', () => {
     let minutes = 8 * 60;
     let arrivals = 0;
+    // Each test rolls back its visits, so each starts the day again at 08:00 and never runs past
+    // midnight however many visits the tests before it made.
+    beforeEach(() => {
+      minutes = 8 * 60;
+    });
     /** A booked appointment of a type in the episode, today in IST from 08:00 on. */
     const visitOf = async (
       tx: Tx,
@@ -2279,6 +2292,201 @@ describe('counter payments', () => {
             await baselineAs(tx, fixture.consultant, baseline),
             'exactly the days',
           ).toBeUndefined();
+        });
+      });
+    });
+
+    // OUT-05: session 4's signing writes the reassessment; the episode's consultant alone signs
+    // its decision, once, which closes their task.
+    describe('the session 4 reassessment', () => {
+      const pain = 'knee.marker.primary_task_pain_nrs_0_10'; // gitleaks:allow
+      const quadriceps = 'knee.lsi.quadriceps'; // gitleaks:allow
+      const versionOf = async (tx: Tx, sessionId: string) => {
+        await asOwner(tx);
+        const [row] = await tx
+          .select({ kbVersionId: treatmentSession.kbVersionId })
+          .from(treatmentSession)
+          .where(eq(treatmentSession.id, sessionId));
+        return row?.kbVersionId ?? '';
+      };
+      /** Sessions 1 to `count` started and signed by the consultant, in order. */
+      const signedSessions = async (
+        tx: Tx,
+        fixture: Awaited<ReturnType<typeof chosenPackage>>,
+        count: number,
+      ) => {
+        const ids: string[] = [];
+        for (let n = 1; n <= count; n += 1) {
+          const { sessionId } = await started(tx, fixture);
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.consultant);
+          expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 1))).toBe(
+            'signed',
+          );
+          ids.push(sessionId);
+        }
+        return ids;
+      };
+      const recordAs = async (
+        tx: Tx,
+        actor: StaffMember,
+        values: Omit<Parameters<typeof recordReassessment>[1], 'by'>,
+      ) => {
+        await asOwner(tx);
+        await becomeStaff(tx, actor);
+        let id: string | undefined;
+        const code = await failure(tx, async (sp) => {
+          id = await recordReassessment(sp, { ...values, by: actor.id });
+        });
+        return { code, id };
+      };
+
+      it('is written while its physio signs session 4 only, for the episode’s consultant to sign once', async () => {
+        await rolledBack(async (tx) => {
+          const fixture = await chosenPackage(tx, 12);
+          const [, , third] = await signedSessions(tx, fixture, 3);
+          const { sessionId } = await started(tx, fixture);
+          const values = {
+            sessionId,
+            episodeId: fixture.episodeId,
+            kbVersionId: await versionOf(tx, sessionId),
+            readings: [
+              { key: quadriceps, limb: 'involved' as const, value: 36, unit: 'kg' },
+              { key: quadriceps, limb: 'uninvolved' as const, value: 39, unit: 'kg' },
+            ],
+            notTested: { [pain]: 'Not assessable today' },
+          };
+          expect((await recordAs(tx, fixture.consultant, values)).code, 'not while a draft').toBe(
+            '42501',
+          );
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.consultant);
+          expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 1))).toBe(
+            'signed',
+          );
+          expect((await recordAs(tx, fixture.colleague, values)).code, 'not a colleague').toBe(
+            '42501',
+          );
+          expect((await recordAs(tx, support, values)).code, 'not support').toBe('42501');
+          expect(
+            (
+              await recordAs(tx, fixture.consultant, {
+                ...values,
+                sessionId: third ?? '',
+                kbVersionId: await versionOf(tx, third ?? ''),
+              })
+            ).code,
+            'not session 3',
+          ).toBe('42501');
+          const written = await recordAs(tx, fixture.consultant, values);
+          expect(written.code).toBeUndefined();
+          const id = written.id ?? '';
+
+          // The consultant is the database's to stamp, and they get the task.
+          await asOwner(tx);
+          const [row] = await tx.select().from(reassessment).where(eq(reassessment.id, id));
+          expect(row).toMatchObject({
+            consultantId: fixture.consultant.id,
+            notTested: { [pain]: 'Not assessable today' },
+            decision: null,
+            signedAt: null,
+          });
+          const [review] = await tx
+            .select({
+              assignee: task.assigneeStaffUserId,
+              title: task.title,
+              details: task.details,
+              status: task.status,
+            })
+            .from(task)
+            .where(
+              and(eq(task.episodeId, fixture.episodeId), eq(task.kind, 'review.reassessment')),
+            );
+          expect(review).toEqual({
+            assignee: fixture.consultant.id,
+            title: 'Review the session 4 reassessment',
+            details: { reassessmentId: id, sessionNumber: 4 },
+            status: 'open',
+          });
+
+          // Read where the note is read: a colleague at the centre, not the desk or support.
+          await becomeStaff(tx, fixture.colleague);
+          expect((await reassessmentById(tx, id))?.sessionNumber).toBe(4);
+          expect(await sessionReadings(tx, sessionId, [quadriceps])).toHaveLength(2);
+          for (const outsider of [deskHsr, support]) {
+            await asOwner(tx);
+            await becomeStaff(tx, outsider);
+            expect(await reassessmentById(tx, id)).toBeUndefined();
+          }
+
+          // Signed by the consultant alone, once; their task closes with the decision.
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.colleague);
+          expect(
+            await signReassessment(tx, { id, decision: 'Progress', by: fixture.colleague.id }),
+          ).toBe('refused');
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.consultant);
+          expect(
+            await signReassessment(tx, {
+              id,
+              decision: 'Strength on track; continue the plan.',
+              by: fixture.consultant.id,
+            }),
+          ).toBe('signed');
+          expect(
+            await signReassessment(tx, { id, decision: 'Again', by: fixture.consultant.id }),
+          ).toBe('refused');
+          await asOwner(tx);
+          const [closed] = await tx
+            .select({ status: task.status, decision: task.decision, closedBy: task.closedBy })
+            .from(task)
+            .where(
+              and(eq(task.episodeId, fixture.episodeId), eq(task.kind, 'review.reassessment')),
+            );
+          expect(closed).toEqual({
+            status: 'closed',
+            decision: 'Strength on track; continue the plan.',
+            closedBy: fixture.consultant.id,
+          });
+          expect(
+            await failure(tx, (sp) =>
+              sp
+                .update(reassessment)
+                .set({ decision: 'Changed later' })
+                .where(eq(reassessment.id, id)),
+            ),
+            'never changes, not even by the owner',
+          ).toBe('23514');
+          await becomeStaff(tx, fixture.consultant);
+          expect(
+            await failure(tx, (sp) => sp.delete(reassessment).where(eq(reassessment.id, id))),
+          ).toBe('42501');
+        });
+      });
+
+      it('takes a session’s readings only at session 1 or the reassessment session', async () => {
+        await rolledBack(async (tx) => {
+          const fixture = await chosenPackage(tx, 12);
+          await signedSessions(tx, fixture, 1);
+          const { sessionId } = await started(tx, fixture);
+          const kbVersionId = await versionOf(tx, sessionId);
+          await becomeStaff(tx, fixture.consultant);
+          await signSession(tx, closing(fixture.consultant.id, sessionId, 1));
+          expect(
+            await failure(tx, (sp) =>
+              sp.insert(measureRow).values({
+                episodeId: fixture.episodeId,
+                sessionId,
+                kbVersionId,
+                measureKey: pain,
+                value: 4,
+                unit: '/10',
+                createdBy: fixture.consultant.id,
+              }),
+            ),
+            'session 2',
+          ).toBe('42501');
         });
       });
     });

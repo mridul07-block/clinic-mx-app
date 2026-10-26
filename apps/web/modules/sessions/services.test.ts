@@ -3,6 +3,7 @@ import { emptySessionNote, type KnowledgeMeasure, type SessionNote } from '@clin
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { baselineView } from './baseline';
+import { reassessmentView } from './reassessment';
 import {
   SessionError,
   addSessionAddendum,
@@ -44,11 +45,20 @@ const db = vi.hoisted(() => ({
   consultationMeasuresBetween: vi.fn(),
   frozenBaseline: vi.fn(),
   recordBaseline: vi.fn(),
+  frozenBaselineOfEpisode: vi.fn(),
+  reassessmentOfSession: vi.fn(),
+  sessionReadings: vi.fn(),
+  recordReassessment: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
+// Test values only; the real ones are the settings rows.
+const settings: Record<string, number> = {
+  'clinical.baseline_reuse_days': 7,
+  'clinical.reassessment_session': 4,
+};
 vi.mock('../settings/settings', () => ({
   getSetting: (key: string) =>
-    key === 'clinical.baseline_reuse_days' ? Promise.resolve(7) : Promise.reject(new Error(key)),
+    key in settings ? Promise.resolve(settings[key]) : Promise.reject(new Error(key)),
 }));
 vi.mock('../access/staff-db', () => ({
   asStaffViewing: (_actor: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
@@ -436,6 +446,162 @@ describe('the session note', () => {
       pain: { rest: 2, activity: 4, after: 1 },
     });
     expect(db.recordBaseline, 'only session 1 records the baseline').not.toHaveBeenCalled();
+    expect(db.recordReassessment, 'only session 4 reassesses').not.toHaveBeenCalled();
+  });
+
+  // OUT-05 done when: the treating physio records the markers at session 4 and the consultant
+  // reviews and signs. Decisions (user, 26 October 2026): exactly the baseline's measures, each
+  // recorded or Not tested with a reason before closing.
+  describe('the session 4 reassessment', () => {
+    const marker = (extra: Partial<KnowledgeMeasure>): KnowledgeMeasure => ({
+      key: 'knee.marker.primary_task_pain_nrs_0_10', // gitleaks:allow
+      region: 'knee',
+      section: 'RE-TESTABLE MARKERS — BASELINE vs CURRENT',
+      name: 'Primary task pain (NRS 0-10)',
+      unit: '/10',
+      kind: 'marker',
+      inverted: false,
+      rule: { kind: 'none' },
+      direction: 'Lower is better',
+      note: null,
+      ...extra,
+    });
+    const pain = marker({});
+    const quadriceps = marker({
+      key: 'knee.lsi.quadriceps', // gitleaks:allow
+      section: 'STRENGTH',
+      name: 'Quadriceps',
+      unit: 'kg',
+      kind: 'lsi',
+      rule: { kind: 'lsi', passAt: 0.9 },
+      direction: null,
+    });
+    const takenAt = new Date('2026-11-01T04:30:00Z');
+    const fourth = (reassessment: SessionNote['reassessment'] = {}) =>
+      stored({ number: 4, note: { ...complete(), reassessment } });
+
+    beforeEach(() => {
+      db.knowledgeObjective.mockResolvedValue({ measures: [quadriceps, pain], specialTests: [] });
+      db.frozenBaselineOfEpisode.mockResolvedValue([
+        {
+          key: pain.key,
+          consultationId: 'c1',
+          notTestedReason: null,
+          readings: [{ limb: null, value: 6, takenAt }],
+        },
+        {
+          key: quadriceps.key,
+          consultationId: 'c1',
+          notTestedReason: null,
+          readings: [
+            { limb: 'involved', value: 32, takenAt },
+            { limb: 'uninvolved', value: 40, takenAt },
+          ],
+        },
+      ]);
+    });
+
+    it('asks session 4 for the baseline’s measures, in the workbook’s order', async () => {
+      const view = await reassessmentView(fakeTx as never, fourth());
+      expect(view?.items.map((item) => [item.measure.key, item.baseline])).toEqual([
+        [quadriceps.key, 'Involved 32 kg, uninvolved 40 kg · LSI 80% · Not yet'],
+        [pain.key, '6/10'],
+      ]);
+      expect(view?.rows, 'no readings before signing').toBeNull();
+      expect(await reassessmentView(fakeTx as never, stored()), 'session 3').toBeNull();
+    });
+
+    it('holds Close session until each is recorded, then writes the reassessment after signing', async () => {
+      const close = () => closeSession(context(), { appointmentId, baseVersion: 4 });
+      db.sessionNoteOf.mockResolvedValueOnce(fourth());
+      await expect(close()).rejects.toThrow(
+        'Record both sides of Quadriceps, or mark it Not tested with a reason. Record Primary task pain (NRS 0-10), or mark it Not tested with a reason.',
+      );
+      expect(db.signSession).not.toHaveBeenCalled();
+      const order: string[] = [];
+      db.signSession.mockImplementationOnce(() => {
+        order.push('sign');
+        return Promise.resolve('signed');
+      });
+      db.recordReassessment.mockImplementationOnce(() => {
+        order.push('reassessment');
+        return Promise.resolve('r1');
+      });
+      db.sessionNoteOf.mockResolvedValueOnce(
+        fourth({
+          [quadriceps.key]: {
+            involved: 36,
+            uninvolved: 39,
+            value: null,
+            notTested: false,
+            reason: '',
+          },
+          [pain.key]: {
+            involved: null,
+            uninvolved: null,
+            value: null,
+            notTested: true,
+            reason: 'Not assessable',
+          },
+        }),
+      );
+      await expect(close()).resolves.toEqual({ status: 'signed' });
+      expect(order).toEqual(['sign', 'reassessment']);
+      expect(db.recordReassessment).toHaveBeenCalledWith(fakeTx, {
+        sessionId,
+        episodeId,
+        kbVersionId: 'kb-1',
+        by: staff().id,
+        readings: [
+          { key: quadriceps.key, limb: 'involved', value: 36, unit: 'kg' },
+          { key: quadriceps.key, limb: 'uninvolved', value: 39, unit: 'kg' },
+        ],
+        notTested: { [pain.key]: 'Not assessable' },
+      });
+    });
+
+    it('asks nothing when session 1 recorded no baseline', async () => {
+      db.frozenBaselineOfEpisode.mockResolvedValue([]);
+      db.sessionNoteOf.mockResolvedValueOnce(fourth());
+      await expect(closeSession(context(), { appointmentId, baseVersion: 4 })).resolves.toEqual({
+        status: 'signed',
+      });
+      expect(db.recordReassessment).not.toHaveBeenCalled();
+    });
+
+    it('shows baseline against session 4 once signed, with the consultant’s review', async () => {
+      const signedAt = new Date('2026-11-12T06:00:00Z');
+      db.reassessmentOfSession.mockResolvedValue({
+        id: 'r1',
+        notTested: { [pain.key]: 'Not assessable' },
+        decision: 'Continue the plan.',
+        signedByName: 'Dr Test Consultant',
+        signedAt,
+        consultantName: 'Dr Test Consultant',
+      });
+      db.sessionReadings.mockResolvedValue([
+        { key: quadriceps.key, limb: 'involved', value: 36 },
+        { key: quadriceps.key, limb: 'uninvolved', value: 39 },
+      ]);
+      const view = await reassessmentView(fakeTx as never, stored({ number: 4, status: 'signed' }));
+      expect(
+        view?.rows?.map((row) => [row.measure.key, row.now, row.nowNotTested, row.change]),
+      ).toEqual([
+        [
+          quadriceps.key,
+          'Involved 36 kg, uninvolved 39 kg · LSI 92% · Pass',
+          null,
+          'LSI 80% → 92%',
+        ],
+        [pain.key, null, 'Not assessable', ''],
+      ]);
+      expect(view?.decision).toEqual({
+        text: 'Continue the plan.',
+        by: 'Dr Test Consultant',
+        at: signedAt,
+      });
+      expect(view?.reassessmentId).toBe('r1');
+    });
   });
 
   // OUT-01 done when: consultation measures within 7 days are reused; missing markers are asked

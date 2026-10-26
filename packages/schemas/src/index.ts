@@ -786,3 +786,19 @@ export {
   type ReusedMeasure,
   type TakenMeasure,
 } from './baseline';
+export {
+  REASSESSMENT_DECISION_MAX,
+  REASSESSMENT_TASK,
+  emptyReassessmentEntry,
+  entryOfReassessment,
+  reassessmentBlockers,
+  reassessmentChangeText,
+  reassessmentDecisionSchema,
+  reassessmentEntrySchema,
+  reassessmentIdOf,
+  reassessmentRecordings,
+  takesBothSides,
+  type ReassessedMeasure,
+  type ReassessmentDecisionInput,
+  type ReassessmentEntry,
+} from './reassessment';

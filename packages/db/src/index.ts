@@ -388,6 +388,15 @@ export {
   type ReviewBookingFacts,
 } from './review-booking';
 export {
+  frozenBaselineOfEpisode,
+  reassessmentById,
+  reassessmentOfSession,
+  recordReassessment,
+  sessionReadings,
+  signReassessment,
+  type ReassessmentRecord,
+} from './reassessment';
+export {
   addAddendum,
   consultationAddenda,
   signConsultation,

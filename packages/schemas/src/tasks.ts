@@ -27,6 +27,7 @@ export const taskKindLabels: Record<string, string> = {
   'review.adverse_event_director': 'Adverse event: Clinical Director review',
   'review.unsigned_notes': 'Unsigned notes',
   'book.review': 'Book the 6 week review',
+  'review.reassessment': 'Reassessment review',
 };
 
 export function taskKindLabel(kind: string): string {

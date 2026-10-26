@@ -130,6 +130,49 @@ export const specialTestResult = pgTable(
   ],
 ).enableRLS();
 
+/**
+ * The session 4 reassessment (OUT-05, PRD J5.10): written when session `clinical.reassessment_session`
+ * is signed, its readings that session's `measure` rows and the measures not tested here with
+ * their reasons; the episode's consultant (stamped by the database) then signs a written decision.
+ * Nothing else ever changes, and it is never deleted.
+ */
+export const reassessment = pgTable(
+  'reassessment',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    episodeId: uuid('episode_id')
+      .notNull()
+      .references(() => episode.id),
+    sessionId: uuid('session_id')
+      .notNull()
+      .unique()
+      .references(() => treatmentSession.id),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    /** Who reviews and signs: the episode's consultant, set by the database. */
+    consultantId: uuid('consultant_id')
+      .notNull()
+      .references(() => staffUser.id),
+    /** Measures not tested at this session, by key, with the reason. */
+    notTested: jsonb('not_tested').$type<Record<string, string>>().notNull().default({}),
+    decision: text('decision'),
+    signedBy: uuid('signed_by').references(() => staffUser.id),
+    signedAt: timestamp('signed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check(
+      'reassessment_signed',
+      sql`(${table.decision} is null) = (${table.signedBy} is null) and (${table.signedBy} is null) = (${table.signedAt} is null)`,
+    ),
+    check(
+      'reassessment_decision',
+      sql`${table.decision} is null or length(trim(${table.decision})) between 1 and 2000`,
+    ),
+  ],
+).enableRLS();
+
 /** The four part working diagnosis (TAD `diagnosis`), one per consultation. */
 export const diagnosis = pgTable(
   'diagnosis',
