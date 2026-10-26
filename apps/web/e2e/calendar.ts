@@ -15,7 +15,7 @@ import {
   task,
   withActor,
 } from '@clinic-mx/db';
-import { earlierToday, istDate, istInstant, type Block } from '@clinic-mx/schemas';
+import { addDays, earlierToday, istDate, istInstant, type Block } from '@clinic-mx/schemas';
 import { eq, inArray, sql } from 'drizzle-orm';
 
 // The calendar for end to end tests (SCH-05). Each test uses its own temporary physio, so tests
@@ -69,7 +69,9 @@ export async function physioAtHsr(
     await tx.insert(roster).values({
       staffUserId: physioId,
       centreId: hsr,
-      effectiveFrom: istDate(new Date()),
+      // From yesterday: a visit placed minutes ago just after midnight IST falls on yesterday, and
+      // the calendar lists only physios with hours that day.
+      effectiveFrom: addDays(istDate(new Date()), -1),
       weekly: Array.from({ length: 7 }, () => options.hours ?? [{ starts: 9 * 60, ends: 13 * 60 }]),
       createdBy: admin,
     });
