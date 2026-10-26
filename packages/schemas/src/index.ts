@@ -802,3 +802,4 @@ export {
   type ReassessmentDecisionInput,
   type ReassessmentEntry,
 } from './reassessment';
+export { finalTestSchema, takesFinalTest, type FinalTestInput } from './final-testing';

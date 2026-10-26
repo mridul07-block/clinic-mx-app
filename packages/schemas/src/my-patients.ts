@@ -9,9 +9,13 @@ import { healthFormState, needsHealthForm, type HealthFormState } from './today'
  */
 export const startVisitSchema = z.object({ appointmentId: z.guid() });
 
-/** The start button: a consultation is started as one; every other type is a session. */
+/**
+ * The start button: a consultation and a review are started as such (the review opens the Review
+ * and discharge screen, OUT-07); every other type is a session.
+ */
 export function startLabel(typeKey: string): string {
-  return typeKey === 'consultation' ? 'Start consultation' : 'Start session';
+  if (typeKey === 'consultation') return 'Start consultation';
+  return typeKey === 'review' ? 'Start review' : 'Start session';
 }
 
 /**

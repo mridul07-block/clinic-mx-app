@@ -95,6 +95,9 @@ function DiagnosisLine({ note }: { note: RecordConsultation }) {
   );
 }
 
+// OUT-07: the Review and discharge screen, from treatment on (final testing, then discharge).
+const reviewedStatuses: readonly EpisodeStatus[] = ['active', 'under_review', 'discharged'];
+
 /**
  * The summary card (CLN-12; Frontend Specification principle 2, red flags and precautions first):
  * the current episode's open alerts and precautions, then its signed diagnosis and plan, the last
@@ -157,6 +160,15 @@ export function SummaryCard({
         )}
       </div>
       <EpisodeHeading episode={episode} />
+      {reviewedStatuses.includes(episode.status) ? (
+        <Link
+          href={`/app/episodes/${episode.id}/review`}
+          data-testid="summary-review"
+          className="self-start text-sm text-accent underline underline-offset-2 pointer-coarse:py-3"
+        >
+          Review and discharge
+        </Link>
+      ) : null}
       {phase ? (
         <p className="text-sm text-ink-muted" data-testid="summary-phase">
           {phase}

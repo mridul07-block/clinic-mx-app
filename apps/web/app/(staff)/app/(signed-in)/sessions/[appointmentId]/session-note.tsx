@@ -2,8 +2,6 @@
 
 import {
   BASELINE_REASON_MAX,
-  emptyReassessmentEntry,
-  entryOfReassessment,
   formatIstDate,
   formatIstDateTime,
   interventionLabels,
@@ -12,7 +10,6 @@ import {
   nextSessionPlans,
   painReadingLabels,
   painReadings,
-  reassessmentChangeText,
   sameAsLastTime,
   sameAsLastTimeOverwrites,
   sessionNoteBlockers,
@@ -28,6 +25,7 @@ import {
 import { startTransition, useActionState, useMemo, useState, type ReactNode } from 'react';
 import { primaryButtonClass, secondaryButtonClass } from '../../../../../../components/forms';
 import { PainSlider } from '../../../../../../components/pain-slider';
+import { Choices, RetestInputs } from '../../../../../../components/retest-inputs';
 import { ConflictNotice } from '../../../../../../lib/drafts/conflict-notice';
 import { SaveStatus } from '../../../../../../lib/drafts/save-status';
 import { saveSessionNoteDraft } from '../../../../../../lib/drafts/savers';
@@ -45,8 +43,6 @@ import { ReassessmentRows } from '../../reassessments/[reassessmentId]/reassessm
 
 const textarea =
   'w-full min-w-0 rounded-control border border-line-control bg-surface px-3 py-2 text-md shadow-xs hover:border-ink-muted read-only:bg-surface-sunken';
-const choice =
-  'flex min-h-row flex-1 cursor-pointer items-center justify-center rounded-control border border-line-control bg-surface px-3 font-medium has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-surface has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus has-[:disabled]:cursor-default pointer-coarse:min-h-row-touch';
 const tick = 'size-5 shrink-0 accent-ink';
 const panel = 'flex flex-col gap-3 rounded-panel border border-line bg-surface p-4';
 
@@ -61,43 +57,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       </h3>
       {children}
     </fieldset>
-  );
-}
-
-/** One-tap choices, as radios that look like buttons. */
-function Choices<T extends string>({
-  name,
-  options,
-  labels,
-  value,
-  readOnly,
-  onChange,
-}: {
-  name: string;
-  options: readonly T[];
-  labels: Record<T, string>;
-  value: T | null;
-  readOnly: boolean;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((option) => (
-        <label key={option} className={choice}>
-          <input
-            type="radio"
-            name={name}
-            className="sr-only"
-            disabled={readOnly}
-            checked={value === option}
-            onChange={() => {
-              onChange(option);
-            }}
-          />
-          {labels[option]}
-        </label>
-      ))}
-    </div>
   );
 }
 
@@ -276,40 +235,6 @@ function BaselineSection({
   );
 }
 
-/** A number field for one reading; empty is null. */
-function Reading({
-  label,
-  unit,
-  value,
-  readOnly,
-  onChange,
-}: {
-  label: string;
-  unit: string;
-  value: number | null;
-  readOnly: boolean;
-  onChange: (value: number | null) => void;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        type="number"
-        inputMode="decimal"
-        step="any"
-        aria-label={label}
-        readOnly={readOnly}
-        value={value ?? ''}
-        onChange={(event) => {
-          const read = event.target.valueAsNumber;
-          onChange(Number.isFinite(read) ? read : null);
-        }}
-        className={`${input} max-w-32`}
-      />
-      <span className="text-ink-secondary">{unit === 'grade' ? '' : unit}</span>
-    </div>
-  );
-}
-
 /**
  * The reassessment session (OUT-05, PRD J5.10): each measure the baseline holds, its baseline
  * reading, and this session's (both sides of a side by side measure), with the change as it is
@@ -365,16 +290,6 @@ function ReassessmentSection({
       <ul className="flex flex-col gap-3" data-testid="reassessment">
         {view.items.map((item: ReassessedItem) => {
           const { measure } = item;
-          const entry = entries[measure.key] ?? emptyReassessmentEntry;
-          const id = ['reassessment', measure.key].join('-');
-          const change = reassessmentChangeText(
-            measure,
-            item.baselineEntry,
-            entryOfReassessment(entry),
-          );
-          const update = (change: Partial<ReassessmentEntry>) => {
-            onChange(measure.key, { ...entry, ...change });
-          };
           return (
             <li
               key={measure.key}
@@ -387,93 +302,16 @@ function ReassessmentSection({
                 {item.baseline ??
                   `Not tested${item.baselineNotTested ? ` (${item.baselineNotTested})` : ''}`}
               </p>
-              {!entry.notTested ? (
-                measure.kind === 'lsi' || measure.kind === 'deficit' ? (
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-sm text-ink-secondary">Involved</span>
-                      <Reading
-                        label={`${measure.name} involved`}
-                        unit={measure.unit}
-                        value={entry.involved}
-                        readOnly={readOnly}
-                        onChange={(involved) => {
-                          update({ involved });
-                        }}
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-sm text-ink-secondary">Uninvolved</span>
-                      <Reading
-                        label={`${measure.name} uninvolved`}
-                        unit={measure.unit}
-                        value={entry.uninvolved}
-                        readOnly={readOnly}
-                        onChange={(uninvolved) => {
-                          update({ uninvolved });
-                        }}
-                      />
-                    </div>
-                  </div>
-                ) : measure.kind === 'grade' ? (
-                  <Choices
-                    name={id}
-                    options={grades}
-                    labels={gradeLabels}
-                    value={
-                      entry.value === null ? null : (String(entry.value) as (typeof grades)[number])
-                    }
-                    readOnly={readOnly}
-                    onChange={(value) => {
-                      update({ value: Number(value) });
-                    }}
-                  />
-                ) : (
-                  <Reading
-                    label={measure.name}
-                    unit={measure.unit}
-                    value={entry.value}
-                    readOnly={readOnly}
-                    onChange={(value) => {
-                      update({ value });
-                    }}
-                  />
-                )
-              ) : null}
-              {change && !entry.notTested ? (
-                <p className="text-sm font-medium text-ink" data-testid="reassessment-live-change">
-                  {change}
-                </p>
-              ) : null}
-              <label className="flex min-h-row items-center gap-3 pointer-coarse:min-h-row-touch">
-                <input
-                  type="checkbox"
-                  className={tick}
-                  disabled={readOnly}
-                  checked={entry.notTested}
-                  onChange={(event) => {
-                    update({ notTested: event.target.checked });
-                  }}
-                />
-                Not tested
-              </label>
-              {entry.notTested ? (
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-sm font-medium text-ink-secondary">
-                    Why it was not tested
-                  </span>
-                  <input
-                    type="text"
-                    maxLength={BASELINE_REASON_MAX}
-                    readOnly={readOnly}
-                    value={entry.reason}
-                    onChange={(event) => {
-                      update({ reason: event.target.value });
-                    }}
-                    className={input}
-                  />
-                </label>
-              ) : null}
+              <RetestInputs
+                measure={measure}
+                baselineEntry={item.baselineEntry}
+                entry={entries[measure.key]}
+                readOnly={readOnly}
+                testIdPrefix="reassessment"
+                onChange={(entry) => {
+                  onChange(measure.key, entry);
+                }}
+              />
             </li>
           );
         })}

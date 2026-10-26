@@ -409,3 +409,55 @@ the decision (PRD J5.10; section 7 "Reassessment", `clinical.reassessment_sessio
 
 **Negative check:** let `internal.signing_session_numbered` accept any session number, and the
 database test fails ("not session 3", "session 2").
+
+## Final testing (OUT-07)
+
+Done when exactly the baseline markers are listed with before and after (PRD J6.2). Decisions
+(user, 27 October 2026):
+
+- **Where:** the episode's Review and discharge screen (`/app/episodes/<id>/review`, Frontend
+  Specification "Review and discharge (Consultant tick)"). It opens from:
+  - Start review on a Review visit in My patients (Open review once it is In progress)
+  - "Review and discharge" on the patient's summary card, once the episode is Active, Under review
+    or Discharged
+
+  OUT-08 and OUT-10 add readiness and discharge to the same screen.
+- **Who:** anyone with the Consultant tick and the Treats patients tick now; not only the episode's
+  consultant.
+- **When:** while the episode is Active or Under review (`takesFinalTest`).
+- **What:**
+  - exactly the measures of the frozen baseline (OUT-01), at the baseline's knowledge base version
+  - each shows its baseline reading and, when session 4 reassessed it (OUT-05), that reading
+  - the same inputs as session 4 (`components/retest-inputs.tsx`): both sides of a side by side
+    measure, a grade in one tap, the change from baseline shown as it is typed
+  - an episode without a baseline shows nothing to retest
+- **Gate:** "Sign final testing" waits until each measure is recorded, or marked Not tested with a
+  reason; what is missing is listed above the button.
+- **Signing:** once per episode. Recording is signing: there is no draft.
+  - The database stamps who signed and when (`internal.final_test_guard`).
+  - The readings are `measure` rows of the `final_test`.
+  - It never changes, not even by the database owner, and is never deleted.
+- **After:** the screen lists each measure as Baseline, Session 4, Final and the change from
+  baseline to final ("LSI 80% → 95%", "6/10 → 1/10"), signed by whom and when. Clinical readers
+  read it at any centre (it is always signed).
+
+| Piece | Where |
+| --- | --- |
+| Input and status rule | `packages/schemas/src/final-testing.ts` (`finalTestSchema`, `takesFinalTest`); blockers, recordings and change text from `reassessment.ts` |
+| Writing and reading | `packages/db/src/final-testing.ts` (`recordFinalTest`, `finalTestOfEpisode`, `finalTestReadings`, `reassessmentOfEpisode`, `baselineVersionOfEpisode`) |
+| The screen and signing | `apps/web/modules/reviews/services.ts` (`loadReview`, `signFinalTest`, `consultant_records.sign`), `episodes/[episodeId]/review/` |
+| Start review | `apps/web/modules/my-patients/services.ts` (`reviewEpisodeId`), `startLabel` |
+| Rules | `supabase/migrations/20261026183216_final_test_rules.sql`: both ticks now, a treated episode with a baseline, its version, not tested only for baseline measures (`internal.final_test_guard`); readings only with the signer's own final test of this transaction, baseline measures only (`internal.writing_final_test`, `internal.in_baseline`); read by clinical readers; never updated or deleted; support read only; audited |
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `packages/schemas/src/final-testing.test.ts` | entries by measure key; Active and Under review only |
+| `apps/web/modules/reviews/services.test.ts` | baseline with session 4; who signs; not treated or no baseline signs nothing; the signed rows with the change; recorded or not tested; refusals (a physio, no tick, a gap, discharged, no baseline, twice, support) |
+| `apps/web/modules/my-patients/services.test.ts` | Start review opens the Review and discharge screen |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (final testing) | signed by a consultant with both ticks, not a physio or support; baseline measures only; once; stamped and audited; read at any centre, not by the desk or support; never changed or deleted; readings only with one's own final test in its transaction; refused while Plan proposed or without a baseline |
+| `apps/web/e2e/final-testing.spec.ts` | 360 px and desktop: Start review opens the screen; three baseline measures with session 4; signing waits; live change; signed rows with before and after; Open review and the summary link |
+
+**Negative check:** drop the baseline key check from the `measure_final_test` policy, and the
+database test fails ("a reading outside the baseline").

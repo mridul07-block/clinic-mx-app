@@ -247,6 +247,17 @@ export function MyPatientsList({
                   >
                     Open session
                   </Link>
+                ) : visit.status === 'in_progress' &&
+                  visit.typeKey === 'review' &&
+                  visit.episodeId ? (
+                  <Link
+                    href={`/app/episodes/${visit.episodeId}/review`}
+                    data-testid="open-review"
+                    aria-label={`Open review for ${visit.patientName}`}
+                    className={`${secondaryButtonClass} md:w-auto`}
+                  >
+                    Open review
+                  </Link>
                 ) : null}
               </li>
             );

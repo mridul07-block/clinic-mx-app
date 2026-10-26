@@ -299,8 +299,10 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
           .filter({ hasText: 'New symptoms reported in session 1' }),
       ).toHaveCount(1);
 
-      // SES-04: the next session starts with "Same as last time".
-      const second = await startedAppointment(physio.id, paid.patient.id, 135, {
+      // SES-04: the next session starts with "Same as last time". Every visit here sits an hour
+      // from the others, so none overlaps however earlierToday places it (after midnight IST it
+      // places them ahead instead of earlier).
+      const second = await startedAppointment(physio.id, paid.patient.id, 290, {
         minutes: 20,
         values: { episodeId: paidEpisode, status: 'booked' },
       });
@@ -463,7 +465,7 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
       });
 
       // SES-08: session 3, booked with the first physio, is covered by the other one.
-      const third = await startedAppointment(physio.id, paid.patient.id, 195, {
+      const third = await startedAppointment(physio.id, paid.patient.id, 350, {
         minutes: 20,
         values: { episodeId: paidEpisode, status: 'booked' },
       });

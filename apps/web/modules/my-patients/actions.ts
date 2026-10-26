@@ -20,7 +20,8 @@ const text = (form: FormData, name: string) => {
 
 /**
  * Starts the visit: a consultation opens its screen (CLN-02), a treatment session its session
- * screen (SES-02); other visits show In progress on the list. Refusals become messages.
+ * screen (SES-02), a review the episode's Review and discharge screen (OUT-07); other visits show
+ * In progress on the list. Refusals become messages.
  */
 export async function startVisitAction(
   _state: StartVisitState,
@@ -28,10 +29,14 @@ export async function startVisitAction(
 ): Promise<StartVisitState> {
   let consultationId: string | undefined;
   let sessionAppointmentId: string | undefined;
+  let reviewEpisodeId: string | undefined;
   try {
-    ({ consultationId, sessionAppointmentId } = await startVisit(await serviceContext(), {
-      appointmentId: text(form, 'appointmentId'),
-    }));
+    ({ consultationId, sessionAppointmentId, reviewEpisodeId } = await startVisit(
+      await serviceContext(),
+      {
+        appointmentId: text(form, 'appointmentId'),
+      },
+    ));
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { error: error.issues[0]?.message ?? 'That could not be read.' };
@@ -45,5 +50,6 @@ export async function startVisitAction(
   revalidatePath('/app/my-patients');
   if (consultationId) redirect(`/app/consultations/${consultationId}`);
   if (sessionAppointmentId) redirect(`/app/sessions/${sessionAppointmentId}`);
+  if (reviewEpisodeId) redirect(`/app/episodes/${reviewEpisodeId}/review`);
   return {};
 }
