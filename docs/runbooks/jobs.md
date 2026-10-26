@@ -59,7 +59,9 @@ database once per series booked with Book plan sessions, key
 series' appointments still Booked or Confirmed; SCH-11); `notes.unsigned_flag` (every night at
 9:00 PM IST, key `notes.unsigned_flag:<IST date>`; each night first queues the next night in its
 own transaction, then flags; a migration queued the first night; CLN-10, see
-`docs/runbooks/tasks.md`).
+`docs/runbooks/tasks.md`); `review.book` (queued by the database once when an episode turns Active,
+key `review.book:<episode id>`; books the 6 week Review with the consultant, or gives the front
+desk a task; books nothing when one is booked already; OUT-06, see `docs/runbooks/calendar.md`).
 
 End to end tests run the queue themselves: `apps/web/e2e/jobs.ts` posts to the tick with a test
 secret that `playwright.config.ts` gives the server. Tests run in parallel and share the queue, so

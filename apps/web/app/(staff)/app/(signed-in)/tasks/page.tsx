@@ -1,9 +1,12 @@
 import type { TaskEntry } from '@clinic-mx/db';
 import {
+  REVIEW_BOOKING_TASK,
   UNSIGNED_NOTES_TASK,
   can,
   documentDateTime,
+  formatIstDate,
   formatIstDateTime,
+  reviewToBookOf,
   staffRoleLabels,
   taskKindLabel,
   taskPriorityLabels,
@@ -68,6 +71,18 @@ function UnsignedNotes({ details }: { details: Record<string, unknown> }) {
   );
 }
 
+/** Why the 6 week review needs booking by hand (OUT-06): its date, the consultant, the days tried. */
+function ReviewToBook({ details }: { details: Record<string, unknown> }) {
+  const review = reviewToBookOf(details);
+  if (!review) return null;
+  return (
+    <p className="text-sm text-ink-secondary" data-testid="review-to-book">
+      Review due {formatIstDate(review.reviewDate)} with {review.consultant}. No free time found up
+      to {formatIstDate(review.searchedTo)}.
+    </p>
+  );
+}
+
 function TaskCard({
   task,
   viewerId,
@@ -126,6 +141,7 @@ function TaskCard({
         ) : null}
         {task.kind === 'job.failed' ? <JobFailure details={task.details} /> : null}
         {task.kind === UNSIGNED_NOTES_TASK ? <UnsignedNotes details={task.details} /> : null}
+        {task.kind === REVIEW_BOOKING_TASK ? <ReviewToBook details={task.details} /> : null}
       </div>
       {task.decision ? (
         <p className="text-sm text-ink-secondary" data-testid="task-decision">

@@ -1,0 +1,2 @@
+ALTER TABLE "appointment" DROP CONSTRAINT "appointment_staff_booked_by";--> statement-breakpoint
+ALTER TABLE "appointment" ADD CONSTRAINT "appointment_staff_booked_by" CHECK ("appointment"."channel" in ('whatsapp', 'automatic') or "appointment"."booked_by" is not null);

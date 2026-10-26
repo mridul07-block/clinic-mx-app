@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { confirmedCount, consultationSectionsSchema, signingBlockers } from './consultations';
 import {
   defaultReviewDate,
+  reviewSearchDates,
   modalitiesNeedingReason,
   modalityWarnings,
   planCatalogFileSchema,
@@ -132,6 +133,13 @@ describe('plan of care', () => {
 
   it('fills in the defaults: review date, suggested questionnaires, the consultant', () => {
     expect(defaultReviewDate('2026-10-24', 6)).toBe('2026-12-05');
+    // OUT-06: the automatic review tries the review date and the days after it, never the past.
+    expect(reviewSearchDates('2026-12-05', '2026-10-26', 3)).toEqual([
+      '2026-12-05',
+      '2026-12-06',
+      '2026-12-07',
+    ]);
+    expect(reviewSearchDates('2026-10-20', '2026-10-26', 2)).toEqual(['2026-10-26', '2026-10-27']);
     const plan = consultationSectionsSchema.parse({}).plan;
     const defaults = { visitDate: '2026-10-24', reviewWeeks: 6, consultantId: 'me' };
     expect(resolvedPlan(plan, defaults, ['visa_p'])).toMatchObject({

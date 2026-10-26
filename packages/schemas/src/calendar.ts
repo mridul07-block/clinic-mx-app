@@ -26,6 +26,7 @@ export const bookingChannelLabels = {
   whatsapp: 'WhatsApp',
   front_desk: 'Front desk',
   walk_in: 'Walk in',
+  automatic: 'Automatically',
 } as const satisfies Record<BookingChannel, string>;
 
 /** Setting or clearing a consultant's consultation fee: a price item, or empty for none. */

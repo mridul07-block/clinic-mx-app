@@ -241,6 +241,15 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
       );
     }
     await tx.delete(consultation).where(inArray(consultation.physioId, physioIds));
+    // The 6 week review their episodes queued (OUT-06), and its task when none was free.
+    const episodes = sql`(select episode_id from appointment where physio_id in ${physioIds}
+      and episode_id is not null)`;
+    await tx.execute(
+      sql`delete from job where kind = 'review.book' and (payload ->> 'episodeId')::uuid in ${episodes}`,
+    );
+    await tx.execute(
+      sql`delete from task where kind = 'book.review' and episode_id in ${episodes}`,
+    );
     // Their plan series (SCH-11) after the appointments in them, with the lists they queued.
     const series = sql`(select id::text from plan_booking where physio_id in ${physioIds})`;
     await tx.delete(job).where(sql`${job.payload} ->> 'planBookingId' in ${series}`);

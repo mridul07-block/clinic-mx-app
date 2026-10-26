@@ -329,6 +329,55 @@ made by the user on 26 October 2026.
 **Negative check:** let `internal.books_next_session` skip "they have a visit in the episode", and
 the database test refusing another physio's episode fails.
 
+## 6 week review (OUT-06)
+
+Done when the 6 week Review is booked automatically with the plan, with the consultant (PRD J6.1).
+Decisions (user, 26 October 2026):
+
+- **When:** once, when the episode turns Active (its plan chosen and paid). The database queues
+  `review.book` from `internal.review_booking_job` (key `review.book:<episode id>`). Under review
+  and back to Active, or any other change, queues nothing more.
+- **Who and when:**
+  - with the consultant who signed the consultation, at the episode's centre
+  - on the plan's review date (the visit date plus `clinical.review_weeks`, or whatever the
+    consultant set), at their first free time
+  - If they are off or full, the following days within `scheduling.review_search_days` (7) are
+    tried. A review date already passed starts from today.
+- **How it is booked:**
+  - The slot engine does the booking (`freeSlots`, then `bookAppointment` in a savepoint, so a
+    start taken meanwhile moves on to the next).
+  - Channel `automatic` ("Booked: Automatically"), with no booker; `appointment_staff_booked_by`
+    allows that only for `whatsapp` and `automatic`.
+  - Not billed (DECISION 13).
+- **Nothing free:**
+  - The front desk at the centre gets a task, "Book the 6 week review", on the patient.
+  - The card reads "Review due <date> with <consultant>. No free time found up to <date>."
+  - The desk books it from New booking and closes the task.
+- **Already booked:** a job that runs again, or finds a Review in the episode that is not
+  cancelled or moved, books nothing.
+- **No message yet:** the confirmation joins the WhatsApp tickets.
+
+| Piece | Where |
+| --- | --- |
+| The search dates | `reviewSearchDates`, `packages/schemas/src/plan.ts` |
+| The facts and the task | `reviewBookingFacts`, `addReviewBookingTask`, `packages/db/src/review-booking.ts` |
+| The run | `runReviewBooking`, `apps/web/modules/scheduling/review-booking.ts`; handler in `apps/web/modules/jobs/handlers.ts` |
+| The trigger, the setting | `supabase/migrations/20261026152401_review_booking.sql` |
+| The channel and the booker check | `20261026152348_review_channel.sql`, `20261026153005_automatic_booker.sql` |
+| The task card line | `ReviewToBook` in `tasks/page.tsx` |
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `packages/schemas/src/plan.test.ts`, `tasks.test.ts` | the dates tried (from today once the date has passed); the task's details |
+| `apps/web/modules/scheduling/review-booking.test.ts` | the first free time on the date, as the scheduling system; the next day when off, past a start taken meanwhile; the task after the setting's days; a passed date starts today; nothing when not Active, already booked or without a signed plan |
+| `packages/db/src/integration/review-booking.integration.test.ts` | queued once on turning Active, not before, not again after Under review; staff cannot add the job; the facts; booked with no booker; a cancelled Review no longer counts; the desk's task |
+| `apps/web/e2e/review-appointment.spec.ts` | 360 px and desktop: the Review on the consultant's day at 10:00, booked automatically; with no time a 45 minute Review fits, the desk's task |
+
+**Negative check:** drop the trigger's `WHEN` (status becomes Active), and the database test
+fails ("not before Active").
+
 ## Running late and no show (INT-11)
 
 PRD J2.9: "Running late" shows at 15 minutes past the start; the front desk can mark a no show

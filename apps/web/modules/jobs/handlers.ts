@@ -8,6 +8,7 @@ import {
   PLAN_SESSIONS_LIST_JOB,
   RECEIPT_JOB,
   RED_FLAG_SAFETY_ADVICE_JOB,
+  REVIEW_BOOK_JOB,
   REFERRAL_LETTER_JOB,
   THINK_ABOUT_IT_FOLLOW_UP_JOB,
   THINK_ABOUT_IT_MESSAGE_JOB,
@@ -21,6 +22,7 @@ import { generateConsultationSummary } from '../documents/consultation-summary';
 import { generateInvoice } from '../documents/invoice';
 import { generateReferralLetter } from '../documents/referral-letter';
 import { AI_PREPARATION_SHEET_JOB, processIntakeSubmission } from '../intake/pipeline';
+import { runReviewBooking } from '../scheduling/review-booking';
 import { runUnsignedNotesFlag } from '../tasks/unsigned-notes';
 
 /**
@@ -96,6 +98,17 @@ export const jobHandlers: JobHandlers = {
     payload: z.object({ date: z.iso.date() }),
     run: async ({ date }, { db }) => {
       await runUnsignedNotesFlag(db, { date });
+    },
+  }),
+  /**
+   * The 6 week review (OUT-06), queued by the database once when the episode turns Active: the
+   * Review with the consultant who signed the consultation at their first free time from the
+   * plan's review date, or a task for the front desk. A review already booked is left as it is.
+   */
+  [REVIEW_BOOK_JOB]: defineJob({
+    payload: z.object({ episodeId: z.guid() }),
+    run: async ({ episodeId }, { db }) => {
+      await runReviewBooking(db, { episodeId });
     },
   }),
   [PLAN_SESSIONS_LIST_JOB]: defineJob({
