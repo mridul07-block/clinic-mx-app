@@ -130,13 +130,17 @@ are recorded in the DECISION register as "SCH-14".
     it (`linked_episode_id`).
   - **Not the same problem** removes the link.
   - Whether it is the same problem is the consultant's clinical call. No automatic rule is invented.
-- **Who may link.** A consultant with the Treats patients tick, while the episode is open
-  (`consultant_records.write`). Everyone who reads the consultation sees the list.
+- **Who may link.** A consultant with the Treats patients tick (`consultant_records.write`), while
+  the episode is open. It must be the consultation's own consultant, or a consultant at the
+  episode's centre, as addenda are added. Everyone who reads the consultation sees the list.
+- **The service** takes the consultation and finds its episode there; an episode id is never taken
+  from the form.
 - **The record.** The episode says "Recurrence of: <region>, closed <date>", and the earlier one says
   "Followed by a recurrence".
 - **The database** (`internal.episode_link_guard`, migration `20261027231031_episode_link_rules.sql`):
   - A link names the same patient's discharged episode, and never the episode itself.
-  - Once an episode is open, only an active consultant with the Treats tick changes its link.
+  - Once an episode is open, only an active consultant with the Treats tick changes its link. They
+    must work at the episode's centre, or have written a consultation in the episode.
   - A discharged episode never changes (`episode_transition_guard`).
   - The audit trail records every change.
 - **Not in this ticket.** The "Injured again" follow up that records a recurrence comes with PAT-10.
@@ -154,4 +158,13 @@ are recorded in the DECISION register as "SCH-14".
 | `packages/db/src/integration/recurrence.integration.test.ts` | The previous episodes offered; a consultant links and unlinks, audited; another patient's episode, one not discharged, the episode itself, a physio without the Consultant tick, the desk, and a discharged episode are all refused, at insert too |
 | `apps/web/e2e/recurrence.spec.ts` | At 360 px and on desktop: a consultant marks a returning patient's episode "Same problem again"; the record shows both lines; the link is taken back |
 
-**Negative check:** without the same patient condition in the guard, the database test fails.
+**Negative checks:** the database test fails without the same patient condition in the guard, and
+again without its centre condition.
+
+**Review:** an adversarial review confirmed 2 defects, both fixed with tests:
+
+- **Any centre:** a consultant at any centre could change another centre's link. Linking is now
+  limited to the consultation's own consultant or a consultant at the episode's centre, in the
+  service and in the database.
+- **Button names:** every row's button had the same accessible name. Each now names its episode,
+  and the result is announced.

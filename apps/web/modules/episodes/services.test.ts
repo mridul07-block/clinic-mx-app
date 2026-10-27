@@ -8,6 +8,7 @@ const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
   episodeRecord: vi.fn(),
+  consultationRecord: vi.fn(),
   insertEpisode: vi.fn(),
   patientRecord: vi.fn(),
   setEpisodeLink: vi.fn(),
@@ -126,9 +127,11 @@ describe('episodes', () => {
   });
 });
 
-// SCH-14: the consultant marks an episode a recurrence of an earlier, discharged one (PRD J7.5).
+// SCH-14: from a consultation, the consultant marks its episode a recurrence of an earlier,
+// discharged one (PRD J7.5): the consultation's own consultant or one at the episode's centre.
 describe('recurrences', () => {
   const earlierId = '00000000-0000-4000-8000-000000000502';
+  const consultationId = '00000000-0000-4000-8000-000000000601';
   const consultant = member({
     role: 'physiotherapist',
     treatsPatients: true,
@@ -140,21 +143,40 @@ describe('recurrences', () => {
       (_db: Db, _context: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
     );
     db.setEpisodeLink.mockResolvedValue(true);
+    db.consultationRecord.mockResolvedValue({ id: consultationId, episodeId, physioId: 'someone' });
   });
   const records = (current: object, earlier: object) => {
     db.episodeRecord.mockImplementation((_tx: unknown, id: string) =>
-      Promise.resolve(id === episodeId ? current : id === earlierId ? earlier : undefined),
+      Promise.resolve(
+        id === episodeId ? { centreId: hsr, ...current } : id === earlierId ? earlier : undefined,
+      ),
     );
   };
+  const link = (actor: StaffMember, linkedEpisodeId: string | null) =>
+    linkRecurrence(context(actor), { consultationId, linkedEpisodeId });
 
-  it('links the open episode to the same patient’s discharged one, and removes the link', async () => {
+  it('links the consultation’s open episode to the same patient’s discharged one, and unlinks', async () => {
     records(episode('awaiting_consultation'), { ...episode('discharged'), id: earlierId });
-    await expect(
-      linkRecurrence(context(consultant), { episodeId, linkedEpisodeId: earlierId }),
-    ).resolves.toEqual({ linkedEpisodeId: earlierId });
+    await expect(link(consultant, earlierId)).resolves.toEqual({ linkedEpisodeId: earlierId });
     expect(db.setEpisodeLink).toHaveBeenCalledWith(fakeTx, episodeId, earlierId);
-    await linkRecurrence(context(consultant), { episodeId, linkedEpisodeId: null });
+    await link(consultant, null);
     expect(db.setEpisodeLink).toHaveBeenLastCalledWith(fakeTx, episodeId, null);
+  });
+
+  it('lets the consultation’s own consultant link at another centre; others there are refused', async () => {
+    records(
+      { ...episode('active'), centreId: koramangala },
+      { ...episode('discharged'), id: earlierId },
+    );
+    await expect(link(consultant, earlierId)).rejects.toThrow(
+      'A recurrence is linked by the consultation’s consultant or a consultant at its centre.',
+    );
+    db.consultationRecord.mockResolvedValue({
+      id: consultationId,
+      episodeId,
+      physioId: consultant.id,
+    });
+    await expect(link(consultant, earlierId)).resolves.toEqual({ linkedEpisodeId: earlierId });
   });
 
   it('refuses another patient’s episode, one still open, a discharged current one, and non-consultants', async () => {
@@ -163,26 +185,19 @@ describe('recurrences', () => {
       id: earlierId,
       patientId: 'someone-else',
     });
-    await expect(
-      linkRecurrence(context(consultant), { episodeId, linkedEpisodeId: earlierId }),
-    ).rejects.toThrow(EpisodeError);
+    await expect(link(consultant, earlierId)).rejects.toThrow(EpisodeError);
     records(episode('active'), { ...episode('active'), id: earlierId });
-    await expect(
-      linkRecurrence(context(consultant), { episodeId, linkedEpisodeId: earlierId }),
-    ).rejects.toThrow('A recurrence links to a discharged episode of the same patient.');
+    await expect(link(consultant, earlierId)).rejects.toThrow(
+      'A recurrence links to a discharged episode of the same patient.',
+    );
     records(episode('discharged'), { ...episode('discharged'), id: earlierId });
+    await expect(link(consultant, earlierId)).rejects.toThrow(
+      'A discharged episode never changes.',
+    );
     await expect(
-      linkRecurrence(context(consultant), { episodeId, linkedEpisodeId: earlierId }),
-    ).rejects.toThrow('A discharged episode never changes.');
-    await expect(
-      linkRecurrence(context(member({ role: 'physiotherapist', treatsPatients: true })), {
-        episodeId,
-        linkedEpisodeId: earlierId,
-      }),
+      link(member({ role: 'physiotherapist', treatsPatients: true }), earlierId),
     ).rejects.toThrow(NotAllowedError);
-    await expect(
-      linkRecurrence(context(member()), { episodeId, linkedEpisodeId: earlierId }),
-    ).rejects.toThrow(NotAllowedError);
+    await expect(link(member(), earlierId)).rejects.toThrow(NotAllowedError);
     expect(db.setEpisodeLink).not.toHaveBeenCalled();
   });
 });

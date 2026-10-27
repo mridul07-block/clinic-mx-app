@@ -209,10 +209,10 @@ export const openEpisodeSchema = z.object({
 });
 
 /**
- * A recurrence (SCH-14, PRD J7.5): the consultant links the current episode to the discharged one
- * it is the same problem as, or removes the link (null).
+ * A recurrence (SCH-14, PRD J7.5): from a consultation, the consultant links its episode to the
+ * discharged one it is the same problem as, or removes the link (null).
  */
 export const recurrenceLinkSchema = z.object({
-  episodeId: z.guid(),
+  consultationId: z.guid(),
   linkedEpisodeId: z.guid().nullable(),
 });

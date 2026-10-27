@@ -25,7 +25,7 @@ export async function linkRecurrenceAction(
   const linked = text(form, 'linkedEpisodeId');
   try {
     await linkRecurrence(await serviceContext(), {
-      episodeId: text(form, 'episodeId'),
+      consultationId: text(form, 'consultationId'),
       linkedEpisodeId: linked === '' ? null : linked,
     });
   } catch (error) {

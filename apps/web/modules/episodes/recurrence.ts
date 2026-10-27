@@ -1,6 +1,11 @@
 import 'server-only';
 import { episodeRecord, previousEpisodes, type StaffMember } from '@clinic-mx/db';
-import { can, dischargeReasonLabels, screeningRegionLabels } from '@clinic-mx/schemas';
+import {
+  can,
+  dischargeReasonLabels,
+  screeningRegionLabels,
+  worksAtCentre,
+} from '@clinic-mx/schemas';
 import { asStaff } from '../access/staff-db';
 
 /** One earlier episode as the panel shows it, in words and ISO times. */
@@ -27,9 +32,9 @@ export interface RecurrenceView {
 
 export async function recurrenceView(
   actor: StaffMember,
-  patientId: string,
-  episodeId: string,
+  consultation: { patientId: string; episodeId: string; physioId: string },
 ): Promise<RecurrenceView> {
+  const { patientId, episodeId } = consultation;
   return asStaff(actor, async (tx) => {
     const current = await episodeRecord(tx, episodeId);
     return {
@@ -48,7 +53,8 @@ export async function recurrenceView(
         actor.treatsPatients &&
         !actor.support &&
         current !== undefined &&
-        current.status !== 'discharged',
+        current.status !== 'discharged' &&
+        (consultation.physioId === actor.id || worksAtCentre(actor, current.centreId)),
     };
   });
 }

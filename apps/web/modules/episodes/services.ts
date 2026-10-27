@@ -1,5 +1,6 @@
 import 'server-only';
 import {
+  consultationRecord,
   episodeRecord,
   insertEpisode,
   patientRecord,
@@ -10,6 +11,7 @@ import {
   episodeTransition,
   openEpisodeSchema,
   recurrenceLinkSchema,
+  worksAtCentre,
   type DischargeDetails,
   type EpisodeEvent,
   type EpisodeState,
@@ -50,16 +52,24 @@ export const openEpisode = staffService({
 });
 
 /**
- * Marks the episode a recurrence of an earlier, discharged one of the same patient, or removes the
- * mark (SCH-14, PRD J7.5): the consultant's clinical call, made in the consultation while the
- * episode is open. The database refuses anyone but a consultant with the Treats patients tick.
+ * Marks a consultation's episode a recurrence of an earlier, discharged one of the same patient,
+ * or removes the mark (SCH-14, PRD J7.5): the consultant's clinical call, made in the consultation
+ * while the episode is open, by the consultation's own consultant or a consultant at the episode's
+ * centre (as addenda are added). The database refuses anyone else.
  */
 export const linkRecurrence = staffService({
   action: 'consultant_records.write',
   input: recurrenceLinkSchema,
   run: async (tx, input, actor): Promise<{ linkedEpisodeId: string | null }> => {
-    const current = await episodeRecord(tx, input.episodeId);
+    const found = await consultationRecord(tx, input.consultationId);
+    if (!found) throw new EpisodeError('That consultation was not found.');
+    const current = await episodeRecord(tx, found.episodeId);
     if (!current) throw new EpisodeError('That episode was not found.');
+    if (found.physioId !== actor.id && !worksAtCentre(actor, current.centreId)) {
+      throw new EpisodeError(
+        'A recurrence is linked by the consultation’s consultant or a consultant at its centre.',
+      );
+    }
     if (current.status === 'discharged') {
       throw new EpisodeError('A discharged episode never changes.');
     }

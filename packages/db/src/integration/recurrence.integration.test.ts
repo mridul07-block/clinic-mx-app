@@ -1,3 +1,4 @@
+import { istDate } from '@clinic-mx/schemas';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
@@ -6,7 +7,7 @@ import { previousEpisodes, setEpisodeLink } from '../episodes';
 import type { StaffMember } from '../identity';
 import { auditEvent, episode } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
-import { asSystem, claimsOf, episodeThrough } from './fake-figures';
+import { asSystem, claimsOf, episodeThrough, knowledgeVersion, note, visit } from './fake-figures';
 import { becomeStaff, testPatient, testPhysio } from './fake-schedule';
 
 // SCH-14: a recurrence links an episode to the same patient's discharged one (PRD J7.5), set by a
@@ -79,6 +80,46 @@ async function returning(tx: Tx, consultant: StaffMember) {
 }
 
 describe('recurrences', () => {
+  it('refuses a consultant elsewhere, unless the consultation in the episode is their own', async () => {
+    await rolledBack(async (tx) => {
+      const kb = await knowledgeVersion(tx);
+      const local = await testPhysio(tx, {
+        centreIds: [hsr],
+        consultant: true,
+        createdBy: superAdmin.id,
+      });
+      const elsewhere = await testPhysio(tx, {
+        centreIds: [centreIds.whitefield],
+        consultant: true,
+        createdBy: superAdmin.id,
+      });
+      const { patientId, earlier, current } = await returning(tx, local);
+      const tryAs = (who: StaffMember) =>
+        failure(tx, async (sp) => {
+          await becomeStaff(sp, who);
+          await setEpisodeLink(sp, current, earlier);
+        });
+      expect(await tryAs(elsewhere)).toBe('42501');
+      // Their own consultation in the episode (a consultant seeing a patient at another centre).
+      const seen = await visit(tx, {
+        centreId: hsr,
+        physio: elsewhere,
+        type: 'consultation',
+        day: istDate(new Date()),
+        status: 'in_progress',
+        episodeId: current,
+        patientId,
+      });
+      await note(tx, {
+        appointmentId: seen.id,
+        episodeId: current,
+        physio: elsewhere,
+        kbVersionId: kb,
+      });
+      expect(await tryAs(elsewhere)).toBeUndefined();
+    });
+  });
+
   it('lets a consultant link the open episode to the discharged one, audited, and unlink it', async () => {
     await rolledBack(async (tx) => {
       const consultant = await testPhysio(tx, {

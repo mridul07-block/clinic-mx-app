@@ -32,7 +32,7 @@ export default async function ConsultationPage({
   if (!consultation) notFound();
   const redFlags = await consultationRedFlagsOf(staff, consultation.id);
   // SCH-14: the patient's earlier episodes, to mark this one a recurrence.
-  const recurrence = await recurrenceView(staff, consultation.patientId, consultation.episodeId);
+  const recurrence = await recurrenceView(staff, consultation);
   const { section } = await searchParams;
   return (
     <main className="flex w-full max-w-5xl flex-col gap-4 px-4 pt-6 md:pb-6">
@@ -58,7 +58,6 @@ export default async function ConsultationPage({
       <PreviousEpisodes
         consultationId={consultation.id}
         patientId={consultation.patientId}
-        episodeId={recurrence.episodeId}
         linkedEpisodeId={recurrence.linkedEpisodeId}
         previous={recurrence.previous}
         links={recurrence.links}

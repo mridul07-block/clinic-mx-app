@@ -17,14 +17,12 @@ import type { PreviousEpisodeItem } from '../../../../../../modules/episodes/rec
 export function PreviousEpisodes({
   consultationId,
   patientId,
-  episodeId,
   linkedEpisodeId,
   previous,
   links,
 }: {
   consultationId: string;
   patientId: string;
-  episodeId: string;
   linkedEpisodeId: string | null;
   previous: PreviousEpisodeItem[];
   links: boolean;
@@ -76,11 +74,13 @@ export function PreviousEpisodes({
                 <form action={action} className="self-start">
                   <input type="hidden" name="consultationId" value={consultationId} />
                   <input type="hidden" name="patientId" value={patientId} />
-                  <input type="hidden" name="episodeId" value={episodeId} />
                   <input type="hidden" name="linkedEpisodeId" value={linked ? '' : episode.id} />
                   <button
                     type="submit"
                     disabled={pending}
+                    aria-label={`${linked ? 'Not the same problem as' : 'Same problem again as'} ${
+                      episode.region ?? 'the episode'
+                    }, ${formatIstDate(istDate(new Date(episode.openedAt)))}`}
                     className="min-h-11 rounded-control border border-line-control bg-surface px-3 text-sm font-medium text-ink"
                   >
                     {linked ? 'Not the same problem' : 'Same problem again'}
@@ -91,7 +91,14 @@ export function PreviousEpisodes({
           );
         })}
       </ul>
-      {state.error ? <FormMessage tone="danger">{state.error}</FormMessage> : null}
+      <div aria-live="polite">
+        {state.error ? <FormMessage tone="danger">{state.error}</FormMessage> : null}
+        {state.done && !state.error ? (
+          <p className="sr-only">
+            {linkedEpisodeId ? 'Marked as a recurrence.' : 'No longer marked as a recurrence.'}
+          </p>
+        ) : null}
+      </div>
     </section>
   );
 }
