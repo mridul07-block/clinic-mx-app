@@ -21,12 +21,18 @@ export function LineChart({
   points,
   min,
   max,
+  target,
+  band,
 }: {
   /** What the chart says, for screen readers. */
   label: string;
   points: readonly LinePoint[];
   min: number;
   max: number;
+  /** A 1 px dashed target line, labelled at its end ("Target 75%", DSH-02). */
+  target?: { value: number; label: string };
+  /** A shaded band, such as a questionnaire's meaningful change (DSH-02). */
+  band?: { from: number; to: number; label: string };
 }) {
   const plotWidth = WIDTH - LEFT - RIGHT;
   const plotHeight = HEIGHT - TOP - BOTTOM;
@@ -75,6 +81,52 @@ export function LineChart({
           </text>
         </g>
       ))}
+      {band ? (
+        <g data-testid="line-band">
+          <rect
+            x={LEFT}
+            y={y(Math.max(band.from, band.to))}
+            width={WIDTH - LEFT - RIGHT}
+            height={Math.abs(y(band.from) - y(band.to))}
+            className="fill-viz-ramp-1"
+          />
+          <text
+            x={WIDTH - RIGHT - 4}
+            y={y(Math.min(band.from, band.to)) - 3}
+            textAnchor="end"
+            paintOrder="stroke"
+            strokeWidth={3}
+            strokeLinejoin="round"
+            className="fill-ink-muted stroke-canvas text-[10px]"
+          >
+            {band.label}
+          </text>
+        </g>
+      ) : null}
+      {target ? (
+        <g data-testid="line-target">
+          <line
+            x1={LEFT}
+            x2={WIDTH - RIGHT}
+            y1={y(target.value)}
+            y2={y(target.value)}
+            strokeWidth={1}
+            strokeDasharray="4 3"
+            className="stroke-viz-target"
+          />
+          <text
+            x={WIDTH - RIGHT}
+            y={y(target.value) + 11}
+            textAnchor="end"
+            paintOrder="stroke"
+            strokeWidth={3}
+            strokeLinejoin="round"
+            className="fill-ink-muted stroke-canvas text-[10px]"
+          >
+            {target.label}
+          </text>
+        </g>
+      ) : null}
       {runs
         .filter((run) => run.length > 1)
         .map((run) => (
@@ -92,7 +144,11 @@ export function LineChart({
         ))}
       {points.map((point, index) =>
         point.value === null ? null : (
-          <g key={[String(index), point.label].join('-')} data-testid="line-point">
+          <g
+            key={[String(index), point.label].join('-')}
+            data-testid="line-point"
+            data-words={`${point.label}: ${String(point.value)}`}
+          >
             <circle cx={x(index)} cy={y(point.value)} r={3.5} className="cmx-marker fill-viz-1" />
             <text
               x={x(index)}

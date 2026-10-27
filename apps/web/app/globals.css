@@ -9,6 +9,7 @@
 @import '@clinic-mx/ui/styles/base.css';
 @import '@clinic-mx/ui/styles/motion.css';
 @import '@clinic-mx/ui/styles/hatch.css';
+@import '@clinic-mx/ui/styles/charts.css';
 
 /* Components in packages/ui use Tailwind classes too. */
 @source '../../../packages/ui/src';

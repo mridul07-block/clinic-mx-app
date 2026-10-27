@@ -1,0 +1,19 @@
+/*
+ * The chart mark whose value the readout shows (DSH-02, design system v2 section 9): outlined in
+ * ink, so the focus never rests on colour alone. A donut part, itself a stroke, thickens instead.
+ */
+svg rect[data-words][data-active],
+svg g[data-words][data-active] circle {
+  stroke: var(--ink);
+  stroke-width: 2px;
+}
+
+.cmx-arc[data-active] {
+  stroke-width: 28px;
+}
+
+li[data-words][data-active] {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
+}

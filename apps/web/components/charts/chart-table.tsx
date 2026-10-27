@@ -29,8 +29,9 @@ export function ChartTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.join('|')} className="border-b border-line last:border-0">
+            {rows.map((row, place) => (
+              // Rows may repeat (two "Mon"s), so the place is the key.
+              <tr key={String(place)} className="border-b border-line last:border-0">
                 {row.map((cell, index) => (
                   <td key={[String(index), cell].join('-')} className="py-1.5 pr-3 text-ink">
                     {cell}
