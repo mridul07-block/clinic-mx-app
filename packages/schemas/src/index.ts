@@ -937,3 +937,18 @@ export {
   type FunnelStage,
   type OutcomeWindow,
 } from './dashboards';
+export {
+  addMonths,
+  csvCell,
+  csvRupees,
+  financeComing,
+  financeExports,
+  financeTabLabels,
+  financeTabs,
+  monthLabel,
+  monthOf,
+  monthsEnding,
+  toCsv,
+  type FinanceExport,
+  type FinanceTab,
+} from './finance';

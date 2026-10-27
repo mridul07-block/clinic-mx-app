@@ -50,6 +50,7 @@ describe('homePath', () => {
     expect(homePath('front_desk')).toBe('/app/today');
     expect(homePath('centre_manager')).toBe('/app/dashboard/alerts');
     expect(homePath('physiotherapist')).toBe('/app/my-patients');
+    expect(homePath('finance')).toBe('/app/finance/collections');
     expect(safeNextPath(null, homePath('front_desk'))).toBe('/app/today');
     expect(safeNextPath('https://elsewhere.example', homePath('front_desk'))).toBe('/app/today');
     expect(safeNextPath('/app/calendar', homePath('front_desk'))).toBe('/app/calendar');

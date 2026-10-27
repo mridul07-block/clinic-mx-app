@@ -36,6 +36,9 @@ function expectNoSupabaseCalls(urls: string[]) {
   );
 }
 
+/** Where a role lands after signing in (`homePath`). */
+const landing = (role: string) => (role === 'Finance' ? /\/app\/finance\/collections$/ : /\/app$/);
+
 test('signs in and out with no browser call to Supabase', async ({ page, context }) => {
   const urls = recordRequests(page);
   await page.goto('/app');
@@ -44,7 +47,9 @@ test('signs in and out with no browser call to Supabase', async ({ page, context
 
   const staff = signInStaff();
   await signIn(page, staff.email);
-  await expect(page).toHaveURL(/\/app$/);
+  // Each role lands on its own screen: Finance on Collections (DSH-04), the Super Admin on home.
+  await expect(page).toHaveURL(landing(staff.role));
+  await page.goto('/app');
   await expect(page.getByText(`Signed in as ${staff.name}, ${staff.role}`)).toBeVisible();
 
   // The session lives in HTTP only, secure, same site cookies that page scripts cannot read.
@@ -73,7 +78,7 @@ test('returns to the page that was asked for after signing in', async ({ page })
 test('a signed in person opening sign in goes to the staff app', async ({ page }) => {
   await signIn(page, signInStaff().email);
   await page.goto('/app/sign-in');
-  await expect(page).toHaveURL(/\/app$/);
+  await expect(page).toHaveURL(landing(signInStaff().role));
 });
 
 test('wrong details are refused without saying whether the email has an account', async ({
