@@ -181,6 +181,7 @@ describe('the knowledge base import', () => {
         { entity: 'kb_measure', n: 143 },
         { entity: 'kb_modality', n: 8 },
         { entity: 'kb_questionnaire', n: 19 },
+        { entity: 'kb_readiness_criterion', n: 139 },
         { entity: 'kb_red_flag_presentation', n: 136 },
         { entity: 'kb_red_flag_rule', n: 20 },
         { entity: 'kb_special_test', n: 244 },

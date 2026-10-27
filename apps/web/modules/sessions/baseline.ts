@@ -17,6 +17,7 @@ import {
   episodeBaseline,
   type EpisodeBaseline,
   type KnowledgeMeasure,
+  type KnowledgeRegion,
   type MeasureKind,
 } from '@clinic-mx/schemas';
 import { getSetting } from '../settings/settings';
@@ -57,6 +58,24 @@ const describe = (measure: KnowledgeMeasure) => ({
   direction: measure.direction,
 });
 
+/**
+ * The workbook region the episode's signed consultation measured (its Objective's region, or else
+ * the screening region); '' before it is signed or without one.
+ */
+export async function episodeRegion(
+  tx: DbOrTransaction,
+  episodeId: string,
+): Promise<KnowledgeRegion | ''> {
+  const signed = await signedConsultationOf(tx, episodeId);
+  if (!signed) return '';
+  const sections = consultationSectionsSchema.safeParse(signed.sections);
+  const intake = await consultationIntake(tx, signed.appointmentId);
+  return consultationRegion(
+    sections.success ? sections.data : consultationSectionsSchema.parse({}),
+    intake?.answers ?? {},
+  );
+}
+
 /** Session 1's baseline as it stands: what is reused and which markers are asked for. */
 export async function workedOutBaseline(
   tx: DbOrTransaction,
@@ -64,16 +83,7 @@ export async function workedOutBaseline(
 ): Promise<EpisodeBaseline> {
   const reuseDays = await getSetting('clinical.baseline_reuse_days');
   const catalog = (await knowledgeObjective(tx, session.kbVersionId)).measures;
-  const signed = await signedConsultationOf(tx, session.episodeId);
-  let region: Parameters<typeof episodeBaseline>[0]['region'] = '';
-  if (signed) {
-    const sections = consultationSectionsSchema.safeParse(signed.sections);
-    const intake = await consultationIntake(tx, signed.appointmentId);
-    region = consultationRegion(
-      sections.success ? sections.data : consultationSectionsSchema.parse({}),
-      intake?.answers ?? {},
-    );
-  }
+  const region = await episodeRegion(tx, session.episodeId);
   const taken = await consultationMeasuresBetween(
     tx,
     session.episodeId,

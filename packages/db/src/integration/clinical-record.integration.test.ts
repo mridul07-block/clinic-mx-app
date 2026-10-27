@@ -4,6 +4,7 @@ import {
   istDate,
   istInstant,
   packageValidUntil,
+  type ClearanceCriterion,
   type SignedRows,
 } from '@clinic-mx/schemas';
 import { and, eq, inArray, sql } from 'drizzle-orm';
@@ -19,6 +20,16 @@ import {
 } from '../bills';
 import { frozenBaseline, recordBaseline } from '../baseline';
 import { finalTestOfEpisode, finalTestReadings, recordFinalTest } from '../final-testing';
+import {
+  addReadinessMark,
+  clearancesOf,
+  episodeReadings,
+  latestCriteriaVersion,
+  readinessCriteria,
+  readinessMarks,
+  recordReadinessReading,
+  signClearance,
+} from '../readiness';
 import {
   reassessmentById,
   recordReassessment,
@@ -70,6 +81,7 @@ import {
   consultation,
   payment,
   diagnosis,
+  clearance,
   episode,
   finalTest,
   job,
@@ -82,6 +94,7 @@ import {
   planOfCare,
   precaution,
   priceItem,
+  readinessMark,
   redFlagAlert,
   specialTestResult,
   staffUser,
@@ -2686,6 +2699,273 @@ describe('counter payments', () => {
           await pay(tx, deskHsr, fixture.feeBillId);
           await pay(tx, deskHsr, fixture.packageBillId);
           expect((await signAs(tx, fixture.consultant, values)).code, 'no baseline').toBe('23514');
+        });
+      });
+    });
+
+    // OUT-08 (user decisions 27 October 2026): the region's readiness criteria from the knowledge
+    // base; a consultant with both ticks marks, overrides and records readings, and signs the three
+    // clearances in order, each keeping every criterion Met or overridden.
+    describe('readiness and clearances', () => {
+      const pain = 'knee.marker.primary_task_pain_nrs_0_10'; // gitleaks:allow
+      const hamstrings = 'knee.lsi.hamstrings'; // gitleaks:allow
+      const valgus = 'knee.readiness.no_dynamic_valgus_on_single_leg_tasks_and_landing'; // gitleaks:allow
+      /** An Active knee episode and the newest version with knee criteria. */
+      const treated = async (tx: Tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        await pay(tx, deskHsr, fixture.feeBillId);
+        await pay(tx, deskHsr, fixture.packageBillId);
+        await asOwner(tx);
+        const kbVersionId = (await latestCriteriaVersion(tx, 'knee')) ?? '';
+        const criteria = await readinessCriteria(tx, kbVersionId, 'knee');
+        return { ...fixture, kbVersionId, criteria };
+      };
+      const as = async <T>(tx: Tx, actor: StaffMember, work: (sp: Tx) => Promise<T>) => {
+        await asOwner(tx);
+        await becomeStaff(tx, actor);
+        return failure(tx, work);
+      };
+
+      it('reads the knee criteria: nine measures, then four yes or no lines', async () => {
+        await rolledBack(async (tx) => {
+          const { criteria } = await treated(tx);
+          expect(criteria.filter((c) => c.kind === 'measure').map((c) => c.measureKey)).toContain(
+            hamstrings,
+          );
+          expect(criteria.map((c) => c.kind)).toEqual([
+            ...Array<string>(9).fill('measure'),
+            ...Array<string>(4).fill('check'),
+          ]);
+          expect(criteria.find((c) => c.key === valgus)?.text).toBe(
+            'No dynamic valgus on single-leg tasks and landing',
+          );
+        });
+      });
+
+      it('is marked, overridden and measured by a consultant with both ticks, and never changed', async () => {
+        await rolledBack(async (tx) => {
+          const fixture = await treated(tx);
+          const { episodeId, kbVersionId } = fixture;
+          const check =
+            (by: StaffMember, criterionKey = valgus) =>
+            (sp: Tx) =>
+              addReadinessMark(sp, {
+                episodeId,
+                kbVersionId,
+                criterionKey,
+                by: by.id,
+                kind: 'check',
+                result: 'met',
+              });
+          expect(
+            await as(tx, fixture.colleague, check(fixture.colleague)),
+            'no Consultant tick',
+          ).toBe('42501');
+          expect(await as(tx, support, check(support)), 'not support').toBe('42501');
+          expect(
+            await as(tx, fixture.consultant, check(fixture.consultant, hamstrings)),
+            'a measured criterion is judged by its reading',
+          ).toBe('23514');
+          expect(
+            await as(tx, fixture.consultant, check(fixture.consultant, 'knee.readiness.nothing')),
+            'not a criterion',
+          ).toBe('23514');
+          expect(await as(tx, fixture.consultant, check(fixture.consultant))).toBeUndefined();
+          expect(
+            await as(tx, fixture.consultant, (sp) =>
+              addReadinessMark(sp, {
+                episodeId,
+                kbVersionId,
+                criterionKey: hamstrings,
+                by: fixture.consultant.id,
+                kind: 'override',
+                reason: ' ',
+              }),
+            ),
+            'an override needs a reason',
+          ).toBe('23514');
+
+          // A reading for a criterion's measure; not for any other measure.
+          const reading = (key: string) => (sp: Tx) =>
+            recordReadinessReading(sp, {
+              episodeId,
+              kbVersionId,
+              by: fixture.consultant.id,
+              readings: [
+                { key, limb: key === pain ? null : 'involved', value: 36, unit: 'kg' },
+                ...(key === pain
+                  ? []
+                  : [{ key, limb: 'uninvolved' as const, value: 40, unit: 'kg' }]),
+              ],
+            });
+          expect(await as(tx, fixture.consultant, reading(pain)), 'not a criterion').toBe('42501');
+          expect(await as(tx, fixture.consultant, reading(hamstrings))).toBeUndefined();
+
+          // Read by clinicians at any centre; not the desk or support.
+          for (const reader of [fixture.colleague, fixture.elsewhere]) {
+            await asOwner(tx);
+            await becomeStaff(tx, reader);
+            expect((await readinessMarks(tx, episodeId)).get(valgus)?.check?.result).toBe('met');
+            expect(
+              (await episodeReadings(tx, episodeId, [hamstrings])).get(hamstrings)?.latest,
+            ).toMatchObject({ entry: { involved: 36, uninvolved: 40 }, source: 'readiness' });
+          }
+          for (const outsider of [deskHsr, support]) {
+            await asOwner(tx);
+            await becomeStaff(tx, outsider);
+            expect((await readinessMarks(tx, episodeId)).size).toBe(0);
+          }
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.consultant);
+          expect(
+            await failure(tx, (sp) =>
+              sp
+                .update(readinessMark)
+                .set({ result: 'not_met' })
+                .where(eq(readinessMark.episodeId, episodeId)),
+            ),
+          ).toBe('42501');
+          await asOwner(tx);
+          expect(
+            await failure(tx, (sp) =>
+              sp
+                .update(readinessMark)
+                .set({ result: 'not_met' })
+                .where(eq(readinessMark.episodeId, episodeId)),
+            ),
+            'not even by the owner',
+          ).toBe('23514');
+        });
+      });
+
+      it('signs the three clearances in order, each keeping every criterion Met or overridden', async () => {
+        await rolledBack(async (tx) => {
+          const fixture = await treated(tx);
+          const { episodeId, kbVersionId, criteria } = fixture;
+          const reason = 'Not tested at discharge; agreed with the patient.';
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.consultant);
+          for (const criterion of criteria) {
+            await addReadinessMark(
+              tx,
+              criterion.kind === 'check'
+                ? {
+                    episodeId,
+                    kbVersionId,
+                    criterionKey: criterion.key,
+                    by: fixture.consultant.id,
+                    kind: 'check',
+                    result: 'met',
+                  }
+                : {
+                    episodeId,
+                    kbVersionId,
+                    criterionKey: criterion.key,
+                    by: fixture.consultant.id,
+                    kind: 'override',
+                    reason,
+                  },
+            );
+          }
+          const snapshot: ClearanceCriterion[] = criteria.map((c) =>
+            c.kind === 'check'
+              ? { key: c.key, text: c.text, result: 'met' as const, reading: null, override: null }
+              : {
+                  key: c.key,
+                  text: c.text,
+                  result: 'not_assessed' as const,
+                  reading: null,
+                  override: reason,
+                },
+          );
+          const sign = (
+            status: 'rehabilitation_complete' | 'return_to_training' | 'return_to_sport',
+            by: StaffMember = fixture.consultant,
+            kept = snapshot,
+          ) =>
+            as(tx, by, (sp) =>
+              signClearance(sp, {
+                episodeId,
+                status,
+                region: 'knee',
+                kbVersionId,
+                criteria: kept,
+                by: by.id,
+              }),
+            );
+          expect(await sign('return_to_training'), 'in order').toBe('23514');
+          expect(
+            await sign('rehabilitation_complete', fixture.colleague),
+            'no Consultant tick',
+          ).toBe('42501');
+          expect(
+            await sign('rehabilitation_complete', fixture.consultant, snapshot.slice(1)),
+            'a criterion missing',
+          ).toBe('23514');
+          expect(
+            await sign(
+              'rehabilitation_complete',
+              fixture.consultant,
+              snapshot.map((c, i) => (i === 0 ? { ...c, override: null } : c)),
+            ),
+            'not assessed without an override',
+          ).toBe('23514');
+          expect(
+            await sign(
+              'rehabilitation_complete',
+              fixture.consultant,
+              snapshot.map((c, i) => (i === 0 ? { ...c, override: 'Another reason' } : c)),
+            ),
+            'an override not on record',
+          ).toBe('23514');
+          expect(await sign('rehabilitation_complete')).toBeUndefined();
+          expect(await sign('rehabilitation_complete'), 'once').toBe('23505');
+          expect(await sign('return_to_sport'), 'still in order').toBe('23514');
+          expect(await sign('return_to_training')).toBeUndefined();
+          expect(await sign('return_to_sport')).toBeUndefined();
+
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.elsewhere);
+          expect((await clearancesOf(tx, episodeId)).map((c) => c.status)).toEqual([
+            'rehabilitation_complete',
+            'return_to_training',
+            'return_to_sport',
+          ]);
+          await becomeStaff(tx, fixture.consultant);
+          expect(
+            await failure(tx, (sp) =>
+              sp.delete(clearance).where(eq(clearance.episodeId, episodeId)),
+            ),
+            'never removed',
+          ).toBe('42501');
+          await asOwner(tx);
+          expect(
+            await failure(tx, (sp) =>
+              sp.update(clearance).set({ criteria: [] }).where(eq(clearance.episodeId, episodeId)),
+            ),
+            'never changed, not even by the owner',
+          ).toBe('23514');
+        });
+      });
+
+      it('waits for a treated episode', async () => {
+        await rolledBack(async (tx) => {
+          const fixture = await chosenPackage(tx, 12);
+          await asOwner(tx);
+          const kbVersionId = (await latestCriteriaVersion(tx, 'knee')) ?? '';
+          expect(
+            await as(tx, fixture.consultant, (sp) =>
+              addReadinessMark(sp, {
+                episodeId: fixture.episodeId,
+                kbVersionId,
+                criterionKey: valgus,
+                by: fixture.consultant.id,
+                kind: 'check',
+                result: 'met',
+              }),
+            ),
+            'plan proposed',
+          ).toBe('42501');
         });
       });
     });

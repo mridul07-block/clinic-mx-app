@@ -528,6 +528,152 @@ Yes or no screens, ratios, readiness summaries and worded checks; they belong wi
 | Bone stress, cartilage and meniscus | 10 | Section | ENTRY GATES — ALL MUST READ YES BEFORE IMPACT LOADING BEGINS |
 | Bone stress, cartilage and meniscus | 34 | Section | RETURN-TO-SPORT READINESS |
 
+## Readiness criteria (OUT-08)
+
+Each Progress Tracker readiness section, one criterion per line: each measure a count line names (judged by its own rule, or its target or MCID column), each yes or no line, and the yes or no rows only the overall verdict names (`docs/runbooks/knowledge-base.md`).
+
+| Workbook | Row | Criterion | Judged by |
+| --- | --- | --- | --- |
+| Shoulder | 28 | External rotation at 0 deg | The measure’s rule |
+| Shoulder | 29 | Internal rotation at 0 deg | The measure’s rule |
+| Shoulder | 30 | Abduction / full can | The measure’s rule |
+| Shoulder | 31 | Cuff endurance (reps to fatigue) | The measure’s rule |
+| Shoulder | 12 | Passive elevation | The measure’s rule |
+| Shoulder | 13 | Active elevation | The measure’s rule |
+| Shoulder | 14 | Passive external rotation at 0 deg | The measure’s rule |
+| Shoulder | 15 | Passive external rotation at 90 deg | The measure’s rule |
+| Shoulder | 16 | Passive internal rotation at 90 deg | The measure’s rule |
+| Shoulder | 49 | Control demonstrated at speed and load (throwing / overhead progression) | Consultant: yes |
+| Shoulder | 50 | No scapular dyskinesis under load or at fatigue | Consultant: yes |
+| Shoulder | 51 | No apprehension in sport positions (instability cases) | Consultant: yes |
+| Shoulder | 52 | Psychological readiness; graded return plan with load monitoring in place | Consultant: yes |
+| Elbow | 25 | Wrist extension | The measure’s rule |
+| Elbow | 26 | Wrist flexion | The measure’s rule |
+| Elbow | 27 | Supination | The measure’s rule |
+| Elbow | 28 | Pronation | The measure’s rule |
+| Elbow | 29 | Elbow extension (triceps) | The measure’s rule |
+| Elbow | 30 | Elbow flexion | The measure’s rule |
+| Elbow | 20 | PAIN-FREE GRIP | The measure’s rule |
+| Elbow | 21 | Maximum grip | The measure’s rule |
+| Elbow | 12 | TERMINAL EXTENSION | The measure’s rule |
+| Elbow | 13 | Flexion | The measure’s rule |
+| Elbow | 14 | Pronation | The measure’s rule |
+| Elbow | 15 | Supination | The measure’s rule |
+| Elbow | 47 | Full pain-free range with a normal (non-hard) terminal extension end-feel | Consultant: yes |
+| Elbow | 48 | Sport or work-specific progression completed (interval throwing / racquet / graded work return) | Consultant: yes |
+| Elbow | 49 | The load error that caused this has been identified and corrected (task, tool, equipment or volume) | Consultant: yes |
+| Elbow | 50 | Neck and shoulder girdle screened and addressed | Consultant: yes |
+| Forearm and wrist | 20 | PAIN-FREE GRIP | The measure’s rule |
+| Forearm and wrist | 21 | Maximum grip | The measure’s rule |
+| Forearm and wrist | 22 | Tip pinch | The measure’s rule |
+| Forearm and wrist | 23 | Key pinch | The measure’s rule |
+| Forearm and wrist | 12 | Wrist flexion | The measure’s rule |
+| Forearm and wrist | 13 | Wrist extension | The measure’s rule |
+| Forearm and wrist | 14 | FOREARM PRONATION | The measure’s rule |
+| Forearm and wrist | 15 | FOREARM SUPINATION | The measure’s rule |
+| Forearm and wrist | 16 | Radial / ulnar deviation | The measure’s rule |
+| Forearm and wrist | 46 | No thenar or intrinsic wasting; nerve status stable or improving | Consultant: yes |
+| Forearm and wrist | 47 | Sport or work-specific progression completed with the ACTUAL tools or equipment | Consultant: yes |
+| Forearm and wrist | 48 | The load error has been identified and corrected (tool, technique, ergonomics or volume) | Consultant: yes |
+| Forearm and wrist | 49 | Protective strategy in place (splint, tape or equipment modification) where indicated | Consultant: yes |
+| Hip and groin | 26 | Hip abduction | The measure’s rule |
+| Hip and groin | 27 | Hip adduction | The measure’s rule |
+| Hip and groin | 28 | Hip extension | The measure’s rule |
+| Hip and groin | 29 | Hip flexion | The measure’s rule |
+| Hip and groin | 20 | Squeeze at 0 deg | The measure’s rule |
+| Hip and groin | 21 | Squeeze at 45 deg | The measure’s rule |
+| Hip and groin | 22 | Squeeze at 90 deg | The measure’s rule |
+| Hip and groin | 12 | INTERNAL ROTATION at 90 deg flexion | The measure’s rule |
+| Hip and groin | 13 | External rotation at 90 deg flexion | The measure’s rule |
+| Hip and groin | 14 | Hip flexion | The measure’s rule |
+| Hip and groin | 15 | Hip extension (Thomas) | The measure’s rule |
+| Hip and groin | 16 | Hip abduction | The measure’s rule |
+| Hip and groin | 47 | No pelvic drop or dynamic valgus on single-leg squat and landing | Consultant: yes |
+| Hip and groin | 48 | Sport-specific progression completed (running → cutting → kicking or contact) | Consultant: yes |
+| Hip and groin | 49 | The load error that caused this has been identified and corrected | Consultant: yes |
+| Hip and groin | 50 | Bone-health / energy-availability review completed where indicated | Consultant: yes |
+| Knee | 12 | Quadriceps | The measure’s rule |
+| Knee | 13 | Hamstrings | The measure’s rule |
+| Knee | 14 | Hip abductors | The measure’s rule |
+| Knee | 15 | Hip external rotators | The measure’s rule |
+| Knee | 16 | Calf (heel-raise reps) | The measure’s rule |
+| Knee | 20 | Single hop for distance | The measure’s rule |
+| Knee | 21 | Triple hop for distance | The measure’s rule |
+| Knee | 22 | Crossover hop for distance | The measure’s rule |
+| Knee | 23 | 6 m timed hop | The measure’s rule |
+| Knee | 41 | No dynamic valgus on single-leg tasks and landing | Consultant: yes |
+| Knee | 42 | Sport-specific progression completed | Consultant: yes |
+| Knee | 43 | Psychological readiness demonstrated (e.g. ACL-RSI) | Consultant: yes |
+| Knee | 44 | Graded return plan with load monitoring in place | Consultant: yes |
+| Foot and ankle | 30 | Plantarflexion | The measure’s rule |
+| Foot and ankle | 31 | Dorsiflexion | The measure’s rule |
+| Foot and ankle | 32 | Inversion | The measure’s rule |
+| Foot and ankle | 33 | Eversion | The measure’s rule |
+| Foot and ankle | 24 | Single-leg balance (eyes open) | The measure’s rule |
+| Foot and ankle | 25 | Single-leg balance (eyes CLOSED) | The measure’s rule |
+| Foot and ankle | 26 | Star Excursion — anterior reach | The measure’s rule |
+| Foot and ankle | 19 | SINGLE-LEG HEEL RAISE (repetitions) | The measure’s rule |
+| Foot and ankle | 12 | WEIGHT-BEARING LUNGE (dorsiflexion) | The measure’s rule |
+| Foot and ankle | 13 | Ankle plantarflexion | The measure’s rule |
+| Foot and ankle | 14 | Subtalar inversion/eversion | The measure’s rule |
+| Foot and ankle | 15 | First MTP dorsiflexion | The measure’s rule |
+| Foot and ankle | 51 | Hop test battery symmetrical (>=90%) where relevant | Consultant: yes |
+| Foot and ankle | 52 | Sport or work-specific progression completed (running / cutting / terrain / standing hours) | Consultant: yes |
+| Foot and ankle | 53 | The load error has been identified and corrected (volume, surface, FOOTWEAR or training) | Consultant: yes |
+| Foot and ankle | 54 | EXTERNAL ANKLE SUPPORT organised for return where indicated (6-12 months post sprain) | Consultant: yes |
+| Cervical spine | 31 | CRANIOCERVICAL FLEXION TEST (pressure achieved) | The measure’s rule |
+| Cervical spine | 32 | DEEP NECK FLEXOR ENDURANCE (head lift hold) | The measure’s rule |
+| Cervical spine | 33 | Cervical EXTENSOR endurance (prone hold) | The measure’s rule |
+| Cervical spine | 34 | Scapular endurance (prone horizontal abduction hold) | The measure’s rule |
+| Cervical spine | 35 | Joint position error (head repositioning, eyes closed) | The measure’s rule |
+| Cervical spine | 21 | Flexion | The measure’s rule |
+| Cervical spine | 22 | Extension | The measure’s rule |
+| Cervical spine | 23 | Rotation LEFT | The measure’s rule |
+| Cervical spine | 24 | Rotation RIGHT | The measure’s rule |
+| Cervical spine | 25 | Side flexion LEFT | The measure’s rule |
+| Cervical spine | 26 | Side flexion RIGHT | The measure’s rule |
+| Cervical spine | 27 | FLEXION-ROTATION TEST (upper cervical) | The measure’s rule |
+| Cervical spine | 50 | Neurological / vascular screen items positive | Consultant: none positive |
+| Cervical spine | 51 | Neurological examination normal (mandatory before contact or collision sport) | Consultant: yes |
+| Cervical spine | 52 | Work or sport-specific tolerance demonstrated (full working day or full session) | Consultant: yes |
+| Cervical spine | 53 | The load or exposure driver has been identified and corrected (workstation, device, technique, volume) | Consultant: yes |
+| Cervical spine | 54 | Patient confident in the neck and no longer avoiding movement | Consultant: yes |
+| Lumbar spine and SIJ | 46 | Red flags positive | Consultant: none positive |
+| Lumbar spine and SIJ | 23 | SITTING tolerance | Reaches 60 |
+| Lumbar spine and SIJ | 24 | STANDING tolerance | Reaches 60 |
+| Lumbar spine and SIJ | 25 | WALKING tolerance | Reaches 30 |
+| Lumbar spine and SIJ | 26 | Lifting capacity (task-relevant load) | Reaches 15 |
+| Lumbar spine and SIJ | 30 | Biering-Sorensen (trunk extensor endurance) | The measure’s rule |
+| Lumbar spine and SIJ | 31 | Side bridge LEFT | The measure’s rule |
+| Lumbar spine and SIJ | 32 | Side bridge RIGHT | The measure’s rule |
+| Lumbar spine and SIJ | 33 | Prone bridge | The measure’s rule |
+| Lumbar spine and SIJ | 34 | HIP EXTENSION range (involved side) | The measure’s rule |
+| Lumbar spine and SIJ | 35 | Hip abductor strength (% of other side) | The measure’s rule |
+| Lumbar spine and SIJ | 39 | OSWESTRY DISABILITY INDEX | Improves by 10 (MCID) |
+| Lumbar spine and SIJ | 40 | BACK pain (NRS 0-10) | Improves by 2 (MCID) |
+| Lumbar spine and SIJ | 41 | LEG pain (NRS 0-10) | Improves by 2 (MCID) |
+| Lumbar spine and SIJ | 42 | Patient-Specific Functional Scale | Improves by 2 (MCID) |
+| Lumbar spine and SIJ | 43 | Fear of movement (TSK) | Improves by 4 (MCID) |
+| Lumbar spine and SIJ | 50 | WRITTEN FLARE PLAN in place and rehearsed with the patient | Consultant: yes |
+| Lumbar spine and SIJ | 51 | Patient knows the CAUDA EQUINA warning signs (written advice given) | Consultant: yes |
+| Lumbar spine and SIJ | 52 | Maintenance exercise habit established and self-directed | Consultant: yes |
+| Lumbar spine and SIJ | 53 | Work or sport-specific loading demonstrated at the required level | Consultant: yes |
+| Lumbar spine and SIJ | 54 | The load or exposure driver has been identified and corrected | Consultant: yes |
+| Lumbar spine and SIJ | 18 | WRITTEN cauda equina safety-netting advice given and documented? | Consultant: yes; from the overall verdict |
+| Bone stress, cartilage and meniscus | 20 | Calf endurance (single-leg heel raises) | The measure’s rule |
+| Bone stress, cartilage and meniscus | 21 | Quadriceps strength | The measure’s rule |
+| Bone stress, cartilage and meniscus | 22 | Hip abductor strength | The measure’s rule |
+| Bone stress, cartilage and meniscus | 23 | Single hop for distance | The measure’s rule |
+| Bone stress, cartilage and meniscus | 24 | Triple hop for distance | The measure’s rule |
+| Bone stress, cartilage and meniscus | 38 | Full sport-specific progression completed | Consultant: yes |
+| Bone stress, cartilage and meniscus | 39 | Training-load plan in place with ACWR monitoring | Consultant: yes |
+| Bone stress, cartilage and meniscus | 40 | Load error that caused the injury has been identified and corrected | Consultant: yes |
+| Bone stress, cartilage and meniscus | 41 | Bone-health / energy-availability review completed where indicated | Consultant: yes |
+| Bone stress, cartilage and meniscus | 12 | No focal bony tenderness at the injury site | Consultant: yes; from the overall verdict |
+| Bone stress, cartilage and meniscus | 13 | Pain-free walking for 30 minutes | Consultant: yes; from the overall verdict |
+| Bone stress, cartilage and meniscus | 14 | Pain-free single-leg hop x10 | Consultant: yes; from the overall verdict |
+| Bone stress, cartilage and meniscus | 15 | Orthopaedic clearance obtained (HIGH RISK sites only) | Consultant: yes; from the overall verdict |
+
 ## Diagnosis categories (CLN-06)
 
 44 categories from `packages/db/src/knowledge/diagnosis-categories.json` (SHA-256 a0ea48f0fe8a), the client's "Physiotherapeutic diagnosis" list word for word; 0 of 345 conditions mapped to one (the client’s mapping arrives with SET-12; until then the clinician picks the category in Assessment).

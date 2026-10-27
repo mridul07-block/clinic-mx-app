@@ -26,6 +26,10 @@ vi.mock('../access/staff-db', () => ({
   asStaffViewing: (_actor: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
 }));
 vi.mock('../settings/settings', () => ({ getSetting: vi.fn() }));
+vi.mock('./readiness', () => ({
+  readinessView: vi.fn().mockResolvedValue(undefined),
+  worksReadiness: () => false,
+}));
 
 const hsr = '00000000-0000-4000-8000-000000000101';
 const episodeId = '00000000-0000-4000-8000-000000000501';

@@ -4,6 +4,8 @@ import {
   measureKinds,
   type ModalityParameter,
   type MeasureRule,
+  readinessCriterionKinds,
+  type ReadinessRule,
   onsets,
   redFlagTiers,
   redFlagTriages,
@@ -284,6 +286,44 @@ export const kbMeasure = pgTable(
   (table) => [
     unique('kb_measure_version_key').on(table.kbVersionId, table.key),
     check('kb_measure_key', sql`${table.key} ~ '^[a-z_]+[.][a-z0-9_.]+$'`),
+  ],
+).enableRLS();
+
+export const kbReadinessKind = pgEnum('kb_readiness_kind', readinessCriterionKinds);
+
+/**
+ * A readiness criterion (OUT-08): a line of the region workbook's readiness section, read from the
+ * Progress Tracker. Each measure a count line points at is one, judged by the measure's rule or the
+ * row's own target or MCID; each yes or no line is one the consultant marks, as are the yes or no
+ * rows only the overall verdict names.
+ */
+export const kbReadinessCriterion = pgTable(
+  'kb_readiness_criterion',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    region: kbRegion('region').notNull(),
+    /** The measure's key for a measured criterion; `<region>.readiness.<slug>` for a check. */
+    key: text('key').notNull(),
+    /** The workbook's order within the region. */
+    position: integer('position').notNull(),
+    kind: kbReadinessKind('kind').notNull(),
+    measureKey: text('measure_key'),
+    text: text('text').notNull(),
+    section: text('section').notNull(),
+    rule: jsonb('rule').$type<ReadinessRule>().notNull(),
+    fromVerdict: boolean('from_verdict').notNull(),
+    rowNumber: integer('row_number').notNull(),
+  },
+  (table) => [
+    unique('kb_readiness_criterion_version_key').on(table.kbVersionId, table.key),
+    check('kb_readiness_criterion_key', sql`${table.key} ~ '^[a-z_]+[.][a-z0-9_.]+$'`),
+    check(
+      'kb_readiness_criterion_measure',
+      sql`(${table.kind} = 'measure') = (${table.measureKey} is not null)`,
+    ),
   ],
 ).enableRLS();
 

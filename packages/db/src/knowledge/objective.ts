@@ -6,6 +6,7 @@ import type {
   MeasureRule,
 } from '@clinic-mx/schemas';
 import { KnowledgeImportError } from './build';
+import { readReadiness, type BuiltCriterion } from './readiness';
 import { headerText, type TrackerRow, type Workbook } from './workbook';
 
 /**
@@ -35,6 +36,8 @@ export interface SkippedRows {
 export interface BuiltObjective {
   measures: (KnowledgeMeasure & { rowNumber: number })[];
   specialTests: (KnowledgeSpecialTest & { rowNumber: number })[];
+  /** Each region's readiness criteria (OUT-08, `./readiness`). */
+  readiness: BuiltCriterion[];
   skipped: SkippedRows[];
 }
 
@@ -74,7 +77,7 @@ export const slug = (text: string) =>
     .replace(/^_+|_+$/g, '')
     .slice(0, 60);
 
-const isTitle = (row: TrackerRow) => {
+export const isTitle = (row: TrackerRow) => {
   const [first, ...rest] = row.cells;
   if (!first?.text || first.formula) return false;
   return rest.every((cell) => !cell.formula && (cell.text === '' || cell.text === first.text));
@@ -320,7 +323,7 @@ function settleKeys<T extends { key: string; rowNumber: number; region: Knowledg
   }
 }
 
-/** Every workbook's measures and special tests; problems stop the import. */
+/** Every workbook's measures, special tests and readiness criteria; problems stop the import. */
 export function buildObjective(workbooks: readonly Workbook[]): BuiltObjective {
   const problems: string[] = [];
   const skipped: SkippedRows[] = [];
@@ -328,6 +331,15 @@ export function buildObjective(workbooks: readonly Workbook[]): BuiltObjective {
   const specialTests = workbooks.flatMap((workbook) => readSpecialTests(workbook, problems));
   settleKeys(measures, (m) => m.section, 'Progress Tracker', problems);
   settleKeys(specialTests, (t) => t.category, 'Special Tests', problems);
+  // Read after the keys are settled, so a criterion names the measure's final key.
+  const readiness = workbooks.flatMap((workbook) =>
+    readReadiness(
+      workbook,
+      measures.filter((m) => m.region === workbook.region),
+      isTitle,
+      problems,
+    ),
+  );
   if (problems.length > 0) throw new KnowledgeImportError(problems);
-  return { measures, specialTests, skipped };
+  return { measures, specialTests, readiness, skipped };
 }
