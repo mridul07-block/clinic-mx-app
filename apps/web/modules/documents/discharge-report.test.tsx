@@ -171,6 +171,7 @@ describe('the discharge report', () => {
       ),
     );
     expect(none).toContain('No baseline was recorded at session 1.');
+    expect(none).not.toContain('Final testing was not signed');
     expect(none).not.toContain('Goals:');
   });
 

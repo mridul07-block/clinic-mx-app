@@ -128,7 +128,8 @@ export function reportSections(
             ];
           }),
         },
-    ...(final
+    // Only a baseline can go unretested.
+    ...(final || testing.items.length === 0
       ? []
       : [{ kind: 'lines' as const, lines: ['Final testing was not signed before discharge.'] }]),
   );
