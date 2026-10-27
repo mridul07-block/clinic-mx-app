@@ -10,6 +10,7 @@ import {
   recordReadinessMeasure,
   signReadinessClearance,
 } from './readiness';
+import { dischargeEpisode } from './discharge';
 import { ReviewError, signFinalTest } from './services';
 
 /** What the final testing form shows after a post (OUT-07). */
@@ -147,4 +148,33 @@ export async function signClearanceAction(
   return readinessWrite(episodeId, async () =>
     signReadinessClearance(await serviceContext(), { episodeId, status: text(form, 'status') }),
   );
+}
+
+/** "Discharge" (OUT-10): the reason and note; refusals and bad input become the form's message. */
+export async function dischargeEpisodeAction(
+  _state: ReadinessFormState,
+  form: FormData,
+): Promise<ReadinessFormState> {
+  const episodeId = text(form, 'episodeId');
+  const note = text(form, 'note').trim();
+  try {
+    await dischargeEpisode(await serviceContext(), {
+      episodeId,
+      reason: text(form, 'reason') || undefined,
+      ...(note ? { note } : {}),
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { error: error.issues[0]?.message ?? 'That could not be read.' };
+    }
+    if (error instanceof ReviewError || error instanceof ReadOnlyError) {
+      return { error: error.message };
+    }
+    if (error instanceof NotAllowedError) {
+      return { error: 'Only consultants discharge an episode.' };
+    }
+    throw error;
+  }
+  revalidatePath(`/app/episodes/${episodeId}/review`);
+  return { done: true };
 }

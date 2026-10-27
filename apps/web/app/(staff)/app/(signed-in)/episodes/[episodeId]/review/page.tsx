@@ -6,6 +6,7 @@ import { NotAllowedError } from '../../../../../../../modules/access/guard';
 import { requireStaff } from '../../../../../../../modules/auth/session';
 import { loadReview, type ReviewScreen } from '../../../../../../../modules/reviews/services';
 import { EpisodeHeading } from '../../../patients/[patientId]/clinical-record';
+import { DischargeForm } from './discharge-form';
 import { FinalTestForm } from './final-test-form';
 import { FinalTestRows } from './final-test-rows';
 import { ReadinessPanel } from './readiness-panel';
@@ -15,7 +16,8 @@ export const metadata: Metadata = { title: 'Review and discharge · Clinic Mx' }
 // The episode's Review and discharge screen (Frontend Specification "Physiotherapist", Consultant
 // tick). OUT-07 gives it final testing (PRD J6.2): exactly the baseline's measures, with session
 // 4's beside them, retested and signed once by a consultant; OUT-08 the readiness panel and the
-// three clearances (PRD J6.3 to J6.5); discharge follows.
+// three clearances (PRD J6.3 to J6.5); OUT-10 the discharge (PRD J6.6), for any episode not yet
+// discharged.
 export default async function ReviewPage({ params }: { params: Promise<{ episodeId: string }> }) {
   const staff = await requireStaff();
   if (!accessScope(staff, 'clinical.read')) redirect('/app/not-allowed');
@@ -28,7 +30,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ episode
     throw error;
   }
   if (!screen) notFound();
-  const { episode, patient, items, finalTest, signs, sessionNumber, readiness } = screen;
+  const { episode, patient, items, finalTest, signs, sessionNumber, readiness, discharge } = screen;
   return (
     <main className="flex w-full max-w-3xl flex-col gap-4 px-4 py-6">
       <div className="flex flex-col gap-1.5">
@@ -79,6 +81,26 @@ export default async function ReviewPage({ params }: { params: Promise<{ episode
           Readiness shows once the signed consultation names a region with criteria.
         </p>
       )}
+      <section
+        aria-labelledby="discharge"
+        className="flex flex-col gap-3 rounded-panel border border-line bg-surface p-4"
+        data-testid="discharge"
+      >
+        <h2 id="discharge" className="font-semibold text-ink">
+          Discharge
+        </h2>
+        {!discharge ? (
+          <p className="text-sm text-ink-secondary" data-testid="discharged">
+            Discharged
+            {episode.dischargedByName ? ` by ${episode.dischargedByName}` : ''}
+            {episode.closedAt ? ` on ${formatIstDateTime(episode.closedAt)}` : ''}.
+          </p>
+        ) : discharge.discharges ? (
+          <DischargeForm episodeId={episode.id} view={discharge} />
+        ) : (
+          <p className="text-ink-muted">A consultant discharges the episode.</p>
+        )}
+      </section>
     </main>
   );
 }

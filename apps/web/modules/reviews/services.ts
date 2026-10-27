@@ -22,6 +22,7 @@ import {
 import { NotAllowedError } from '../access/guard';
 import { staffService } from '../access/service';
 import { asStaffViewing } from '../access/staff-db';
+import { dischargeView, type DischargeView } from './discharge';
 import { ReviewError } from './errors';
 import { readinessView, worksReadiness, type ReadinessView } from './readiness';
 import {
@@ -37,7 +38,8 @@ import {
  * final testing, PRD J6.2; user decisions 27 October 2026): exactly the frozen baseline's measures
  * (OUT-01), with the session 4 reassessment's readings (OUT-05) beside them, retested once and
  * signed as written by anyone with the Consultant tick while the episode is Active or Under
- * review. Read by clinicians (row level security); each open is logged as a record view.
+ * review; OUT-10 discharges any episode from here. Read by clinicians (row level security); each
+ * open is logged as a record view.
  */
 
 export { ReviewError };
@@ -68,6 +70,8 @@ export interface ReviewScreen {
   readiness: ReadinessView | undefined;
   /** The reader marks, overrides, records and signs on the panel. */
   worksReadiness: boolean;
+  /** OUT-10: the discharge form; undefined once the episode is discharged. */
+  discharge: DischargeView | undefined;
 }
 
 export async function loadReview(
@@ -122,6 +126,7 @@ export async function loadReview(
         can(actor, 'consultant_records.sign'),
       readiness: await readinessView(tx, episodeId),
       worksReadiness: worksReadiness(actor, episode.status),
+      discharge: await dischargeView(tx, actor, episode),
     };
   });
 }

@@ -10,7 +10,7 @@ import {
   uuid,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { centre } from './identity';
+import { centre, staffUser } from './identity';
 import { screeningRegion } from './knowledge';
 import { patient } from './patients';
 
@@ -18,7 +18,8 @@ import { patient } from './patients';
  * Clinical episodes (SCH-03, TAD section 4). Opened at booking as Intake pending; every status
  * change is an event of the machine in `packages/schemas/src/episodes.ts`, and the
  * `episode_transition_guard` trigger refuses any other pair. Status history is the audit trail.
- * Discharged is final: a recurrence opens a new episode linked to it (SCH-14).
+ * Discharged is final: a recurrence opens a new episode linked to it (SCH-14). A consultant
+ * discharges (OUT-10): `episode_discharge_guard` checks the ticks and stamps who and when.
  */
 export const episodeStatus = pgEnum('episode_status', episodeStatuses);
 export const dischargeReason = pgEnum('discharge_reason', dischargeReasons);
@@ -42,6 +43,8 @@ export const episode = pgTable(
     closedAt: timestamp('closed_at', { withTimezone: true }),
     dischargeReason: dischargeReason('discharge_reason'),
     dischargeNote: text('discharge_note'),
+    /** The consultant who discharged it (OUT-10), stamped by the database at discharge. */
+    dischargedBy: uuid('discharged_by').references(() => staffUser.id),
     /** The discharged episode a recurrence follows (PRD J7.5). */
     linkedEpisodeId: uuid('linked_episode_id').references((): AnyPgColumn => episode.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -57,6 +60,10 @@ export const episode = pgTable(
     check(
       'episode_other_note',
       sql`${table.dischargeReason} is distinct from 'other' or btrim(coalesce(${table.dischargeNote}, '')) <> ''`,
+    ),
+    check(
+      'episode_discharged_by',
+      sql`${table.dischargedBy} is null or ${table.status} = 'discharged'`,
     ),
     check(
       'episode_paused_from',

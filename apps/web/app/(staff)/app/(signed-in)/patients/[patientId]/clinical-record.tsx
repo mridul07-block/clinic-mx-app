@@ -73,6 +73,7 @@ export function EpisodeHeading({ episode }: { episode: EpisodeEntry }) {
         <span className="text-sm text-ink-secondary">
           {dischargeReasonLabels[episode.dischargeReason]}
           {episode.dischargeNote ? `: ${episode.dischargeNote}` : null}
+          {episode.dischargedByName ? ` · discharged by ${episode.dischargedByName}` : null}
         </span>
       ) : null}
     </div>
@@ -94,9 +95,6 @@ function DiagnosisLine({ note }: { note: RecordConsultation }) {
     </p>
   );
 }
-
-// OUT-07: the Review and discharge screen, from treatment on (final testing, then discharge).
-const reviewedStatuses: readonly EpisodeStatus[] = ['active', 'under_review', 'discharged'];
 
 /**
  * The summary card (CLN-12; Frontend Specification principle 2, red flags and precautions first):
@@ -160,15 +158,14 @@ export function SummaryCard({
         )}
       </div>
       <EpisodeHeading episode={episode} />
-      {reviewedStatuses.includes(episode.status) ? (
-        <Link
-          href={`/app/episodes/${episode.id}/review`}
-          data-testid="summary-review"
-          className="self-start text-sm text-accent underline underline-offset-2 pointer-coarse:py-3"
-        >
-          Review and discharge
-        </Link>
-      ) : null}
+      {/* OUT-07, OUT-10: final testing from treatment on; discharge for any episode. */}
+      <Link
+        href={`/app/episodes/${episode.id}/review`}
+        data-testid="summary-review"
+        className="self-start text-sm text-accent underline underline-offset-2 pointer-coarse:py-3"
+      >
+        Review and discharge
+      </Link>
       {phase ? (
         <p className="text-sm text-ink-muted" data-testid="summary-phase">
           {phase}

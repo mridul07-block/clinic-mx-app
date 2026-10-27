@@ -1,0 +1,3 @@
+ALTER TABLE "episode" ADD COLUMN "discharged_by" uuid;--> statement-breakpoint
+ALTER TABLE "episode" ADD CONSTRAINT "episode_discharged_by_staff_user_id_fk" FOREIGN KEY ("discharged_by") REFERENCES "public"."staff_user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "episode" ADD CONSTRAINT "episode_discharged_by" CHECK ("episode"."discharged_by" is null or "episode"."status" = 'discharged');

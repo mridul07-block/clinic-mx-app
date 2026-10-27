@@ -38,6 +38,7 @@ const stored: Settings = {
   'clinical.review_weeks': 6,
   'scheduling.review_search_days': 7,
   'clinical.no_show_review_after': 2,
+  'clinical.lost_to_follow_up_days': 30,
   'billing.unpaid_sessions_flag_above': 3,
   'engagement.follow_ups_after_discharge': [{ count: 2, unit: 'week' }],
   'security.desktop_idle_logout_minutes': 15,

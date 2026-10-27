@@ -28,6 +28,8 @@ export interface EpisodeEntry {
   closedAt: Date | null;
   dischargeReason: DischargeReason | null;
   dischargeNote: string | null;
+  /** Who discharged it (OUT-10); null to a reader outside the clinical record. */
+  dischargedByName: string | null;
   linkedEpisodeId: string | null;
 }
 
@@ -44,6 +46,9 @@ const columns = {
   closedAt: episode.closedAt,
   dischargeReason: episode.dischargeReason,
   dischargeNote: episode.dischargeNote,
+  dischargedByName: sql<
+    string | null
+  >`case when ${episode.dischargedBy} is null then null else internal.record_staff_name(${episode.dischargedBy}) end`,
   linkedEpisodeId: episode.linkedEpisodeId,
 };
 
@@ -82,7 +87,8 @@ export async function insertEpisode(
 
 /**
  * Moves an episode to `next`, only if it is still in `expected` (two changes at once cannot both
- * win); false when it was not (or not found). Discharge sets the reason, note and closing time.
+ * win); false when it was not (or not found). Discharge sets the reason and note; the database
+ * stamps who discharged and when (OUT-10).
  */
 export async function updateEpisodeState(
   db: DbOrTransaction,
@@ -98,7 +104,6 @@ export async function updateEpisodeState(
       pausedFrom: next.pausedFrom,
       ...(next.status === 'discharged'
         ? {
-            closedAt: sql`now()`,
             dischargeReason: discharge?.reason,
             dischargeNote: discharge?.note?.trim() || null,
           }

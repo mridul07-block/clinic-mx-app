@@ -370,6 +370,16 @@ export {
   type EpisodeTransition,
 } from './episodes';
 export {
+  DISCHARGE_NOTE_MAX,
+  LOST_TO_FOLLOW_UP_CHECK_TIME,
+  LOST_TO_FOLLOW_UP_TASK,
+  dischargeEpisodeSchema,
+  dischargeReasonRefusal,
+  lostToFollowUpTitle,
+  watchedForLoss,
+  type DischargeEpisodeInput,
+} from './discharge';
+export {
   appointmentChangeReasonLabels,
   appointmentChangeReasons,
   appointmentStatusLabels,
@@ -501,6 +511,7 @@ export {
   reviewToBookSchema,
   type ReviewToBook,
   closeTaskSchema,
+  nextDailyRun,
   nextUnsignedNotesRun,
   takeTaskSchema,
   taskIdSchema,

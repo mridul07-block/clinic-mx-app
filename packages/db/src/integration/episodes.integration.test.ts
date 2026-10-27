@@ -69,6 +69,12 @@ async function failure(tx: Tx, work: (sp: Tx) => Promise<unknown>): Promise<stri
   return undefined;
 }
 
+/** Runs the rest of the transaction with `actor`'s staff claims, as the owner (no row level security). */
+async function asStaffClaims(tx: Tx, actor: StaffMember) {
+  const claims = JSON.stringify({ clinic: { staff_id: actor.id } });
+  await tx.execute(sql`select set_config('request.jwt.claims', ${claims}, true)`);
+}
+
 const paused = (status: EpisodeStatus) => status === 'on_hold' || status === 'lost_to_follow_up';
 
 /** Puts an episode straight into `status` (the guard off for this transaction only). */
@@ -99,6 +105,8 @@ describe('episodes', () => {
     const seen = new Set<string>();
     try {
       await withActor(db, systemActor('tests'), async (tx) => {
+        // Only a consultant who treats patients discharges (OUT-10): the Super Admin is one.
+        await asStaffClaims(tx, superAdmin);
         const id = await insertEpisode(tx, { patientId, centreId: centreIds.hsrLayout });
         for (const from of episodeStatuses) {
           for (const to of episodeStatuses) {
