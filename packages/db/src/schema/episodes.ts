@@ -42,6 +42,12 @@ export const episode = pgTable(
     pausedFrom: episodeStatus('paused_from'),
     openedAt: timestamp('opened_at', { withTimezone: true }).notNull().defaultNow(),
     closedAt: timestamp('closed_at', { withTimezone: true }),
+    /**
+     * The first time a consultation proposed a plan, and the first time it became Active (paid):
+     * stamped by `episode_milestones` and never changed, for the figures (DSH-01).
+     */
+    planProposedAt: timestamp('plan_proposed_at', { withTimezone: true }),
+    activatedAt: timestamp('activated_at', { withTimezone: true }),
     dischargeReason: dischargeReason('discharge_reason'),
     dischargeNote: text('discharge_note'),
     /** The consultant who discharged it (OUT-10), stamped by the database at discharge. */
@@ -58,6 +64,8 @@ export const episode = pgTable(
   (table) => [
     index('episode_patient_idx').on(table.patientId),
     index('episode_centre_status_idx').on(table.centreId, table.status),
+    index('episode_plan_proposed_idx').on(table.planProposedAt),
+    index('episode_closed_idx').on(table.closedAt),
     check(
       'episode_discharged_closed',
       sql`(${table.status} = 'discharged') = (${table.closedAt} is not null and ${table.dischargeReason} is not null)`,

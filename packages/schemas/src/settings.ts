@@ -16,6 +16,8 @@ const minutes = z.int().positive();
 const days = z.int().positive();
 const hours = z.int().positive();
 const count = z.int().nonnegative();
+/** A share in per cent, 0 to 100. */
+const percent = z.number().min(0).max(100);
 /** A price item key from the price master (SET-02), for example "zero_gravity_treadmill". */
 const priceItemKey = z.string().regex(/^[a-z][a-z0-9_]*$/);
 /** A time of day in IST, "HH:MM" on a 24 hour clock. */
@@ -190,6 +192,79 @@ export const settingDefinitions = {
       'PRD section 3 (phase 5) and section 10; user decision 27 October 2026 (SCH-13): open until the clinic closes them after go live',
     description:
       'Whether the Super Admin can still enter or correct opening entries for patients already in treatment.',
+  },
+  'kpi.target_red_flag_documentation_percent': {
+    schema: percent,
+    source: 'PRD section 9: Red flag documentation (SOP target; DSH-01)',
+    description:
+      'The target for the share of initial assessments with the red flag screening documented.',
+  },
+  'kpi.target_conversion_percent': {
+    schema: percent,
+    source: 'PRD section 9: Consultation to treatment conversion (SOP target; DSH-01)',
+    description:
+      'The target for the share of consultations that proposed a plan whose episode became Active.',
+  },
+  'kpi.target_completion_percent': {
+    schema: percent,
+    source: 'PRD section 9: Treatment completion (SOP target; DSH-01)',
+    description:
+      'The target for the share of treated episodes discharged with goals achieved or independent management.',
+  },
+  'kpi.target_meaningful_change_percent': {
+    schema: percent,
+    source: 'PRD section 9: Meaningful change by 6 week review (SOP target; DSH-01)',
+    description:
+      'The target for the share of patients with a meaningful change by the 6 week review.',
+  },
+  'kpi.target_return_to_sport_percent': {
+    schema: percent,
+    source:
+      'PRD section 9: Return to sport at or above pre injury level by 12 months (SOP target; DSH-01)',
+    description:
+      'The target for the share of athletes back at or above their pre injury level by 12 months.',
+  },
+  'kpi.target_reinjury_percent': {
+    schema: percent,
+    source: 'PRD section 9: Reinjury within 12 months (SOP target; DSH-01)',
+    description:
+      'The target for the highest acceptable share of patients injured again within 12 months.',
+  },
+  'kpi.target_satisfaction_score': {
+    schema: z.number().min(0).max(5),
+    source: 'PRD section 9: Patient satisfaction (SOP target; DSH-01)',
+    description: 'The target for the average satisfaction score, out of 5.',
+  },
+  'kpi.target_nps': {
+    schema: z.number().min(-100).max(100),
+    source: 'PRD section 9: Net Promoter Score (SOP target; DSH-01)',
+    description: 'The target for the Net Promoter Score, -100 to 100.',
+  },
+  'kpi.target_notes_same_day_percent': {
+    schema: percent,
+    source: 'PRD section 9: Notes signed same day (SOP target; DSH-01)',
+    description: 'The target for the share of notes signed on the day of the visit.',
+  },
+  'kpi.target_booking_flow_percent': {
+    schema: percent,
+    source: 'PRD section 9: Booking Flow completion (SOP target; DSH-01)',
+    description: 'The target for the share of started WhatsApp Booking Flows completed.',
+  },
+  'kpi.target_health_form_percent': {
+    schema: percent,
+    source: 'PRD section 9: Health form completion before consultation (SOP target; DSH-01)',
+    description:
+      'The target for the share of consultations whose health form was submitted by the booked start.',
+  },
+  'kpi.target_session_note_minutes': {
+    schema: z.number().positive(),
+    source: 'PRD section 9: Session note time (SOP target; DSH-01)',
+    description: 'The target for the median minutes to write a session note.',
+  },
+  'kpi.max_range_days': {
+    schema: days,
+    source: 'DSH-01 (user decision 28 October 2026: figures computed live from the records)',
+    description: 'The longest period, in days, the figures are computed for in one request.',
   },
   'documents.summary_prints_category': {
     schema: z.boolean(),

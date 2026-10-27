@@ -967,6 +967,20 @@
       "when": 1793118715160,
       "tag": "20261027163155_opening_entries_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1793126512492,
+      "tag": "20261027184152_kpis",
+      "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1793126514039,
+      "tag": "20261027184154_kpis_rules",
+      "breakpoints": true
     }
   ]
 }

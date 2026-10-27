@@ -41,6 +41,9 @@ Rows the PRD summary does not have, added by the user's decision:
 - **`opening_entries.manage`** (SCH-13, 27 October 2026): the Super Admin alone enters and
   corrects opening entries for patients already in treatment at launch.
 
+`dashboard.overview` (Super Admin) opens the Figures table (DSH-01, `/app/figures`); the figures
+themselves are scoped again in the database by `internal.kpi_daily` (`docs/runbooks/kpis.md`).
+
 The same map can be read in the browser to hide what someone cannot use, but only the server
 decides.
 
