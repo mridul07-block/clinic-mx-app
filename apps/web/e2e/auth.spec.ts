@@ -37,7 +37,12 @@ function expectNoSupabaseCalls(urls: string[]) {
 }
 
 /** Where a role lands after signing in (`homePath`). */
-const landing = (role: string) => (role === 'Finance' ? /\/app\/finance\/collections$/ : /\/app$/);
+const landing = (role: string) =>
+  role === 'Finance'
+    ? /\/app\/finance\/collections$/
+    : role === 'Super Admin'
+      ? /\/app\/overview$/
+      : /\/app$/;
 
 test('signs in and out with no browser call to Supabase', async ({ page, context }) => {
   const urls = recordRequests(page);

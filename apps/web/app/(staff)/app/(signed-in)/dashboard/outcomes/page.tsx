@@ -1,26 +1,15 @@
-import {
-  kpiStatusLabels,
-  outcomeWindow,
-  outcomeWindowLabels,
-  outcomeWindows,
-} from '@clinic-mx/schemas';
+import { outcomeWindow, outcomeWindowLabels, outcomeWindows } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BulletGraph } from '../../../../../../components/charts/bullet-graph';
 import { DumbbellChart } from '../../../../../../components/charts/dumbbell-chart';
 import { Funnel } from '../../../../../../components/charts/funnel';
+import { OutcomeBulletCard } from '../../../../../../components/dashboard/outcome-bullet-card';
 import { HorizontalBars } from '../../../../../../components/charts/horizontal-bars';
 import { requireStaff } from '../../../../../../modules/auth/session';
 import { outcomesDashboard } from '../../../../../../modules/reporting/manager';
 
 export const metadata: Metadata = { title: 'Outcomes · Dashboard · Clinic Mx' };
 export const dynamic = 'force-dynamic';
-
-const statusClass = {
-  on_target: 'text-active',
-  off_target: 'text-waiting',
-  no_data: 'text-ink-muted',
-} as const;
 
 // Outcomes (DSH-03): completion and conversion against their SOP targets, the funnel from a
 // consultation to a completed plan, top diagnoses and pain from baseline to discharge by
@@ -56,50 +45,7 @@ export default async function DashboardOutcomesPage({
         </h2>
         <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {view.bullets.map((bullet) => (
-            <li
-              key={bullet.key}
-              className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-4"
-              data-testid="outcome-bullet"
-              data-figure={bullet.key}
-            >
-              <span className="flex items-baseline justify-between gap-2">
-                <span className="font-medium text-ink">{bullet.label}</span>
-                <span className="text-sm text-ink-secondary">Target: {bullet.targetText}</span>
-              </span>
-              {bullet.needs ? (
-                <p className="text-sm text-ink-secondary">Not measured yet: {bullet.needs}</p>
-              ) : bullet.value === null ? (
-                <p className="text-sm text-ink-muted">No data yet in this window.</p>
-              ) : (
-                <>
-                  <span className="flex items-baseline gap-2">
-                    <span className="text-title font-semibold tabular-nums text-ink">
-                      {Math.round(bullet.value)}%
-                    </span>
-                    {bullet.status ? (
-                      <span className={`text-sm ${statusClass[bullet.status]}`}>
-                        {kpiStatusLabels[bullet.status]}
-                      </span>
-                    ) : null}
-                  </span>
-                  <BulletGraph
-                    label={`${bullet.label} ${String(Math.round(bullet.value))}% against a target of ${bullet.targetText.toLowerCase()}`}
-                    value={bullet.value}
-                    target={bullet.target}
-                    earlier={bullet.earlier}
-                    max={100}
-                    targetLabel={`Target ${bullet.targetText.toLowerCase()}`}
-                    lowerIsBetter={bullet.lowerIsBetter}
-                  />
-                  <span className="text-xs text-ink-muted">
-                    {bullet.counted}
-                    {bullet.earlier === null
-                      ? ''
-                      : `; the grey mark is the window before, ${String(Math.round(bullet.earlier))}%`}
-                  </span>
-                </>
-              )}
-            </li>
+            <OutcomeBulletCard key={bullet.key} bullet={bullet} />
           ))}
         </ul>
       </section>
