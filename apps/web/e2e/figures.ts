@@ -1,4 +1,13 @@
-import { appointment, appointmentType, centre, createDb } from '@clinic-mx/db';
+import {
+  appointment,
+  appointmentType,
+  centre,
+  createDb,
+  episode,
+  systemActor,
+  updateEpisodeState,
+  withActor,
+} from '@clinic-mx/db';
 import { istDate, startOfIstDay } from '@clinic-mx/schemas';
 import { and, count, eq, gte, lt } from 'drizzle-orm';
 import { startedAppointment } from './calendar';
@@ -46,5 +55,25 @@ export async function consultationsHeldToday(centreCode: string): Promise<number
         lt(appointment.startsAt, new Date(startOfIstDay(today).getTime() + 24 * 3600_000)),
       ),
     );
+  return row?.held ?? 0;
+}
+
+/** Puts an episode Awaiting consultation on hold (as a red flag referral does), as the system. */
+export async function holdEpisode(episodeId: string): Promise<void> {
+  await withActor(db(), systemActor('tests'), (tx) =>
+    updateEpisodeState(tx, episodeId, 'awaiting_consultation', {
+      status: 'on_hold',
+      pausedFrom: 'awaiting_consultation',
+    }),
+  );
+}
+
+/** Episodes on hold at a centre now, counted from the episodes. */
+export async function episodesOnHold(centreCode: string): Promise<number> {
+  const [row] = await db()
+    .select({ held: count() })
+    .from(episode)
+    .innerJoin(centre, eq(centre.id, episode.centreId))
+    .where(and(eq(centre.code, centreCode), eq(episode.status, 'on_hold')));
   return row?.held ?? 0;
 }

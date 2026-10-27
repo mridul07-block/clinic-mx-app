@@ -266,6 +266,25 @@ export const settingDefinitions = {
     source: 'DSH-01 (user decision 28 October 2026: figures computed live from the records)',
     description: 'The longest period, in days, the figures are computed for in one request.',
   },
+  'dashboard.busy_hours_days': {
+    schema: days,
+    source:
+      'DSH-03, recommended default chosen under the user’s standing approval, 28 October 2026',
+    description: 'How many days back the busy hours heatmap counts visits.',
+  },
+  'dashboard.channel_days': {
+    schema: days,
+    source:
+      'DSH-03, recommended default chosen under the user’s standing approval, 28 October 2026',
+    description: 'How many days back the booking channel donut counts new bookings.',
+  },
+  'kpi.min_outcome_episodes': {
+    schema: z.int().positive(),
+    source:
+      'DSH-03, recommended default chosen under the user’s standing approval, 28 October 2026',
+    description:
+      'The fewest discharged episodes a diagnosis needs before its baseline to discharge outcome is drawn.',
+  },
   'documents.summary_prints_category': {
     schema: z.boolean(),
     source: 'PRD decision 18, Blueprint decision 6: default off (user decision, 25 October 2026)',

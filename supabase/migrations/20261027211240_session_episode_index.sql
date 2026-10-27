@@ -1,0 +1,1 @@
+CREATE INDEX "session_episode_signed_idx" ON "session" USING btree ("episode_id","number") WHERE "session"."status" = 'signed';

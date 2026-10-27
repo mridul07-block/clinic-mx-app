@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { autosaveStaff, signIn } from './staff';
+import { signInWithCode, temporaryWithCode } from './staff';
 
 // DSH-02 done when: line, bar and donut charts, and the bullet graph, dumbbell, heatmap and week
 // strip, each with a table view. Decisions (recommended defaults under the user's standing approval,
@@ -7,7 +7,9 @@ import { autosaveStaff, signIn } from './staff';
 // keys show a mark's value in words above the chart. Checked on the chart harness.
 
 test('every chart draws within the screen, says its values and has its table', async ({ page }) => {
-  await signIn(page, autosaveStaff().email);
+  // Its own login, so no other spec signing in the same seed account runs into it.
+  const viewer = await temporaryWithCode('physiotherapist', ['HSR Layout']);
+  await signInWithCode(page, viewer.email, viewer.secret);
   await page.goto('/app/test-harness/charts');
   await expect(page.getByRole('heading', { name: 'Charts', level: 1 })).toBeVisible();
   await expect(page.getByTestId('chart')).toHaveCount(9);
