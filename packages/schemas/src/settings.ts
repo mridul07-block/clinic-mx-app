@@ -243,6 +243,14 @@ export const settingDefinitions = {
     source: 'PRD section 7: Unpaid balance flag',
     description: 'A patient is flagged when more than this many sessions are unpaid.',
   },
+  // DECISION #19: the lost to follow up period is the client's; 30 days is a placeholder.
+  'clinical.lost_to_follow_up_days': {
+    schema: days,
+    source:
+      'PRD decision 19 (open, client); user decision 27 October 2026 (OUT-10): a placeholder of 30 days since the last attended visit, with nothing booked ahead',
+    description:
+      'Days since the last attended visit (or the episode opening), with nothing booked ahead, after which the daily check marks an episode Lost to follow up and asks the consultant to call.',
+  },
   'engagement.follow_ups_after_discharge': {
     schema: z.array(interval).min(1),
     source: 'PRD section 7: Follow ups',

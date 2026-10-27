@@ -4,12 +4,13 @@ import {
   insertEpisode,
   insertGuardian,
   insertPatient,
+  staffUser,
   updateEpisodeState,
   systemActor,
   withActor,
 } from '@clinic-mx/db';
 import type { DischargeReason, EpisodeStatus, GuardianRelationship } from '@clinic-mx/schemas';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 // Patients for end to end tests (SCH-01), made from the test runner. Generated details only
 // (rule 12): "Test Patient" and a short id, on a +91 99 mobile with random digits. Patients are
@@ -85,7 +86,8 @@ export function bornYearsAgo(years: number): string {
 /**
  * Opens an episode at HSR Layout for a patient (SCH-03) and walks it through the machine's own
  * order to `status`: Intake pending, Awaiting consultation, Plan proposed, Active, then
- * Discharged with `reason` when asked.
+ * Discharged with `reason` when asked, as the seeded Super Admin (a consultant who treats
+ * patients: the database lets only such a person discharge, OUT-10).
  */
 export async function testEpisode(
   patientId: string,
@@ -109,6 +111,14 @@ export async function testEpisode(
     for (let step = 1; step <= path.indexOf(status); step++) {
       const from = path[step - 1] as EpisodeStatus;
       const to = path[step] as EpisodeStatus;
+      if (to === 'discharged') {
+        const [admin] = await tx
+          .select({ id: staffUser.id })
+          .from(staffUser)
+          .where(eq(staffUser.email, 'super.admin@clinicmx.test'));
+        const claims = JSON.stringify({ clinic: { staff_id: admin?.id } });
+        await tx.execute(sql`select set_config('request.jwt.claims', ${claims}, true)`);
+      }
       await updateEpisodeState(
         tx,
         id,

@@ -28,6 +28,7 @@ export const taskKindLabels: Record<string, string> = {
   'review.unsigned_notes': 'Unsigned notes',
   'book.review': 'Book the 6 week review',
   'review.reassessment': 'Reassessment review',
+  'review.lost_to_follow_up': 'Lost to follow up',
 };
 
 export function taskKindLabel(kind: string): string {
@@ -64,7 +65,16 @@ export const UNSIGNED_NOTES_TASK = 'review.unsigned_notes';
  * before `date`. A run late after downtime catches up to tonight, never every missed night.
  */
 export function nextUnsignedNotesRun(now: Date, date: string): { date: string; runAt: Date } {
-  const minutes = parseTime(UNSIGNED_NOTES_FLAG_TIME) ?? 21 * 60;
+  return nextDailyRun(now, date, UNSIGNED_NOTES_FLAG_TIME);
+}
+
+/**
+ * The IST date of a daily job's next run at `time` after one for `date`: the next `time` after
+ * now, never on or before `date`, so a late run catches up to today, never every missed day.
+ */
+export function nextDailyRun(now: Date, date: string, time: string): { date: string; runAt: Date } {
+  const minutes = parseTime(time);
+  if (minutes === undefined) throw new Error(`Not a time of day: ${time}`);
   const today = istDate(now);
   let next = now < istInstant(today, minutes) ? today : addDays(today, 1);
   if (next <= date) next = addDays(date, 1);

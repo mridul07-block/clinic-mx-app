@@ -3,6 +3,7 @@ import {
   CONSULTATION_SUMMARY_MESSAGE_JOB,
   INTAKE_SUBMITTED_JOB,
   INVOICE_JOB,
+  LOST_TO_FOLLOW_UP_JOB,
   NO_SHOW_MESSAGE_JOB,
   PACKAGE_EXPIRY_REMINDER_JOB,
   PLAN_SESSIONS_LIST_JOB,
@@ -21,6 +22,7 @@ import { followUpThinkAboutIt } from '../billing/plan-choice';
 import { generateConsultationSummary } from '../documents/consultation-summary';
 import { generateInvoice } from '../documents/invoice';
 import { generateReferralLetter } from '../documents/referral-letter';
+import { runLostToFollowUpCheck } from '../episodes/lost-to-follow-up';
 import { AI_PREPARATION_SHEET_JOB, processIntakeSubmission } from '../intake/pipeline';
 import { runReviewBooking } from '../scheduling/review-booking';
 import { runUnsignedNotesFlag } from '../tasks/unsigned-notes';
@@ -98,6 +100,18 @@ export const jobHandlers: JobHandlers = {
     payload: z.object({ date: z.iso.date() }),
     run: async ({ date }, { db }) => {
       await runUnsignedNotesFlag(db, { date });
+    },
+  }),
+  /**
+   * The lost to follow up check (OUT-10), every morning at 6:00 AM IST: it queues the next day,
+   * then marks each episode nobody has attended for the setting's days, with nothing booked
+   * ahead, Lost to follow up with a task for the consultant. Never a discharge. A migration queued
+   * the first day; running a day twice changes nothing.
+   */
+  [LOST_TO_FOLLOW_UP_JOB]: defineJob({
+    payload: z.object({ date: z.iso.date() }),
+    run: async ({ date }, { db }) => {
+      await runLostToFollowUpCheck(db, { date });
     },
   }),
   /**

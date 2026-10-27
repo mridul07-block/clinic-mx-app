@@ -369,6 +369,14 @@ export {
   type TaskForUpdate,
 } from './tasks';
 export {
+  LOST_TO_FOLLOW_UP_JOB,
+  lostEpisodes,
+  markLostToFollowUp,
+  queueNextLostToFollowUpCheck,
+  visitsAhead,
+  type LostEpisode,
+} from './lost-to-follow-up';
+export {
   UNSIGNED_NOTES_FLAG_JOB,
   flagUnsignedNotes,
   queueNextUnsignedNotesFlag,

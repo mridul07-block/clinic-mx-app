@@ -61,7 +61,11 @@ series' appointments still Booked or Confirmed; SCH-11); `notes.unsigned_flag` (
 own transaction, then flags; a migration queued the first night; CLN-10, see
 `docs/runbooks/tasks.md`); `review.book` (queued by the database once when an episode turns Active,
 key `review.book:<episode id>`; books the 6 week Review with the consultant, or gives the front
-desk a task; books nothing when one is booked already; OUT-06, see `docs/runbooks/calendar.md`).
+desk a task; books nothing when one is booked already; OUT-06, see `docs/runbooks/calendar.md`);
+`episodes.lost_to_follow_up` (every morning at 6:00 AM IST, key
+`episodes.lost_to_follow_up:<IST date>`; each day first queues the next day, then marks episodes
+nobody attended for `clinical.lost_to_follow_up_days` Lost to follow up with a task, never a
+discharge; a migration queued the first day; OUT-10, see `docs/runbooks/sessions.md`).
 
 End to end tests run the queue themselves: `apps/web/e2e/jobs.ts` posts to the tick with a test
 secret that `playwright.config.ts` gives the server. Tests run in parallel and share the queue, so

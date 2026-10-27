@@ -513,3 +513,51 @@ assessed, the three statuses are signed, and an override takes a reason (PRD J6.
 
 **Negative check:** drop the "each Met or overridden" check from `internal.clearance_guard`, and the
 database test fails ("not assessed without an override").
+
+## Discharge (OUT-10)
+
+Done when the discharge takes a mandatory reason from the list and the lost to follow up job never
+marks recovered (PRD J6.6, J5.12 "the episode is never auto closed", decision 19; TAD: signing a
+discharge checks the tick at that moment and stores who signed). Decisions (user, 27 October 2026):
+
+- **Who and where:** a consultant with the Treats patients tick, now, on the Review and discharge
+  screen, which opens for any episode not yet discharged (the summary card links to it for every
+  episode). Final testing and readiness still show only from treatment on.
+- **Reason:** one of the Blueprint's seven; Other needs a note. Goals achieved and Independent
+  management only after treatment (Active or Under review, or On hold from them); the form greys
+  them with the reason why ("Goals achieved needs treatment first: the episode was Plan proposed.
+  Non attendance is never counted as recovered."). A Lost to follow up episode is never discharged
+  as recovered.
+- **Visits ahead:** discharging cancels the episode's Booked or Confirmed visits that start later
+  (asked by the clinic, by the consultant); the form lists them first. A visit already started is
+  left for the desk.
+- **Stamped:** the database refuses a discharge by anyone else, the system included, and stamps
+  `discharged_by` and `closed_at`; the episode heading shows "Goals achieved · discharged by …".
+- **Lost to follow up check:** every morning at 6:00 AM IST (`episodes.lost_to_follow_up`) an
+  episode Intake pending, Awaiting consultation, Plan proposed, Active or Under review (not On hold)
+  nobody has attended for `clinical.lost_to_follow_up_days` (30, a placeholder until the client
+  answers decision 19), counted from the last checked in visit or the opening, with nothing booked
+  ahead, becomes Lost to follow up: never discharged, never closed. The consultant who signed its
+  consultation gets a high task "Lost to follow up: no visit since 27 Sept 2026" (before a signed
+  consultation, the centre's Centre Manager). Booking any visit for it again returns the episode to
+  where it paused and closes the task ("booked again"); discharging closes it too.
+
+| Piece | Where |
+| --- | --- |
+| Input, reasons, task, time | `packages/schemas/src/discharge.ts` (`dischargeEpisodeSchema`, `dischargeReasonRefusal`, `watchedForLoss`, `lostToFollowUpTitle`), `nextDailyRun` in `tasks.ts`; the setting in `settings.ts` |
+| The check | `packages/db/src/lost-to-follow-up.ts` (`lostEpisodes`, `markLostToFollowUp`, `visitsAhead`), `apps/web/modules/episodes/lost-to-follow-up.ts`, `apps/web/modules/jobs/handlers.ts` |
+| The form and its write | `apps/web/modules/reviews/discharge.ts` (`dischargeView`, `dischargeEpisode`), `episodes/[episodeId]/review/discharge-form.tsx` |
+| Rules | `supabase/migrations/20261027054917_discharge_rules.sql`: `internal.episode_discharge_guard` (both ticks now, stamps who and when), `internal.episode_discharged_follow_up` (cancels the visits ahead, closes the lost task), `internal.appointment_physio_change` (lets the discharging consultant cancel them), `internal.appointment_returns_lost_episode` (booking again returns it); the setting and the first day's job |
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `packages/schemas/src/discharge.test.ts` | reason and Other's note; recovered only after treatment, never from Lost; the 6:00 AM run; the task title |
+| `apps/web/modules/reviews/discharge.test.ts` | the reasons greyed before treatment, the visits listed; the write; refusals (physio, tick, twice, support) |
+| `packages/db/src/integration/discharge.integration.test.ts` | stamped and cancelling the visits ahead; refused to a physio, the desk, the system, a consultant whose tick is off; recovered refused untreated; the check marks only the right episodes, with the consultant's or the manager's task, once; booking again returns it; a discharge closes the task |
+| `apps/web/e2e/discharge.spec.ts` | 360 px and desktop: a treated episode discharged as Goals achieved, its visit ahead cancelled; an untreated one with Goals achieved greyed, Other needing a note, Patient choice |
+
+**Negative check:** drop the consultant and Treats patients ticks from
+`internal.episode_discharge_guard`, and the database test fails ("refused to a physio without the
+Consultant tick").
