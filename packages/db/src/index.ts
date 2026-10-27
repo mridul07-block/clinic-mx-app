@@ -546,3 +546,10 @@ export {
   regionProgramme,
   type EpisodePhaseRecords,
 } from './phases';
+export {
+  correctOpeningEntry,
+  insertOpeningEntry,
+  openingEntries,
+  openingEntryOf,
+  type OpeningEntryRow,
+} from './opening-entries';

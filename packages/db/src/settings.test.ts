@@ -40,6 +40,7 @@ const stored: Settings = {
   'clinical.no_show_review_after': 2,
   'clinical.lost_to_follow_up_days': 30,
   'clinical.acceptable_exercise_pain': 5,
+  'launch.opening_entries_open': true,
   'billing.unpaid_sessions_flag_above': 3,
   'engagement.follow_ups_after_discharge': [{ count: 2, unit: 'week' }],
   'security.desktop_idle_logout_minutes': 15,

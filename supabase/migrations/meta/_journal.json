@@ -953,6 +953,20 @@
       "when": 1793113282584,
       "tag": "20261027150122_phases_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1793118669949,
+      "tag": "20261027163109_opening_entries",
+      "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1793118715160,
+      "tag": "20261027163155_opening_entries_rules",
+      "breakpoints": true
     }
   ]
 }

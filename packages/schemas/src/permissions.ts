@@ -52,6 +52,9 @@ export const permissionMap = {
   'templates.manage': row(yes, no, no, no, no),
   'settings.manage': row(yes, no, no, no, no),
   'support_access.grant': row(yes, no, no, no, no),
+  // Not in the PRD summary: user decision 27 October 2026 (SCH-13), the Super Admin enters the
+  // opening entries of patients already in treatment before launch.
+  'opening_entries.manage': row(yes, no, no, no, no),
   'rosters.manage': row(yes, yes, no, no, no),
   'leave.manage': row(yes, yes, no, own, no),
   // Prices, packages, discount types.

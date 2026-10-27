@@ -226,6 +226,14 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
     // Phase marks and moves they made (OUT-04).
     await tx.execute(sql`delete from phase_mark where marked_by in ${physioIds}`);
     await tx.execute(sql`delete from phase_move where moved_by in ${physioIds}`);
+    // Opening entries naming them (SCH-13), with their opening packages and expiry reminders.
+    const entries = sql`(select id from opening_entry where physio_id in ${physioIds})`;
+    await tx.execute(
+      sql`delete from job where kind = 'whatsapp.package_expiry_reminder' and payload ->> 'packageId' in
+        (select id::text from package where opening_entry_id in ${entries})`,
+    );
+    await tx.execute(sql`delete from package where opening_entry_id in ${entries}`);
+    await tx.execute(sql`delete from opening_entry where physio_id in ${physioIds}`);
     const consultations = sql`(select id from consultation where physio_id in ${physioIds})`;
     // The patient's choices on their plans (BIL-02), with what "I'll think about it" raised.
     const plans = sql`(select id from plan_of_care where consultation_id in ${consultations})`;

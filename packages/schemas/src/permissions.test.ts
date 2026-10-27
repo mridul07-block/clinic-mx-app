@@ -21,6 +21,7 @@ const expected: Record<Action, Expected> = {
   'templates.manage': ['yes', '-', '-', '-', '-'],
   'settings.manage': ['yes', '-', '-', '-', '-'],
   'support_access.grant': ['yes', '-', '-', '-', '-'],
+  'opening_entries.manage': ['yes', '-', '-', '-', '-'],
   'rosters.manage': ['yes', 'yes', '-', '-', '-'],
   'leave.manage': ['yes', 'yes', '-', 'own', '-'],
   'prices.view': ['yes', 'yes', 'yes', '-', 'yes'],
