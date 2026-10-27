@@ -251,6 +251,15 @@ export const settingDefinitions = {
     description:
       'Days since the last attended visit (or the episode opening), with nothing booked ahead, after which the daily check marks an episode Lost to follow up and asks the consultant to call.',
   },
+  // DECISION #4: acceptable exercise pain is the client's (4/10 in the SOP, 5/10 in the
+  // workbooks); 5 is a placeholder.
+  'clinical.acceptable_exercise_pain': {
+    schema: z.int().min(0).max(10),
+    source:
+      'PRD decision 4 (open, client); user decision 27 October 2026 (OUT-04): a placeholder of 5/10, as the workbooks',
+    description:
+      'Highest pain during activity (0 to 10) acceptable on loading; the phase stepper shows the latest session’s pain against it beside an exit criterion that names acceptable pain.',
+  },
   'engagement.follow_ups_after_discharge': {
     schema: z.array(interval).min(1),
     source: 'PRD section 7: Follow ups',

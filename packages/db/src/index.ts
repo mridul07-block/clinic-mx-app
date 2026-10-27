@@ -537,3 +537,12 @@ export {
   type SessionNoteEntry,
   type SessionProgress,
 } from './sessions';
+export {
+  addPhaseMark,
+  addPhaseMove,
+  episodePhaseRecords,
+  episodeTreatingPhysio,
+  latestPhaseVersion,
+  regionProgramme,
+  type EpisodePhaseRecords,
+} from './phases';

@@ -47,10 +47,12 @@ import {
   type SessionModality,
   type SessionNote,
   type SessionView,
+  phaseNotSetUp,
 } from '@clinic-mx/schemas';
 import { NotAllowedError } from '../access/guard';
 import { staffService } from '../access/service';
 import { asStaffViewing } from '../access/staff-db';
+import { episodePhaseLine } from '../phases/phases';
 import { episodeSummary, recordNotes, type PatientSummary } from '../patients/record';
 import { baselineView, workedOutBaseline, type BaselineView } from './baseline';
 import { reassessedItems, reassessmentView, type ReassessmentView } from './reassessment';
@@ -133,6 +135,8 @@ export interface SessionScreen {
   coveredBy: string | null;
   /** The note, once Start session opened it. */
   note: SessionNoteView | undefined;
+  /** The summary card's phase line (OUT-04). */
+  phase: string;
 }
 
 /**
@@ -271,6 +275,7 @@ export async function loadSession(
       writerName: (covered ? visit.startedByName : null) ?? visit.physioName,
       coveredBy: covered ? visit.startedByName : null,
       note,
+      phase: episode ? await episodePhaseLine(tx, episode.id) : phaseNotSetUp,
     };
   });
 }

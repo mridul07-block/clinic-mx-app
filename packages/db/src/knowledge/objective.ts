@@ -6,6 +6,7 @@ import type {
   MeasureRule,
 } from '@clinic-mx/schemas';
 import { KnowledgeImportError } from './build';
+import { readPhases, type BuiltPhase, type BuiltPhaseCriterion } from './phases';
 import { readReadiness, type BuiltCriterion } from './readiness';
 import { headerText, type TrackerRow, type Workbook } from './workbook';
 
@@ -38,6 +39,9 @@ export interface BuiltObjective {
   specialTests: (KnowledgeSpecialTest & { rowNumber: number })[];
   /** Each region's readiness criteria (OUT-08, `./readiness`). */
   readiness: BuiltCriterion[];
+  /** Each region's phases and their exit criteria (OUT-04 with SET-09, `./phases`). */
+  phases: BuiltPhase[];
+  phaseCriteria: BuiltPhaseCriterion[];
   skipped: SkippedRows[];
 }
 
@@ -323,7 +327,10 @@ function settleKeys<T extends { key: string; rowNumber: number; region: Knowledg
   }
 }
 
-/** Every workbook's measures, special tests and readiness criteria; problems stop the import. */
+/**
+ * Every workbook's measures, special tests, readiness criteria and phases; problems stop the
+ * import.
+ */
 export function buildObjective(workbooks: readonly Workbook[]): BuiltObjective {
   const problems: string[] = [];
   const skipped: SkippedRows[] = [];
@@ -340,6 +347,14 @@ export function buildObjective(workbooks: readonly Workbook[]): BuiltObjective {
       problems,
     ),
   );
+  const read = workbooks.map((workbook) => readPhases(workbook, problems));
   if (problems.length > 0) throw new KnowledgeImportError(problems);
-  return { measures, specialTests, readiness, skipped };
+  return {
+    measures,
+    specialTests,
+    readiness,
+    phases: read.flatMap((r) => r.phases),
+    phaseCriteria: read.flatMap((r) => r.criteria),
+    skipped,
+  };
 }

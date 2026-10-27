@@ -21,12 +21,13 @@ import {
 } from '@clinic-mx/schemas';
 import { NotAllowedError } from '../access/guard';
 import { asStaffViewing } from '../access/staff-db';
+import { phasesView, type PhasesView } from '../phases/phases';
 
 /**
  * The patient record's Progress tab (OUT-03, PRD J5.8; user decisions 27 October 2026;
  * docs/runbooks/patient-record.md): for clinicians, the current episode's pain during activity
  * over its signed visits and a bullet graph per strength or hop LSI taken in it, against its pass,
- * with the baseline marked. Read under row level security.
+ * with the baseline marked; the phase stepper heads it (OUT-04). Read under row level security.
  */
 
 export interface ProgressView {
@@ -34,6 +35,7 @@ export interface ProgressView {
   pain: PainPoint[];
   painSentence: string | null;
   bullets: LsiBullet[];
+  phases: PhasesView | null;
 }
 
 const sourceWords: Record<ReadingSource, string> = {
@@ -47,7 +49,7 @@ export async function progressOf(actor: StaffMember, patientId: string): Promise
   if (!can(actor, 'clinical.read')) throw new NotAllowedError();
   return asStaffViewing(actor, async (tx) => {
     const episode = currentEpisode(await episodesOf(tx, patientId));
-    if (!episode) return { episode, pain: [], painSentence: null, bullets: [] };
+    if (!episode) return { episode, pain: [], painSentence: null, bullets: [], phases: null };
     const readings = await episodePainReadings(tx, episode.id);
     const pain = painPoints(readings.consultation, readings.sessions);
     const version = readings.consultation?.kbVersionId;
@@ -69,11 +71,15 @@ export async function progressOf(actor: StaffMember, patientId: string): Promise
         return [key, { latest: taking(latest), first: taking(first) }];
       }),
     );
+    const latestPain = readings.sessions
+      .map((s) => ({ value: s.pain.activity, session: s.number }))
+      .findLast((p): p is { value: number; session: number } => p.value !== null);
     return {
       episode,
       pain,
       painSentence: painSentence(pain),
       bullets: lsiBullets(measures, takings),
+      phases: await phasesView(tx, actor, episode, latestPain ?? null),
     };
   });
 }

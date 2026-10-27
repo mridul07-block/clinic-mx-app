@@ -20,12 +20,15 @@ export const TRACKER_SHEET = 'Progress Tracker';
 /** The sheets an import reads, recorded with its source so a new sheet makes a new version. */
 /** The Progress Tracker's readiness section, read since OUT-08: a new reading makes a new version. */
 export const READINESS_READING = `${TRACKER_SHEET} (readiness)`;
+/** Each region's phases and exit criteria (OUT-04 with SET-09); the Bone Stress workbook has none. */
+export const PHASED_SHEET = 'Phased Programme';
 export const IMPORTED_SHEETS = [
   MASTER_SHEET,
   RED_FLAGS_SHEET,
   SPECIAL_TESTS_SHEET,
   TRACKER_SHEET,
   READINESS_READING,
+  PHASED_SHEET,
 ];
 /** The Progress Tracker's columns A to G: name, two values, unit, result, status, note. */
 const TRACKER_WIDTH = 7;
@@ -58,7 +61,7 @@ export interface TrackerRow {
 
 /**
  * A workbook: its Master Matrix as `title`, `header` and `rows`, its Red Flags sheet, its Special
- * Tests sheet when it has one, and its Progress Tracker's rows.
+ * Tests sheet when it has one, its Progress Tracker's rows, and its Phased Programme when it has one.
  */
 export interface Workbook extends Sheet {
   region: KnowledgeRegion;
@@ -67,6 +70,7 @@ export interface Workbook extends Sheet {
   redFlags: Sheet;
   specialTests: Sheet | undefined;
   tracker: TrackerRow[];
+  phased: Sheet | undefined;
 }
 
 /** The text of a cell however Excel stored it: plain, rich text, a formula's result or a link. */
@@ -140,7 +144,7 @@ function readTracker(book: ExcelJS.Workbook, fileName: string): TrackerRow[] {
   return rows;
 }
 
-/** Reads one workbook's Master Matrix, Red Flags, Special Tests and Progress Tracker sheets. */
+/** Reads one workbook's Master Matrix, Red Flags, Special Tests, Progress Tracker and Phased Programme. */
 export async function readWorkbook(
   folder: string,
   fileName: string,
@@ -160,6 +164,7 @@ export async function readWorkbook(
       ? readSheet(book, SPECIAL_TESTS_SHEET, fileName)
       : undefined,
     tracker: readTracker(book, fileName),
+    phased: book.getWorksheet(PHASED_SHEET) ? readSheet(book, PHASED_SHEET, fileName) : undefined,
   };
 }
 

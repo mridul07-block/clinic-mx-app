@@ -3,6 +3,8 @@ import {
   criterionResults,
   interventionKinds,
   irritabilities,
+  phaseMarkResults,
+  phaseMoveKinds,
   specialTestResults,
   stages,
   type ClearanceCriterion,
@@ -299,6 +301,73 @@ export const clearance = pgTable(
     signedAt: timestamp('signed_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [unique('clearance_episode_status').on(table.episodeId, table.status)],
+).enableRLS();
+
+export const phaseMarkResult = pgEnum('phase_mark_result', phaseMarkResults);
+export const phaseMoveKind = pgEnum('phase_move_kind', phaseMoveKinds);
+
+/**
+ * The treating physio's mark on an exit criterion of the episode's current phase (OUT-04): Met or
+ * Not yet. Appended, never changed; the latest per criterion since the phase was entered counts.
+ */
+export const phaseMark = pgTable(
+  'phase_mark',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    episodeId: uuid('episode_id')
+      .notNull()
+      .references(() => episode.id),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    criterionKey: text('criterion_key').notNull(),
+    result: phaseMarkResult('result').notNull(),
+    markedBy: uuid('marked_by')
+      .notNull()
+      .references(() => staffUser.id),
+    markedAt: timestamp('marked_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('phase_mark_episode_idx').on(table.episodeId, table.markedAt)],
+).enableRLS();
+
+/**
+ * A move of the episode between phases (OUT-04): the treating physio's progress one phase on once
+ * every exit criterion is Met, or a consultant's override to any other phase with its reason.
+ * Without a move the episode is in Phase 0. Appended, never changed.
+ */
+export const phaseMove = pgTable(
+  'phase_move',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    episodeId: uuid('episode_id')
+      .notNull()
+      .references(() => episode.id),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    region: kbRegion('region').notNull(),
+    fromPhase: integer('from_phase').notNull(),
+    toPhase: integer('to_phase').notNull(),
+    kind: phaseMoveKind('kind').notNull(),
+    /** An override's written reason; null for a progress. */
+    reason: text('reason'),
+    movedBy: uuid('moved_by')
+      .notNull()
+      .references(() => staffUser.id),
+    movedAt: timestamp('moved_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('phase_move_episode_idx').on(table.episodeId, table.movedAt),
+    unique('phase_move_episode_moved_at').on(table.episodeId, table.movedAt),
+    check(
+      'phase_move_shape',
+      sql`${table.fromPhase} >= 0 and ${table.toPhase} >= 0 and (
+        (${table.kind} = 'progress' and ${table.toPhase} = ${table.fromPhase} + 1
+          and ${table.reason} is null)
+        or (${table.kind} = 'override' and ${table.toPhase} <> ${table.fromPhase}
+          and length(trim(${table.reason})) between 1 and 1000))`,
+    ),
+  ],
 ).enableRLS();
 
 /** The four part working diagnosis (TAD `diagnosis`), one per consultation. */

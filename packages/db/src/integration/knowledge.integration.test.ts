@@ -180,6 +180,8 @@ describe('the knowledge base import', () => {
         { entity: 'kb_diagnosis_category', n: 44 },
         { entity: 'kb_measure', n: 143 },
         { entity: 'kb_modality', n: 8 },
+        { entity: 'kb_phase', n: 40 },
+        { entity: 'kb_phase_criterion', n: 122 },
         { entity: 'kb_questionnaire', n: 19 },
         { entity: 'kb_readiness_criterion', n: 139 },
         { entity: 'kb_red_flag_presentation', n: 136 },

@@ -390,7 +390,7 @@ export default async function PatientPage({
         <NotesTab patientId={patient.id} episodes={episodes} notes={record.notes} />
       ) : null}
 
-      {progress ? <ProgressTab view={progress} /> : null}
+      {progress ? <ProgressTab view={progress} patientId={patientId} /> : null}
 
       {tab === 'documents' ? (
         <>

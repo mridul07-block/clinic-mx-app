@@ -41,7 +41,8 @@ try {
       `${report.totals.merged} merged; ${built.assigned.length} IDs assigned; ` +
       `${built.unmatched.length} IDs matched no row; ${redFlags.rules.length} red flag rules, ` +
       `${redFlags.presentations.length} red flag rows; ${objective.measures.length} measures, ` +
-      `${objective.specialTests.length} special tests; ${categories.categories.length} diagnosis ` +
+      `${objective.specialTests.length} special tests; ${objective.phases.length} phases, ` +
+      `${objective.phaseCriteria.length} exit criteria; ${categories.categories.length} diagnosis ` +
       `categories, ${Object.keys(categories.mapping).length} conditions mapped; ` +
       `${planCatalog.modalities.length} modalities, ${planCatalog.questionnaires.length} ` +
       'questionnaires. ' +

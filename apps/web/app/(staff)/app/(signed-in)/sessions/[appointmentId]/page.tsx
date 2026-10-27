@@ -1,4 +1,4 @@
-import { accessScope, formatIstDateTime, phaseNotSetUp } from '@clinic-mx/schemas';
+import { accessScope, formatIstDateTime } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -80,8 +80,7 @@ export default async function SessionPage({
         patientId={visit.patientId}
         summary={summary}
         nextVisit={nextVisit}
-        // DECISION SES-02: the phase stepper (OUT-04) replaces this line.
-        phase={phaseNotSetUp}
+        phase={screen.phase}
         empty="Not part of an episode yet."
       />
       {note ? (

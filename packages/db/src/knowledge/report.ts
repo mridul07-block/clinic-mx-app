@@ -84,6 +84,14 @@ export interface ImportReport {
     text: string;
     judged: string;
   }[];
+  /** OUT-04 with SET-09: each region's phases with their exit criteria, word for word. */
+  phases: {
+    region: KnowledgeRegion;
+    number: number;
+    name: string;
+    criteria: string[];
+    painLimit: string[];
+  }[];
   /** CLN-06: the client's diagnosis categories file and how many conditions it maps. */
   categories: {
     file: { name: string; sha256: string };
@@ -334,6 +342,18 @@ export function buildReport(
       text: c.text,
       judged: judgedBy(c.rule, c.fromVerdict),
     })),
+    phases: objective.phases.map((phase) => {
+      const lines = objective.phaseCriteria.filter(
+        (c) => c.region === phase.region && c.phase === phase.number,
+      );
+      return {
+        region: phase.region,
+        number: phase.number,
+        name: phase.name,
+        criteria: lines.map((c) => c.text),
+        painLimit: lines.filter((c) => c.namesPainLimit).map((c) => c.text),
+      };
+    }),
     categories: {
       file: categories.file,
       names: categories.categories.map((category) => category.name),
@@ -547,6 +567,19 @@ export function reportMarkdown(report: ImportReport): string {
         String(c.rowNumber),
         c.text,
         c.judged,
+      ]),
+    ),
+    '## Phased programmes (OUT-04)',
+    'Each Phased Programme sheet, one phase per "Phase n" row; its Exit Criteria split on ";" into ' +
+      'the lines the treating physio marks. A line naming acceptable pain shows the latest session ' +
+      'pain beside it (decision 4). The Bone Stress workbook has no phased programme.',
+    table(
+      ['Workbook', 'Phase', 'Exit criteria', 'Pain hint on'],
+      report.phases.map((p) => [
+        knowledgeRegions[p.region].label,
+        `${String(p.number)}: ${p.name}`,
+        p.criteria.join('; '),
+        p.painLimit.length > 0 ? p.painLimit.join('; ') : 'None',
       ]),
     ),
     '## Diagnosis categories (CLN-06)',
