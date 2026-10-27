@@ -368,6 +368,7 @@ export {
   type TaskEntry,
   type TaskForUpdate,
 } from './tasks';
+export { episodePainReadings, type EpisodePain } from './progress';
 export {
   DISCHARGE_REPORT_JOB,
   DISCHARGE_REPORT_MESSAGE_JOB,

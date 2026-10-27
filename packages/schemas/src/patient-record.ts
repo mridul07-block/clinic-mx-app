@@ -8,13 +8,14 @@ import { seesAllCentres, type StaffRole } from './staff';
  * Overview only.
  */
 
-export const patientRecordTabs = ['overview', 'notes', 'documents', 'alerts'] as const;
+export const patientRecordTabs = ['overview', 'notes', 'progress', 'documents', 'alerts'] as const;
 
 export type PatientRecordTab = (typeof patientRecordTabs)[number];
 
 export const patientRecordTabLabels: Record<PatientRecordTab, string> = {
   overview: 'Overview',
   notes: 'Notes',
+  progress: 'Progress',
   documents: 'Documents',
   alerts: 'Alerts',
 };

@@ -43,7 +43,13 @@ test('a physio at another centre reads the summary, signed notes, documents and 
   await physioLanded(page, `/app/patients/${patient.id}`);
 
   const tabs = page.getByRole('navigation', { name: 'Patient record' });
-  await expect(tabs.getByRole('link')).toHaveText(['Overview', 'Notes', 'Documents', /^Alerts1$/]);
+  await expect(tabs.getByRole('link')).toHaveText([
+    'Overview',
+    'Notes',
+    'Progress',
+    'Documents',
+    /^Alerts1$/,
+  ]);
   await expect(tabs.getByRole('link', { name: 'Overview' })).toHaveAttribute(
     'aria-current',
     'page',

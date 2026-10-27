@@ -6,13 +6,15 @@ describe('patientRecordTab', () => {
   it('gives clinicians the tab asked for, else Overview', () => {
     expect(patientRecordTab('notes', true)).toBe('notes');
     expect(patientRecordTab('alerts', true)).toBe('alerts');
-    expect(patientRecordTab('progress', true)).toBe('overview');
+    expect(patientRecordTab('progress', true)).toBe('progress');
+    expect(patientRecordTab('timeline', true)).toBe('overview');
     expect(patientRecordTab(undefined, true)).toBe('overview');
   });
 
   it('gives everyone else Overview only', () => {
     expect(patientRecordTab('notes', false)).toBe('overview');
     expect(patientRecordTab('documents', false)).toBe('overview');
+    expect(patientRecordTab('progress', false)).toBe('overview');
   });
 });
 

@@ -28,6 +28,7 @@ import { documentsOfPatient } from '../../../../../../modules/documents/services
 import { reportsOfPatient } from '../../../../../../modules/reports/services';
 import { asStaff } from '../../../../../../modules/access/staff-db';
 import { clinicalRecordOf } from '../../../../../../modules/patients/record';
+import { progressOf } from '../../../../../../modules/progress/progress';
 import { selfBookingStatus } from '../../../../../../modules/scheduling/services';
 import { getSetting } from '../../../../../../modules/settings/settings';
 import { GuardianForm, RemoveGuardianForm } from '../guardian-forms';
@@ -35,6 +36,7 @@ import { LiftBlockForm } from '../lift-block-form';
 import { PatientForm } from '../patient-form';
 import { AlertsTab, EpisodeHeading, NotesTab, SummaryCard } from './clinical-record';
 import { DocumentList } from './document-list';
+import { ProgressTab } from './progress-tab';
 import { ReportList } from './report-list';
 
 export const metadata: Metadata = { title: 'Patient · Clinic Mx' };
@@ -55,7 +57,7 @@ const notices: Record<string, string> = {
 // and for a manager, lifting the block. Reports (ALT-08): clinicians only open the photos and
 // scans added at check in or on the health form. The patient record (CLN-12): for clinicians
 // (`clinical.read`), tabs Overview (the summary card first), Notes (episodes with their signed
-// notes and addenda), Documents and Alerts, read at any centre and logged as a record view;
+// notes and addenda), Progress (OUT-03), Documents and Alerts, read at any centre and logged as a record view;
 // everyone else sees Overview only.
 export default async function PatientPage({
   params,
@@ -96,6 +98,8 @@ export default async function PatientPage({
   const canLift = can(staff, 'bookings.lift_self_booking_block') && !staff.support;
   const reports = tab === 'documents' ? await reportsOfPatient(staff, patient.id) : [];
   const documents = tab === 'documents' ? await documentsOfPatient(staff, patient.id) : [];
+  // OUT-03: the current episode's pain line and LSI bullet graphs.
+  const progress = record && tab === 'progress' ? await progressOf(staff, patient.id) : undefined;
   // BIL-09: those who see amounts without the clinical tabs reprint invoices from the Overview.
   const invoices =
     !clinical && can(staff, 'bills.view_amounts')
@@ -385,6 +389,8 @@ export default async function PatientPage({
       {record && tab === 'notes' ? (
         <NotesTab patientId={patient.id} episodes={episodes} notes={record.notes} />
       ) : null}
+
+      {progress ? <ProgressTab view={progress} /> : null}
 
       {tab === 'documents' ? (
         <>
