@@ -115,3 +115,43 @@ With none: "No episodes yet. Booking a consultation opens one."
 | `apps/web/modules/episodes/services.test.ts` | Opening by role and centre; recurrence links; a refused event writes nothing; a stale status is reported |
 | `packages/db/src/integration/episodes.integration.test.ts` | Every status pair through the trigger matches the machine; the checks; changes from a stale status; reads and writes by role; no deletes; the audit history |
 | `apps/web/e2e/episodes.spec.ts` | 360 px and desktop: the patient page lists an Active and a Discharged episode with reason and dates; the empty state; a physiotherapist reads the same list |
+
+## Recurrences (SCH-14, 28 October 2026)
+
+PRD J7.5 says a recurrence after discharge opens a new episode linked to the earlier one. Episodes
+open when the health form is submitted, so the link is made later, by the clinician.
+
+These are recommended defaults chosen under the user's standing approval of 28 October 2026. They
+are recorded in the DECISION register as "SCH-14".
+
+- **Where it is decided.** The consultation shows a **Previous episodes** panel listing the
+  patient's discharged episodes, with each one's region, dates, discharge reason and diagnosis.
+  - The consultant marks the current episode **Same problem again** against one of them, which links
+    it (`linked_episode_id`).
+  - **Not the same problem** removes the link.
+  - Whether it is the same problem is the consultant's clinical call. No automatic rule is invented.
+- **Who may link.** A consultant with the Treats patients tick, while the episode is open
+  (`consultant_records.write`). Everyone who reads the consultation sees the list.
+- **The record.** The episode says "Recurrence of: <region>, closed <date>", and the earlier one says
+  "Followed by a recurrence".
+- **The database** (`internal.episode_link_guard`, migration `20261027231031_episode_link_rules.sql`):
+  - A link names the same patient's discharged episode, and never the episode itself.
+  - Once an episode is open, only an active consultant with the Treats tick changes its link.
+  - A discharged episode never changes (`episode_transition_guard`).
+  - The audit trail records every change.
+- **Not in this ticket.** The "Injured again" follow up that records a recurrence comes with PAT-10.
+  The reinjury figure (DSH-01) waits for it.
+
+| Piece | Where |
+| --- | --- |
+| Reads and writes | `previousEpisodes`, `setEpisodeLink` in `packages/db/src/episodes.ts` |
+| Service | `linkRecurrence` in `apps/web/modules/episodes/services.ts`; the panel's view in `modules/episodes/recurrence.ts` |
+| Screens | `consultations/[consultationId]/previous-episodes.tsx`; `EpisodeHeading` on the patient record |
+
+| Test | Covers |
+| --- | --- |
+| `apps/web/modules/episodes/services.test.ts` | Linking and unlinking; another patient's episode, one still open, a discharged current episode, and non-consultants are refused |
+| `packages/db/src/integration/recurrence.integration.test.ts` | The previous episodes offered; a consultant links and unlinks, audited; another patient's episode, one not discharged, the episode itself, a physio without the Consultant tick, the desk, and a discharged episode are all refused, at insert too |
+| `apps/web/e2e/recurrence.spec.ts` | At 360 px and on desktop: a consultant marks a returning patient's episode "Same problem again"; the record shows both lines; the link is taken back |
+
+**Negative check:** without the same patient condition in the guard, the database test fails.

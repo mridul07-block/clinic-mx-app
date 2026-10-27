@@ -237,6 +237,9 @@ export {
   episodeRecord,
   episodesOf,
   insertEpisode,
+  previousEpisodes,
+  setEpisodeLink,
+  type PreviousEpisode,
   updateEpisodeState,
   type EpisodeEntry,
 } from './episodes';

@@ -5,7 +5,7 @@ import type {
   EpisodeStatus,
   ScreeningRegion,
 } from '@clinic-mx/schemas';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { episode } from './schema';
 import type { DbOrTransaction } from './versioned';
 
@@ -69,6 +69,56 @@ export async function episodeRecord(
 ): Promise<EpisodeEntry | undefined> {
   const [row] = await db.select(columns).from(episode).where(eq(episode.id, episodeId));
   return row;
+}
+
+export interface PreviousEpisode extends EpisodeEntry {
+  /** The condition of its latest signed diagnosis, when the reader may see it. */
+  diagnosisName: string | null;
+}
+
+/**
+ * A patient's discharged episodes other than `exceptId`, newest first, with their diagnosis: what
+ * a recurrence can be linked to (SCH-14). The episode is named outright inside the subquery, which
+ * would otherwise bind to the consultation's own id.
+ */
+export async function previousEpisodes(
+  db: DbOrTransaction,
+  patientId: string,
+  exceptId: string,
+): Promise<PreviousEpisode[]> {
+  return db
+    .select({
+      ...columns,
+      diagnosisName: sql<string | null>`(select k.name from public.consultation c
+        join public.diagnosis d on d.consultation_id = c.id
+        join public.kb_condition k on k.kb_version_id = d.kb_version_id
+          and k.condition_id = d.condition_id
+        where c.episode_id = ${sql.raw('"episode"."id"')} and c.status = 'signed'
+        order by c.signed_at desc limit 1)`,
+    })
+    .from(episode)
+    .where(
+      and(
+        eq(episode.patientId, patientId),
+        eq(episode.status, 'discharged'),
+        ne(episode.id, exceptId),
+      ),
+    )
+    .orderBy(desc(episode.closedAt));
+}
+
+/** Links an episode to the discharged one it recurs from, or removes the link (SCH-14). */
+export async function setEpisodeLink(
+  db: DbOrTransaction,
+  episodeId: string,
+  linkedEpisodeId: string | null,
+): Promise<boolean> {
+  const rows = await db
+    .update(episode)
+    .set({ linkedEpisodeId, updatedAt: new Date() })
+    .where(eq(episode.id, episodeId))
+    .returning({ id: episode.id });
+  return rows.length === 1;
 }
 
 /** Opens an episode as Intake pending; returns its id. */
