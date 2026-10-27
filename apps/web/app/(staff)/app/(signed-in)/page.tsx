@@ -104,6 +104,11 @@ export default async function StaffHome() {
             Opening entries
           </Link>
         ) : null}
+        {accessScope(staff, 'dashboard.overview') ? (
+          <Link href="/app/figures" className={linkClass}>
+            Figures
+          </Link>
+        ) : null}
         {accessScope(staff, 'check_in.manage') ? (
           <Link href="/app/kiosk-tablets" className={linkClass}>
             Kiosk tablets

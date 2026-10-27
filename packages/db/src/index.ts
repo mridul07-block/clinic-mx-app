@@ -553,3 +553,4 @@ export {
   openingEntryOf,
   type OpeningEntryRow,
 } from './opening-entries';
+export { kpiDaily } from './kpis';
