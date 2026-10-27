@@ -674,6 +674,53 @@ Each Progress Tracker readiness section, one criterion per line: each measure a 
 | Bone stress, cartilage and meniscus | 14 | Pain-free single-leg hop x10 | Consultant: yes; from the overall verdict |
 | Bone stress, cartilage and meniscus | 15 | Orthopaedic clearance obtained (HIGH RISK sites only) | Consultant: yes; from the overall verdict |
 
+## Phased programmes (OUT-04)
+
+Each Phased Programme sheet, one phase per "Phase n" row; its Exit Criteria split on ";" into the lines the treating physio marks. A line naming acceptable pain shows the latest session pain beside it (decision 4). The Bone Stress workbook has no phased programme.
+
+| Workbook | Phase | Exit criteria | Pain hint on |
+| --- | --- | --- | --- |
+| Shoulder | 0: Screen & Settle | Night pain reducing; pain-free range established; the patient understands the plan and the timeline | None |
+| Shoulder | 1: Restore Motion & Activate | Full or near-full available range; loading into acceptable pain (<=5/10 settling within 24 h); scapular control established | loading into acceptable pain (<=5/10 settling within 24 h) |
+| Shoulder | 2: Build Capacity | Strength LSI >=80%; scapular control maintained under load and at fatigue; full available range under load | None |
+| Shoulder | 3: Functional & Overhead Loading | Full overhead loading tolerated; plyometric progression completed without symptom escalation | None |
+| Shoulder | 4: Sport / Occupation-Specific & Discharge | Symmetrical range and strength; control at speed and load; no apprehension in sport positions; psychological readiness | None |
+| Elbow | 0: Screen & Settle | Pain settling; range maintained or improving; the patient understands the plan and the timeline | None |
+| Elbow | 1: Restore Motion & Activate | Functional range achieved or improving; loading into acceptable pain (<=5/10 settling within 24 h); grip improving | loading into acceptable pain (<=5/10 settling within 24 h) |
+| Elbow | 2: Build Capacity | Grip LSI >=80%; full available range under load; resisted testing tolerable | None |
+| Elbow | 3: Energy Storage & Power | Plyometric progression completed without symptom escalation; full loading tolerated | None |
+| Elbow | 4: Sport / Occupation-Specific & Discharge | Grip and strength LSI >=90%; full pain-free range; sport or work progression completed; no apprehension | None |
+| Forearm and wrist | 0: Screen & Protect | Fracture excluded or protected; oedema controlled; uninvolved joints moving freely | None |
+| Forearm and wrist | 1: Restore Motion & Activate | Functional range achieved or improving; loading into acceptable pain; grip improving | loading into acceptable pain |
+| Forearm and wrist | 2: Build Capacity | Grip LSI >=80%; full available range under load; resisted testing tolerable | None |
+| Forearm and wrist | 3: Load & Weight-Bearing Progression | Full weight bearing tolerated where required; loaded extension pain-free; grip endurance symmetrical | None |
+| Forearm and wrist | 4: Sport / Occupation-Specific & Discharge | Grip and pinch LSI >=90%; full pain-free range; task progression completed; protective strategy in place | None |
+| Hip and groin | 0: Screen & Settle | Serious pathology excluded; irritability settling; the patient understands the diagnosis, the plan and the timeline | None |
+| Hip and groin | 1: Restore Motion & Activate | Pain-free or acceptable-pain loading established; lumbopelvic control demonstrated; gait quality improving | Pain-free or acceptable-pain loading established |
+| Hip and groin | 2: Build Capacity | Strength LSI >=80%; adduction:abduction ratio restored; controlled single-leg loading without pelvic drop | None |
+| Hip and groin | 3: Power, Impact & Change of Direction | Impact and running progression completed without symptom escalation; no pelvic drop or dynamic valgus on landing | None |
+| Hip and groin | 4: Sport / Function-Specific & Discharge | Strength LSI >=90%; adductor squeeze symmetrical; sport or work progression completed; confidence restored | None |
+| Knee | 0: Screen & Protect | Effusion controlled; full passive extension achieved or progressing; straight leg raise without lag | None |
+| Knee | 1: Restore & Activate | Full or near-full range; pain <=5/10 on loading settling within 24 h; no extension lag | pain <=5/10 on loading settling within 24 h |
+| Knee | 2: Build Capacity | Strength LSI >=80%; controlled single-leg squat and step-down without valgus; pain-free daily tasks | None |
+| Knee | 3: Energy Storage & Power | Hop symmetry >=90%; no dynamic valgus on landing; running progression completed without symptom escalation | None |
+| Knee | 4: Sport & Discharge | Quadriceps and hamstring LSI >=90%; hop battery >=90%; no dynamic valgus; sport progression completed; psychological readiness demonstrated | None |
+| Foot and ankle | 0: Screen & Protect | Fracture excluded; swelling controlled; weight bearing progressing; the patient understands the plan | None |
+| Foot and ankle | 1: Restore Range & Activate | Full or near-full dorsiflexion restored; loading into acceptable pain; single-leg stance achieved | loading into acceptable pain |
+| Foot and ankle | 2: Build Capacity | Single-leg heel raise repetitions approaching 25 and symmetrical; balance progressed to unstable surface; full range under load | None |
+| Foot and ankle | 3: Energy Storage & Impact | Hop symmetry >=90%; landing controlled without collapse; running progression completed without symptom escalation | None |
+| Foot and ankle | 4: Sport / Occupation-Specific & Discharge | Strength and hop symmetry >=90%; full dorsiflexion; balance restored; sport progression completed; external support in place | None |
+| Cervical spine | 0: Screen & Settle | Serious pathology excluded; irritability settling; the patient understands the plan and that movement is safe | None |
+| Cervical spine | 1: Restore Motion & Activate Control | Range restored or improving; craniocervical flexion progressing without substitution; irritability reduced | None |
+| Cervical spine | 2: Build Endurance & Capacity | Endurance approaching normative values; sustained postures tolerated; NDI improving | None |
+| Cervical spine | 3: Sensorimotor & Functional Integration | Joint position error normalised; balance restored; functional tasks tolerated without symptom escalation | None |
+| Cervical spine | 4: Work, Sport & Discharge | Full work and sport demands met; self-management plan in place; PSFS goals achieved | None |
+| Lumbar spine and SIJ | 0: Screen & Settle | Serious pathology excluded; the patient understands the plan, the timeline and what to watch for | None |
+| Lumbar spine and SIJ | 1: Restore Movement & Confidence | Daily function improving; moving with less guarding; back at work or on a return plan | None |
+| Lumbar spine and SIJ | 2: Build Capacity | Meaningful strength and endurance gains; bending and lifting without fear; full or near-full work duties | None |
+| Lumbar spine and SIJ | 3: Load & Function | Occupational or sporting loading demands met without symptom escalation | None |
+| Lumbar spine and SIJ | 4: Maintain & Self-Manage | Independent self-management with a written flare plan; exercise habit established | None |
+
 ## Diagnosis categories (CLN-06)
 
 44 categories from `packages/db/src/knowledge/diagnosis-categories.json` (SHA-256 a0ea48f0fe8a), the client's "Physiotherapeutic diagnosis" list word for word; 0 of 345 conditions mapped to one (the client’s mapping arrives with SET-12; until then the clinician picks the category in Assessment).

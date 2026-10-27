@@ -234,7 +234,10 @@ export interface ClearanceRecord {
   signedAt: Date;
 }
 
-/** The episode's signed clearances. */
+/**
+ * The episode's signed clearances, in their order: they are signed in order (the guard holds it),
+ * and signing times can tie within one transaction.
+ */
 export function clearancesOf(db: DbOrTransaction, episodeId: string): Promise<ClearanceRecord[]> {
   return db
     .select({
@@ -245,7 +248,7 @@ export function clearancesOf(db: DbOrTransaction, episodeId: string): Promise<Cl
     })
     .from(clearance)
     .where(eq(clearance.episodeId, episodeId))
-    .orderBy(asc(clearance.signedAt));
+    .orderBy(asc(clearance.status));
 }
 
 /** Signs one clearance as the caller, keeping each criterion as it stands. */

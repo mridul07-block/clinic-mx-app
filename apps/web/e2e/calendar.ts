@@ -223,6 +223,9 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
     await tx.execute(sql`delete from readiness_recording where recorded_by in ${physioIds}`);
     await tx.execute(sql`delete from readiness_mark where marked_by in ${physioIds}`);
     await tx.execute(sql`delete from clearance where signed_by in ${physioIds}`);
+    // Phase marks and moves they made (OUT-04).
+    await tx.execute(sql`delete from phase_mark where marked_by in ${physioIds}`);
+    await tx.execute(sql`delete from phase_move where moved_by in ${physioIds}`);
     const consultations = sql`(select id from consultation where physio_id in ${physioIds})`;
     // The patient's choices on their plans (BIL-02), with what "I'll think about it" raised.
     const plans = sql`(select id from plan_of_care where consultation_id in ${consultations})`;

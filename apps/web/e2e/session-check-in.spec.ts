@@ -15,7 +15,7 @@ import { exclusively, signIn, signInWithCode, temporaryDesk, temporaryWithCode }
 // Part B consent (BIL-03) payment alone gates.
 // SES-02 done when: the physio who starts the session sees the summary card of its episode, from
 // the signed plan with no AI sheet. Decisions (user, 25 October 2026): a session screen opened by
-// Start session and Open session; the phase line waits for OUT-04 (DECISION SES-02); only the
+// Start session and Open session; the phase line (OUT-04) says "not set up yet" without a region; only the
 // appointment's physio opens it, the Super Admin reads it.
 // SES-03 done when: the physio writes the note on the phone and Close session signs it, completes
 // the visit and uses a package session. Decisions (user, 26 October 2026): pain at rest, during

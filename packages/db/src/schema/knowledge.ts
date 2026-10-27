@@ -327,6 +327,61 @@ export const kbReadinessCriterion = pgTable(
   ],
 ).enableRLS();
 
+/**
+ * A phase of a region's phased programme (OUT-04 with SET-09): a "Phase n" row of the workbook's
+ * Phased Programme sheet, word for word. Numbered from 0.
+ */
+export const kbPhase = pgTable(
+  'kb_phase',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    region: kbRegion('region').notNull(),
+    number: integer('number').notNull(),
+    name: text('name').notNull(),
+    timing: text('timing').notNull(),
+    goal: text('goal').notNull(),
+    content: text('content').notNull(),
+    markers: text('markers').notNull(),
+    rowNumber: integer('row_number').notNull(),
+  },
+  (table) => [
+    unique('kb_phase_version_region_number').on(table.kbVersionId, table.region, table.number),
+    check('kb_phase_number', sql`${table.number} >= 0`),
+  ],
+).enableRLS();
+
+/** An exit criterion of a phase (OUT-04): one line of the phase's Exit Criteria, word for word. */
+export const kbPhaseCriterion = pgTable(
+  'kb_phase_criterion',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    region: kbRegion('region').notNull(),
+    phase: integer('phase').notNull(),
+    position: integer('position').notNull(),
+    /** `<region>.phase<n>.<slug>`. */
+    key: text('key').notNull(),
+    text: text('text').notNull(),
+    /** Names acceptable pain on loading: the stepper shows the latest pain beside it (decision 4). */
+    namesPainLimit: boolean('names_pain_limit').notNull(),
+    rowNumber: integer('row_number').notNull(),
+  },
+  (table) => [
+    unique('kb_phase_criterion_version_key').on(table.kbVersionId, table.key),
+    check('kb_phase_criterion_key', sql`${table.key} ~ '^[a-z_]+[.]phase[0-9]+[.][a-z0-9_]+$'`),
+    foreignKey({
+      name: 'kb_phase_criterion_phase_fk',
+      columns: [table.kbVersionId, table.region, table.phase],
+      foreignColumns: [kbPhase.kbVersionId, kbPhase.region, kbPhase.number],
+    }),
+  ],
+).enableRLS();
+
 /** A row of a workbook's Special Tests sheet (CLN-05), word for word. */
 export const kbSpecialTest = pgTable(
   'kb_special_test',

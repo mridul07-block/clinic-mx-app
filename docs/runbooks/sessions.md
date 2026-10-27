@@ -58,7 +58,8 @@ Source: PRD J5.2 ("The treating physio sees a summary card from the signed plan;
 The summary card of the appointment's own episode, built by `episodeSummary` in `apps/web/modules/patients/record.ts` (shared with the patient record, CLN-12):
 
 1. open red flag alerts and precautions first
-2. the episode, then "Phase: not set up yet" (DECISION SES-02; the phase stepper, OUT-04, replaces it)
+2. the episode, then its phase ("Phase 1 of 4: Restore & Activate", OUT-04; "Phase: not set up yet"
+   before the consultation names a region, "Phase: this workbook has no phased programme" for Bone Stress)
 3. the signed diagnosis, the plan's goals, frequency, review, treating physio, interventions and home programme
 4. the last signed note and the next visit
 
@@ -566,3 +567,63 @@ discharge checks the tick at that moment and stores who signed). Decisions (user
 **Negative check:** drop the consultant and Treats patients ticks from
 `internal.episode_discharge_guard`, and the database test fails ("refused to a physio without the
 Consultant tick").
+
+## Phase stepper (OUT-04, with SET-09)
+
+PRD J5.11 and M10; Frontend Specification "Phase stepper" (Progress tab) and "Stepper (with locked
+steps and a reason)". Decisions (user, 27 October 2026):
+
+- **Phases and exit criteria are the workbooks'.** Each region's Phased Programme sheet is imported
+  (SET-09): Phase 0 to 4 with name, timing, goal, content and markers, and each phase's Exit
+  Criteria split on ";" into lines, word for word. The Bone Stress workbook has none (DECISION
+  OUT-04): its episodes say "This workbook has no phased programme."
+- **The treating physio marks each line** of the current phase Met or Not yet; nothing is judged
+  from readings. The next phase unlocks only when every line's latest mark since the phase was
+  entered is Met; then the treating physio moves the patient on one phase.
+- **Phase 0 first.** An episode is in Phase 0 until it is moved. Anyone with the Consultant and
+  Treats patients ticks moves it to any other phase, either way, with a written reason (1 to 1,000
+  characters). Phases passed over that way show as Skipped; a phase entered again starts unmarked.
+- **Acceptable exercise pain (DECISION #4)** is the setting `clinical.acceptable_exercise_pain`,
+  a placeholder of 5/10 until the client chooses 4/10 (SOP) or 5/10 (workbooks). Beside a line
+  naming acceptable pain on loading (six lines, all Phase 1) the stepper shows the newest signed
+  session's pain during activity against it; the physio still marks the line.
+
+Who and when:
+
+- Only while the episode is Active or Under review. The treating physio is the newest plan
+  version's. The episode keeps the knowledge version and region of its first mark or move; before
+  that it follows the newest version holding phases for the consultation's region.
+- Clinical readers read the stepper at any centre (the Progress tab); the desk reads nothing;
+  Velyx support never writes. Marks and moves are appended, never changed, and audited.
+- The database holds the same rules (`internal.phase_guard`): it stamps who and when, refuses a
+  mark by anyone but the treating physio or on a line outside the current phase, a move from a
+  phase the episode has left, a skip without an override, an override without both ticks or a
+  reason, a phase outside the programme, a second programme, and moving on while a line is not
+  Met.
+- One episode's marks and moves are serialised: the guard takes a lock on the episode until the
+  write commits, and stamps with the clock rather than the transaction's start, so concurrent moves
+  cannot both leave the same phase. An episode without a plan has no treating physio, so nobody
+  marks or moves on.
+
+| Piece | Where |
+| --- | --- |
+| Import | `packages/db/src/knowledge/phases.ts` (`readPhases`), `workbook.ts` (`PHASED_SHEET`), the import report's "Phased programmes" |
+| Tables | `kb_phase`, `kb_phase_criterion`, `phase_mark`, `phase_move` (`supabase/migrations/20261027150045_phases.sql`, rules `20261027150122_phases_rules.sql`) |
+| Rules | `packages/schemas/src/phases.ts` (`phaseStepper`, `progressRefusal`, `phaseLine`, `painLimitHint`) |
+| Reads and writes | `packages/db/src/phases.ts`; `apps/web/modules/phases/phases.ts` (`phasesView`, `episodePhaseLine`, `markPhaseCriterion`, `progressPhase`, `overridePhase`) |
+| Screen | `patients/[patientId]/phase-stepper.tsx` on the Progress tab; the session summary card's phase line |
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `packages/schemas/src/phases.test.ts` | Phase 0 first with the unmet lines in words; latest marks; marks only since the phase was entered; skipped and last phases; the override reason; the pain hint |
+| `packages/db/src/knowledge/build.test.ts` ("the phased programmes") | 40 phases in eight regions, none for Bone Stress; lines word for word; the six pain lines; a bad header or phase row stops the import |
+| `apps/web/modules/phases/phases.test.ts` | who sees the marks and the override; no region or no phases; the treating physio only; moving on only when all are Met; the override's tick, reason, phase and episode status |
+| `packages/db/src/integration/phases.integration.test.ts` | the guard and row level security: marks and the move by the treating physio, the episode locked for another connection meanwhile, refusals for an episode without a plan, a line Not yet, another phase, another physio, the desk, an untreated episode, a skip, a stale move, a physio's override, no reason, an unknown phase; never changed; stamped by the database |
+| `apps/web/e2e/phases.spec.ts` | 360 px and desktop: Phase 1 locked with Phase 0's lines in words; the treating physio marks three lines and moves on; the pain hint; a consultant overrides to Phase 3 with a reason (Phase 2 Skipped, the history); the session card reads "Phase 3 of 4: Energy Storage & Power" |
+
+**Negative checks:** drop the "every exit criterion is Met" clause from `internal.phase_guard`, and
+the database test fails ("a line Not yet"); drop the lock, and it fails ("the episode is locked for
+other writers"); compare the treating physio without `coalesce`, and it fails ("no treating
+physio").

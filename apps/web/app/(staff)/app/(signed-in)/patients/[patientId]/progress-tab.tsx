@@ -5,6 +5,7 @@ import { LineChart } from '../../../../../../components/charts/line-chart';
 import { Tag } from '../../../../../../components/tag';
 import type { ProgressView } from '../../../../../../modules/progress/progress';
 import { EpisodeHeading } from './clinical-record';
+import { PhaseStepper } from './phase-stepper';
 
 const panelClass = 'flex flex-col gap-3 rounded-panel border border-line bg-surface p-4';
 const percent = (fraction: number) => `${String(Math.round(fraction * 100))}%`;
@@ -110,11 +111,12 @@ function LsiPanel({ bullets }: { bullets: LsiBullet[] }) {
 }
 
 /**
- * The Progress tab (OUT-03, Frontend Specification "Progress tab"): the current episode's pain
- * during activity as a line and each strength or hop LSI as a bullet graph, each with its table.
- * Questionnaire lines, the week strip and the phase stepper join with OUT-02, PAT-01 and OUT-04.
+ * The Progress tab (OUT-03, Frontend Specification "Progress tab"): the phase stepper (OUT-04),
+ * then the current episode's pain during activity as a line and each strength or hop LSI as a
+ * bullet graph, each with its table. Questionnaire lines and the week strip join with OUT-02 and
+ * PAT-01.
  */
-export function ProgressTab({ view }: { view: ProgressView }) {
+export function ProgressTab({ view, patientId }: { view: ProgressView; patientId: string }) {
   if (!view.episode) {
     return <p className="text-ink-muted">No episodes yet. Booking a consultation opens one.</p>;
   }
@@ -123,6 +125,9 @@ export function ProgressTab({ view }: { view: ProgressView }) {
       <div className={panelClass}>
         <EpisodeHeading episode={view.episode} />
       </div>
+      {view.phases ? (
+        <PhaseStepper view={view.phases} ids={{ episodeId: view.episode.id, patientId }} />
+      ) : null}
       <PainPanel points={view.pain} sentence={view.painSentence} />
       <LsiPanel bullets={view.bullets} />
     </div>

@@ -60,6 +60,10 @@ vi.mock('../settings/settings', () => ({
   getSetting: (key: string) =>
     key in settings ? Promise.resolve(settings[key]) : Promise.reject(new Error(key)),
 }));
+// OUT-04: the card's phase line comes from the phase stepper (its own tests).
+vi.mock('../phases/phases', () => ({
+  episodePhaseLine: () => Promise.resolve('Phase 1 of 4: Restore & Activate'),
+}));
 vi.mock('../access/staff-db', () => ({
   asStaffViewing: (_actor: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
 }));
@@ -162,6 +166,7 @@ describe('loadSession', () => {
     const screen = await loadSession(staff(), appointmentId);
     expect(screen?.readOnly).toBe(false);
     expect(screen?.session.label).toBe('Session 3 of 12');
+    expect(screen?.phase).toBe('Phase 1 of 4: Restore & Activate');
     expect(db.episodeRecord).toHaveBeenCalledWith(fakeTx, episodeId);
     expect(db.episodePlan).toHaveBeenCalledWith(fakeTx, episodeId);
     expect(screen?.summary).toMatchObject({

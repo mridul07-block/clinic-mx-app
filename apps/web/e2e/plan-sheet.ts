@@ -161,3 +161,13 @@ export async function activePlan(consultationId: string): Promise<string> {
     return row.episodeId;
   });
 }
+
+/** Makes another physio the episode's treating physio, on every plan version (OUT-04). */
+export async function treatedBy(episodeId: string, physioId: string): Promise<void> {
+  await withActor(db(), systemActor('tests'), async (tx) => {
+    await tx
+      .update(planOfCare)
+      .set({ treatingPhysioId: physioId })
+      .where(eq(planOfCare.episodeId, episodeId));
+  });
+}

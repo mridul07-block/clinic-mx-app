@@ -382,3 +382,58 @@ describe('the readiness criteria', () => {
     ).toBe(true);
   });
 });
+
+// OUT-04 with SET-09 (user decisions 27 October 2026): each Phased Programme sheet's phases, each
+// Exit Criteria cell split on ";" into lines word for word; none for the Bone Stress workbook.
+describe('the phased programmes', () => {
+  it('reads Phase 0 to 4 of eight regions, each exit line word for word', () => {
+    const { phases, phaseCriteria } = buildObjective(workbooks);
+    expect(phases).toHaveLength(40);
+    expect(new Set(phases.map((p) => p.region)).size).toBe(8);
+    expect(phases.some((p) => p.region === 'bone_stress')).toBe(false);
+    const knee = phases.filter((p) => p.region === 'knee');
+    expect(knee.map((p) => [p.number, p.name])).toEqual([
+      [0, 'Screen & Protect'],
+      [1, 'Restore & Activate'],
+      [2, 'Build Capacity'],
+      [3, 'Energy Storage & Power'],
+      [4, 'Sport & Discharge'],
+    ]);
+    expect(
+      phaseCriteria.filter((c) => c.region === 'knee' && c.phase === 1).map((c) => c.text),
+    ).toEqual([
+      'Full or near-full range',
+      'pain <=5/10 on loading settling within 24 h',
+      'no extension lag',
+    ]);
+    expect(new Set(phaseCriteria.map((c) => c.key)).size).toBe(phaseCriteria.length);
+  });
+
+  it('flags the lines naming acceptable pain on loading for the decision 4 hint', () => {
+    const { phaseCriteria } = buildObjective(workbooks);
+    expect(
+      phaseCriteria.filter((c) => c.namesPainLimit).map((c) => [c.region, c.phase, c.text]),
+    ).toEqual([
+      ['shoulder', 1, 'loading into acceptable pain (<=5/10 settling within 24 h)'],
+      ['elbow', 1, 'loading into acceptable pain (<=5/10 settling within 24 h)'],
+      ['forearm_wrist', 1, 'loading into acceptable pain'],
+      ['hip', 1, 'Pain-free or acceptable-pain loading established'],
+      ['knee', 1, 'pain <=5/10 on loading settling within 24 h'],
+      ['foot_ankle', 1, 'loading into acceptable pain'],
+    ]);
+  });
+
+  it('stops on a header or phase row it does not know', () => {
+    const books = copy();
+    const knee = books.find((w) => w.region === 'knee');
+    const sheet = knee?.phased;
+    if (!sheet?.rows[2]) throw new Error('no knee phased programme');
+    sheet.rows[2].cells[0] = 'Phase 2a';
+    expect(problemsOf(() => buildObjective(books))).toEqual([
+      '5 Knee_Assessment_and_Management_Programme.xlsx, Phased Programme row 6: "Phase 2a" is not Phase 2.',
+    ]);
+    sheet.rows[2].cells[0] = 'Phase 2';
+    sheet.header[6] = 'Exit';
+    expect(problemsOf(() => buildObjective(books))[0]).toContain('is not the one read');
+  });
+});
