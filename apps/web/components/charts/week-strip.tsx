@@ -1,8 +1,8 @@
 import { ChartFrame } from './chart-frame';
 
 /**
- * A 7 day week strip (Frontend Specification section 8: exercise adherence, for the physio and
- * the patient): one mark a day, filled when done, an outline when missed, faint for a day still
+ * A 7 day week strip (Frontend Specification sections 5 and 8: exercise adherence, for the physio
+ * and the patient): seven squares, one a day, filled when done, an outline when missed, faint for a day still
  * to come; each day named in words, never by colour alone.
  */
 
@@ -51,7 +51,7 @@ export function WeekStrip({
               data-testid="week-day"
             >
               <span
-                className={`size-7 rounded-full border-2 ${mark[day.state]}`}
+                className={`size-7 rounded-control border-2 ${mark[day.state]}`}
                 aria-hidden="true"
               />
               <span className="text-xs text-ink-muted">{day.day}</span>
@@ -65,7 +65,7 @@ export function WeekStrip({
         >
           {weekDayStates.map((state) => (
             <li key={state} className="flex items-center gap-1">
-              <span className={`size-3 rounded-full border-2 ${mark[state]}`} />
+              <span className={`size-3 rounded-[2px] border-2 ${mark[state]}`} />
               {weekDayStateLabels[state]}
             </li>
           ))}

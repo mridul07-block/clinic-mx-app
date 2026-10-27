@@ -21,6 +21,8 @@ test('a manager sets a physio’s hours and decides their leave requests', async
   try {
     // The manager sets Monday hours from today; a time off the 15 minute grid is refused.
     await signInWithCode(page, manager.email, manager.secret);
+    // Managers land on their dashboard (DSH-03); the rosters are a home link.
+    await page.goto('/app');
     await page.getByRole('link', { name: 'Team' }).click();
     await page.getByTestId('team-member').filter({ hasText: physio.name }).click();
     await expect(page.getByRole('heading', { name: physio.name })).toBeVisible();

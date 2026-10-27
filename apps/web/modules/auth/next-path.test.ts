@@ -48,7 +48,7 @@ describe('publicStaffPath', () => {
 describe('homePath', () => {
   it('lands the Front Desk on Today, and anyone asking for a page there', () => {
     expect(homePath('front_desk')).toBe('/app/today');
-    expect(homePath('centre_manager')).toBe('/app');
+    expect(homePath('centre_manager')).toBe('/app/dashboard/alerts');
     expect(homePath('physiotherapist')).toBe('/app/my-patients');
     expect(safeNextPath(null, homePath('front_desk'))).toBe('/app/today');
     expect(safeNextPath('https://elsewhere.example', homePath('front_desk'))).toBe('/app/today');

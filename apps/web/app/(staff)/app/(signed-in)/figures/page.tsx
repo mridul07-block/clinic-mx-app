@@ -12,8 +12,8 @@ export const metadata: Metadata = { title: 'Figures · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
 const statusClass: Record<KpiStatus, string> = {
-  on_target: 'text-done',
-  off_target: 'text-danger',
+  on_target: 'text-active',
+  off_target: 'text-waiting',
   no_data: 'text-ink-muted',
 };
 

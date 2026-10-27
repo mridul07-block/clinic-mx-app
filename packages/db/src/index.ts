@@ -554,3 +554,18 @@ export {
   type OpeningEntryRow,
 } from './opening-entries';
 export { kpiDaily } from './kpis';
+export {
+  appointmentsPerDay,
+  arrivalsToday,
+  bookingChannels,
+  busyHours,
+  kpiDiagnosisOutcomes,
+  kpiFunnel,
+  managerAlertCounts,
+  paymentPendingCounts,
+  staffNames,
+  teamDaily,
+  utilisationOn,
+  type DiagnosisOutcomeRow,
+  type TeamDailyRow,
+} from './dashboards';

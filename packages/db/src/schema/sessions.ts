@@ -2,6 +2,7 @@ import { sessionStatuses } from '@clinic-mx/schemas';
 import { sql } from 'drizzle-orm';
 import {
   check,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -87,6 +88,10 @@ export const treatmentSession = pgTable(
       sql`${table.painRest} between 0 and 10 and ${table.painActivity} between 0 and 10 and ${table.painAfter} between 0 and 10`,
     ),
     check('session_number', sql`${table.number} >= 1`),
+    // An episode's signed sessions in order (DSH-03: the last one's pain for outcomes).
+    index('session_episode_signed_idx')
+      .on(table.episodeId, table.number)
+      .where(sql`${table.status} = 'signed'`),
     check(
       'session_adverse_event',
       sql`${table.adverseEvent} is null or length(trim(${table.adverseEvent})) between 1 and 2000`,
