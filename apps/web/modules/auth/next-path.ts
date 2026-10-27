@@ -25,13 +25,13 @@ export function safeNextPath(next: unknown, home = '/app'): string {
  * Where each role lands after signing in (Frontend Specification section 5: each role lands on
  * the screen that answers "what needs me now"). The Front Desk lands on Today (INT-01) and
  * physiotherapists on My patients today (CLN-01), Centre Managers on their dashboard's Alerts
- * (DSH-03), Finance on Collections (DSH-04); the other roles' landing screens come with their
- * tickets.
+ * (DSH-03), Finance on Collections (DSH-04) and the Super Admin on the Overview (DSH-05).
  */
 export function homePath(role: string): string {
   if (role === 'front_desk') return '/app/today';
   if (role === 'physiotherapist') return '/app/my-patients';
   if (role === 'centre_manager') return '/app/dashboard/alerts';
   if (role === 'finance') return '/app/finance/collections';
+  if (role === 'super_admin') return '/app/overview';
   return '/app';
 }

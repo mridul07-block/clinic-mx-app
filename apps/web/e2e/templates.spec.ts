@@ -21,6 +21,8 @@ test('the Super Admin views every template with its key, variables and version',
   });
   const admin = await temporaryWithCode('super_admin', []);
   await signInWithCode(page, admin.email, admin.secret);
+  // The Super Admin lands on the Overview (DSH-05); the templates are a home link.
+  await page.goto('/app');
   await page.getByRole('link', { name: 'WhatsApp templates' }).click();
   await expect(page.getByRole('heading', { name: 'WhatsApp templates', level: 1 })).toBeVisible();
   await expect(page.getByTestId('message-template')).toHaveCount(16);

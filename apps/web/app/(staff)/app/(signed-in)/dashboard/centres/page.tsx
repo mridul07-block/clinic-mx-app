@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { BarChart } from '../../../../../../components/charts/bar-chart';
 import type { Tone } from '../../../../../../components/charts/chart-scale';
 import { Heatmap } from '../../../../../../components/charts/heatmap';
+import { KpiPanel } from '../../../../../../components/dashboard/kpi-panel';
 import { HorizontalBars } from '../../../../../../components/charts/horizontal-bars';
 import { requireStaff } from '../../../../../../modules/auth/session';
 import { centresDashboard } from '../../../../../../modules/reporting/manager';
@@ -84,18 +85,7 @@ export default async function DashboardCentresPage() {
         <h2 id="centres-week" className="font-semibold text-ink">
           Last 7 days
         </h2>
-        <dl
-          className="grid grid-cols-2 gap-px overflow-hidden rounded-panel border border-line bg-line md:grid-cols-4"
-          data-testid="kpi-panel"
-        >
-          {view.cells.map((cell) => (
-            <div key={cell.key} className="flex flex-col gap-1 bg-surface p-4" data-kpi={cell.key}>
-              <dt className="text-sm text-ink-muted">{cell.label}</dt>
-              <dd className="text-display font-semibold tabular-nums text-ink">{cell.value}</dd>
-              <dd className="text-xs text-ink-secondary">{cell.change}</dd>
-            </div>
-          ))}
-        </dl>
+        <KpiPanel cells={view.cells} />
       </section>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <BarChart
