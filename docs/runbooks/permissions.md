@@ -38,6 +38,8 @@ Rows the PRD summary does not have, added by the user's decision:
 
 - **`bookings.lift_self_booking_block`** (SCH-09, 23 October 2026): the Super Admin and Centre
   Managers let a blocked patient book themselves again. Front Desk, physios and Finance do not.
+- **`opening_entries.manage`** (SCH-13, 27 October 2026): the Super Admin alone enters and
+  corrects opening entries for patients already in treatment at launch.
 
 The same map can be read in the browser to hide what someone cannot use, but only the server
 decides.

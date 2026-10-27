@@ -184,6 +184,13 @@ export const settingDefinitions = {
     source: 'TAD section 9: reports bucket; at most 4 MB, the hosted request limit (INT-02)',
     description: 'Largest report photo or scan the front desk can add, in megabytes.',
   },
+  'launch.opening_entries_open': {
+    schema: z.boolean(),
+    source:
+      'PRD section 3 (phase 5) and section 10; user decision 27 October 2026 (SCH-13): open until the clinic closes them after go live',
+    description:
+      'Whether the Super Admin can still enter or correct opening entries for patients already in treatment.',
+  },
   'documents.summary_prints_category': {
     schema: z.boolean(),
     source: 'PRD decision 18, Blueprint decision 6: default off (user decision, 25 October 2026)',

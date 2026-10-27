@@ -12,9 +12,48 @@ import {
 } from 'drizzle-orm/pg-core';
 import { bill, payment } from './bills';
 import { episode } from './episodes';
-import { centre } from './identity';
+import { centre, staffUser } from './identity';
 import { patient } from './patients';
 import { packageType } from './prices';
+
+/**
+ * An opening entry (SCH-13): a patient already in treatment on launch day, entered by the Super
+ * Admin with their physio, the sessions left on their package and its expiry. Its episode is
+ * Active from the start, and the database makes its opening package (below) from it, kept in step
+ * with a correction until the package is first used.
+ */
+export const openingEntry = pgTable(
+  'opening_entry',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    patientId: uuid('patient_id')
+      .notNull()
+      .unique()
+      .references(() => patient.id),
+    episodeId: uuid('episode_id')
+      .notNull()
+      .unique()
+      .references(() => episode.id),
+    centreId: uuid('centre_id')
+      .notNull()
+      .references(() => centre.id),
+    physioId: uuid('physio_id')
+      .notNull()
+      .references(() => staffUser.id),
+    sessionsLeft: integer('sessions_left').notNull(),
+    /** The last IST day the package can be used. */
+    validUntil: date('valid_until').notNull(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => staffUser.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: uuid('updated_by')
+      .notNull()
+      .references(() => staffUser.id),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [check('opening_entry_sessions', sql`${table.sessionsLeft} between 1 and 100`)],
+).enableRLS();
 
 /**
  * A patient's package (BIL-08, TAD section 4, PRD J4.7): made by the database when the package's
@@ -22,7 +61,8 @@ import { packageType } from './prices';
  * date and its reschedule allowance; closing a treatment session uses one (SES-07). It holds no
  * amounts, so physios read it for the sessions left (decision 21 October 2026). Nobody signed in
  * writes one; undoing the payment cancels it while no session has been used. Its state (active,
- * used up, expired, cancelled) is worked out from the row (`packageState`).
+ * used up, expired, cancelled) is worked out from the row (`packageState`). An opening package
+ * (SCH-13) comes from an opening entry instead, with no type, bill or payment.
  */
 export const patientPackage = pgTable(
   'package',
@@ -37,16 +77,14 @@ export const patientPackage = pgTable(
     centreId: uuid('centre_id')
       .notNull()
       .references(() => centre.id),
-    packageTypeId: uuid('package_type_id')
-      .notNull()
-      .references(() => packageType.id),
-    billId: uuid('bill_id')
-      .notNull()
-      .references(() => bill.id),
+    packageTypeId: uuid('package_type_id').references(() => packageType.id),
+    billId: uuid('bill_id').references(() => bill.id),
     paymentId: uuid('payment_id')
-      .notNull()
       .unique()
       .references(() => payment.id),
+    openingEntryId: uuid('opening_entry_id')
+      .unique()
+      .references(() => openingEntry.id),
     /** The package type's name when it was bought, so reading it needs no price list. */
     name: text('name').notNull(),
     sessionsTotal: integer('sessions_total').notNull(),
@@ -69,6 +107,10 @@ export const patientPackage = pgTable(
       sql`${table.sessionsTotal} >= 1 and ${table.sessionsUsed} between 0 and ${table.sessionsTotal}`,
     ),
     check('package_reschedules', sql`${table.reschedulesLeft} >= 0`),
+    check(
+      'package_source',
+      sql`(${table.openingEntryId} is null) = (${table.billId} is not null and ${table.paymentId} is not null and ${table.packageTypeId} is not null)`,
+    ),
     check(
       'package_cancelled',
       sql`(${table.cancelledAt} is null) = (${table.cancelReason} is null)`,

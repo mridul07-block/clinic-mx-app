@@ -1,4 +1,10 @@
-import { episodesOf, guardiansOf, patientRecord, patientsOnPhone } from '@clinic-mx/db';
+import {
+  episodesOf,
+  guardiansOf,
+  openingEntryOf,
+  patientRecord,
+  patientsOnPhone,
+} from '@clinic-mx/db';
 import {
   accessScope,
   ageOn,
@@ -79,10 +85,12 @@ export default async function PatientPage({
       family: await patientsOnPhone(tx, patient.phone, patientId),
       guardians: await guardiansOf(tx, patientId),
       episodes: await episodesOf(tx, patientId),
+      // SCH-13: entered at launch while already in treatment.
+      opening: await openingEntryOf(tx, patientId),
     };
   });
   if (!found) notFound();
-  const { patient, family, guardians, episodes } = found;
+  const { patient, family, guardians, episodes, opening } = found;
   const age = patient.dateOfBirth ? ageOn(patient.dateOfBirth, istDate(new Date())) : null;
   const minor = needsGuardian(age, adultAge);
   const showGuardians = minor || age === null || guardians.length > 0;
@@ -162,6 +170,17 @@ export default async function PatientPage({
 
       {tab === 'overview' ? (
         <>
+          {opening ? (
+            <p
+              className="rounded-panel border border-line bg-surface p-4 text-ink-secondary"
+              data-testid="opening-entry-note"
+            >
+              In treatment before launch: an opening entry on{' '}
+              {formatIstDate(istDate(opening.createdAt))} with {opening.physioName} at{' '}
+              {opening.centreName}. Session numbers start again from launch; the opening package
+              holds the sessions left.
+            </p>
+          ) : null}
           {record ? (
             <SummaryCard
               patientId={patient.id}

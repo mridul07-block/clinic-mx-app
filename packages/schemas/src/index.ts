@@ -880,3 +880,12 @@ export {
   type StepperPhase,
   type StepState,
 } from './phases';
+export {
+  OPENING_PACKAGE_NAME,
+  OPENING_SESSIONS_MAX,
+  openingEntriesSwitchSchema,
+  openingEntryCorrectionSchema,
+  openingEntrySchema,
+  type OpeningEntryCorrection,
+  type OpeningEntryInput,
+} from './opening-entries';
