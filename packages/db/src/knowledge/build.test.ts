@@ -310,3 +310,75 @@ describe('the Objective’s measures and special tests', () => {
     );
   });
 });
+
+// OUT-08 (user decisions 27 October 2026): each workbook's readiness section, one criterion per
+// line, word for word.
+describe('the readiness criteria', () => {
+  const of = (region: string) =>
+    buildObjective(workbooks).readiness.filter((c) => c.region === region);
+
+  it('reads knee: the strength and hop measures by their rules, then the four yes or no lines', () => {
+    const knee = of('knee');
+    expect(knee.map((c) => [c.text, c.kind, c.rule.kind])).toEqual([
+      ['Quadriceps', 'measure', 'measure'],
+      ['Hamstrings', 'measure', 'measure'],
+      ['Hip abductors', 'measure', 'measure'],
+      ['Hip external rotators', 'measure', 'measure'],
+      ['Calf (heel-raise reps)', 'measure', 'measure'],
+      ['Single hop for distance', 'measure', 'measure'],
+      ['Triple hop for distance', 'measure', 'measure'],
+      ['Crossover hop for distance', 'measure', 'measure'],
+      ['6 m timed hop', 'measure', 'measure'],
+      ['No dynamic valgus on single-leg tasks and landing', 'check', 'yes'],
+      ['Sport-specific progression completed', 'check', 'yes'],
+      ['Psychological readiness demonstrated (e.g. ACL-RSI)', 'check', 'yes'],
+      ['Graded return plan with load monitoring in place', 'check', 'yes'],
+    ]);
+    expect(knee[0]?.measureKey).toBe('knee.lsi.quadriceps'); // gitleaks:allow
+  });
+
+  it('reads lumbar: the screen, targets, MCID with its direction, and the safety netting', () => {
+    const lumbar = of('lumbar_sij');
+    const rule = (text: string) => lumbar.find((c) => c.text === text)?.rule;
+    expect(rule('Red flags positive')).toEqual({ kind: 'none_positive' });
+    expect(rule('SITTING tolerance')).toEqual({ kind: 'target', target: 60 });
+    expect(rule('OSWESTRY DISABILITY INDEX')).toEqual({ kind: 'mcid', mcid: 10, better: 'lower' });
+    expect(rule('Patient-Specific Functional Scale')).toEqual({
+      kind: 'mcid',
+      mcid: 2,
+      better: 'higher',
+    });
+    expect(lumbar.at(-1)).toMatchObject({
+      text: 'WRITTEN cauda equina safety-netting advice given and documented?',
+      fromVerdict: true,
+      rule: { kind: 'yes' },
+    });
+  });
+
+  it('adds the yes or no rows only the overall verdict names, after the section', () => {
+    const bone = of('bone_stress');
+    expect(bone.filter((c) => c.fromVerdict).map((c) => c.rowNumber)).toEqual([12, 13, 14, 15]);
+    expect(bone.at(-1)?.section).toBe(
+      'ENTRY GATES — ALL MUST READ YES BEFORE IMPACT LOADING BEGINS',
+    );
+  });
+
+  it('gives every region criteria with unique keys, and stops on a line it does not know', () => {
+    const { readiness } = buildObjective(workbooks);
+    expect(new Set(readiness.map((c) => c.region)).size).toBe(9);
+    for (const region of new Set(readiness.map((c) => c.region))) {
+      const keys = readiness.filter((c) => c.region === region).map((c) => c.key);
+      expect(new Set(keys).size).toBe(keys.length);
+    }
+    const books = copy();
+    const knee = books.find((w) => w.region === 'knee');
+    const line = knee?.tracker.find((row) => row.cells[0]?.text === 'Hop tests passed');
+    if (!line?.cells[1]) throw new Error('no knee readiness line');
+    line.cells[1].formula = 'SUM(E20:E23)';
+    expect(
+      problemsOf(() => buildObjective(books)).some((p) =>
+        p.includes('the readiness line "Hop tests passed" matches nothing known'),
+      ),
+    ).toBe(true);
+  });
+});

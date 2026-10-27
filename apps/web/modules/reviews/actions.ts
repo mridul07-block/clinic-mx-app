@@ -4,6 +4,12 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { serviceContext } from '../access/staff-db';
+import {
+  markReadinessCheck,
+  overrideReadinessCriterion,
+  recordReadinessMeasure,
+  signReadinessClearance,
+} from './readiness';
 import { ReviewError, signFinalTest } from './services';
 
 /** What the final testing form shows after a post (OUT-07). */
@@ -47,4 +53,98 @@ export async function signFinalTestAction(
   }
   revalidatePath(`/app/episodes/${episodeId}/review`);
   return { signed: true };
+}
+
+/** What a readiness form shows after a post (OUT-08). */
+export interface ReadinessFormState {
+  error?: string;
+  done?: boolean;
+}
+
+const numberOrNull = (form: FormData, name: string) => {
+  const raw = text(form, name).trim();
+  if (raw === '') return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : Number.NaN;
+};
+
+/** Runs a readiness write; refusals and bad input become the form's message. */
+async function readinessWrite(
+  episodeId: string,
+  write: () => Promise<unknown>,
+): Promise<ReadinessFormState> {
+  try {
+    await write();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { error: error.issues[0]?.message ?? 'That could not be read.' };
+    }
+    if (error instanceof ReviewError || error instanceof ReadOnlyError) {
+      return { error: error.message };
+    }
+    if (error instanceof NotAllowedError) {
+      return { error: 'Only consultants record readiness and sign clearances.' };
+    }
+    throw error;
+  }
+  revalidatePath(`/app/episodes/${episodeId}/review`);
+  return { done: true };
+}
+
+/** A yes or no criterion's Met, Not met or Not assessed. */
+export async function markReadinessCheckAction(
+  _state: ReadinessFormState,
+  form: FormData,
+): Promise<ReadinessFormState> {
+  const episodeId = text(form, 'episodeId');
+  return readinessWrite(episodeId, async () =>
+    markReadinessCheck(await serviceContext(), {
+      episodeId,
+      criterionKey: text(form, 'criterionKey'),
+      result: text(form, 'result'),
+    }),
+  );
+}
+
+/** "Save override": the written reason for a criterion not Met. */
+export async function overrideReadinessAction(
+  _state: ReadinessFormState,
+  form: FormData,
+): Promise<ReadinessFormState> {
+  const episodeId = text(form, 'episodeId');
+  return readinessWrite(episodeId, async () =>
+    overrideReadinessCriterion(await serviceContext(), {
+      episodeId,
+      criterionKey: text(form, 'criterionKey'),
+      reason: text(form, 'reason'),
+    }),
+  );
+}
+
+/** "Save reading": a reading for a measured criterion never measured. */
+export async function recordReadinessReadingAction(
+  _state: ReadinessFormState,
+  form: FormData,
+): Promise<ReadinessFormState> {
+  const episodeId = text(form, 'episodeId');
+  return readinessWrite(episodeId, async () =>
+    recordReadinessMeasure(await serviceContext(), {
+      episodeId,
+      criterionKey: text(form, 'criterionKey'),
+      involved: numberOrNull(form, 'involved'),
+      uninvolved: numberOrNull(form, 'uninvolved'),
+      value: numberOrNull(form, 'value'),
+    }),
+  );
+}
+
+/** "Sign Rehabilitation complete" and the two after it. */
+export async function signClearanceAction(
+  _state: ReadinessFormState,
+  form: FormData,
+): Promise<ReadinessFormState> {
+  const episodeId = text(form, 'episodeId');
+  return readinessWrite(episodeId, async () =>
+    signReadinessClearance(await serviceContext(), { episodeId, status: text(form, 'status') }),
+  );
 }

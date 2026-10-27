@@ -7,6 +7,7 @@ import {
   kbMeasure,
   kbModality,
   kbQuestionnaire,
+  kbReadinessCriterion,
   kbRedFlagPresentation,
   kbRedFlagRule,
   kbSpecialTest,
@@ -41,7 +42,7 @@ const sameSource = (a: KnowledgeSource, b: KnowledgeSource) =>
 /**
  * Records the built knowledge base as the next version, a draft, inside the caller's transaction
  * and audited as `system:kb-import`: conditions, listings, red flag rules and presentations, the
- * Objective's measures and special tests (CLN-05), and the diagnosis categories with each
+ * Objective's measures, special tests (CLN-05) and readiness criteria (OUT-08), and the diagnosis categories with each
  * condition's mapped category (CLN-06), and the plan catalog's modalities and questionnaires
  * (CLN-07). Refuses when the latest version came from the same files (the workbooks, the rules,
  * categories and plan catalog files).
@@ -126,6 +127,9 @@ export async function applyKnowledge(
   await tx
     .insert(kbSpecialTest)
     .values(objective.specialTests.map((test) => ({ ...test, kbVersionId: version.id })));
+  await tx
+    .insert(kbReadinessCriterion)
+    .values(objective.readiness.map((criterion) => ({ ...criterion, kbVersionId: version.id })));
   await tx
     .insert(kbModality)
     .values(planCatalog.modalities.map((modality) => ({ ...modality, kbVersionId: version.id })));

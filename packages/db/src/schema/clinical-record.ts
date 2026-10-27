@@ -1,4 +1,12 @@
-import { interventionKinds, irritabilities, specialTestResults, stages } from '@clinic-mx/schemas';
+import {
+  clearanceStatuses,
+  criterionResults,
+  interventionKinds,
+  irritabilities,
+  specialTestResults,
+  stages,
+  type ClearanceCriterion,
+} from '@clinic-mx/schemas';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -19,7 +27,7 @@ import {
 import { consultation } from './consultations';
 import { episode } from './episodes';
 import { staffUser } from './identity';
-import { kbCondition, kbVersion } from './knowledge';
+import { kbCondition, kbRegion, kbVersion } from './knowledge';
 // Circular with ./sessions, which is safe: references are read lazily.
 import { treatmentSession } from './sessions';
 
@@ -52,6 +60,8 @@ export const measure = pgTable(
     consultationId: uuid('consultation_id').references(() => consultation.id),
     sessionId: uuid('session_id').references(() => treatmentSession.id),
     finalTestId: uuid('final_test_id').references(() => finalTest.id),
+    /** Or a reading taken on the readiness panel (OUT-08). */
+    readinessRecordingId: uuid('readiness_recording_id').references(() => readinessRecording.id),
     kbVersionId: uuid('kb_version_id')
       .notNull()
       .references(() => kbVersion.id),
@@ -70,9 +80,10 @@ export const measure = pgTable(
     index('measure_episode_idx').on(table.episodeId, table.measureKey),
     index('measure_session_idx').on(table.sessionId),
     index('measure_final_test_idx').on(table.finalTestId),
+    index('measure_readiness_recording_idx').on(table.readinessRecordingId),
     check(
       'measure_taken_in',
-      sql`num_nonnulls(${table.consultationId}, ${table.sessionId}, ${table.finalTestId}) = 1`,
+      sql`num_nonnulls(${table.consultationId}, ${table.sessionId}, ${table.finalTestId}, ${table.readinessRecordingId}) = 1`,
     ),
   ],
 ).enableRLS();
@@ -204,6 +215,91 @@ export const finalTest = pgTable('final_test', {
   signedAt: timestamp('signed_at', { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
+
+export const readinessMarkKind = pgEnum('readiness_mark_kind', ['check', 'override']);
+export const criterionResult = pgEnum('criterion_result', criterionResults);
+export const clearanceStatus = pgEnum('clearance_status', clearanceStatuses);
+
+/**
+ * A reading taken on the readiness panel (OUT-08) for a measured criterion the episode never
+ * measured: its `measure` rows point here. Written by a consultant; never changed.
+ */
+export const readinessRecording = pgTable('readiness_recording', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  episodeId: uuid('episode_id')
+    .notNull()
+    .references(() => episode.id),
+  kbVersionId: uuid('kb_version_id')
+    .notNull()
+    .references(() => kbVersion.id),
+  recordedBy: uuid('recorded_by')
+    .notNull()
+    .references(() => staffUser.id),
+  recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
+/**
+ * A consultant's mark on a readiness criterion (OUT-08, TAD `criterion_result`): a yes or no
+ * criterion's result, or an override of one not Met with its written reason. Appended, never
+ * changed; the latest of each kind per criterion counts.
+ */
+export const readinessMark = pgTable(
+  'readiness_mark',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    episodeId: uuid('episode_id')
+      .notNull()
+      .references(() => episode.id),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    criterionKey: text('criterion_key').notNull(),
+    kind: readinessMarkKind('kind').notNull(),
+    /** A check's result; null for an override. */
+    result: criterionResult('result'),
+    /** An override's written reason; null for a check. */
+    reason: text('reason'),
+    markedBy: uuid('marked_by')
+      .notNull()
+      .references(() => staffUser.id),
+    markedAt: timestamp('marked_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('readiness_mark_episode_idx').on(table.episodeId, table.criterionKey, table.markedAt),
+    check(
+      'readiness_mark_shape',
+      sql`(${table.kind} = 'check' and ${table.result} is not null and ${table.reason} is null)
+        or (${table.kind} = 'override' and ${table.result} is null
+          and length(trim(${table.reason})) between 1 and 1000)`,
+    ),
+  ],
+).enableRLS();
+
+/**
+ * One of the episode's three clearances (OUT-08, PRD J6.4, TAD `clearance`): signed once each, in
+ * order, by a consultant, keeping every criterion as it stood (result, reading, override).
+ */
+export const clearance = pgTable(
+  'clearance',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    episodeId: uuid('episode_id')
+      .notNull()
+      .references(() => episode.id),
+    status: clearanceStatus('status').notNull(),
+    /** The workbook region whose criteria it was judged against, at that version. */
+    region: kbRegion('region').notNull(),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    criteria: jsonb('criteria').$type<ClearanceCriterion[]>().notNull(),
+    signedBy: uuid('signed_by')
+      .notNull()
+      .references(() => staffUser.id),
+    signedAt: timestamp('signed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('clearance_episode_status').on(table.episodeId, table.status)],
+).enableRLS();
 
 /** The four part working diagnosis (TAD `diagnosis`), one per consultation. */
 export const diagnosis = pgTable(

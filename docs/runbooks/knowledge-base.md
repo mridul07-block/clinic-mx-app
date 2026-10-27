@@ -90,6 +90,24 @@ Finding | Clinical Note". A row without a category keeps the one above. Keys are
 (`sheets`). An import that reads more sheets from the same files is a new version (the first one
 after CLN-05), and the same files and sheets twice is refused as before.
 
+## Readiness criteria (OUT-08)
+
+Each Progress Tracker's readiness section (its title holds "READINESS"; it ends at the "OVERALL"
+row) gives the region's criteria, `kb_readiness_criterion`, in the workbook's order:
+
+- a count line (`COUNT` or `COUNTIF` over a range): each measure row it names is a criterion,
+  judged by the measure's rule, or for a "Baseline | Current" row by its status formula's target
+  (`C >= F`) or MCID (`B - C >= F` lower is better, `C - B >= F` higher); a count over yes or no
+  screen rows is one criterion, Met when none is positive;
+- a yes or no line is a criterion the consultant marks;
+- the threshold line is skipped (each measure's rule holds it);
+- yes or no rows outside the section that the overall verdict needs (`COUNTIF(Bx:By,"YES")=n`
+  over all of them, or `Bn<>"YES"`) are criteria too, after the section's.
+
+A line or status formula that matches none of these stops the import. Reading this section was
+added to the import as "Progress Tracker (readiness)", so the first `--apply` after it records a new
+version.
+
 ## Diagnosis categories (CLN-06)
 
 The client's "Physiotherapeutic diagnosis" list (in `docs/1 Movementology Clinical Management

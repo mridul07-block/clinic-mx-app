@@ -18,7 +18,15 @@ export const RED_FLAGS_SHEET = 'Red Flags';
 export const SPECIAL_TESTS_SHEET = 'Special Tests';
 export const TRACKER_SHEET = 'Progress Tracker';
 /** The sheets an import reads, recorded with its source so a new sheet makes a new version. */
-export const IMPORTED_SHEETS = [MASTER_SHEET, RED_FLAGS_SHEET, SPECIAL_TESTS_SHEET, TRACKER_SHEET];
+/** The Progress Tracker's readiness section, read since OUT-08: a new reading makes a new version. */
+export const READINESS_READING = `${TRACKER_SHEET} (readiness)`;
+export const IMPORTED_SHEETS = [
+  MASTER_SHEET,
+  RED_FLAGS_SHEET,
+  SPECIAL_TESTS_SHEET,
+  TRACKER_SHEET,
+  READINESS_READING,
+];
 /** The Progress Tracker's columns A to G: name, two values, unit, result, status, note. */
 const TRACKER_WIDTH = 7;
 const HEADER_ROW = 3;

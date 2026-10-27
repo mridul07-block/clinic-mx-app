@@ -461,3 +461,55 @@ Done when exactly the baseline markers are listed with before and after (PRD J6.
 
 **Negative check:** drop the baseline key check from the `measure_final_test` policy, and the
 database test fails ("a reading outside the baseline").
+
+## Readiness and clearances (OUT-08)
+
+Done when each criterion is Met, Not met or Not assessed, clearance is disabled while anything is Not
+assessed, the three statuses are signed, and an override takes a reason (PRD J6.3 to J6.5; section 7
+"Return to sport"). Decisions (user, 27 October 2026):
+
+- **Criteria:** the region workbook's readiness section, imported as versioned knowledge
+  (`kb_readiness_criterion`, `docs/runbooks/knowledge-base.md`), one criterion per line:
+  - each measure a count line names, judged by its own rule (an LSI passes; a deficit is
+    symmetrical, full or mild; a reference target is reached), or by the row's target or MCID
+    column (lumbar)
+  - each yes or no line, which the consultant marks Met, Not met or Not assessed
+  - a count of positive screen items ("Red flags positive"), Met when none is positive
+  - the yes or no rows only the overall verdict names (Bone Stress entry gates, Lumbar safety
+    netting), after the section's
+- **Which version and region:** the region the signed consultation measured (as the baseline works it
+  out); the newest knowledge base version holding criteria for it. A clearance stores both.
+- **Readings:** a measured criterion uses the newest reading in the episode (consultation, session,
+  session 4, final testing or the panel), and an MCID the first. One never measured shows "Not
+  measured in this episode."; the consultant records a reading on the panel ("Record a reading"),
+  stored as `measure` rows of a `readiness_recording`.
+- **Override:** for a criterion Not met or Not assessed, a written reason ("Override", "Save
+  override"); the latest reason counts and shows on the panel (and the report, OUT-11).
+- **Clearances:** Rehabilitation complete, then Return to training, then Return to sport, each signed
+  once. Each is blocked while any criterion is Not met or Not assessed without an override, in the
+  Frontend Specification's words ("2 tests not assessed. Record them or add an override reason.").
+  The same criteria gate all three (DECISION OUT-08). A clearance keeps every criterion as it stood:
+  result, reading and override.
+- **Who:** marking, recording, overriding and signing need the Consultant and Treats patients ticks
+  now, on an Active or Under review episode. Clinical readers read it all at any centre.
+
+| Piece | Where |
+| --- | --- |
+| Reading the workbooks | `packages/db/src/knowledge/readiness.ts`, called by `buildObjective`; the report's "Readiness criteria" |
+| Verdicts, blockers, order, inputs | `packages/schemas/src/readiness.ts` (`measuredResult`, `clearanceBlockers`, `clearanceRefusal`) |
+| Reading and writing | `packages/db/src/readiness.ts` (`latestCriteriaVersion`, `readinessCriteria`, `episodeReadings`, `readinessMarks`, `addReadinessMark`, `recordReadinessReading`, `signClearance`) |
+| The panel and its writes | `apps/web/modules/reviews/readiness.ts` (`readinessView`, `markReadinessCheck`, `overrideReadinessCriterion`, `recordReadinessMeasure`, `signReadinessClearance`), `episodes/[episodeId]/review/readiness-panel.tsx` |
+| Rules | `supabase/migrations/20261027041531_readiness_rules.sql`: marks and recordings by a consultant with both ticks on a treated episode, for the version's criteria, never changed (`internal.readiness_guard`); panel readings only with one's own recording of this transaction, for a criterion's measure; a clearance in order, once, keeping exactly the region's criteria, each Met or overridden, its checks and override reasons as last marked (`internal.clearance_guard`); support read only; audited |
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `packages/db/src/knowledge/build.test.ts` (readiness) | knee's nine measures and four lines; lumbar's screen, targets, MCID directions and safety netting; bone stress's verdict rows; unique keys in every region; an unknown line stops the import |
+| `packages/schemas/src/readiness.test.ts` | each rule kind, Not assessed without readings; the blocker copy; the order; the override and reading inputs |
+| `apps/web/modules/reviews/readiness.test.ts` | the panel's results and sources; blocked until each is Met or overridden; the clearance's kept criteria; refusals; marks, overrides and readings |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (readiness and clearances) | the knee criteria; marks, overrides and readings by a consultant with both ticks only; read at any centre, not by the desk or support; never changed; clearances in order, once, refused with a criterion missing, unmet without a reason or a reason not on record; not while Plan proposed |
+| `apps/web/e2e/readiness.spec.ts` | 360 px and desktop: thirteen knee criteria; a reading recorded, lines marked, two overrides; the three statuses signed in order |
+
+**Negative check:** drop the "each Met or overridden" check from `internal.clearance_guard`, and the
+database test fails ("not assessed without an override").

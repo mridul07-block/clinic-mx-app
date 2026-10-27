@@ -405,6 +405,21 @@ export {
   type FinalTestRecord,
 } from './final-testing';
 export {
+  addReadinessMark,
+  clearancesOf,
+  episodeReadings,
+  latestCriteriaVersion,
+  readinessCriteria,
+  readinessMarks,
+  readingSources,
+  recordReadinessReading,
+  signClearance,
+  type ClearanceRecord,
+  type EpisodeReading,
+  type ReadinessMarks,
+  type ReadingSource,
+} from './readiness';
+export {
   addAddendum,
   consultationAddenda,
   signConsultation,

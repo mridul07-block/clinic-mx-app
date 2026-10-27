@@ -22,6 +22,8 @@ import {
 import { NotAllowedError } from '../access/guard';
 import { staffService } from '../access/service';
 import { asStaffViewing } from '../access/staff-db';
+import { ReviewError } from './errors';
+import { readinessView, worksReadiness, type ReadinessView } from './readiness';
 import {
   reassessedItems,
   reassessedRows,
@@ -38,10 +40,7 @@ import {
  * review. Read by clinicians (row level security); each open is logged as a record view.
  */
 
-/** Why final testing was refused, for the screen. */
-export class ReviewError extends Error {
-  override name = 'ReviewError';
-}
+export { ReviewError };
 
 /** A baseline measure to retest, with what session 4 read. */
 export interface ReviewItem extends ReassessedItem {
@@ -65,6 +64,10 @@ export interface ReviewScreen {
   finalTest: { rows: FinalTestRow[]; by: string; at: Date } | null;
   /** Unsigned, with a baseline, the episode treated, and the reader signs as a consultant. */
   signs: boolean;
+  /** OUT-08: the readiness panel and clearances; undefined before a region has criteria. */
+  readiness: ReadinessView | undefined;
+  /** The reader marks, overrides, records and signs on the panel. */
+  worksReadiness: boolean;
 }
 
 export async function loadReview(
@@ -117,6 +120,8 @@ export async function loadReview(
         items.length > 0 &&
         takesFinalTest(episode.status) &&
         can(actor, 'consultant_records.sign'),
+      readiness: await readinessView(tx, episodeId),
+      worksReadiness: worksReadiness(actor, episode.status),
     };
   });
 }

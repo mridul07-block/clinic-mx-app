@@ -9,6 +9,7 @@ import {
   screeningRegionLabels,
   triggerText,
   type KnowledgeRegion,
+  type ReadinessRule,
   type RedFlagTriage,
 } from '@clinic-mx/schemas';
 import { baseName, type BuiltKnowledge, type Listing } from './build';
@@ -76,6 +77,13 @@ export interface ImportReport {
     regions: Record<string, Record<string, number>>;
     skipped: { region: KnowledgeRegion; rowNumber: number; text: string; why: 'section' | 'row' }[];
   };
+  /** OUT-08: each region's readiness criteria, in the workbook's order. */
+  readiness: {
+    region: KnowledgeRegion;
+    rowNumber: number;
+    text: string;
+    judged: string;
+  }[];
   /** CLN-06: the client's diagnosis categories file and how many conditions it maps. */
   categories: {
     file: { name: string; sha256: string };
@@ -139,6 +147,21 @@ const count = <T>(items: T[], key: (item: T) => string) => {
   for (const item of items) counts[key(item)] = (counts[key(item)] ?? 0) + 1;
   return counts;
 };
+
+/** How a readiness criterion is judged, as the report words it. */
+function judgedBy(rule: ReadinessRule, fromVerdict: boolean): string {
+  const how =
+    rule.kind === 'measure'
+      ? 'The measure’s rule'
+      : rule.kind === 'target'
+        ? `Reaches ${String(rule.target)}`
+        : rule.kind === 'mcid'
+          ? `Improves by ${String(rule.mcid)} (MCID)`
+          : rule.kind === 'none_positive'
+            ? 'Consultant: none positive'
+            : 'Consultant: yes';
+  return fromVerdict ? `${how}; from the overall verdict` : how;
+}
 
 export function buildReport(
   workbooks: Workbook[],
@@ -305,6 +328,12 @@ export function buildReport(
       ),
       skipped: objective.skipped,
     },
+    readiness: objective.readiness.map((c) => ({
+      region: c.region,
+      rowNumber: c.rowNumber,
+      text: c.text,
+      judged: judgedBy(c.rule, c.fromVerdict),
+    })),
     categories: {
       file: categories.file,
       names: categories.categories.map((category) => category.name),
@@ -505,6 +534,19 @@ export function reportMarkdown(report: ImportReport): string {
         String(s.rowNumber),
         s.why === 'section' ? 'Section' : 'Row',
         s.text,
+      ]),
+    ),
+    '## Readiness criteria (OUT-08)',
+    'Each Progress Tracker readiness section, one criterion per line: each measure a count line ' +
+      'names (judged by its own rule, or its target or MCID column), each yes or no line, and the ' +
+      'yes or no rows only the overall verdict names (`docs/runbooks/knowledge-base.md`).',
+    table(
+      ['Workbook', 'Row', 'Criterion', 'Judged by'],
+      report.readiness.map((c) => [
+        knowledgeRegions[c.region].label,
+        String(c.rowNumber),
+        c.text,
+        c.judged,
       ]),
     ),
     '## Diagnosis categories (CLN-06)',
