@@ -19,6 +19,7 @@ export function BulletGraph({
   earlier,
   max,
   targetLabel,
+  lowerIsBetter = false,
 }: {
   label: string;
   value: number;
@@ -26,8 +27,11 @@ export function BulletGraph({
   earlier: number | null;
   max: number;
   targetLabel: string;
+  /** Reversed for a figure where lower is better (reinjury): the bar grows from the right. */
+  lowerIsBetter?: boolean;
 }) {
-  const x = (v: number) => (Math.min(Math.max(v, 0), max) / max) * WIDTH;
+  const along = (v: number) => (Math.min(Math.max(v, 0), max) / max) * WIDTH;
+  const x = (v: number) => (lowerIsBetter ? WIDTH - along(v) : along(v));
   return (
     <svg
       viewBox={`0 0 ${String(WIDTH)} ${String(HEIGHT)}`}
@@ -37,9 +41,9 @@ export function BulletGraph({
     >
       <rect x={0} y={BAND_TOP} width={WIDTH} height={BAND_HEIGHT} className="fill-surface-sunken" />
       <rect
-        x={0}
+        x={lowerIsBetter ? x(value) : 0}
         y={BAR_TOP}
-        width={x(value)}
+        width={along(value)}
         height={BAR_HEIGHT}
         className="cmx-marker fill-viz-1"
         data-testid="bullet-bar"
