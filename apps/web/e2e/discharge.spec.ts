@@ -1,8 +1,9 @@
-import { appointment, createDb, episode } from '@clinic-mx/db';
+import { appointment, createDb, document as documentRow, episode } from '@clinic-mx/db';
 import { expect, test, type Page } from '@playwright/test';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { completeVisit } from './bills';
 import { removeCalendarRows, startedAppointment } from './calendar';
+import { tickUntil } from './jobs';
 import { signedConsultation } from './consultations';
 import { removePipelineRows } from './intake';
 import { consultationTypeId, submittedWithAlert } from './my-patients';
@@ -37,7 +38,7 @@ const DAY_MINUTES = 24 * 60;
 const fits = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
-test('a consultant discharges a treated episode as Goals achieved, cancelling the visit booked ahead', async ({
+test('a consultant discharges a treated episode as Goals achieved, cancelling the visit booked ahead; the report follows', async ({
   page,
 }) => {
   test.slow();
@@ -81,6 +82,16 @@ test('a consultant discharges a treated episode as Goals achieved, cancelling th
   expect(await fits(page)).toBe(true);
   await page.screenshot({ path: test.info().outputPath('discharge-form.png'), fullPage: true });
 
+  // OUT-11: the plan's goal marked, and what comes next written, for the report.
+  const goals = section.getByTestId('discharge-goal');
+  await expect(goals).toHaveCount(1);
+  await expect(goals).toContainText('Climb stairs without pain');
+  await goals.getByText('Achieved', { exact: true }).click();
+  await section
+    .getByLabel('Ongoing needs (optional)')
+    .fill('Keep the home programme twice a week.');
+  await section.getByLabel('Recommendations (optional)').fill('Check up in 3 months.');
+
   await reason('Goals achieved').check();
   await section.getByRole('button', { name: 'Discharge' }).click();
   await expect(section.getByTestId('discharged')).toContainText(
@@ -101,6 +112,36 @@ test('a consultant discharges a treated episode as Goals achieved, cancelling th
     .from(appointment)
     .where(eq(appointment.id, ahead.id));
   expect(cancelled).toEqual({ status: 'cancelled', reason: 'clinic' });
+
+  // The discharge report, made by its job, on the patient's documents (OUT-11).
+  await tickUntil(page.request, async () => {
+    const made = await db()
+      .select({ id: documentRow.id })
+      .from(documentRow)
+      .where(and(eq(documentRow.episodeId, episodeId), eq(documentRow.kind, 'discharge_report')));
+    expect(made.length).toBe(1);
+  });
+  const [stored] = await db()
+    .select({ goals: episode.dischargeGoals, needs: episode.dischargeOngoingNeeds })
+    .from(episode)
+    .where(eq(episode.id, episodeId));
+  expect(stored).toEqual({
+    goals: [{ text: 'Climb stairs without pain', outcome: 'achieved' }],
+    needs: 'Keep the home programme twice a week.',
+  });
+  await page.goto(`/app/patients/${patient.id}?tab=documents`);
+  const documents = page.getByTestId('patient-documents');
+  await expect(documents).toContainText('Discharge report');
+  const report = documents.getByTestId('patient-document').filter({ hasText: 'Discharge report' });
+  const href = (await report.getByRole('link', { name: 'Open PDF' }).getAttribute('href')) ?? '';
+  const opened = await page.request.get(href);
+  expect(opened.status()).toBe(200);
+  expect(opened.headers()['content-type']).toBe('application/pdf');
+  expect(await fits(page)).toBe(true);
+  await page.screenshot({
+    path: test.info().outputPath('discharge-report-listed.png'),
+    fullPage: true,
+  });
 });
 
 test('an untreated episode is never discharged as recovered; Other needs a note', async ({

@@ -1,6 +1,8 @@
 import {
   CONSULTATION_SUMMARY_JOB,
   CONSULTATION_SUMMARY_MESSAGE_JOB,
+  DISCHARGE_REPORT_JOB,
+  DISCHARGE_REPORT_MESSAGE_JOB,
   INTAKE_SUBMITTED_JOB,
   INVOICE_JOB,
   LOST_TO_FOLLOW_UP_JOB,
@@ -20,6 +22,7 @@ import {
 import { z } from 'zod';
 import { followUpThinkAboutIt } from '../billing/plan-choice';
 import { generateConsultationSummary } from '../documents/consultation-summary';
+import { generateDischargeReport } from '../documents/discharge-report';
 import { generateInvoice } from '../documents/invoice';
 import { generateReferralLetter } from '../documents/referral-letter';
 import { runLostToFollowUpCheck } from '../episodes/lost-to-follow-up';
@@ -101,6 +104,29 @@ export const jobHandlers: JobHandlers = {
     run: async ({ date }, { db }) => {
       await runUnsignedNotesFlag(db, { date });
     },
+  }),
+  /**
+   * The discharge report (OUT-11), queued by the database once when an episode with a signed
+   * consultation is discharged. The job's own key marks it, so a job that runs again makes nothing.
+   */
+  [DISCHARGE_REPORT_JOB]: defineJob({
+    payload: z.object({ episodeId: z.guid() }),
+    run: async ({ episodeId }, { db, job }) => {
+      await generateDischargeReport(
+        db,
+        episodeId,
+        job.idempotencyKey ?? [DISCHARGE_REPORT_JOB, job.id].join(':'),
+      );
+    },
+  }),
+  /**
+   * The discharge report on WhatsApp (OUT-11, PRD J6.7), queued with it. Nothing is sent yet: the
+   * WhatsApp tickets fill this in, sending the newest discharge report with its template once it
+   * exists (and retrying until it does). Until then the job completes without sending.
+   */
+  [DISCHARGE_REPORT_MESSAGE_JOB]: defineJob({
+    payload: z.object({ episodeId: z.guid() }),
+    run: () => Promise.resolve(),
   }),
   /**
    * The lost to follow up check (OUT-10), every morning at 6:00 AM IST: it queues the next day,

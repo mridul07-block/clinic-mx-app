@@ -27,15 +27,44 @@ describe('discharge', () => {
     ).toBe('Say why the episode is discharged.');
     expect(
       dischargeEpisodeSchema.parse({ episodeId, reason: 'other', note: ' Moved city. ' }),
-    ).toEqual({ episodeId, reason: 'other', note: 'Moved city.' });
+    ).toEqual({ episodeId, reason: 'other', note: 'Moved city.', goals: [] });
     expect(dischargeEpisodeSchema.parse({ episodeId, reason: 'patient_choice' })).toEqual({
       episodeId,
       reason: 'patient_choice',
+      goals: [],
     });
     expect(
       dischargeEpisodeSchema.safeParse({ episodeId, reason: 'other', note: 'x'.repeat(1001) })
         .success,
     ).toBe(false);
+  });
+
+  // OUT-11: what the report prints, written at discharge.
+  it('takes an outcome per goal, and ongoing needs and recommendations, trimmed', () => {
+    expect(
+      dischargeEpisodeSchema.parse({
+        episodeId,
+        reason: 'goals_achieved',
+        goals: ['achieved', 'partly_achieved'],
+        ongoingNeeds: ' Keep the home programme. ',
+        recommendations: ' Review in 3 months. ',
+      }),
+    ).toMatchObject({
+      goals: ['achieved', 'partly_achieved'],
+      ongoingNeeds: 'Keep the home programme.',
+      recommendations: 'Review in 3 months.',
+    });
+    expect(
+      dischargeEpisodeSchema.safeParse({ episodeId, reason: 'goals_achieved', goals: [''] }).error
+        ?.issues[0]?.message,
+    ).toBe('Mark each goal Achieved, Partly achieved or Not achieved.');
+    expect(
+      dischargeEpisodeSchema.safeParse({
+        episodeId,
+        reason: 'goals_achieved',
+        recommendations: 'x'.repeat(2001),
+      }).error?.issues[0]?.message,
+    ).toBe('Keep the recommendations under 2000 characters.');
   });
 
   it('counts recovered only after treatment, never from a lost episode', () => {

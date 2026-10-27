@@ -1,4 +1,5 @@
 import type {
+  DischargeDetails,
   DischargeReason,
   EpisodeState,
   EpisodeStatus,
@@ -95,7 +96,7 @@ export async function updateEpisodeState(
   episodeId: string,
   expected: EpisodeStatus,
   next: EpisodeState,
-  discharge?: { reason: DischargeReason; note?: string },
+  discharge?: DischargeDetails,
 ): Promise<boolean> {
   const changed = await db
     .update(episode)
@@ -106,6 +107,10 @@ export async function updateEpisodeState(
         ? {
             dischargeReason: discharge?.reason,
             dischargeNote: discharge?.note?.trim() || null,
+            // OUT-11: for the discharge report.
+            dischargeGoals: discharge?.goals ?? [],
+            dischargeOngoingNeeds: discharge?.ongoingNeeds?.trim() || null,
+            dischargeRecommendations: discharge?.recommendations?.trim() || null,
           }
         : {}),
       updatedAt: sql`now()`,

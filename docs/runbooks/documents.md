@@ -147,6 +147,37 @@ consultation. `letterSections` in `apps/web/modules/documents/referral-letter.ts
 The summary and the letter word the record through the same helpers
 (`apps/web/modules/documents/record-rows.tsx`).
 
+## The discharge report (OUT-11)
+
+Frontend Specification section 11, TAD section 9 ("Signed discharge, baseline vs final results;
+WhatsApp; printable"), PRD J6.5 (an override is shown on the report) and J6.7. Decisions (user,
+27 October 2026): made for every discharge of an episode with a signed consultation (none before
+one); baseline against final as a table, greyscale; the goals as the consultant marked them at
+discharge; ongoing needs and recommendations as written at discharge ("None recorded." when left
+empty). Discharging queues `documents.discharge_report` (key `discharge_report:<episode id>`) and
+`whatsapp.discharge_report` in the same transaction (`internal.episode_discharged_follow_up`), so it
+is made once. `reportSections` in `apps/web/modules/documents/discharge-report.tsx`; the facts from
+`dischargeReportFacts` (`packages/db/src/discharge-report.ts`), final testing from
+`finalTestingOf` and the criteria from `readinessView`, all read as the system at generation.
+
+| Section | From |
+| --- | --- |
+| Patient details | Name, age at discharge, sex, OP number |
+| Episode summary | Region, the signed diagnosis, the consultant, opened and discharged dates, the reason and its note |
+| Attendance | Visits attended (and between which dates), missed, cancelled |
+| Baseline and final results | Each frozen baseline measure: baseline, session 4, final, change; "Not retested" (and a line) when final testing was not signed; "No baseline was recorded at session 1." |
+| Goals | The plan's goals with Achieved, Partly achieved or Not achieved |
+| Readiness criteria | Each criterion with its reading, Met, Not met, Not assessed or Overridden, and the override reason |
+| Clearance | Each status signed by whom and when, or Not signed |
+| Ongoing needs, Recommendations | As written at discharge |
+| Sign off | The discharging consultant's name, credentials and the discharge time |
+
+Questionnaire scores join with OUT-02. The WhatsApp message does nothing until the WhatsApp
+tickets; "My plan" maintenance mode is PAT-03.
+
+**Negative check:** let the trigger queue the report without a signed consultation, and the
+database test fails ("only after a signed consultation").
+
 ## Who opens what
 
 | Kind | Who | Where |

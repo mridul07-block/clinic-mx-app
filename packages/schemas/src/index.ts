@@ -361,6 +361,8 @@ export {
   episodeStatusLabels,
   episodeStatuses,
   episodeTransition,
+  goalOutcomeLabels,
+  goalOutcomes,
   openEpisodeSchema,
   type DischargeDetails,
   type DischargeReason,
@@ -368,9 +370,11 @@ export {
   type EpisodeState,
   type EpisodeStatus,
   type EpisodeTransition,
+  type GoalOutcome,
 } from './episodes';
 export {
   DISCHARGE_NOTE_MAX,
+  DISCHARGE_TEXT_MAX,
   LOST_TO_FOLLOW_UP_CHECK_TIME,
   LOST_TO_FOLLOW_UP_TASK,
   dischargeEpisodeSchema,

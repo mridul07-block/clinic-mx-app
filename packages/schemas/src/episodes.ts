@@ -66,6 +66,17 @@ export const dischargeReasonLabels: Record<DischargeReason, string> = {
   other: 'Other',
 };
 
+/** How far each goal of the plan was met, marked at discharge (OUT-11, user decision 27 October 2026). */
+export const goalOutcomes = ['achieved', 'partly_achieved', 'not_achieved'] as const;
+
+export type GoalOutcome = (typeof goalOutcomes)[number];
+
+export const goalOutcomeLabels: Record<GoalOutcome, string> = {
+  achieved: 'Achieved',
+  partly_achieved: 'Partly achieved',
+  not_achieved: 'Not achieved',
+};
+
 /** Reasons that say the patient recovered: only after treatment (Active or Under review). */
 const recoveredReasons: readonly DischargeReason[] = ['goals_achieved', 'independent_management'];
 const treatedStatuses: readonly EpisodeStatus[] = ['active', 'under_review'];
@@ -111,6 +122,10 @@ export interface EpisodeState {
 export interface DischargeDetails {
   reason: DischargeReason;
   note?: string;
+  /** OUT-11: what the discharge report prints; the machine does not look at them. */
+  goals?: { text: string; outcome: GoalOutcome }[];
+  ongoingNeeds?: string;
+  recommendations?: string;
 }
 
 export type EpisodeTransition = { ok: true; next: EpisodeState } | { ok: false; refusal: string };
