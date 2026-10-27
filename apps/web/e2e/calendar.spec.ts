@@ -164,6 +164,9 @@ test('a physio sees only their own column, without fees', async ({ page }, testI
 test('Finance has no calendar', async ({ page }) => {
   const finance = await temporaryWithCode('finance');
   await signInWithCode(page, finance.email, finance.secret);
+  // Finance lands on Collections (DSH-04); the home links are on home.
+  await page.goto('/app');
+  await expect(page.getByRole('link', { name: 'Finance' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Calendar' })).toHaveCount(0);
   await page.goto('/app/calendar');
   await expect(page).toHaveURL(/\/app\/not-allowed/);

@@ -109,6 +109,11 @@ export default async function StaffHome() {
             Dashboard
           </Link>
         ) : null}
+        {accessScope(staff, 'dashboard.finance') ? (
+          <Link href="/app/finance" className={linkClass}>
+            Finance
+          </Link>
+        ) : null}
         {accessScope(staff, 'dashboard.overview') ? (
           <Link href="/app/figures" className={linkClass}>
             Figures

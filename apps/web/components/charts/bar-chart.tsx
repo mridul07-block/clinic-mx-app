@@ -20,6 +20,13 @@ const BOTTOM = 32;
 const CHAR_10 = 5.6;
 const CHAR_11 = 6;
 
+/** A label centred on `x`, or held inside the chart when centring would cut it off at an edge. */
+function edgeSafe(x: number, width: number): { x: number; textAnchor: 'start' | 'middle' | 'end' } {
+  if (x + width / 2 > WIDTH) return { x: WIDTH, textAnchor: 'end' };
+  if (x - width / 2 < 0) return { x: 0, textAnchor: 'start' };
+  return { x, textAnchor: 'middle' };
+}
+
 export interface BarSeries {
   name: string;
   tone: Tone;
@@ -200,9 +207,8 @@ export function BarChart({
               })}
               {index % every === 0 ? (
                 <text
-                  x={middle}
+                  {...edgeSafe(middle, category.length * CHAR_11)}
                   y={HEIGHT - 17}
-                  textAnchor="middle"
                   className="fill-ink-muted text-[11px]"
                 >
                   {category}
@@ -210,9 +216,8 @@ export function BarChart({
               ) : null}
               {index === soFar ? (
                 <text
-                  x={middle}
+                  {...edgeSafe(middle, 'so far'.length * CHAR_10)}
                   y={HEIGHT - 4}
-                  textAnchor="middle"
                   className="fill-ink-muted text-[10px]"
                 >
                   so far

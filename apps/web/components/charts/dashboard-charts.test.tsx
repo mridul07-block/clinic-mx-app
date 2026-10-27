@@ -111,6 +111,19 @@ describe('the bar chart', () => {
     expect(roomy).toMatch(/y="147" width="[^"]+" height="1"/);
   });
 
+  it('keeps a label at the edge inside the chart', () => {
+    const days = Array.from({ length: 30 }, (_, index) => `${String(index + 1)} Oct`);
+    const html = renderToStaticMarkup(
+      <BarChart
+        label="Collected"
+        categories={days}
+        series={[{ name: 'Collected', tone: 'viz-1', values: days.map(() => 1) }]}
+        soFar={29}
+      />,
+    );
+    expect(html).toMatch(/x="320"[^>]*text-anchor="end"[^>]*>so far</);
+  });
+
   it('names each series of a comparison and colours centres', () => {
     const html = renderToStaticMarkup(
       <BarChart
