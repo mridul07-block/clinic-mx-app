@@ -232,7 +232,7 @@ export default async function PatientPage({
                       data-testid="episode"
                       className="rounded-panel border border-line bg-surface p-4"
                     >
-                      <EpisodeHeading episode={episode} />
+                      <EpisodeHeading episode={episode} episodes={episodes} />
                       {/* BIL-01: a proposed or active plan is priced at the desk. */}
                       {pricesPlans &&
                       (episode.status === 'plan_proposed' || episode.status === 'active') ? (

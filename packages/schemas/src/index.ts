@@ -364,6 +364,7 @@ export {
   goalOutcomeLabels,
   goalOutcomes,
   openEpisodeSchema,
+  recurrenceLinkSchema,
   type DischargeDetails,
   type DischargeReason,
   type EpisodeEvent,

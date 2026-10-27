@@ -1,8 +1,17 @@
 import 'server-only';
-import { episodeRecord, insertEpisode, patientRecord, updateEpisodeState } from '@clinic-mx/db';
+import {
+  consultationRecord,
+  episodeRecord,
+  insertEpisode,
+  patientRecord,
+  setEpisodeLink,
+  updateEpisodeState,
+} from '@clinic-mx/db';
 import {
   episodeTransition,
   openEpisodeSchema,
+  recurrenceLinkSchema,
+  worksAtCentre,
   type DischargeDetails,
   type EpisodeEvent,
   type EpisodeState,
@@ -39,6 +48,48 @@ export const openEpisode = staffService({
       }
     }
     return insertEpisode(tx, input);
+  },
+});
+
+/**
+ * Marks a consultation's episode a recurrence of an earlier, discharged one of the same patient,
+ * or removes the mark (SCH-14, PRD J7.5): the consultant's clinical call, made in the consultation
+ * while the episode is open, by the consultation's own consultant or a consultant at the episode's
+ * centre (as addenda are added). The database refuses anyone else.
+ */
+export const linkRecurrence = staffService({
+  action: 'consultant_records.write',
+  input: recurrenceLinkSchema,
+  run: async (tx, input, actor): Promise<{ linkedEpisodeId: string | null }> => {
+    const found = await consultationRecord(tx, input.consultationId);
+    if (!found) throw new EpisodeError('That consultation was not found.');
+    const current = await episodeRecord(tx, found.episodeId);
+    if (!current) throw new EpisodeError('That episode was not found.');
+    if (found.physioId !== actor.id && !worksAtCentre(actor, current.centreId)) {
+      throw new EpisodeError(
+        'A recurrence is linked by the consultation’s consultant or a consultant at its centre.',
+      );
+    }
+    if (current.status === 'discharged') {
+      throw new EpisodeError('A discharged episode never changes.');
+    }
+    if (!actor.treatsPatients) {
+      throw new EpisodeError('Linking a recurrence needs the Treats patients tick.');
+    }
+    if (input.linkedEpisodeId) {
+      const earlier = await episodeRecord(tx, input.linkedEpisodeId);
+      if (
+        earlier?.patientId !== current.patientId ||
+        earlier.status !== 'discharged' ||
+        earlier.id === current.id
+      ) {
+        throw new EpisodeError('A recurrence links to a discharged episode of the same patient.');
+      }
+    }
+    if (!(await setEpisodeLink(tx, current.id, input.linkedEpisodeId))) {
+      throw new EpisodeError('That episode was not found.');
+    }
+    return { linkedEpisodeId: input.linkedEpisodeId };
   },
 });
 

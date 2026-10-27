@@ -54,7 +54,26 @@ const displayTone: Record<AlertDisplay, Tone> = {
 const panelClass = 'flex flex-col gap-3 rounded-panel border border-line bg-surface p-4';
 
 /** One episode's heading: region, status, centre and dates, and the discharge reason. */
-export function EpisodeHeading({ episode }: { episode: EpisodeEntry }) {
+/** An episode in words for its heading, as a recurrence names its earlier one (SCH-14). */
+function episodeWords(episode: EpisodeEntry): string {
+  const region = episode.bodyRegion
+    ? screeningRegionLabels[episode.bodyRegion]
+    : 'Region not recorded';
+  return episode.closedAt
+    ? `${region}, closed ${formatIstDate(istDate(episode.closedAt))}`
+    : region;
+}
+
+export function EpisodeHeading({
+  episode,
+  episodes,
+}: {
+  episode: EpisodeEntry;
+  /** The patient's other episodes, to say which this recurs from and which recur from it. */
+  episodes?: readonly EpisodeEntry[];
+}) {
+  const recursFrom = episodes?.find((other) => other.id === episode.linkedEpisodeId);
+  const followedBy = episodes?.some((other) => other.linkedEpisodeId === episode.id) ?? false;
   return (
     <div className="flex flex-col gap-1.5">
       <span className="flex flex-wrap items-center justify-between gap-2">
@@ -74,6 +93,16 @@ export function EpisodeHeading({ episode }: { episode: EpisodeEntry }) {
           {dischargeReasonLabels[episode.dischargeReason]}
           {episode.dischargeNote ? `: ${episode.dischargeNote}` : null}
           {episode.dischargedByName ? ` · discharged by ${episode.dischargedByName}` : null}
+        </span>
+      ) : null}
+      {recursFrom ? (
+        <span className="text-sm text-ink" data-testid="recurrence-of">
+          Recurrence of: {episodeWords(recursFrom)}
+        </span>
+      ) : null}
+      {followedBy ? (
+        <span className="text-sm text-ink-secondary" data-testid="followed-by-recurrence">
+          Followed by a recurrence
         </span>
       ) : null}
     </div>
@@ -264,7 +293,7 @@ export function NotesTab({
         const own = notes.filter((note) => note.episodeId === episode.id);
         return (
           <li key={episode.id} data-testid="episode" className={panelClass}>
-            <EpisodeHeading episode={episode} />
+            <EpisodeHeading episode={episode} episodes={episodes} />
             {own.length === 0 ? (
               <p className="text-sm text-ink-muted">No signed notes yet.</p>
             ) : (
