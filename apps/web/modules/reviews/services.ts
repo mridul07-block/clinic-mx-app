@@ -9,6 +9,7 @@ import {
   reassessmentOfEpisode,
   recordFinalTest,
   staffTreatsNow,
+  type DbOrTransaction,
   type EpisodeEntry,
   type StaffMember,
 } from '@clinic-mx/db';
@@ -74,6 +75,53 @@ export interface ReviewScreen {
   discharge: DischargeView | undefined;
 }
 
+/** Final testing as it stands: the baseline items with session 4 beside them, and once signed. */
+export interface FinalTesting {
+  sessionNumber: number | null;
+  items: ReviewItem[];
+  finalTest: ReviewScreen['finalTest'];
+}
+
+/** The episode's final testing (OUT-07); the screen and the discharge report (OUT-11) read it. */
+export async function finalTestingOf(
+  tx: DbOrTransaction,
+  episodeId: string,
+): Promise<FinalTesting> {
+  const version = await baselineVersionOfEpisode(tx, episodeId);
+  const baseline = version ? await reassessedItems(tx, episodeId, version) : [];
+  const reassessed = await reassessmentOfEpisode(tx, episodeId);
+  const sessionRows = reassessed
+    ? await reassessedRows(tx, baseline, reassessed.sessionId, reassessed.notTested)
+    : [];
+  const items = baseline.map((item): ReviewItem => {
+    const row = sessionRows.find((r) => r.measure.key === item.measure.key);
+    return { ...item, session: row?.now ?? null, sessionNotTested: row?.nowNotTested ?? null };
+  });
+  const signed = await finalTestOfEpisode(tx, episodeId);
+  const readings = signed
+    ? await finalTestReadings(
+        tx,
+        signed.id,
+        items.map((item) => item.measure.key),
+      )
+    : [];
+  return {
+    sessionNumber: reassessed?.sessionNumber ?? null,
+    items,
+    finalTest: signed
+      ? {
+          rows: retestRows(items, readings, signed.notTested).map((row, index) => ({
+            ...row,
+            session: items[index]?.session ?? null,
+            sessionNotTested: items[index]?.sessionNotTested ?? null,
+          })),
+          by: signed.signedByName,
+          at: signed.signedAt,
+        }
+      : null,
+  };
+}
+
 export async function loadReview(
   actor: StaffMember,
   episodeId: string,
@@ -84,43 +132,16 @@ export async function loadReview(
     if (!episode) return undefined;
     const patient = await patientRecord(tx, episode.patientId);
     if (!patient) return undefined;
-    const version = await baselineVersionOfEpisode(tx, episodeId);
-    const baseline = version ? await reassessedItems(tx, episodeId, version) : [];
-    const reassessed = await reassessmentOfEpisode(tx, episodeId);
-    const sessionRows = reassessed
-      ? await reassessedRows(tx, baseline, reassessed.sessionId, reassessed.notTested)
-      : [];
-    const items = baseline.map((item): ReviewItem => {
-      const row = sessionRows.find((r) => r.measure.key === item.measure.key);
-      return { ...item, session: row?.now ?? null, sessionNotTested: row?.nowNotTested ?? null };
-    });
-    const signed = await finalTestOfEpisode(tx, episodeId);
-    const readings = signed
-      ? await finalTestReadings(
-          tx,
-          signed.id,
-          items.map((item) => item.measure.key),
-        )
-      : [];
+    const { sessionNumber, items, finalTest } = await finalTestingOf(tx, episodeId);
     await logClinicalView(tx, 'patient', patient.id);
     return {
       episode,
       patient: { id: patient.id, name: patient.name, opNumber: patient.opNumber },
-      sessionNumber: reassessed?.sessionNumber ?? null,
+      sessionNumber,
       items,
-      finalTest: signed
-        ? {
-            rows: retestRows(items, readings, signed.notTested).map((row, index) => ({
-              ...row,
-              session: items[index]?.session ?? null,
-              sessionNotTested: items[index]?.sessionNotTested ?? null,
-            })),
-            by: signed.signedByName,
-            at: signed.signedAt,
-          }
-        : null,
+      finalTest,
       signs:
-        !signed &&
+        !finalTest &&
         items.length > 0 &&
         takesFinalTest(episode.status) &&
         can(actor, 'consultant_records.sign'),

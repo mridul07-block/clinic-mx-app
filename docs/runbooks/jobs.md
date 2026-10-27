@@ -65,7 +65,11 @@ desk a task; books nothing when one is booked already; OUT-06, see `docs/runbook
 `episodes.lost_to_follow_up` (every morning at 6:00 AM IST, key
 `episodes.lost_to_follow_up:<IST date>`; each day first queues the next day, then marks episodes
 nobody attended for `clinical.lost_to_follow_up_days` Lost to follow up with a task, never a
-discharge; a migration queued the first day; OUT-10, see `docs/runbooks/sessions.md`).
+discharge; a migration queued the first day; OUT-10, see `docs/runbooks/sessions.md`);
+`documents.discharge_report` (queued by the database when an episode with a signed consultation is
+discharged, key `discharge_report:<episode id>`; renders the report, keyed like the summary;
+OUT-11, see `docs/runbooks/documents.md`); `whatsapp.discharge_report` (queued with it; does nothing
+until the WhatsApp tickets, whose sender sends the newest discharge report).
 
 End to end tests run the queue themselves: `apps/web/e2e/jobs.ts` posts to the tick with a test
 secret that `playwright.config.ts` gives the server. Tests run in parallel and share the queue, so

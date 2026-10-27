@@ -369,6 +369,13 @@ export {
   type TaskForUpdate,
 } from './tasks';
 export {
+  DISCHARGE_REPORT_JOB,
+  DISCHARGE_REPORT_MESSAGE_JOB,
+  dischargeReportFacts,
+  episodePlanGoals,
+  type DischargeReportFacts,
+} from './discharge-report';
+export {
   LOST_TO_FOLLOW_UP_JOB,
   lostEpisodes,
   markLostToFollowUp,

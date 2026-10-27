@@ -157,11 +157,21 @@ export async function dischargeEpisodeAction(
 ): Promise<ReadinessFormState> {
   const episodeId = text(form, 'episodeId');
   const note = text(form, 'note').trim();
+  // One radio group per goal, `goal-<n>`; an unmarked one reads '' and is refused.
+  const goals = Array.from(
+    { length: Math.min(Number(text(form, 'goalCount')) || 0, 21) },
+    (_, index) => text(form, ['goal', String(index)].join('-')),
+  );
+  const ongoingNeeds = text(form, 'ongoingNeeds').trim();
+  const recommendations = text(form, 'recommendations').trim();
   try {
     await dischargeEpisode(await serviceContext(), {
       episodeId,
       reason: text(form, 'reason') || undefined,
       ...(note ? { note } : {}),
+      goals,
+      ...(ongoingNeeds ? { ongoingNeeds } : {}),
+      ...(recommendations ? { recommendations } : {}),
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

@@ -11,7 +11,7 @@ import { createDb } from '../client';
 import { updateEpisodeState } from '../episodes';
 import type { StaffMember } from '../identity';
 import { markLostToFollowUp, visitsAhead } from '../lost-to-follow-up';
-import { appointment, consultation, episode, kbVersion, staffUser, task } from '../schema';
+import { appointment, consultation, episode, job, kbVersion, staffUser, task } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import { becomeStaff, on, testDate, testPatient, testPhysio, typeId } from './fake-schedule';
 
@@ -368,6 +368,100 @@ describe('the lost to follow up check', () => {
         decision: 'Closed automatically: the episode was discharged.',
         closedBy: consultant.id,
       });
+    });
+  });
+});
+
+// OUT-11: the discharge report, queued with the discharge once there was a signed consultation;
+// what it prints from the discharge is written with it, and only then.
+describe('the discharge report', () => {
+  it('is queued with its message on discharge, only after a signed consultation', async () => {
+    await rolledBack(async (tx) => {
+      const { consultant, episodeAt, visit } = await setUp(tx);
+      const consulted = await episodeAt('active');
+      const neverConsulted = await episodeAt('active');
+      const [version] = await tx.select({ id: kbVersion.id }).from(kbVersion).limit(1);
+      const seen = await visit(consulted, -3, true);
+      // A signed consultation placed directly (triggers off), as the lost check test does.
+      await tx.execute(sql`set local session_replication_role = replica`);
+      await tx.insert(consultation).values({
+        appointmentId: seen,
+        episodeId: consulted.id,
+        physioId: consultant.id,
+        kbVersionId: version?.id ?? '',
+        status: 'signed',
+        signedBy: consultant.id,
+        signedAt: new Date(),
+      });
+      await tx.execute(sql`set local session_replication_role = origin`);
+
+      await becomeStaff(tx, consultant);
+      for (const found of [consulted, neverConsulted]) {
+        expect(await discharge(tx, found.id, 'active')).toBe(true);
+      }
+      await asSystem(tx);
+      const queued = await tx
+        .select({
+          kind: job.kind,
+          key: job.idempotencyKey,
+          episodeId: sql<string>`${job.payload} ->> 'episodeId'`,
+        })
+        .from(job)
+        .where(
+          and(
+            inArray(job.kind, ['documents.discharge_report', 'whatsapp.discharge_report']),
+            sql`${job.payload} ->> 'episodeId' in ${[consulted.id, neverConsulted.id]}`,
+          ),
+        );
+      expect(queued.map((q) => [q.kind, q.key, q.episodeId]).sort()).toEqual([
+        ['documents.discharge_report', `discharge_report:${consulted.id}`, consulted.id],
+        ['whatsapp.discharge_report', `whatsapp.discharge_report:${consulted.id}`, consulted.id],
+      ]);
+    });
+  });
+
+  it('keeps the goals, ongoing needs and recommendations written with the discharge, and only then', async () => {
+    await rolledBack(async (tx) => {
+      const { consultant, episodeAt } = await setUp(tx);
+      const treated = await episodeAt('active');
+      expect(
+        await failure(tx, (sp) =>
+          sp
+            .update(episode)
+            .set({ dischargeOngoingNeeds: 'Too early.' })
+            .where(eq(episode.id, treated.id)),
+        ),
+      ).toBe('23514');
+      await becomeStaff(tx, consultant);
+      expect(
+        await updateEpisodeState(
+          tx,
+          treated.id,
+          'active',
+          { status: 'discharged', pausedFrom: null },
+          {
+            reason: 'goals_achieved',
+            goals: [{ text: 'Run 5 km', outcome: 'partly_achieved' }],
+            ongoingNeeds: ' Keep the home programme. ',
+            recommendations: '',
+          },
+        ),
+      ).toBe(true);
+      await asSystem(tx);
+      expect(await episodeRow(tx, treated.id)).toMatchObject({
+        dischargeGoals: [{ text: 'Run 5 km', outcome: 'partly_achieved' }],
+        dischargeOngoingNeeds: 'Keep the home programme.',
+        dischargeRecommendations: null,
+      });
+      // A discharged episode never changes.
+      expect(
+        await failure(tx, (sp) =>
+          sp
+            .update(episode)
+            .set({ dischargeRecommendations: 'Later.' })
+            .where(eq(episode.id, treated.id)),
+        ),
+      ).toBe('23514');
     });
   });
 });

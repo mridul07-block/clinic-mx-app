@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   dischargeReasons,
   episodeTransition,
+  goalOutcomes,
   type DischargeReason,
   type EpisodeState,
   type EpisodeStatus,
@@ -19,6 +20,17 @@ import { formatIstDate, istDate } from './ist';
  */
 
 export const DISCHARGE_NOTE_MAX = 1000;
+/** Ongoing needs and Recommendations, each (OUT-11). */
+export const DISCHARGE_TEXT_MAX = 2000;
+
+const reportText = (label: string) =>
+  z
+    .string()
+    .trim()
+    .max(DISCHARGE_TEXT_MAX, {
+      error: `Keep ${label} under ${String(DISCHARGE_TEXT_MAX)} characters.`,
+    })
+    .optional();
 
 export const dischargeEpisodeSchema = z
   .object({
@@ -31,6 +43,17 @@ export const dischargeEpisodeSchema = z
         error: `Keep the note under ${String(DISCHARGE_NOTE_MAX)} characters.`,
       })
       .optional(),
+    /** OUT-11: one outcome per goal of the plan, in its order. */
+    goals: z
+      .array(
+        z.enum(goalOutcomes, {
+          error: 'Mark each goal Achieved, Partly achieved or Not achieved.',
+        }),
+      )
+      .max(20)
+      .default([]),
+    ongoingNeeds: reportText('the ongoing needs'),
+    recommendations: reportText('the recommendations'),
   })
   .refine((input) => input.reason !== 'other' || Boolean(input.note), {
     error: 'Say why the episode is discharged.',

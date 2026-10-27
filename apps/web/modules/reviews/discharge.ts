@@ -1,5 +1,6 @@
 import 'server-only';
 import {
+  episodePlanGoals,
   episodeRecord,
   staffTreatsNow,
   visitsAhead,
@@ -24,7 +25,9 @@ import { ReviewError } from './errors';
  * Review and discharge screen a consultant with the Treats patients tick closes any episode not
  * yet discharged, with a reason from the Blueprint's list (Other needs a note). A recovered reason
  * needs treatment first, so non attendance is never counted as recovered. The database checks the
- * ticks again, stamps who and when, and cancels the visits still booked ahead.
+ * ticks again, stamps who and when, and cancels the visits still booked ahead. OUT-11: the
+ * consultant marks each goal of the plan and may write ongoing needs and recommendations, all
+ * printed on the discharge report the database then queues.
  */
 
 export interface DischargeReasonOption {
@@ -36,6 +39,8 @@ export interface DischargeReasonOption {
 
 export interface DischargeView {
   reasons: DischargeReasonOption[];
+  /** OUT-11: the plan's goals, each marked at discharge for the report. */
+  goals: string[];
   /** What discharging cancels, soonest first. */
   visitsAhead: { number: string; startsAt: Date }[];
   /** The reader discharges here: the Consultant tick (the Treats patients tick is read on post). */
@@ -59,6 +64,7 @@ export async function dischargeView(
         ...(refusal ? { refusal } : {}),
       };
     }),
+    goals: await episodePlanGoals(tx, episode.id),
     visitsAhead: ahead.map(({ number, startsAt }) => ({ number, startsAt })),
     discharges: can(actor, 'consultant_records.sign'),
   };
@@ -75,10 +81,21 @@ export const dischargeEpisode = staffService({
     const episode = await episodeRecord(tx, input.episodeId);
     if (!episode) throw new ReviewError('That episode was not found.');
     const ahead = await visitsAhead(tx, input.episodeId);
+    // OUT-11: each goal of the plan marked, in its order, for the report.
+    const goals = await episodePlanGoals(tx, input.episodeId);
+    if (input.goals.length !== goals.length) {
+      throw new ReviewError('Mark each goal Achieved, Partly achieved or Not achieved.');
+    }
     try {
       await changeEpisodeStatus(tx, input.episodeId, 'discharge', {
         reason: input.reason,
         ...(input.note ? { note: input.note } : {}),
+        goals: goals.map((text, index) => ({
+          text,
+          outcome: input.goals[index] ?? 'not_achieved',
+        })),
+        ...(input.ongoingNeeds ? { ongoingNeeds: input.ongoingNeeds } : {}),
+        ...(input.recommendations ? { recommendations: input.recommendations } : {}),
       });
     } catch (error) {
       if (error instanceof EpisodeError) throw new ReviewError(error.message);

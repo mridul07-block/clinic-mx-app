@@ -7,6 +7,7 @@ import { ReviewError } from './errors';
 const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
+  episodePlanGoals: vi.fn(),
   episodeRecord: vi.fn(),
   staffTreatsNow: vi.fn(),
   updateEpisodeState: vi.fn(),
@@ -45,6 +46,7 @@ describe('discharge', () => {
     db.staffTreatsNow.mockResolvedValue(true);
     db.updateEpisodeState.mockResolvedValue(true);
     db.visitsAhead.mockResolvedValue(ahead);
+    db.episodePlanGoals.mockResolvedValue([]);
   });
 
   it('shows every reason, greying a recovered one before treatment, and the visits it cancels', async () => {
@@ -58,6 +60,7 @@ describe('discharge', () => {
       ['Lost to follow-up', false],
       ['Other', false],
     ]);
+    expect(view?.goals).toEqual([]);
     expect(view?.visitsAhead).toEqual([{ number: 'HSR-0042', startsAt: ahead[0]?.startsAt }]);
     expect(view?.discharges).toBe(true);
     expect((await dischargeView(fakeTx as never, physio, episode('active')))?.discharges).toBe(
@@ -79,7 +82,41 @@ describe('discharge', () => {
       episodeId,
       'active',
       { status: 'discharged', pausedFrom: null },
-      { reason: 'other', note: 'Moved to another city.' },
+      { reason: 'other', note: 'Moved to another city.', goals: [] },
+    );
+  });
+
+  // OUT-11: each goal of the plan marked, and what the report prints, passed on.
+  it('marks each goal and passes on ongoing needs and recommendations', async () => {
+    db.episodePlanGoals.mockResolvedValue(['Climb stairs without pain', 'Run 5 km']);
+    await expect(
+      dischargeEpisode(context(consultant), {
+        episodeId,
+        reason: 'goals_achieved',
+        goals: ['achieved'],
+      }),
+    ).rejects.toThrow('Mark each goal Achieved, Partly achieved or Not achieved.');
+    await dischargeEpisode(context(consultant), {
+      episodeId,
+      reason: 'goals_achieved',
+      goals: ['achieved', 'partly_achieved'],
+      ongoingNeeds: 'Keep the home programme twice a week.',
+      recommendations: 'Check up in 3 months.',
+    });
+    expect(db.updateEpisodeState).toHaveBeenCalledWith(
+      fakeTx,
+      episodeId,
+      'active',
+      { status: 'discharged', pausedFrom: null },
+      {
+        reason: 'goals_achieved',
+        goals: [
+          { text: 'Climb stairs without pain', outcome: 'achieved' },
+          { text: 'Run 5 km', outcome: 'partly_achieved' },
+        ],
+        ongoingNeeds: 'Keep the home programme twice a week.',
+        recommendations: 'Check up in 3 months.',
+      },
     );
   });
 

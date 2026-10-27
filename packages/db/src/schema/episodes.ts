@@ -1,8 +1,9 @@
-import { dischargeReasons, episodeStatuses } from '@clinic-mx/schemas';
+import { dischargeReasons, episodeStatuses, type GoalOutcome } from '@clinic-mx/schemas';
 import { sql } from 'drizzle-orm';
 import {
   check,
   index,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -45,6 +46,10 @@ export const episode = pgTable(
     dischargeNote: text('discharge_note'),
     /** The consultant who discharged it (OUT-10), stamped by the database at discharge. */
     dischargedBy: uuid('discharged_by').references(() => staffUser.id),
+    /** OUT-11: written with the discharge, for the discharge report. */
+    dischargeGoals: jsonb('discharge_goals').$type<{ text: string; outcome: GoalOutcome }[]>(),
+    dischargeOngoingNeeds: text('discharge_ongoing_needs'),
+    dischargeRecommendations: text('discharge_recommendations'),
     /** The discharged episode a recurrence follows (PRD J7.5). */
     linkedEpisodeId: uuid('linked_episode_id').references((): AnyPgColumn => episode.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -64,6 +69,10 @@ export const episode = pgTable(
     check(
       'episode_discharged_by',
       sql`${table.dischargedBy} is null or ${table.status} = 'discharged'`,
+    ),
+    check(
+      'episode_discharge_report',
+      sql`${table.status} = 'discharged' or (${table.dischargeGoals} is null and ${table.dischargeOngoingNeeds} is null and ${table.dischargeRecommendations} is null)`,
     ),
     check(
       'episode_paused_from',
