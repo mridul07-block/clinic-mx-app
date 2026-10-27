@@ -9,6 +9,6 @@ export default defineProject({
   test: {
     name: 'web',
     environment: 'node',
-    include: ['{app,lib,modules}/**/*.test.{ts,tsx}', 'playwright.config.test.ts'],
+    include: ['{app,components,lib,modules}/**/*.test.{ts,tsx}', 'playwright.config.test.ts'],
   },
 });

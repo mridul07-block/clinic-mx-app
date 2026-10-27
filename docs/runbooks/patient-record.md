@@ -86,3 +86,39 @@ Enforced twice: the service gives the clinical part only for `clinical.read`; th
 
 Without the signed clause in `internal.reads_consultation`, the database test "is read by
 clinicians at any centre" fails.
+
+## Progress tab (OUT-03)
+
+PRD J5.8; Frontend Specification "Progress tab" and its chart table; design system v2 section 9.
+Decisions (user, 27 October 2026): the current episode's **pain during activity** as one line, the
+signed consultation's then each signed session's (pain at rest, "pain now" at the consultation, and
+after treatment are in the table); a **bullet graph per strength or hop LSI** taken in the episode:
+the bar to the newest LSI, a tick at the measure's pass (90%) labelled "Target 90%", the first LSI
+as a small grey mark, Pass or Not yet in words, and where and when the newest was taken; charts are
+**hand-built SVG** (no Recharts, though the TAD names it); the **week strip** waits for PAT-01's
+exercise ticks. Questionnaire lines join with OUT-02 and the phase stepper with OUT-04.
+
+- For clinicians (`clinical.read`), like Notes; read under row level security, so pain comes only
+  from what the reader may read, and drafts never (`episodePainReadings`).
+- Every chart has an `aria-label` and a "Show as table" twin in words; a missing pain is a gap in
+  the line and "Not recorded" in the table.
+
+| Piece | Where |
+| --- | --- |
+| Points, sentence, bullets | `packages/schemas/src/progress.ts` (`painPoints`, `painSentence`, `lsiBullets`) |
+| Pain | `packages/db/src/progress.ts` (`episodePainReadings`: the signed consultation's pain now and on activity, as confirmed or from the health form; signed sessions' three readings) |
+| LSI takings | `episodeReadings` (`packages/db/src/readiness.ts`) for the consultation's knowledge version's LSI measures |
+| The tab | `apps/web/modules/progress/progress.ts` (`progressOf`), `patients/[patientId]/progress-tab.tsx` |
+| Charts | `apps/web/components/charts/` (`LineChart`, `BulletGraph`, `ChartTable`); `components` tests now run with the web unit tests |
+
+### Tests
+
+| Test | Covers |
+| --- | --- |
+| `packages/schemas/src/progress.test.ts` | the tab order; the pain points and sentence, gaps; bullets with the baseline, pass, an inverted timed hop, none without both sides |
+| `apps/web/components/charts/charts.test.tsx` | a gap breaks the line; the bullet's bar, tick, mark and label; the table twin |
+| `packages/db/src/integration/progress.integration.test.ts` | signed consultation and sessions only (a later draft consultation is not read); the desk reads nothing |
+| `apps/web/e2e/progress.spec.ts` | 360 px and desktop: five pain points and the sentence, the table, quadriceps 92% Pass from 80% with the mark and "Target 90%" |
+
+**Negative check:** drop the signed filter on the consultation in `episodePainReadings`, and the
+database test fails (it reads the draft's pain).
