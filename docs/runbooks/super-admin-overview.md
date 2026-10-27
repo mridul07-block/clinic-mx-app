@@ -47,3 +47,12 @@ The week's figures panel and the target cards are shared components
 | `apps/web/modules/auth/next-path.test.ts` | The Super Admin lands on `/app/overview` |
 | `apps/web/e2e/super-admin-overview.spec.ts` | At 360 px and on desktop: a temporary Super Admin lands on the Overview, and HSR Layout's money today matches the records. The week has revenue. The four targets and the AI line show, and the page fits the screen. A Centre Manager and Finance are refused. |
 | `apps/web/e2e/auth.spec.ts` | Each role's landing page |
+
+**Review:** an adversarial review confirmed 4 defects, all fixed:
+
+- **Landing after setup:** finishing two step setup at a first sign in, and opening the two step
+  page when already through, ignored the role's landing screen. Both now follow `homePath`.
+- **Two specs:** the templates and support access specs clicked home links straight after a Super
+  Admin signed in. They now open home first.
+- **The panel's fifth cell:** on a tablet, revenue broke mid-number. Five cells now sit three to a
+  row on a tablet and one row on a wide screen.

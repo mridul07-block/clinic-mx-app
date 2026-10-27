@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { nextParam } from '../../../../../modules/auth/auth-support';
-import { safeNextPath } from '../../../../../modules/auth/next-path';
+import { homePath, safeNextPath } from '../../../../../modules/auth/next-path';
 import { signInState } from '../../../../../modules/auth/session';
 import { SignOutLink } from '../sign-out-link';
 import { TwoStepForm } from './two-step-form';
@@ -14,10 +14,12 @@ export default async function TwoStepPage({
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
-  const next = safeNextPath((await searchParams).next);
+  const asked = (await searchParams).next;
+  const next = safeNextPath(asked);
   const state = await signInState();
   if (!state) redirect('/app/sign-in');
-  if (state.stage === 'complete') redirect(next);
+  // Already through: where they asked to go, or their role's landing screen.
+  if (state.stage === 'complete') redirect(safeNextPath(asked, homePath(state.staff.role)));
   if (state.stage === 'setup') redirect(`/app/two-step/setup${nextParam(next)}`);
   return (
     <>

@@ -58,6 +58,8 @@ test('the Super Admin grants support access for a time; support is read only and
 
       // The Super Admin turns it on, for whole hours up to the setting, with a reason.
       await signInWithCode(page, admin.email, admin.secret);
+      // The Super Admin lands on the Overview (DSH-05); support access is a home link.
+      await page.goto('/app');
       await page.getByRole('link', { name: 'Support access' }).click();
       await expect(page.getByRole('heading', { name: 'Support access' })).toBeVisible();
       await expect(page.getByText('Support access is off.')).toBeVisible();

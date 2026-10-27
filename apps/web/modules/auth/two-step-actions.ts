@@ -83,7 +83,7 @@ export async function finishTwoStepSetup(
   await logAccess(state.staff, 'two_step_on');
   if (state.stage === 'setup') {
     await logAccess(state.staff, 'sign_in');
-    redirect(safeNextPath(form.get('next')));
+    redirect(safeNextPath(form.get('next'), homePath(state.staff.role)));
   }
   redirect('/app/account?two-step=on');
 }
