@@ -8,7 +8,7 @@ import { appointment, auditEvent, bookingCounter, episode, job, setting, task } 
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import { checkIn, markNoShow, undoNoShow } from '../slots';
 import { NO_SHOW_CALL_TASK, NO_SHOW_MESSAGE_JOB, NO_SHOW_REVIEW_TASK, inboxTasks } from '../tasks';
-import { becomeStaff, testPatient, testPhysio, typeId } from './fake-schedule';
+import { becomeStaff, testPatient, testPhysio, typeId, tooEarlyToday } from './fake-schedule';
 
 // ALT-04 done when: a confirmed no show gives the front desk a call task, queues the message and
 // counts; two missed in a row add a clinical review task for the physio; the episode is never
@@ -104,7 +104,11 @@ const mark = (tx: Tx, appointmentId: string, by = deskHsr.id) =>
   markNoShow(tx, { appointmentId, by, now: new Date() });
 
 describe('no show workflow', () => {
-  it('gives the desk at the centre a call task, queues the message, counts it and leaves the episode', async () => {
+  it('gives the desk at the centre a call task, queues the message, counts it and leaves the episode', async ({
+    skip,
+  }) => {
+    if (tooEarlyToday(5))
+      return skip('Its past visits cannot be on today this soon after midnight IST.');
     await rolledBack(async (tx) => {
       const { patientId, episodeId, past, tasksFor } = await setUp(tx);
       const missed = await past(3);
@@ -162,7 +166,11 @@ describe('no show workflow', () => {
     });
   });
 
-  it('gives the physio of the second missed appointment in a row a clinical review task, once', async () => {
+  it('gives the physio of the second missed appointment in a row a clinical review task, once', async ({
+    skip,
+  }) => {
+    if (tooEarlyToday(5))
+      return skip('Its past visits cannot be on today this soon after midnight IST.');
     await rolledBack(async (tx) => {
       const { physio, patientId, past, tasksFor } = await setUp(tx);
       const first = await past(3, 2);
@@ -196,7 +204,11 @@ describe('no show workflow', () => {
     });
   });
 
-  it('starts counting again after an attended appointment; cancelled ones are skipped', async () => {
+  it('starts counting again after an attended appointment; cancelled ones are skipped', async ({
+    skip,
+  }) => {
+    if (tooEarlyToday(5))
+      return skip('Its past visits cannot be on today this soon after midnight IST.');
     await rolledBack(async (tx) => {
       const attending = await setUp(tx);
       const missed = await attending.past(3, 2);
@@ -227,7 +239,11 @@ describe('no show workflow', () => {
     });
   });
 
-  it('closes what an undone no show raised, as the desk; marking again sends no second message', async () => {
+  it('closes what an undone no show raised, as the desk; marking again sends no second message', async ({
+    skip,
+  }) => {
+    if (tooEarlyToday(5))
+      return skip('Its past visits cannot be on today this soon after midnight IST.');
     await rolledBack(async (tx) => {
       const { physio, past, tasksFor } = await setUp(tx);
       const first = await past(3, 2);
@@ -269,7 +285,9 @@ describe('no show workflow', () => {
     });
   });
 
-  it('reads how many in a row from the setting', async () => {
+  it('reads how many in a row from the setting', async ({ skip }) => {
+    if (tooEarlyToday(5))
+      return skip('Its past visits cannot be on today this soon after midnight IST.');
     await rolledBack(async (tx) => {
       const { past, tasksFor } = await setUp(tx);
       await tx

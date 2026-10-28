@@ -48,6 +48,9 @@ would be yesterday's and its test would fail.
 - **Enforced:** lint refuses `startsAt` from `Date.now()` plus or minus a number in tests
   (`eslint.config.mjs`). A deliberate other day takes a disable comment saying why.
 - **What still skips near midnight,** because it needs a start in the past on today's board:
+  - the database tests that check in or mark no shows (`slots`, `no-show` integration tests), in
+    the first 7 to 15 minutes after midnight (`tooEarlyToday` in
+    `packages/db/src/integration/fake-schedule.ts`)
   - the no show undo (`no-show.spec.ts`)
   - Running late on My patients, in the 20 minutes after midnight and the 30 before it
   - Today's board tests, in the first hour after midnight (`pastToday`), and its coming visit

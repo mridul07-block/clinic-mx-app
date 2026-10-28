@@ -25,7 +25,15 @@ import {
 import { todayBoard } from '../today';
 import { checkInView, healthFormLink, insertPatientReport, patientReports } from '../check-in';
 import { insertPatientLink } from '../patient-links';
-import { becomeStaff, on, testDate, testPatient, testPhysio, typeId } from './fake-schedule';
+import {
+  becomeStaff,
+  on,
+  testDate,
+  testPatient,
+  testPhysio,
+  typeId,
+  tooEarlyToday,
+} from './fake-schedule';
 
 // SCH-04: the slot engine in the database. Free starts leave out the physio's appointments at
 // every centre, approved leave and other holders' live holds; consultant types and the centre's
@@ -600,7 +608,11 @@ describe('the slot engine', () => {
   // SCH-09: the database counts reschedules asked by the patient and no shows, once per change;
   // those who book read the counts, only a manager lifts them, and a blocked patient is still
   // booked at the front desk.
-  it('counts reschedules asked by the patient and no shows, read by those who book', async () => {
+  it('counts reschedules asked by the patient and no shows, read by those who book', async ({
+    skip,
+  }) => {
+    if (tooEarlyToday(4))
+      return skip('Its past visits cannot be on today this soon after midnight IST.');
     await rolledBack(async (tx) => {
       const session = await typeId(tx, 'session');
       const physio = await testPhysio(tx, {
@@ -711,7 +723,9 @@ describe('the slot engine', () => {
   // INT-11: only a Booked or Confirmed appointment whose start has passed becomes a no show, with
   // who marked it; an undo goes back to Booked or Confirmed on its own day and takes the count back
   // down, never below zero.
-  it('marks and undoes no shows, counting them and guarding the changes', async () => {
+  it('marks and undoes no shows, counting them and guarding the changes', async ({ skip }) => {
+    if (tooEarlyToday(8))
+      return skip('Its past visits cannot be on today this soon after midnight IST.');
     await rolledBack(async (tx) => {
       const session = await typeId(tx, 'session');
       const physio = await testPhysio(tx, {
@@ -823,7 +837,11 @@ describe('the slot engine', () => {
   // INT-01: a Booked or Confirmed patient is checked in on the appointment's own IST day, with the
   // arrival time; an undo goes back on that day only; the Today board leaves out Cancelled and
   // Rescheduled and is read by the front desk under row level security.
-  it('checks patients in and undoes it on the day, guarded, for the Today board', async () => {
+  it('checks patients in and undoes it on the day, guarded, for the Today board', async ({
+    skip,
+  }) => {
+    if (tooEarlyToday(10))
+      return skip('Its past visits cannot be on today this soon after midnight IST.');
     await rolledBack(async (tx) => {
       const session = await typeId(tx, 'session');
       const physio = await testPhysio(tx, {
@@ -967,7 +985,11 @@ describe('the slot engine', () => {
 
   // INT-02: check in records who did it; those who check in issue and read the health form link
   // of an appointment they can see, and no other link; they add report rows as themselves.
-  it('records who checked in, and lets the desk issue form links and add reports', async () => {
+  it('records who checked in, and lets the desk issue form links and add reports', async ({
+    skip,
+  }) => {
+    if (tooEarlyToday(4))
+      return skip('Its past visits cannot be on today this soon after midnight IST.');
     await rolledBack(async (tx) => {
       const session = await typeId(tx, 'session');
       const physio = await testPhysio(tx, {
