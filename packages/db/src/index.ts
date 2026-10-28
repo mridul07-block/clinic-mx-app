@@ -441,6 +441,13 @@ export {
   type FinalTestRecord,
 } from './final-testing';
 export {
+  latestConfirmedDiagnosis,
+  latestSignedDiagnosis,
+  recordConfirmedDiagnosis,
+  type ConfirmedDiagnosisRecord,
+  type SignedDiagnosis,
+} from './confirmed-diagnosis';
+export {
   addReadinessMark,
   clearancesOf,
   episodeReadings,

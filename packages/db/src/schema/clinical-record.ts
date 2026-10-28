@@ -1,5 +1,6 @@
 import {
   clearanceStatuses,
+  confirmedDiagnosisStages,
   criterionResults,
   interventionKinds,
   irritabilities,
@@ -494,5 +495,44 @@ export const addendum = pgTable(
     index('addendum_session_idx').on(table.sessionId, table.createdAt),
     check('addendum_note', sql`num_nonnulls(${table.consultationId}, ${table.sessionId}) = 1`),
     check('addendum_text', sql`length(trim(${table.text})) between 1 and 5000`),
+  ],
+).enableRLS();
+
+export const confirmedDiagnosisStage = pgEnum('confirmed_diagnosis_stage', confirmedDiagnosisStages);
+
+/**
+ * The diagnosis confirmed at review or discharge (AI-05; PRD section 6: the learning label, "not
+ * the first impression"): the signed diagnosis confirmed, or changed to another condition of its
+ * knowledge base version, by a consultant with the Treats patients tick. Never changed; a later
+ * confirmation is the label. The database stamps the stage, who and when.
+ */
+export const confirmedDiagnosis = pgTable(
+  'confirmed_diagnosis',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    episodeId: uuid('episode_id')
+      .notNull()
+      .references(() => episode.id),
+    /** The signed diagnosis it confirms or changes: the episode's latest at the time. */
+    sourceDiagnosisId: uuid('source_diagnosis_id')
+      .notNull()
+      .references(() => diagnosis.id),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    conditionId: text('condition_id').notNull(),
+    stage: confirmedDiagnosisStage('stage').notNull(),
+    confirmedBy: uuid('confirmed_by')
+      .notNull()
+      .references(() => staffUser.id),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'confirmed_diagnosis_condition_fkey',
+      columns: [table.kbVersionId, table.conditionId],
+      foreignColumns: [kbCondition.kbVersionId, kbCondition.conditionId],
+    }),
+    index('confirmed_diagnosis_episode_idx').on(table.episodeId, table.confirmedAt),
   ],
 ).enableRLS();

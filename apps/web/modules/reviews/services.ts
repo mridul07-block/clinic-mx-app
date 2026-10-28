@@ -23,6 +23,7 @@ import {
 import { NotAllowedError } from '../access/guard';
 import { staffService } from '../access/service';
 import { asStaffViewing } from '../access/staff-db';
+import { confirmDiagnosisView, type ConfirmDiagnosisView } from './confirm-diagnosis';
 import { dischargeView, type DischargeView } from './discharge';
 import { ReviewError } from './errors';
 import { readinessView, worksReadiness, type ReadinessView } from './readiness';
@@ -73,6 +74,8 @@ export interface ReviewScreen {
   worksReadiness: boolean;
   /** OUT-10: the discharge form; undefined once the episode is discharged. */
   discharge: DischargeView | undefined;
+  /** AI-05: the diagnosis confirmed at review or discharge. */
+  diagnosis: ConfirmDiagnosisView;
 }
 
 /** Final testing as it stands: the baseline items with session 4 beside them, and once signed. */
@@ -148,6 +151,7 @@ export async function loadReview(
       readiness: await readinessView(tx, episodeId),
       worksReadiness: worksReadiness(actor, episode.status),
       discharge: await dischargeView(tx, actor, episode),
+      diagnosis: await confirmDiagnosisView(tx, actor, episodeId),
     };
   });
 }

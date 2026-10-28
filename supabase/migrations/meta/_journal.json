@@ -1219,6 +1219,20 @@
       "when": 1793214775722,
       "tag": "20261028191255_ai_recheck",
       "breakpoints": true
+    },
+    {
+      "idx": 174,
+      "version": "7",
+      "when": 1793218802788,
+      "tag": "20261028202002_confirmed_diagnosis",
+      "breakpoints": true
+    },
+    {
+      "idx": 175,
+      "version": "7",
+      "when": 1793218823699,
+      "tag": "20261028202023_confirmed_diagnosis_rules",
+      "breakpoints": true
     }
   ]
 }

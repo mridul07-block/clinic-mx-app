@@ -10,6 +10,7 @@ import {
   recordReadinessMeasure,
   signReadinessClearance,
 } from './readiness';
+import { confirmEpisodeDiagnosis } from './confirm-diagnosis';
 import { dischargeEpisode } from './discharge';
 import { ReviewError, signFinalTest } from './services';
 
@@ -186,6 +187,33 @@ export async function dischargeEpisodeAction(
     }
     if (error instanceof NotAllowedError) {
       return { error: 'Only consultants discharge an episode.' };
+    }
+    throw error;
+  }
+  revalidatePath(`/app/episodes/${episodeId}/review`);
+  return { done: true };
+}
+
+/** "Confirm" (AI-05): the episode's diagnosis confirmed or changed; refusals become the message. */
+export async function confirmDiagnosisAction(
+  _state: ReadinessFormState,
+  form: FormData,
+): Promise<ReadinessFormState> {
+  const episodeId = text(form, 'episodeId');
+  try {
+    await confirmEpisodeDiagnosis(await serviceContext(), {
+      episodeId,
+      conditionId: text(form, 'conditionId'),
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { error: error.issues[0]?.message ?? 'That could not be read.' };
+    }
+    if (error instanceof ReviewError || error instanceof ReadOnlyError) {
+      return { error: error.message };
+    }
+    if (error instanceof NotAllowedError) {
+      return { error: 'Only consultants confirm a diagnosis.' };
     }
     throw error;
   }

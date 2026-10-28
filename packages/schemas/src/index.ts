@@ -1106,3 +1106,10 @@ export {
   type CandidateMetrics,
 } from './blind-test';
 export { recheckFindings } from './ai-recheck';
+export {
+  confirmDiagnosisSchema,
+  confirmedDiagnosisStageLabels,
+  confirmedDiagnosisStages,
+  type ConfirmDiagnosisInput,
+  type ConfirmedDiagnosisStage,
+} from './confirmed-diagnosis';
