@@ -90,6 +90,21 @@ const texts = (...values: unknown[]) =>
     .filter((value): value is string => typeof value === 'string' && value.trim() !== '')
     .map(clip);
 
+/** The body chart zones marked, by their labels (unknown keys left out). */
+export function zoneLabels(keys: readonly string[]): string[] {
+  return keys
+    .flatMap((key) => {
+      const zone = bodyChartZoneByKey.get(key);
+      return zone ? [zone.label] : [];
+    })
+    .slice(0, MAX_ENTRIES);
+}
+
+/** The activities ticked, by their labels: never "Other" or "Not active". */
+export function activityLabels(values: unknown): string[] {
+  return optionLabels('activities', values).slice(0, MAX_ENTRIES);
+}
+
 function optionLabels(key: 'activities', values: unknown): string[] {
   if (!Array.isArray(values)) return [];
   const field = subjectiveField(key);
@@ -108,12 +123,8 @@ function optionLabels(key: 'activities', values: unknown): string[] {
  */
 export function aiCaseFrom(c: CandidateCase, answers: HealthFormAnswers): AiCase | null {
   if (!c.region) return null;
-  const zones = c.painZones.flatMap((key) => {
-    const zone = bodyChartZoneByKey.get(key);
-    return zone ? [zone.label] : [];
-  });
   const symptoms = [
-    ...zones,
+    ...zoneLabels(c.painZones),
     ...texts(answers.complaint, answers.how_started, answers.aggravating, answers.easing),
   ].slice(0, MAX_ENTRIES);
   const sport = [

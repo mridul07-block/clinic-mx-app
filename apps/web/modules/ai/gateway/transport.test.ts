@@ -89,7 +89,9 @@ describe('the prompts', () => {
     expect(hashes).toMatchInlineSnapshot(`
       {
         "rank_diagnoses.v1": "2e601ca02ca0e9e9",
+        "rank_diagnoses.v2": "06028c23ada12f90",
         "recheck_with_findings.v1": "f7417437d9deda88",
+        "recheck_with_findings.v2": "11d57daf16d6f880",
       }
     `);
   });

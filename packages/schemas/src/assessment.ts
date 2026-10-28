@@ -112,7 +112,7 @@ export function durationWeeks(
  */
 export function suggestStage(
   weeks: number | undefined,
-  settings: AssessmentSettings,
+  settings: Pick<AssessmentSettings, 'acuteWeeksBelow' | 'chronicWeeksAbove'>,
 ): Extract<Stage, 'acute' | 'subacute' | 'chronic'> | undefined {
   if (weeks === undefined) return undefined;
   if (weeks < settings.acuteWeeksBelow) return 'acute';

@@ -346,6 +346,20 @@ export const settingDefinitions = {
     description:
       'The red flag tiers whose rows in the patient’s region and age range always go to Must rule out on the preparation sheet.',
   },
+  // DECISION AI-05: how similar cases are chosen is a recommended default for the client.
+  'ai.similar_cases_min': {
+    schema: z.int().positive(),
+    source:
+      'PRD section 6 (learning loop) and TAD section 7 step 4: 3 to 5 similar confirmed past cases; AI-05, recommended default, 29 October 2026',
+    description:
+      'The fewest similar confirmed cases the preparation sheet shows and sends; with fewer it shows and sends none.',
+  },
+  'ai.similar_cases_max': {
+    schema: z.int().positive().max(5),
+    source:
+      'PRD section 6 (learning loop) and TAD section 7 step 4: 3 to 5 similar confirmed past cases; AI-05, recommended default, 29 October 2026',
+    description: 'The most similar confirmed cases the preparation sheet shows and sends.',
+  },
   // DECISION AI-01: the daily cap is the client's; 200 rupees is a placeholder.
   'ai.daily_spend_cap_paise': {
     schema: z.int().positive(),

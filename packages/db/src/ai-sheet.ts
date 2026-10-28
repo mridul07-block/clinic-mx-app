@@ -1,5 +1,6 @@
 import type {
   AiCase,
+  AiSimilarCase,
   AiDisposition,
   AiSheetStatus,
   AiSheetUnavailableReason,
@@ -30,6 +31,8 @@ export async function claimSheet(
     kbVersionId: string;
     shortlist: Shortlist;
     case: AiCase | null;
+    /** The similar confirmed cases sent with it (AI-05). */
+    similar: readonly AiSimilarCase[];
     retryAfterSeconds: number;
   },
 ): Promise<{ id: string; claimedAt: Date } | null> {
@@ -41,6 +44,7 @@ export async function claimSheet(
       status: 'pending',
       shortlist: sheet.shortlist,
       case: sheet.case,
+      similar: sheet.similar,
     })
     .onConflictDoUpdate({
       target: aiPreparationSheet.episodeId,
@@ -48,6 +52,7 @@ export async function claimSheet(
         kbVersionId: sheet.kbVersionId,
         shortlist: sheet.shortlist,
         case: sheet.case,
+        similar: sheet.similar,
         claimedAt: sql`now()`,
       },
       setWhere: sql`${aiPreparationSheet.status} = 'pending'
@@ -129,6 +134,8 @@ export interface PreparationSheet {
   unavailableReason: string | null;
   shortlist: Shortlist;
   case: AiCase | null;
+  /** The similar confirmed cases sent (AI-05); null on a sheet made before them. */
+  similar: AiSimilarCase[] | null;
   readyAt: Date | null;
   suggestions: SheetSuggestion[];
   /** The latest "Recheck with findings" (AI-04), beside the first ranking; null before one. */
@@ -158,6 +165,7 @@ export async function sheetForEpisode(
       unavailableReason: aiPreparationSheet.unavailableReason,
       shortlist: aiPreparationSheet.shortlist,
       case: aiPreparationSheet.case,
+      similar: aiPreparationSheet.similar,
       readyAt: aiPreparationSheet.readyAt,
       aiRunId: aiPreparationSheet.aiRunId,
       recheckStatus: aiPreparationSheet.recheckStatus,
@@ -200,6 +208,7 @@ export async function sheetForEpisode(
     readyAt: sheet.readyAt,
     shortlist: sheet.shortlist as Shortlist,
     case: sheet.case as AiCase | null,
+    similar: sheet.similar as AiSimilarCase[] | null,
     suggestions,
     recheck:
       sheet.recheckStatus && sheet.recheckClaimedAt

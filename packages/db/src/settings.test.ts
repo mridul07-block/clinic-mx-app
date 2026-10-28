@@ -34,6 +34,8 @@ const stored: Settings = {
   'ai.candidates_min': 15,
   'ai.candidates_max': 25,
   'ai.must_rule_out_tiers': ['red_flag'],
+  'ai.similar_cases_min': 3,
+  'ai.similar_cases_max': 5,
   'ai.daily_spend_cap_paise': 20000,
   'ai.usd_rate_paise': 9650,
   'ai.sheet_top_count': 3,
@@ -46,7 +48,7 @@ const stored: Settings = {
   'ai.task_rank_diagnoses': {
     model: null,
     providers: [],
-    promptVersion: 'rank_diagnoses.v1',
+    promptVersion: 'rank_diagnoses.v2',
     reasoningEffort: 'low',
     timeoutMs: 6000,
     maxTokens: 800,
@@ -54,7 +56,7 @@ const stored: Settings = {
   'ai.task_recheck_with_findings': {
     model: null,
     providers: [],
-    promptVersion: 'recheck_with_findings.v1',
+    promptVersion: 'recheck_with_findings.v2',
     reasoningEffort: 'low',
     timeoutMs: 6000,
     maxTokens: 800,

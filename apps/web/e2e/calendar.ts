@@ -274,6 +274,11 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
       sql`delete from plan_modality where plan_of_care_id in
         (select id from plan_of_care where consultation_id in ${consultations})`,
     );
+    // Diagnoses confirmed at review or discharge against them (AI-05).
+    await tx.execute(
+      sql`delete from confirmed_diagnosis where source_diagnosis_id in
+        (select id from diagnosis where consultation_id in ${consultations})`,
+    );
     for (const table of [
       'plan_of_care',
       'diagnosis',

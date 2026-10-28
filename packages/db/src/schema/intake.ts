@@ -61,6 +61,8 @@ export const intakeResponse = pgTable(
   },
   (table) => [
     index('intake_response_patient_submitted').on(table.patientId, table.submittedAt),
+    // Each episode's latest submitted form, for similar confirmed cases (AI-05).
+    index('intake_response_episode_submitted').on(table.episodeId, table.submittedAt),
     check(
       'intake_response_details_review',
       sql`(${table.carriedFromId} is null) = (${table.detailsChanged} is null)`,

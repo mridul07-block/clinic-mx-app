@@ -26,6 +26,11 @@ vi.mock('../access/staff-db', () => ({
   asStaffViewing: (_actor: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
 }));
 vi.mock('../settings/settings', () => ({ getSetting: vi.fn() }));
+// AI-05's panel is tested in confirm-diagnosis.test.ts.
+vi.mock('./confirm-diagnosis', () => ({
+  confirmDiagnosisView: () =>
+    Promise.resolve({ signed: null, confirmed: null, confirms: false, catalog: null }),
+}));
 vi.mock('./discharge', () => ({ dischargeView: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('./readiness', () => ({
   readinessView: vi.fn().mockResolvedValue(undefined),

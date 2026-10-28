@@ -30,6 +30,18 @@ const candidates = vi.hoisted(() => ({ buildCandidates: vi.fn() }));
 vi.mock('./candidates', () => candidates);
 const gateway = vi.hoisted(() => ({ rankDiagnoses: vi.fn() }));
 vi.mock('./gateway', () => gateway);
+const similar = vi.hoisted(() => ({ findSimilarCases: vi.fn() }));
+vi.mock('./similar-cases', () => similar);
+const similarCase = {
+  age: 31,
+  sex: 'female',
+  region: 'knee',
+  symptoms: ['Front of knee'],
+  durationWeeks: 8,
+  sport: ['Running'],
+  confirmed: 'Condition 2',
+  n: 3,
+};
 
 const episodeId = '00000000-0000-4000-8000-000000000e01';
 const kbVersionId = '00000000-0000-4000-8000-000000000c01';
@@ -66,6 +78,7 @@ const shortlist = (count: number): Shortlist => ({
 });
 const built = (count = 8) => ({
   kbVersionId,
+  patientId: '00000000-0000-4000-8000-000000000d01',
   case: {
     region: 'knee',
     age: 34,
@@ -90,9 +103,15 @@ const finished = (): { id: string; result: Record<string, unknown> }[] =>
 // stored; ready within 15 s. Here: the job, with the gateway's answer mocked (AI-01 tests it).
 describe('the AI preparation sheet job', () => {
   beforeEach(() => {
-    for (const fn of [...Object.values(db), candidates.buildCandidates, gateway.rankDiagnoses]) {
+    for (const fn of [
+      ...Object.values(db),
+      candidates.buildCandidates,
+      gateway.rankDiagnoses,
+      similar.findSimilarCases,
+    ]) {
       fn.mockReset();
     }
+    similar.findSimilarCases.mockResolvedValue([similarCase, similarCase, similarCase]);
     db.aiSheetGate.mockResolvedValue({ state: { on: true, kbVersionId, kbVersionNumber: 3 } });
     db.claimSheet.mockResolvedValue({ id: sheetId, claimedAt: new Date() });
     db.finishSheet.mockResolvedValue(true);
@@ -128,9 +147,22 @@ describe('the AI preparation sheet job', () => {
     };
     expect(sent.rows[0]).toMatchObject({ conditionId: 'KNE-040', mustRuleOut: true });
     expect(sent.forbidden).toEqual(['Test Patient']);
+    // AI-05: the similar confirmed cases, chosen for this case and its numbered rows, are sent and
+    // kept with the sheet exactly as sent.
+    const [, current, numberedRows, forbidden] = similar.findSimilarCases.mock.calls[0] as [
+      unknown,
+      { episodeId: string; patientId: string },
+      { conditionId: string }[],
+      string[],
+    ];
+    expect(current).toMatchObject({ episodeId, patientId: built().patientId });
+    expect(numberedRows).toEqual(sent.rows);
+    expect(forbidden).toEqual(['Test Patient']);
+    expect((call?.[2] as { similar: unknown[] }).similar).toHaveLength(3);
     expect(db.claimSheet.mock.calls[0]?.[1]).toMatchObject({
       episodeId,
       kbVersionId,
+      similar: [similarCase, similarCase, similarCase],
       retryAfterSeconds: 60,
       case: expect.objectContaining({ region: 'knee', symptoms: ['Pain on stairs'] }) as object,
     });

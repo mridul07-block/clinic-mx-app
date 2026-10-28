@@ -1045,9 +1045,12 @@ export {
 } from './candidates';
 export {
   AI_FINDINGS_MAX,
+  AI_SIMILAR_MAX,
   AI_TEXT_MAX,
   aiCaseSchema,
   aiPromptVersions,
+  aiPromptsWithSimilarCases,
+  aiSimilarCaseSchema,
   aiRankInputSchema,
   aiRankOutputSchema,
   aiRankRowSchema,
@@ -1065,11 +1068,13 @@ export {
   type AiRankRow,
   type AiRecheckInput,
   type AiRunStatus,
+  type AiSimilarCase,
   type AiTask,
   type AiTaskConfig,
 } from './ai-gateway';
 export {
   SUGGESTIONS_UNAVAILABLE,
+  activityLabels,
   aiCaseFrom,
   aiDispositionLabels,
   aiDispositionSchema,
@@ -1080,6 +1085,7 @@ export {
   durationLabel,
   knowledgeSource,
   validateRanking,
+  zoneLabels,
   type AiDisposition,
   type AiSheetStatus,
   type AiSheetUnavailableReason,
@@ -1106,3 +1112,12 @@ export {
   type CandidateMetrics,
 } from './blind-test';
 export { recheckFindings } from './ai-recheck';
+export {
+  CONFIRM_AFTER_REVIEW,
+  confirmDiagnosisSchema,
+  confirmedDiagnosisStageLabels,
+  confirmedDiagnosisStages,
+  type ConfirmDiagnosisInput,
+  type ConfirmedDiagnosisStage,
+} from './confirmed-diagnosis';
+export { similarCases, type SimilarCandidate, type SimilarSettings } from './similar-cases';

@@ -149,5 +149,7 @@ mark.
 
 - Pinning the tested model and prompt in the AI gate (so a later change switches the sheet off).
   This comes with adopting the winner, once a key exists.
-- The recheck (AI-04) and similar cases (AI-05) in the test.
+- The recheck (AI-04) in the test. Similar cases (AI-05) are in it: each case's are the file's
+  other cases, never itself, and `report.json` holds each prompt version's hash
+  (`docs/runbooks/ai-similar-cases.md`).
 - Scoring in the app instead of sheets.

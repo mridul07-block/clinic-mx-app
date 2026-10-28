@@ -1,6 +1,6 @@
 import 'server-only';
 import type { Db } from '@clinic-mx/db';
-import type { AiCase, AiRankRow, AiTaskConfig } from '@clinic-mx/schemas';
+import type { AiCase, AiRankRow, AiSimilarCase, AiTaskConfig } from '@clinic-mx/schemas';
 import type { AiSheetPass } from '../gate';
 import { runTask, type AiResult, type RunOptions } from './run';
 
@@ -26,6 +26,8 @@ export interface RankedCondition {
 interface ClinicalCall {
   case: AiCase;
   rows: readonly ShortlistRow[];
+  /** Similar confirmed cases (AI-05), sent only to a prompt told about them. */
+  similar?: readonly AiSimilarCase[];
   episodeId: string;
   /** The patient's own name words: never sent. */
   forbidden?: readonly string[];
@@ -60,7 +62,7 @@ export async function rankDiagnoses(
   const result = await runTask(
     db,
     'rank_diagnoses',
-    { case: call.case, rows: numbered(call.rows) },
+    { case: call.case, rows: numbered(call.rows), similar: [...(call.similar ?? [])] },
     {
       episodeId: call.episodeId,
       kbVersionId: pass.kbVersionId,
@@ -83,6 +85,7 @@ export async function rankForBlindTest(
     kbVersionId: string;
     case: AiCase;
     rows: readonly ShortlistRow[];
+    similar?: readonly AiSimilarCase[];
     config: AiTaskConfig & { model: string };
     transport?: RunOptions['transport'];
   },
@@ -90,7 +93,7 @@ export async function rankForBlindTest(
   const result = await runTask(
     db,
     'rank_diagnoses',
-    { case: call.case, rows: numbered(call.rows) },
+    { case: call.case, rows: numbered(call.rows), similar: [...(call.similar ?? [])] },
     {
       episodeId: null,
       kbVersionId: call.kbVersionId,
@@ -110,7 +113,12 @@ export async function recheckWithFindings(
   const result = await runTask(
     db,
     'recheck_with_findings',
-    { case: call.case, rows: numbered(call.rows), findings: [...call.findings] },
+    {
+      case: call.case,
+      rows: numbered(call.rows),
+      findings: [...call.findings],
+      similar: [...(call.similar ?? [])],
+    },
     {
       episodeId: call.episodeId,
       kbVersionId: pass.kbVersionId,

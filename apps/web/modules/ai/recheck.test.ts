@@ -103,6 +103,18 @@ const sheet = (extra: Record<string, unknown> = {}) => ({
     gaps: [],
   },
   recheck: null,
+  similar: [
+    {
+      age: 31,
+      sex: 'female',
+      region: 'knee',
+      symptoms: [],
+      durationWeeks: 8,
+      sport: [],
+      confirmed: 'Fake condition 3',
+      n: 3,
+    },
+  ],
   ...extra,
 });
 const listing = (n: number) => ({
@@ -163,6 +175,8 @@ describe('recheck with findings', () => {
     const { forbidden, ...sent } = call;
     expect(JSON.stringify(sent)).not.toContain('Fake Name');
     expect(forbidden).toEqual(['Fake Name']);
+    // AI-05: the sheet's own similar cases, as it sent them; none fetched again.
+    expect(sent.similar).toEqual(sheet().similar);
     expect(db.claimRecheck.mock.calls[0]?.[1]).toMatchObject({
       sheetId: 'sheet-1',
       findings: ['Lachman test: Positive'],

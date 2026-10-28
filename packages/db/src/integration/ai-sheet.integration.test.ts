@@ -127,6 +127,7 @@ async function setUp(tx: Tx) {
     kbVersionId: version.id,
     shortlist: { status: 'ok', knowledgeRegion: 'knee', items: [], candidateCount: 0, gaps: [] },
     case: null,
+    similar: [],
     retryAfterSeconds: 60,
   });
   if (!claim || !visit) throw new Error('no sheet');
@@ -279,6 +280,7 @@ describe('the AI preparation sheet', () => {
             gaps: [],
           },
           case: null,
+          similar: [],
           retryAfterSeconds: 60,
         }),
       ).toBeNull();
@@ -304,6 +306,7 @@ describe('the AI preparation sheet', () => {
         kbVersionId: s.version.id,
         shortlist: empty,
         case: null,
+        similar: [],
         retryAfterSeconds: 60,
       });
       if (!claim) throw new Error('no claim');

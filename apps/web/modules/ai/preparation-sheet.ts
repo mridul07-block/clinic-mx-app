@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { systemService } from '../access/service';
 import { getSetting } from '../settings/settings';
 import { buildCandidates } from './candidates';
+import { findSimilarCases } from './similar-cases';
 import { aiSheetPass } from './gate';
 import { rankDiagnoses, type ShortlistRow } from './gateway';
 import type { AiTransport } from './gateway/transport';
@@ -94,11 +95,25 @@ export async function runPreparationSheet(
     gaps: [],
   };
   const sent: AiCase | null = built ? aiCaseFrom(built.case, built.answers) : null;
+  // Rows are numbered by their place in this list, which is the shortlist's own order.
+  const rows = built ? rowsFor(shortlist, built.listings) : [];
+  const forbidden = await episodeNameWords(db, episodeId);
+  // AI-05: chosen before the claim, so the sheet keeps exactly what was sent.
+  const similar =
+    built && sent
+      ? await findSimilarCases(
+          db,
+          { episodeId, patientId: built.patientId, case: built.case },
+          rows,
+          forbidden,
+        )
+      : [];
   const claimed = await claim(db, {
     episodeId,
     kbVersionId: pass.kbVersionId,
     shortlist,
     case: sent,
+    similar,
     retryAfterSeconds: await getSetting('ai.sheet_retry_after_seconds'),
   });
   // Taken: made already, or being made by another run (`busy`: the job tries again later).
@@ -114,16 +129,15 @@ export async function runPreparationSheet(
   if (!built) return unavailable('no_form');
   if (!sent || shortlist.status === 'no_region') return unavailable('no_region');
 
-  // Rows are numbered by their place in this list, which is the shortlist's own order.
-  const rows = rowsFor(shortlist, built.listings);
   const items = shortlist.items.filter((item) =>
     rows.some((row) => row.conditionId === item.conditionId),
   );
   const result = await rankDiagnoses(db, pass, {
     case: sent,
     rows,
+    similar,
     episodeId,
-    forbidden: await episodeNameWords(db, episodeId),
+    forbidden,
     transport: options.transport,
   });
   if (result.status !== 'ok') return unavailable(result.reason, result.runId);

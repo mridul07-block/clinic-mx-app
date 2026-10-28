@@ -52,6 +52,10 @@ const settings: Record<string, unknown> = {
   'ai.candidates_max': 25,
   'ai.must_rule_out_tiers': ['red_flag'],
   'ai.usd_rate_paise': 9650,
+  'ai.similar_cases_min': 3,
+  'ai.similar_cases_max': 5,
+  'assessment.acute_weeks_below': 3,
+  'assessment.chronic_weeks_above': 12,
 };
 vi.mock('../settings/settings', () => ({
   getSetting: (key: string) => Promise.resolve(settings[key]),
@@ -181,6 +185,28 @@ describe('the blind test tool', () => {
       'run.json',
       'scoring',
     ]);
+  });
+
+  // AI-05: as the sheet draws similar cases from other patients, each case draws them from the
+  // file's other cases, never itself, so its own answer is never in view.
+  it('sends each case the other cases as its similar confirmed cases', async () => {
+    const f = await folder([1, 2, 3, 4].map(theCase));
+    await f.run();
+    const calls = gateway.rankForBlindTest.mock.calls as [
+      unknown,
+      { case: { symptoms: string[] }; similar: { confirmed: string }[] },
+    ][];
+    expect(calls).toHaveLength(8);
+    for (const [, call] of calls) {
+      const own = Number(/\d+$/.exec(call.case.symptoms[0] ?? '')?.[0] ?? 1);
+      expect(call.similar).toHaveLength(3);
+      expect(call.similar.map((s) => s.confirmed)).not.toContain(listing(own).name);
+    }
+    // Two cases leave each one only one other: under the minimum, none.
+    gateway.rankForBlindTest.mockClear();
+    await (await folder([theCase(1), theCase(2)])).run();
+    const two = gateway.rankForBlindTest.mock.calls as [unknown, { similar: unknown[] }][];
+    expect(two.every(([, call]) => call.similar.length === 0)).toBe(true);
   });
 
   it('refuses identifiers, unknown diagnoses, blocked providers and a changed folder', async () => {

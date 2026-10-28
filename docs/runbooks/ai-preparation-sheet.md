@@ -216,9 +216,13 @@ approval, 29 October 2026 (DECISION AI-04).
   - changed findings flagged;
   - another consultant cannot open the consultation, and the gate off hides the panel.
 
+## Similar confirmed cases (AI-05)
+
+The sheet also stores and shows 3 to 5 similar confirmed cases, and sends them to the model with
+the v2 prompts; the recheck sends the same ones again. See `docs/runbooks/ai-similar-cases.md`.
+
 ## Later
 
-- Similar cases (AI-05).
 - The dispositions report (AI-08).
 - Kept suggestions offered first in the Assessment picker.
 - A page per knowledge base row for the source link.

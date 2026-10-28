@@ -29,6 +29,7 @@ export async function buildCandidates(
   now = new Date(),
 ): Promise<{
   kbVersionId: string;
+  patientId: string;
   case: CandidateCase;
   shortlist: Shortlist;
   answers: HealthFormAnswers;
@@ -43,5 +44,12 @@ export async function buildCandidates(
     max: await getSetting('ai.candidates_max'),
     mustRuleOutTiers: await getSetting('ai.must_rule_out_tiers'),
   });
-  return { kbVersionId: pass.kbVersionId, case: c, shortlist, answers: input.answers, listings };
+  return {
+    kbVersionId: pass.kbVersionId,
+    patientId: input.patientId,
+    case: c,
+    shortlist,
+    answers: input.answers,
+    listings,
+  };
 }

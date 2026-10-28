@@ -441,6 +441,15 @@ export {
   type FinalTestRecord,
 } from './final-testing';
 export {
+  episodeReviewed,
+  latestConfirmedDiagnosis,
+  latestSignedDiagnosis,
+  recordConfirmedDiagnosis,
+  type ConfirmedDiagnosisRecord,
+  type SignedDiagnosis,
+} from './confirmed-diagnosis';
+export { similarCasePool, type SimilarPoolRow } from './similar-cases';
+export {
   addReadinessMark,
   clearancesOf,
   episodeReadings,
