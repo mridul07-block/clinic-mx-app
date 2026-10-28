@@ -129,11 +129,33 @@ export function saveConsultationSections(
 export async function consultationIntake(
   db: DbOrTransaction,
   appointmentId: string,
-): Promise<{ formVersion: string; answers: HealthFormAnswers } | undefined> {
-  const [row] = await db.execute<{ form_version: string; answers: HealthFormAnswers }>(
-    sql`select form_version, answers from internal.consultant_health_form(${appointmentId})`,
+): Promise<
+  | {
+      formVersion: string;
+      answers: HealthFormAnswers;
+      /** A returning patient's review (INT-08): when the details carried over were submitted. */
+      detailsReview: { changed: boolean; carriedFromAt: Date } | null;
+    }
+  | undefined
+> {
+  const [row] = await db.execute<{
+    form_version: string;
+    answers: HealthFormAnswers;
+    details_changed: boolean | null;
+    carried_from_at: string | null;
+  }>(
+    sql`select form_version, answers, details_changed, carried_from_at from internal.consultant_health_form(${appointmentId})`,
   );
-  return row && { formVersion: row.form_version, answers: row.answers };
+  return (
+    row && {
+      formVersion: row.form_version,
+      answers: row.answers,
+      detailsReview:
+        row.details_changed === null || row.carried_from_at === null
+          ? null
+          : { changed: row.details_changed, carriedFromAt: new Date(row.carried_from_at) },
+    }
+  );
 }
 
 /**

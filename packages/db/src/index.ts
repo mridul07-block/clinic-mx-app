@@ -316,12 +316,15 @@ export {
   type OwnGuardian,
 } from './consent';
 export {
+  healthFormCarrySource,
   healthFormVisit,
   ownIntakeResponse,
   ownReports,
   markIntakeAssisted,
+  saveDetailsReview,
   saveIntakeResponse,
   submitIntakeResponse,
+  type CarrySource,
   type HealthFormVisit,
   type IntakeResponse,
   type OwnReport,

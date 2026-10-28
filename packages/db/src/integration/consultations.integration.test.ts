@@ -325,6 +325,7 @@ describe('consultation', () => {
       expect(await consultationIntake(tx, here.appointmentId)).toEqual({
         formVersion: 'hf-3',
         answers: { complaint: 'Pain on stairs', pain_now: 4 },
+        detailsReview: null,
       });
       await becomeStaff(tx, other);
       expect(await consultationIntake(tx, here.appointmentId)).toBeUndefined();

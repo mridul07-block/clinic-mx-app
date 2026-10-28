@@ -65,6 +65,9 @@ export interface IntakeResponse {
   answers: Record<string, HealthFormAnswer>;
   doneScreens: string[];
   submittedAt: Date | null;
+  /** The earlier form whose details were carried over, and the patient's review (INT-08). */
+  carriedFromId: string | null;
+  detailsChanged: boolean | null;
 }
 
 /**
@@ -79,10 +82,63 @@ export async function ownIntakeResponse(db: DbOrTransaction): Promise<IntakeResp
       answers: intakeResponse.answers,
       doneScreens: intakeResponse.doneScreens,
       submittedAt: intakeResponse.submittedAt,
+      carriedFromId: intakeResponse.carriedFromId,
+      detailsChanged: intakeResponse.detailsChanged,
     })
     .from(intakeResponse)
     .limit(1);
   return row;
+}
+
+/** An earlier form a returning patient's details come from (INT-08). */
+export interface CarrySource {
+  id: string;
+  submittedAt: Date;
+  /** Only the carried fields' answers. */
+  answers: Record<string, HealthFormAnswer>;
+}
+
+/**
+ * The earlier form the page's patient may carry over, inside `withPatientAccess`
+ * (`internal.health_form_carry_source`): their newest submitted form for another visit within
+ * `months`, or `chosen` once picked. Only the answers to `keys` leave the database.
+ */
+export async function healthFormCarrySource(
+  db: DbOrTransaction,
+  keys: readonly string[],
+  months: number,
+  chosen?: string | null,
+): Promise<CarrySource | undefined> {
+  const [row] = await db.execute<{
+    id: string;
+    submitted_at: string;
+    answers: Record<string, HealthFormAnswer>;
+  }>(
+    sql`select id, submitted_at, answers from internal.health_form_carry_source(${`{${keys.join(',')}}`}::text[], ${months}, ${chosen ?? null}::uuid)`,
+  );
+  return row && { id: row.id, submittedAt: new Date(row.submitted_at), answers: row.answers };
+}
+
+/**
+ * Records the patient's answer to "Has anything changed?" on the page's own form, with the
+ * answers and screens it leaves (INT-08). Row level security allows it only before submit, while
+ * the visit is on; the database checks the earlier form is the same patient's. Whether it saved.
+ */
+export async function saveDetailsReview(
+  tx: DbOrTransaction,
+  review: {
+    carriedFromId: string;
+    detailsChanged: boolean;
+    answers: Record<string, HealthFormAnswer>;
+    doneScreens: string[];
+  },
+): Promise<boolean> {
+  const saved = await tx
+    .update(intakeResponse)
+    .set({ ...review, updatedAt: sql`now()` })
+    .where(isNull(intakeResponse.submittedAt))
+    .returning({ id: intakeResponse.id });
+  return saved.length > 0;
 }
 
 /**

@@ -245,6 +245,8 @@ export {
   allHold,
   answerText,
   REAL_DATE,
+  postedAnswer,
+  readAnswer,
   type ParseContext,
   type HealthFormAnswer,
   type HealthFormAnswers,
@@ -257,6 +259,15 @@ export {
   type ParsedScreen,
   type PostedScreen,
 } from './health-form';
+export {
+  HEALTH_FORM_CHANGES,
+  carriedDetails,
+  carriedFieldKeys,
+  carryOver,
+  detailsReviewDue,
+  detailsShown,
+  uncarry,
+} from './returning';
 export {
   bodyChartViewLabels,
   bodyChartViews,

@@ -111,7 +111,7 @@ export async function drawSignature(page: Page): Promise<void> {
  * On the consent screen: agrees to both Part A statements and signs, drawn when scripts run,
  * typed otherwise; then the questions open on About you.
  */
-export async function signConsent(page: Page): Promise<void> {
+export async function signConsent(page: Page, then = 'about_you'): Promise<void> {
   await expect(page).toHaveURL(/\?screen=consent/);
   await notUnderAge(page);
   for (const card of await page
@@ -123,7 +123,7 @@ export async function signConsent(page: Page): Promise<void> {
   if (await page.getByTestId('signature-pad').isVisible()) await drawSignature(page);
   else await page.getByLabel('Type your full name to sign').fill('Test Patient');
   await page.getByRole('button', { name: 'Next' }).click();
-  await expect(page).toHaveURL(/\?screen=about_you$/);
+  await expect.poll(() => new URL(page.url()).searchParams.get('screen')).toBe(then);
 }
 
 /** About you (INT-05): only gender is needed; the rest is left for the physio. */
@@ -338,4 +338,45 @@ export async function submitBackForm(
   await expect(page.getByTestId('patient-link-status')).toHaveText(
     'Thank you. Your answers are with your physiotherapist.',
   );
+}
+
+/**
+ * An earlier visit's health form as submitted with these generated answers (INT-08), as the owner;
+ * removed with the appointment. Its own link is not needed: nothing reads it.
+ */
+export async function earlierForm(
+  appointmentId: string,
+  patientId: string,
+  answers: Record<string, unknown>,
+): Promise<string> {
+  const [row] = await withActor(db(), systemActor('tests'), (tx) =>
+    tx
+      .insert(intakeResponse)
+      .values({
+        appointmentId,
+        patientId,
+        patientLinkId: crypto.randomUUID(),
+        formVersion: 'hf-3',
+        answers: answers as never,
+        doneScreens: ['consent'],
+        submittedAt: new Date(Date.now() - 60 * 60_000),
+      })
+      .returning({ id: intakeResponse.id }),
+  );
+  if (!row) throw new Error('The earlier form was not recorded.');
+  return row.id;
+}
+
+/** A visit's form as reviewed (INT-08): the form carried over, the answer, the answers. */
+export async function reviewOf(appointmentId: string) {
+  const [row] = await db()
+    .select({
+      carriedFromId: intakeResponse.carriedFromId,
+      detailsChanged: intakeResponse.detailsChanged,
+      answers: intakeResponse.answers,
+      submittedAt: intakeResponse.submittedAt,
+    })
+    .from(intakeResponse)
+    .where(eq(intakeResponse.appointmentId, appointmentId));
+  return row;
 }

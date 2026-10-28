@@ -290,6 +290,60 @@ PRD J2.5: the record shows who helped. Decisions (user, 23 October 2026):
   every column, so a column-limited insert right cannot work. The function keeps staff to one
   column, checked in one place.
 
+## Returning patients (INT-08)
+
+PRD J2.8: "Returning patients get prefilled details with 'Has anything changed?'". The documents
+say nothing more, so these are recommended defaults, chosen under the user's standing approval of
+28 October 2026 (DECISION register, INT-08).
+
+- **Returning:** the patient's newest health form submitted for another visit within
+  `intake.carry_over_months` (placeholder 24) gives at least one carried answer that the current form
+  still takes. A first form, or one that gives nothing, works as before.
+- **Carried:** date of birth, sex and occupation (the patient record wins, as INT-05), dominant
+  side, activity, Other (specify), level and hours, injuries, surgeries and investigations. Each is
+  read again as if posted today (`readAnswer`), so an answer the field would refuse is dropped.
+- **Asked again every time:** Part A (signed on every form), the problem, the warning signs (the
+  red flag rules), the health check (precautions; PRD J2.4 "mandatory"; pregnancy) and the goals.
+  Report photos are not carried; they belong to the visit.
+- **The review:** after Part A the form opens "Has anything changed?" (`?screen=changes`): the
+  details by screen, "These details are from your form on <date>", No changes, Something changed,
+  and Back (to Part A).
+  - **No changes:** the details join the answers on the screens the patient has not sent in this
+    form (a screen they sent is theirs, a cleared answer included), and About you and History, which
+    hold only carried fields, count as sent when complete. Activity is shown, filled in, for
+    today's goals. The patient goes on to Your problem.
+  - **Something changed:** the carried screens open filled in with "Filled in from your last form.
+    Change anything that is different." (only on a screen with a carried answer). After No changes,
+    the screens it filled, still exactly as carried, are to be sent again; one the patient changed
+    since stays sent.
+  - Check and submit shows the answer with Change, so it can be changed until submit; giving the
+    same answer again changes nothing.
+- **The gate, in code:** until the review is answered no screen other than Part A is saved and the
+  form is not submitted (`standing` and `submit` in `apps/web/modules/intake/services.ts`); the page
+  sends any other screen to the review. The earlier form is always found again on the server; the
+  browser posts only yes or no.
+- **Database** (`20261028002041_returning_prefill.sql`, `20261028002138_returning_prefill_rules.sql`):
+  - `intake_response.carried_from_id` and `details_changed`, set together or not at all (a check).
+  - `internal.health_form_carry_source(keys, months, chosen)`, for `clinic_patient` only: the link's
+    patient's newest submitted form for another visit within the months (or the one already
+    chosen), while the link's visit is on, cut in SQL to the keys asked for. The problem, warning
+    sign and health check answers never leave the database.
+  - `intake_carry_guard`: `carried_from_id` names the same patient's submitted form for another
+    visit, whoever writes it.
+  - The patient may update the two columns, under the existing save policy (their visit, while on,
+    before submit). Audited as the patient.
+  - `internal.consultant_health_form` also returns `details_changed` and when the carried form was
+    submitted, for the same people as before.
+- **The consultation** says "Returning patient: details carried over from the health form of
+  <date>. The patient said nothing changed" (or something changed).
+- **Assisted mode and the kiosk:** the same flow on that device.
+- **Wording:** the review's wording awaits the client's approval of patient wording, as the
+  screens.
+- **Review (28 October 2026):** an adversarial review found that answering the review again could
+  bring back an answer the patient had cleared, or send them through screens they had sent; that
+  the note showed on screens with nothing carried; and that the review had no Back. All four are
+  fixed with tests.
+
 ## Checking it
 
 | Test | What it proves |
@@ -307,6 +361,10 @@ PRD J2.5: the record shows who helped. Decisions (user, 23 October 2026):
 | `apps/web/e2e/submit-pipeline.spec.ts` | 360 px and desktop. A back form with a saddle numbness yes: episode Awaiting consultation, emergency alert, precautions, AI job, two notifications; the physio's count and list, read on opening; the desk still sees Submitted. An all clear form: no alerts or precautions, one notification. |
 | `apps/web/e2e/assisted.spec.ts` | 360 px and desktop. The desk presses "Fill in with the patient", sees who helps, opens the form from "Open the form"; the patient signs and submits; the drawer shows Submitted and "Entered with help by <desk>", and so does the physio's notification. |
 | `apps/web/e2e/health-form.spec.ts` | 360 px and desktop: screen by screen with messages and region questions; leave and Continue; all answered on `hf-1` by the patient; a closed visit saves nothing; without scripts |
+| `packages/schemas/src/returning.test.ts` | Only the details carried, never the problem, warning signs, health check or goals; the record wins; refused or hidden answers dropped; nothing carried makes no returning patient; the review due after Part A until answered; No changes fills About you and History but not Activity, and not About you without sex; Something changed sends them again |
+| `apps/web/modules/intake/services.test.ts` (a returning patient) | No other screen and no submit before the review; No changes and Something changed save the right answers and screens with the earlier form found on the server; no review before Part A, after submit or without an earlier form |
+| `packages/db/src/integration/returning.integration.test.ts` | Only the carried keys of the patient's own latest submitted form for another visit, within the months; nothing unsubmitted, from the same visit, or once the visit is not on; never another patient's form; the review needs both columns and is audited as the patient; nothing after submit; staff never run the function; the consultant reads the review |
+| `apps/web/e2e/returning-patient.spec.ts` | 360 px and desktop. The review lists the details, not the problem; nothing opens before it; No changes goes to Your problem, asks the warning signs and health check again, shows Activity and History filled in, and submits with the earlier form recorded. Something changed opens About you filled in with the note; the answer can be changed and the patient's own change stands. |
 
 **Negative checks (23 October 2026):**
 
@@ -321,3 +379,6 @@ PRD J2.5: the record shows who helped. Decisions (user, 23 October 2026):
 - With `job_patient_intake_submitted` dropped, the database test and the submit end-to-end test
   failed: the submit was refused, so nothing was submitted (INT-10).
 - With `internal.mark_health_form_assisted` dropped, the assisted database test failed (INT-09).
+- With the same patient check taken out of `intake_carry_guard`, the database test refusing another
+  patient's form failed; with the review gate taken out of `standing`, the service test refusing
+  screens before the review failed (INT-08, 28 October 2026).
