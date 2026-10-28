@@ -632,3 +632,4 @@ export {
   type FeedbackSubject,
   type FeedbackTarget,
 } from './feedback';
+export { aiSheetGate } from './ai-gate';

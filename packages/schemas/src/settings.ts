@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { aiSheetSettingSchema } from './ai';
 
 /**
  * Business rules that the Super Admin changes without a code release (rule 6, PRD section 7).
@@ -311,6 +312,15 @@ export const settingDefinitions = {
     source: 'PRD decision 18, Blueprint decision 6: default off (user decision, 25 October 2026)',
     description:
       'Whether the consultation summary prints the coded physiotherapy diagnosis category.',
+  },
+  // DECISION #23: the regulatory check on diagnosis suggestion software is the client's lawyer's;
+  // the sheet stays off until the Super Admin records it and the blind test (AI-09).
+  'ai.preparation_sheet': {
+    schema: aiSheetSettingSchema,
+    source:
+      'PRD decision 23 (open, client lawyer) and PRD section 3 phase 5; AI-09: off until the Super Admin records the blind test pass and the legal clearance (recommended default, 28 October 2026)',
+    description:
+      'Whether the AI preparation sheet runs, with the blind test pass and legal clearance recorded to switch it on and the knowledge base version they were for.',
   },
   'billing.consultation_fee_timing': {
     schema: z.enum(consultationFeeTimings),
