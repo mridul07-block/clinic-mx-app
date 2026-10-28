@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { TabRow } from './tab-row';
 
 export interface RecordTab {
   key: string;
@@ -11,7 +12,7 @@ export interface RecordTab {
 /**
  * Tabs that are links (design system v2 "Tabs"; CLN-12): each tab has its own address, so it can
  * be shared and survives a reload; the current one is marked for assistive technology. On a phone
- * the row scrolls sideways if it ever outgrows the screen.
+ * the row scrolls sideways if it ever outgrows the screen, with the current tab scrolled into view.
  */
 export function RecordTabs({
   label,
@@ -23,7 +24,7 @@ export function RecordTabs({
   current: string;
 }) {
   return (
-    <nav aria-label={label} className="-mx-4 overflow-x-auto px-4">
+    <TabRow label={label}>
       <ul className="flex min-w-max gap-1 border-b border-line">
         {tabs.map((tab) => {
           const selected = tab.key === current;
@@ -51,6 +52,6 @@ export function RecordTabs({
           );
         })}
       </ul>
-    </nav>
+    </TabRow>
   );
 }

@@ -5,7 +5,7 @@
  * (docs/runbooks/finance-dashboards.md).
  */
 
-export const financeTabs = ['collections', 'unpaid', 'packages', 'revenue'] as const;
+export const financeTabs = ['collections', 'unpaid', 'packages', 'revenue', 'refunds'] as const;
 
 export type FinanceTab = (typeof financeTabs)[number];
 
@@ -14,6 +14,7 @@ export const financeTabLabels: Record<FinanceTab, string> = {
   unpaid: 'Unpaid',
   packages: 'Packages',
   revenue: 'Revenue',
+  refunds: 'Refunds',
 };
 
 /** The tables Finance can download as CSV. */
@@ -24,7 +25,9 @@ export type FinanceExport = (typeof financeExports)[number];
 /** Finance's screens whose data no ticket has built yet. */
 export const financeComing = {
   unpaid: 'Pay as you go balances and the flag above 3 unpaid sessions come with BIL-10.',
-  revenue: 'Refunds and credits come with BIL-11.',
+  revenue: 'Revenue is less refunds, in the month each was given (BIL-11).',
+  // DECISION 12: what happens to unused sessions at expiry or discharge is the client's.
+  credits: 'Credits for unused sessions wait for the clinic’s decision (decision 12).',
 } as const;
 
 /** A calendar month, "2026-10". */

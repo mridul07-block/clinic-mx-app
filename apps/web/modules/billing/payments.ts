@@ -23,6 +23,7 @@ const refusals: [RegExp, string][] = [
     'The bill’s total has changed. Reload the page, check the new total with the patient, then mark paid.',
   ],
   [/already undone/, 'This payment is already undone.'],
+  [/has a refund/, 'Finance has refunded this payment, so it cannot be undone.'],
   [
     /Sessions from this package have been used/,
     'A session from this package has been used, so the payment cannot be undone; Finance makes a refund.',

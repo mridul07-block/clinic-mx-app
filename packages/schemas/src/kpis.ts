@@ -267,7 +267,8 @@ export const kpiCatalogue: readonly KpiDefinition[] = [
     over: 'sum',
     target: null,
     measured: true,
-    definition: 'Payments received and not undone, on the day they were recorded.',
+    definition:
+      'Payments received and not undone, on the day they were recorded, less refunds on the day each was given.',
     prd: false,
   },
 ];

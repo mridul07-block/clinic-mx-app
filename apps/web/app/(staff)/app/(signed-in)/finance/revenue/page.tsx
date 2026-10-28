@@ -20,7 +20,8 @@ export default async function FinanceRevenuePage() {
   return (
     <div className="flex flex-col gap-6">
       <p className="text-sm text-ink-secondary">
-        Payments received and not undone, by the day they were recorded.{' '}
+        Payments received and not undone, by the day they were recorded, less refunds on the day
+        each was given.{' '}
         <Link
           prefetch={false}
           download

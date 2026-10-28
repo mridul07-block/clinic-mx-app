@@ -4,6 +4,7 @@ import {
   packageCounts,
   paymentsDaily,
   paymentsUndone,
+  refundsDaily,
   revenueMonthly,
   unpaidBills,
   type StaffMember,
@@ -92,8 +93,12 @@ export interface CollectionsView {
     byMethod: { label: string; value: number; text: string }[];
     byCentre: { name: string; text: string; payments: number }[];
     undone: { payments: number; text: string };
+    /** Refunds given today (BIL-11), counted apart: Collections is the money taken in. */
+    refunded: { refunds: number; text: string };
   };
   daily: { categories: string[]; values: number[] };
+  /** Refunds given on each of those days (BIL-11), for figures net of refunds. */
+  refundsDaily: number[];
   dailyTable: { day: string; text: string }[];
 }
 
@@ -110,6 +115,8 @@ export async function collectionsView(
     const all = await allCentres(tx);
     const rows = await paymentsDaily(tx, from, today);
     const undone = await paymentsUndone(tx, today);
+    const refundRows = await refundsDaily(tx, from, today);
+    const refunded = refundRows.filter((row) => row.day === today);
     const todays = rows.filter((row) => row.day === today);
     const total = todays.reduce((sum, row) => sum + row.paise, 0);
     const days = Array.from({ length: COLLECTION_DAYS }, (_, index) => addDays(from, index));
@@ -139,8 +146,15 @@ export async function collectionsView(
           payments: undone.reduce((sum, row) => sum + row.payments, 0),
           text: formatRupees(undonePaise),
         },
+        refunded: {
+          refunds: refunded.reduce((sum, row) => sum + row.refunds, 0),
+          text: formatRupees(refunded.reduce((sum, row) => sum + row.paise, 0)),
+        },
       },
       daily: { categories: days.map(dayLabel), values: perDay },
+      refundsDaily: days.map((day) =>
+        refundRows.filter((row) => row.day === day).reduce((sum, row) => sum + row.paise, 0),
+      ),
       dailyTable: days.map((day, index) => ({ day, text: formatRupees(perDay[index] ?? 0) })),
     };
   });

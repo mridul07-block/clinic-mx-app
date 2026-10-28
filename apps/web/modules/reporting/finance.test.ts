@@ -10,6 +10,7 @@ const db = vi.hoisted(() => ({
   packageCounts: vi.fn(),
   paymentsDaily: vi.fn(),
   paymentsUndone: vi.fn(),
+  refundsDaily: vi.fn(),
   revenueMonthly: vi.fn(),
   unpaidBills: vi.fn(),
 }));
@@ -44,6 +45,7 @@ describe('Finance’s dashboards', () => {
       { id: hsr, name: 'HSR Layout', active: true, colour: centreColours[0].value },
       { id: kor, name: 'Koramangala', active: true, colour: centreColours[1].value },
     ]);
+    db.refundsDaily.mockResolvedValue([]);
   });
 
   it('collects today by method and centre, leaves undone payments out, and counts 30 days', async () => {
@@ -55,8 +57,15 @@ describe('Finance’s dashboards', () => {
     db.paymentsUndone.mockResolvedValue([
       { centreId: hsr, day: today, payments: 1, paise: 90_000 },
     ]);
+    // BIL-11: refunds are counted apart, today's and each day's.
+    db.refundsDaily.mockResolvedValue([
+      { centreId: hsr, day: today, refunds: 1, paise: 40_000 },
+      { centreId: kor, day: addDays(today, -1), refunds: 1, paise: 10_000 },
+    ]);
     const view = await collectionsView(finance, now);
     expect(view.today.total).toBe('₹3,500');
+    expect(view.today.refunded).toEqual({ refunds: 1, text: '₹400' });
+    expect(view.refundsDaily.slice(-2)).toEqual([10_000, 40_000]);
     expect(view.today.byMethod.map((row) => row.value)).toEqual([300_000, 0, 50_000]);
     expect(view.today.byCentre).toEqual([
       { name: 'HSR Layout', text: '₹3,000', payments: 2 },

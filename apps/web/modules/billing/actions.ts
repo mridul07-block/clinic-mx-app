@@ -9,6 +9,7 @@ import { BillError, makeConsultationBill } from './bills';
 import { DiscountError, applyBillDiscount, removeBillDiscount } from './discounts';
 import { PaymentError, recordBillPayment, undoBillPayment } from './payments';
 import { PlanChoiceError, recordPatientPlanChoice } from './plan-choice';
+import { RefundError, refundBillPayment } from './refunds';
 
 /** What the patient choice form shows after a post (BIL-02). */
 export interface PlanChoiceFormState {
@@ -33,6 +34,7 @@ function failure(error: unknown): string {
     error instanceof BillError ||
     error instanceof PaymentError ||
     error instanceof DiscountError ||
+    error instanceof RefundError ||
     error instanceof ReadOnlyError
   ) {
     return error.message;
@@ -186,5 +188,45 @@ export async function removeDiscountAction(
     return { error: discountRefused(error) };
   }
   revalidatePath(['/app/plans', text(form, 'episodeId')].join('/'));
+  return { done: true };
+}
+
+/** What the refund form shows after a post (BIL-11). */
+export interface RefundFormState {
+  error?: string;
+  done?: boolean;
+  /** What was picked and typed, given back with a refusal (the form resets after each post). */
+  values?: Record<string, string>;
+}
+
+/**
+ * Records a refund against a payment (Finance and the Super Admin): the amount, how it went back,
+ * an optional reference and why.
+ */
+export async function refundAction(
+  _state: RefundFormState,
+  form: FormData,
+): Promise<RefundFormState> {
+  const values = {
+    amount: text(form, 'amount'),
+    method: text(form, 'method'),
+    reference: text(form, 'reference'),
+    reason: text(form, 'reason'),
+  };
+  try {
+    await refundBillPayment(await serviceContext(), {
+      paymentId: text(form, 'paymentId'),
+      ...values,
+    });
+  } catch (error) {
+    return {
+      error:
+        error instanceof NotAllowedError
+          ? 'Only Finance or the Super Admin records a refund.'
+          : failure(error),
+      values,
+    };
+  }
+  revalidatePath('/app/finance/refunds');
   return { done: true };
 }

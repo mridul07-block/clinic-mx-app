@@ -7,9 +7,11 @@ import {
   packageCounts,
   paymentsDaily,
   paymentsUndone,
+  refundsDaily,
   revenueMonthly,
   unpaidBills,
 } from '../finance';
+import { refundPayment } from '../refunds';
 import type { StaffMember } from '../identity';
 import { bill, payment } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
@@ -115,6 +117,52 @@ describe('collections and revenue', () => {
       expect(await as(tx, manager, (t) => paymentsDaily(t, addDays(today, -30), today))).toEqual(
         [],
       );
+    });
+  });
+});
+
+// BIL-11: revenue is less refunds, in the month and on the day each was given; refunds are
+// counted apart from the day's collections. The figures (DSH-01) count revenue the same way.
+describe('refunds in the figures', () => {
+  it('takes refunds off revenue and the revenue figure, and counts them by day', async () => {
+    await rolledBack(async (tx) => {
+      const physio = await testPhysio(tx, { centreIds: [hsr], createdBy: superAdmin.id });
+      const revenueAt = async () =>
+        (await as(tx, finance, (t) => revenueMonthly(t, `${month}-01`, today)))
+          .filter((row) => row.centreId === hsr && row.month === month)
+          .reduce((total, row) => total + row.paise, 0);
+      const refundedAt = async () =>
+        (await as(tx, finance, (t) => refundsDaily(t, today, today)))
+          .filter((row) => row.centreId === hsr && row.day === today)
+          .reduce((total, row) => total + row.paise, 0);
+      const figureAt = () =>
+        as(tx, finance, async (t) => {
+          const [row] = await t.execute<{ paise: string | null }>(
+            sql`select sum(numerator)::text as paise from internal.kpi_daily(${today}::date, ${today}::date)
+              where metric = 'revenue' and centre_id = ${hsr}`,
+          );
+          return Number(row?.paise ?? 0);
+        });
+      const revenueBefore = await revenueAt();
+      const refundedBefore = await refundedAt();
+      const figureBefore = await figureAt();
+
+      const paid = await paidBill(tx, hsr, physio, 150_000);
+      await as(tx, finance, (t) =>
+        refundPayment(t, {
+          paymentId: paid,
+          amountPaise: 40_000,
+          method: 'cash',
+          reason: 'Moved to another city',
+        }),
+      );
+
+      expect((await revenueAt()) - revenueBefore).toBe(110_000);
+      expect((await refundedAt()) - refundedBefore).toBe(40_000);
+      expect((await figureAt()) - figureBefore).toBe(110_000);
+      // The day's collections stay the money taken in.
+      const collected = await as(tx, finance, (t) => paymentsDaily(t, today, today));
+      expect(collected.some((row) => row.centreId === hsr && row.paise >= 150_000)).toBe(true);
     });
   });
 });

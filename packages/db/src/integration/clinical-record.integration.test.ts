@@ -40,6 +40,7 @@ import {
 } from '../reassessment';
 import { addAddendum, consultationAddenda, signConsultation } from '../clinical-record';
 import { invoiceFacts } from '../invoice';
+import { refundPayment } from '../refunds';
 import { packageRescheduleState, packagesOfEpisode, usePackageSession } from '../packages';
 import { latestKnowledgeVersion } from '../knowledge';
 import {
@@ -99,6 +100,7 @@ import {
   priceItem,
   readinessMark,
   redFlagAlert,
+  refundCredit,
   specialTestResult,
   staffUser,
   task,
@@ -1916,6 +1918,161 @@ describe('counter payments', () => {
               .where(eq(billLine.id, line.id));
           }),
         ).toBe('23514');
+      });
+    });
+  });
+
+  // BIL-11: refunds by Finance or the Super Admin only, with the reason and their name, never more
+  // than was paid; a full refund closes the live package; the desk can no longer undo; the bill
+  // stays paid and the episode untouched; revenue is net of refunds.
+  describe('refunds', () => {
+    const refund = async (
+      tx: Tx,
+      actor: StaffMember,
+      values: Partial<Parameters<typeof refundPayment>[1]> & { paymentId: string },
+    ) => {
+      await asOwner(tx);
+      await becomeStaff(tx, actor);
+      return refundPayment(tx, {
+        amountPaise: 10000,
+        method: 'upi',
+        reason: 'Moved to another city',
+        ...values,
+      });
+    };
+
+    it('lets Finance and the Super Admin refund, with the reason and their name, never anyone else', async () => {
+      await rolledBack(async (tx) => {
+        const { consultant, feeBillId } = await billed(tx);
+        const paid = await pay(tx, deskHsr, feeBillId);
+        for (const outsider of [deskHsr, deskKoramangala, manager, consultant]) {
+          expect(
+            await failure(tx, (sp) => refund(sp, outsider, { paymentId: paid })),
+            outsider.email,
+          ).toBe('42501');
+        }
+        expect(await failure(tx, (sp) => refund(sp, support, { paymentId: paid }))).toBeDefined();
+        // Nobody signed in writes one directly.
+        expect(
+          await failure(tx, async (sp) => {
+            await becomeStaff(sp, finance);
+            await sp.insert(refundCredit).values({
+              paymentId: paid,
+              billId: feeBillId,
+              amountPaise: 100,
+              method: 'cash',
+              reason: 'Direct',
+              approvedBy: finance.id,
+              approvedByName: finance.name,
+            });
+          }),
+        ).toBe('42501');
+        const id = await refund(tx, finance, { paymentId: paid, reference: '  UPI-R1 ' });
+        await refund(tx, superAdmin, { paymentId: paid, amountPaise: 5000, method: 'cash' });
+        await asOwner(tx);
+        const [row] = await tx.select().from(refundCredit).where(eq(refundCredit.id, id));
+        expect(row).toMatchObject({
+          amountPaise: 10000,
+          method: 'upi',
+          reference: 'UPI-R1',
+          reason: 'Moved to another city',
+          approvedBy: finance.id,
+          approvedByName: finance.name,
+          billId: feeBillId,
+        });
+        const audited = await tx
+          .select({ actor: auditEvent.actor })
+          .from(auditEvent)
+          .where(and(eq(auditEvent.entity, 'refund_credit'), eq(auditEvent.entityId, id)));
+        expect(audited.map((a) => a.actor)).toEqual([`staff:${finance.id}`]);
+        // The bill stays paid; the desk at its centre reads the refunds, another centre does not.
+        const [fee] = await tx
+          .select({ status: bill.status })
+          .from(bill)
+          .where(eq(bill.id, feeBillId));
+        expect(fee?.status).toBe('paid');
+        await becomeStaff(tx, deskHsr);
+        expect(await tx.select({ id: refundCredit.id }).from(refundCredit)).toHaveLength(2);
+        await asOwner(tx);
+        await becomeStaff(tx, deskKoramangala);
+        expect(await tx.select({ id: refundCredit.id }).from(refundCredit)).toHaveLength(0);
+      });
+    });
+
+    it('refuses more than was paid, no reason, an undone payment, and the desk’s undo after a refund', async () => {
+      await rolledBack(async (tx) => {
+        const { feeBillId } = await billed(tx);
+        const paid = await pay(tx, deskHsr, feeBillId);
+        await asOwner(tx);
+        const [row] = await tx
+          .select({ amount: payment.amountPaise })
+          .from(payment)
+          .where(eq(payment.id, paid));
+        const amount = row?.amount ?? 0;
+        expect(
+          await failure(tx, (sp) =>
+            refund(sp, finance, { paymentId: paid, amountPaise: amount + 1 }),
+          ),
+        ).toBe('23514');
+        expect(
+          await failure(tx, (sp) => refund(sp, finance, { paymentId: paid, reason: '  ' })),
+        ).toBe('23514');
+        await refund(tx, finance, { paymentId: paid, amountPaise: amount - 100 });
+        // A second refund over what is left is refused, however large; the rest is not.
+        expect(
+          await failure(tx, (sp) =>
+            refund(sp, finance, { paymentId: paid, amountPaise: 2_147_483_647 }),
+          ),
+        ).toBe('23514');
+        expect(
+          await failure(tx, (sp) => refund(sp, finance, { paymentId: paid, amountPaise: 101 })),
+        ).toBe('23514');
+        await refund(tx, finance, { paymentId: paid, amountPaise: 100 });
+        // The desk's same-day undo would give the money back twice.
+        expect(
+          await failure(tx, async (sp) => {
+            await asOwner(sp);
+            await becomeStaff(sp, deskHsr);
+            await undoPayment(sp, { paymentId: paid, reason: 'Wrong patient' });
+          }),
+        ).toBe('23514');
+        // An undone payment has nothing to refund.
+        await asOwner(tx);
+        const { feeBillId: other } = await billed(tx);
+        const undone = await pay(tx, deskHsr, other);
+        await asOwner(tx);
+        await becomeStaff(tx, deskHsr);
+        await undoPayment(tx, { paymentId: undone, reason: 'Wrong patient' });
+        expect(await failure(tx, (sp) => refund(sp, finance, { paymentId: undone }))).toBe('23514');
+      });
+    });
+
+    it('closes a live package only when all of it is refunded, and never touches the episode', async () => {
+      await rolledBack(async (tx) => {
+        const { episodeId, packageBillId } = await chosenPackage(tx, 12);
+        const paid = await pay(tx, deskHsr, packageBillId);
+        const bought = await packageOf(tx, paid);
+        await usePackageSession(tx, bought?.id ?? '');
+        await asOwner(tx);
+        const [before] = await tx
+          .select({ status: episode.status, activatedAt: episode.activatedAt })
+          .from(episode)
+          .where(eq(episode.id, episodeId));
+        await refund(tx, finance, { paymentId: paid, amountPaise: 300000 });
+        expect((await packageOf(tx, paid))?.cancelledAt, 'a partial refund').toBeNull();
+        await refund(tx, finance, { paymentId: paid, amountPaise: 600000 });
+        const closed = await packageOf(tx, paid);
+        expect(closed).toMatchObject({ cancelReason: 'Refunded.', sessionsUsed: 1 });
+        expect(closed?.cancelledAt).not.toBeNull();
+        expect(await failure(tx, (sp) => usePackageSession(sp, bought?.id ?? ''))).toBeDefined();
+        await asOwner(tx);
+        const [after] = await tx
+          .select({ status: episode.status, activatedAt: episode.activatedAt })
+          .from(episode)
+          .where(eq(episode.id, episodeId));
+        expect(after).toEqual(before);
+        // The bill stays paid, so it is never paid again.
+        expect(await failure(tx, (sp) => pay(sp, deskHsr, packageBillId))).toBe('23514');
       });
     });
   });

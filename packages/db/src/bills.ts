@@ -6,7 +6,15 @@ import type {
   PaymentMethod,
 } from '@clinic-mx/schemas';
 import { and, asc, desc, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm';
-import { appointment, appointmentType, bill, billLine, payment, staffUser } from './schema';
+import {
+  appointment,
+  appointmentType,
+  bill,
+  billLine,
+  payment,
+  refundCredit,
+  staffUser,
+} from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /**
@@ -65,6 +73,17 @@ export interface PaymentEntry {
   invoiceNumber: string | null;
   /** Its invoice PDF's newest version, once the job has made it. */
   invoiceDocumentId: string | null;
+  /** Refunds given against it (BIL-11), oldest first. */
+  refunds: PaymentRefund[];
+}
+
+/** A refund against a payment, as the bill shows it (BIL-11). */
+export interface PaymentRefund {
+  amountPaise: number;
+  method: PaymentMethod;
+  reason: string;
+  approvedByName: string;
+  approvedAt: Date;
 }
 
 /** An episode's bills, newest first, with their lines. */
@@ -137,9 +156,32 @@ export async function billsOfEpisode(db: DbOrTransaction, episodeId: string): Pr
         isNull(payment.undoneAt),
       ),
     );
+  const refunds =
+    payments.length === 0
+      ? []
+      : await db
+          .select({
+            paymentId: refundCredit.paymentId,
+            amountPaise: refundCredit.amountPaise,
+            method: refundCredit.method,
+            reason: refundCredit.reason,
+            approvedByName: refundCredit.approvedByName,
+            approvedAt: refundCredit.approvedAt,
+          })
+          .from(refundCredit)
+          .where(
+            inArray(
+              refundCredit.paymentId,
+              payments.map((paid) => paid.id),
+            ),
+          )
+          .orderBy(asc(refundCredit.approvedAt), asc(refundCredit.id));
   return bills.map((entry) => ({
     ...entry,
-    payment: paymentOf(payments.find((paid) => paid.billId === entry.id)),
+    payment: paymentOf(
+      payments.find((paid) => paid.billId === entry.id),
+      refunds,
+    ),
     lines: lines
       .filter((line) => line.billId === entry.id)
       .map((line) => ({
@@ -165,8 +207,14 @@ export async function billsOfEpisode(db: DbOrTransaction, episodeId: string): Pr
   }));
 }
 
-function paymentOf(row: (PaymentEntry & { billId: string }) | undefined): PaymentEntry | null {
+function paymentOf(
+  row: (Omit<PaymentEntry, 'refunds'> & { billId: string }) | undefined,
+  refunds: (PaymentRefund & { paymentId: string })[],
+): PaymentEntry | null {
   if (!row) return null;
+  const given = refunds
+    .filter((refund) => refund.paymentId === row.id)
+    .map(({ paymentId: _paymentId, ...refund }) => refund);
   return {
     id: row.id,
     method: row.method,
@@ -174,9 +222,11 @@ function paymentOf(row: (PaymentEntry & { billId: string }) | undefined): Paymen
     reference: row.reference,
     recordedByName: row.recordedByName,
     recordedAt: row.recordedAt,
-    undoable: row.undoable,
+    // A refunded payment is Finance's: the desk's same-day undo would give the money back twice.
+    undoable: row.undoable && given.length === 0,
     invoiceNumber: row.invoiceNumber,
     invoiceDocumentId: row.invoiceDocumentId,
+    refunds: given,
   };
 }
 

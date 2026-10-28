@@ -61,6 +61,8 @@ describe('the Super Admin’s overview', () => {
           ...Array.from({ length: 7 }, () => 200_000),
         ],
       },
+      // BIL-11: a refund of 500 on the last day comes off the week's revenue.
+      refundsDaily: [...Array.from({ length: 29 }, () => 0), 50_000],
     });
     views.outcomesDashboard.mockResolvedValue({ bullets: [{ key: 'treatment_completion' }] });
     views.revenueView.mockResolvedValue({ months: ['2026-10'], thisYear: [5], lastYear: [3] });
@@ -74,8 +76,8 @@ describe('the Super Admin’s overview', () => {
     ]);
     expect(view.cells.map((cell) => cell.key)).toEqual(['consultations', 'revenue']);
     expect(view.cells[1]).toMatchObject({
-      value: '₹14,000',
-      change: '+₹7,000 on the 7 days before',
+      value: '₹13,500',
+      change: '+₹6,500 on the 7 days before',
     });
     expect(view.bullets).toHaveLength(1);
     expect(view.aiTop3).toEqual({
