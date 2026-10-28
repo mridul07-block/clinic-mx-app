@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { serviceContext } from '../access/staff-db';
 import { invalidateSettings } from '../settings/settings';
+import { AiSheetError, recordDisposition } from './sheet';
 import { AiSwitchError, switchAiSheet } from './switch';
 
 /** What the AI preparation sheet switch shows after a post (AI-09). */
@@ -74,4 +75,33 @@ export async function switchAiSheetAction(
   invalidateSettings();
   revalidatePath(PAGE);
   return { done: on ? 'AI preparation sheet switched on.' : 'AI preparation sheet switched off.' };
+}
+
+/** What a Keep or Dismiss shows after a post (AI-03). */
+export interface DispositionState {
+  error?: string;
+}
+
+/** Keep or Dismiss one suggestion on the preparation sheet. */
+export async function recordDispositionAction(
+  _state: DispositionState,
+  form: FormData,
+): Promise<DispositionState> {
+  try {
+    await recordDisposition(await serviceContext(), {
+      suggestionId: text(form, 'suggestionId'),
+      disposition: text(form, 'disposition'),
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) return { error: error.issues[0]?.message ?? 'Try again.' };
+    if (error instanceof AiSheetError || error instanceof ReadOnlyError) {
+      return { error: error.message };
+    }
+    if (error instanceof NotAllowedError) {
+      return { error: 'Only consultants keep or dismiss suggestions.' };
+    }
+    throw error;
+  }
+  revalidatePath(`/app/episodes/${text(form, 'episodeId')}/preparation-sheet`);
+  return {};
 }

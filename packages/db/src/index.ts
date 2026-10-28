@@ -641,3 +641,16 @@ export {
   openAiSpendCapTask,
   type NewAiRun,
 } from './ai-runs';
+export {
+  canDisposeSheet,
+  claimSheet,
+  episodeNameWords,
+  finishSheet,
+  setDisposition,
+  sheetForEpisode,
+  sheetStatus,
+  sheetListings,
+  suggestionTarget,
+  type PreparationSheet,
+  type SheetListing,
+} from './ai-sheet';

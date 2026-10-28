@@ -50,14 +50,17 @@ export const jobHandlers: JobHandlers = {
     },
   }),
   /**
-   * The AI preparation sheet (INT-10 queues it on submit). It checks the AI gate first (AI-09,
-   * PRD decision 23) and does nothing while the sheet is off; the sheet itself comes with AI-01 to
-   * AI-03, which take the gate's pass. No model is called yet.
+   * The AI preparation sheet's retry (AI-03; INT-10 queues it on submit, which also makes the sheet
+   * straight away). Behind the AI gate (AI-09). While another run is still making the sheet it
+   * fails, so the queue tries again after its backoff and takes the sheet over once that run's
+   * claim has lapsed (`ai.sheet_retry_after_seconds`).
    */
   [AI_PREPARATION_SHEET_JOB]: defineJob({
     payload: z.object({ episodeId: z.guid() }),
     run: async ({ episodeId }, { db }) => {
-      await runPreparationSheet(db, episodeId);
+      if ((await runPreparationSheet(db, episodeId)) === 'busy') {
+        throw new Error('The preparation sheet is still being made by another run.');
+      }
     },
   }),
   /**

@@ -21,9 +21,11 @@ import {
   startVisitSchema,
   type SessionView,
 } from '@clinic-mx/schemas';
+import { settingsDb } from '../../lib/db';
 import { assertMay } from '../access/guard';
 import { staffService } from '../access/service';
 import { asStaff } from '../access/staff-db';
+import { aiSheetPass } from '../ai/gate';
 import { SchedulingError, appointmentTarget } from '../scheduling/services';
 import { SessionError, openSessionNote } from '../sessions/services';
 
@@ -63,6 +65,8 @@ export interface MyPatientsView {
 export async function loadMyPatients(actor: StaffMember): Promise<MyPatientsView> {
   assertMay(actor, 'visits.start');
   const date = istDate(new Date());
+  // "Preparation sheet ready" (AI-03): consultants only, and only while the AI gate is on.
+  const sheets = can(actor, 'ai_prep.use') && (await aiSheetPass(settingsDb())) !== null;
   const visits = await asStaff(actor, async (tx) => {
     const rows = await myPatientsToday(tx, { staffId: actor.id, date });
     const progress = await sessionProgress(
@@ -71,6 +75,7 @@ export async function loadMyPatients(actor: StaffMember): Promise<MyPatientsView
     );
     return rows.map((row) => ({
       ...row,
+      preparationSheet: sheets && row.preparationSheet,
       session: sessionView(progress.get(row.id)),
       coveredBy: row.startedBy && row.startedBy !== actor.id ? row.startedByName : null,
     }));

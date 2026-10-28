@@ -216,6 +216,16 @@ export function MyPatientsList({
                         </Tag>
                       </Link>
                     ) : null}
+                    {visit.preparationSheet && visit.episodeId ? (
+                      // AI-03: the AI preparation sheet is made (Consultant tick, gate on).
+                      <Link
+                        href={`/app/episodes/${visit.episodeId}/preparation-sheet`}
+                        data-testid="preparation-sheet-ready"
+                        className="rounded-control underline-offset-2 hover:underline"
+                      >
+                        <Tag tone="info">Preparation sheet ready</Tag>
+                      </Link>
+                    ) : null}
                   </span>
                 </span>
                 {visit.status === 'checked_in' && visit.session && !visit.session.gate.met ? (

@@ -1066,3 +1066,21 @@ export {
   type AiTask,
   type AiTaskConfig,
 } from './ai-gateway';
+export {
+  SUGGESTIONS_UNAVAILABLE,
+  aiCaseFrom,
+  aiDispositionLabels,
+  aiDispositionSchema,
+  aiDispositions,
+  aiSheetStatuses,
+  aiSheetUnavailableReasons,
+  aiSuggestionSections,
+  durationLabel,
+  knowledgeSource,
+  validateRanking,
+  type AiDisposition,
+  type AiSheetStatus,
+  type AiSheetUnavailableReason,
+  type AiSuggestionSection,
+  type ValidatedSuggestion,
+} from './ai-sheet';

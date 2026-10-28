@@ -17,6 +17,8 @@ export interface ShortlistRow extends Omit<AiRankRow, 'n'> {
 }
 
 export interface RankedCondition {
+  /** The row's number as sent: its place on the shortlist, from 1. */
+  n: number;
   conditionId: string;
   reason: string;
 }
@@ -44,7 +46,7 @@ function byCondition(
     runId: result.runId,
     output: result.output.ranked.flatMap(({ n, reason }) => {
       const row = rows[n - 1];
-      return row ? [{ conditionId: row.conditionId, reason }] : [];
+      return row ? [{ n, conditionId: row.conditionId, reason }] : [];
     }),
   };
 }

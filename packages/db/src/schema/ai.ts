@@ -1,4 +1,11 @@
-import { aiRunStatuses, aiTasks } from '@clinic-mx/schemas';
+import {
+  aiDispositions,
+  aiRunStatuses,
+  aiSheetStatuses,
+  aiSheetUnavailableReasons,
+  aiSuggestionSections,
+  aiTasks,
+} from '@clinic-mx/schemas';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -11,10 +18,12 @@ import {
   smallint,
   text,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { episode } from './episodes';
-import { kbVersion } from './knowledge';
+import { staffUser } from './identity';
+import { kbRegion, kbVersion } from './knowledge';
 
 export const aiTask = pgEnum('ai_task', aiTasks);
 export const aiRunStatus = pgEnum('ai_run_status', aiRunStatuses);
@@ -64,6 +73,95 @@ export const aiRun = pgTable(
     check(
       'ai_run_clinical_version',
       sql`${table.kind} not in ('rank_diagnoses', 'recheck_with_findings') or ${table.kbVersionId} is not null`,
+    ),
+  ],
+).enableRLS();
+
+export const aiSheetStatus = pgEnum('ai_sheet_status', aiSheetStatuses);
+export const aiSuggestionSection = pgEnum('ai_suggestion_section', aiSuggestionSections);
+export const aiDisposition = pgEnum('ai_disposition', aiDispositions);
+
+const unavailableReasons = aiSheetUnavailableReasons.map((reason) => `'${reason}'`).join(', ');
+
+/**
+ * An episode's AI preparation sheet (AI-03; TAD section 7 step 7 "Publish"): one per episode, made
+ * when the health form is submitted, over the knowledge base version the AI gate was switched on
+ * for. It keeps the shortlist (AI-02, with must rule out by rule) and the de-identified case the
+ * model was sent; the model's suggestions are `ai_suggestion` rows. Pending while being made;
+ * ready with suggestions, or unavailable with why.
+ */
+export const aiPreparationSheet = pgTable(
+  'ai_preparation_sheet',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    episodeId: uuid('episode_id')
+      .notNull()
+      .unique()
+      .references(() => episode.id),
+    kbVersionId: uuid('kb_version_id')
+      .notNull()
+      .references(() => kbVersion.id),
+    status: aiSheetStatus('status').notNull(),
+    unavailableReason: text('unavailable_reason'),
+    aiRunId: uuid('ai_run_id').references(() => aiRun.id),
+    /** The shortlist (AI-02) the model ranked, with its must rule out rows. */
+    shortlist: jsonb('shortlist').notNull(),
+    /** The de-identified case the model was sent; null when none could be made. */
+    case: jsonb('case'),
+    claimedAt: timestamp('claimed_at', { withTimezone: true }).notNull().defaultNow(),
+    readyAt: timestamp('ready_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check(
+      'ai_preparation_sheet_reason',
+      sql`(${table.status} = 'unavailable') = (${table.unavailableReason} is not null)
+        and (${table.unavailableReason} is null or ${table.unavailableReason} in (${sql.raw(unavailableReasons)}))`,
+    ),
+    check(
+      'ai_preparation_sheet_ready',
+      sql`(${table.status} = 'pending') = (${table.readyAt} is null)`,
+    ),
+  ],
+).enableRLS();
+
+/**
+ * One of the model's suggestions on a sheet (AI-03; TAD section 4 `ai_suggestion`: condition_id,
+ * rank, reason, disposition). The visit's consultant keeps or dismisses it; nothing enters the
+ * record from here (PRD: "nothing enters the record until the physio confirms it").
+ */
+export const aiSuggestion = pgTable(
+  'ai_suggestion',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sheetId: uuid('sheet_id')
+      .notNull()
+      .references(() => aiPreparationSheet.id),
+    aiRunId: uuid('ai_run_id')
+      .notNull()
+      .references(() => aiRun.id),
+    conditionId: text('condition_id').notNull(),
+    region: kbRegion('region').notNull(),
+    rowNumber: integer('row_number').notNull(),
+    rank: smallint('rank').notNull(),
+    section: aiSuggestionSection('section').notNull(),
+    reason: text('reason').notNull(),
+    disposition: aiDisposition('disposition'),
+    disposedBy: uuid('disposed_by').references(() => staffUser.id),
+    disposedAt: timestamp('disposed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('ai_suggestion_sheet_idx').on(table.sheetId),
+    unique('ai_suggestion_run_condition').on(table.aiRunId, table.conditionId),
+    unique('ai_suggestion_run_rank').on(table.aiRunId, table.rank),
+    check('ai_suggestion_condition_id', sql`${table.conditionId} ~ '^[A-Z]{3}-[0-9]{3}$'`),
+    check('ai_suggestion_rank', sql`${table.rank} >= 1`),
+    check('ai_suggestion_reason', sql`length(${table.reason}) between 1 and 160`),
+    check(
+      'ai_suggestion_disposed',
+      sql`(${table.disposition} is null) = (${table.disposedBy} is null)
+        and (${table.disposition} is null) = (${table.disposedAt} is null)`,
     ),
   ],
 ).enableRLS();

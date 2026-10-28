@@ -20,7 +20,12 @@ const db = vi.hoisted(() => ({
   healthFormCarrySource: vi.fn(),
   saveDetailsReview: vi.fn(),
 }));
-const pipeline = vi.hoisted(() => ({ processIntakeSubmission: vi.fn() }));
+const pipeline = vi.hoisted(() => ({
+  processIntakeSubmission: vi.fn(),
+  prepareSheetNow: vi.fn(),
+}));
+const later = vi.hoisted(() => ({ after: vi.fn() }));
+vi.mock('next/server', () => later);
 vi.mock('./pipeline', () => pipeline);
 vi.mock('@clinic-mx/db', () => db);
 vi.mock('../../lib/db', () => ({ appDb: () => ({ kind: 'appDb' }) }));
@@ -424,6 +429,21 @@ describe('saving a health form screen', () => {
       // INT-10: the pipeline is queued with the submit, then run straight after it.
       expect(db.enqueueIntakeSubmitted).toHaveBeenCalledWith(fakeTx, appointmentId);
       expect(pipeline.processIntakeSubmission).toHaveBeenCalledWith(appointmentId);
+    });
+
+    it('makes the AI preparation sheet after the answer, for the episode (AI-03)', async () => {
+      db.ownIntakeResponse.mockResolvedValue({ ...atHistory, doneScreens: [...all, 'history'] });
+      db.submitIntakeResponse.mockResolvedValue(true);
+      pipeline.processIntakeSubmission.mockResolvedValueOnce({
+        status: 'already',
+        episodeId: 'e-1',
+      });
+      later.after.mockClear();
+      expect(await submitHealthForm('token')).toEqual({ status: 'submitted' });
+      expect(later.after).toHaveBeenCalledTimes(1);
+      const [task] = later.after.mock.calls[0] as [() => Promise<void>];
+      await task();
+      expect(pipeline.prepareSheetNow).toHaveBeenCalledWith('e-1');
     });
 
     it('keeps the submit when the pipeline fails: its job runs it again', async () => {

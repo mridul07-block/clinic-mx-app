@@ -26,6 +26,7 @@ import {
 } from '@clinic-mx/schemas';
 import { z } from 'zod';
 import { appDb } from '../../lib/db';
+import { runPreparationSheet } from '../ai/preparation-sheet';
 import { systemService } from '../access/service';
 import { getSetting } from '../settings/settings';
 import { formFor } from './visit';
@@ -50,7 +51,7 @@ export type PipelineResult =
   | { status: 'done'; episodeId: string; alerts: number; precautions: number }
   | { status: 'already'; episodeId: string };
 
-/** The job the pipeline queues; AI-01 to AI-03 make the sheet, AI-09 switches it on. */
+/** The job the pipeline queues: the AI preparation sheet's retry (AI-03), behind the AI gate (AI-09). */
 export const AI_PREPARATION_SHEET_JOB = 'ai.preparation_sheet';
 
 const thresholdsSchema = z.object(
@@ -177,4 +178,16 @@ async function screeningThresholds(): Promise<ScreeningThresholds> {
 /** Runs the pipeline for a submitted visit's form. */
 export async function processIntakeSubmission(appointmentId: string): Promise<PipelineResult> {
   return run(appDb(), { appointmentId, thresholds: await screeningThresholds() });
+}
+
+/**
+ * The AI preparation sheet straight after the submit (AI-03: ready within 15 seconds; the queued
+ * job is a minute away). Nothing it does can fail the submit: the job retries it.
+ */
+export async function prepareSheetNow(episodeId: string): Promise<void> {
+  try {
+    await runPreparationSheet(appDb(), episodeId);
+  } catch {
+    // The `ai.preparation_sheet` job queued with the episode makes it instead.
+  }
 }
