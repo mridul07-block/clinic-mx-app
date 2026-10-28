@@ -267,6 +267,8 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
     await tx.delete(task).where(sql`${task.details} ->> 'choiceId' in ${choices}`);
     await tx.delete(job).where(sql`${job.payload} ->> 'choiceId' in ${choices}`);
     await tx.execute(sql`delete from plan_choice where plan_of_care_id in ${plans}`);
+    // Home exercise ticks on their plans (PAT-02).
+    await tx.execute(sql`delete from exercise_tick where plan_of_care_id in ${plans}`);
     // What signing their consultations wrote (CLN-09), then the consultations (CLN-02).
     await tx.execute(
       sql`delete from plan_modality where plan_of_care_id in

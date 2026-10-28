@@ -7,9 +7,13 @@ import {
   painPoints,
   painSentence,
   planWeek,
+  planWeekStart,
+  weekStripDays,
   type MyPlan,
 } from '@clinic-mx/schemas';
 import { ChartTable } from '../../../../components/charts/chart-table';
+import { WeekStrip } from '../../../../components/charts/week-strip';
+import { tickExerciseAction } from '../../../../modules/patient-links/actions';
 import { LineChart } from '../../../../components/charts/line-chart';
 
 // My plan (PAT-01, in part; PRD M13, Frontend Specification "My plan"; docs/runbooks/my-plan.md):
@@ -21,7 +25,19 @@ import { LineChart } from '../../../../components/charts/line-chart';
 const panel = 'flex flex-col gap-2 rounded-panel border border-line bg-surface p-4';
 const pain = (value: number | null) => (value === null ? 'Not recorded' : String(value));
 
-export function MyPlanPage({ plan, now }: { plan: MyPlan; now: Date }) {
+export function MyPlanPage({
+  plan,
+  now,
+  token,
+  changed,
+}: {
+  plan: MyPlan;
+  now: Date;
+  /** The page's own token, which the tick forms post back. */
+  token: string;
+  /** The plan changed under a tick (PAT-02): the page says so above the exercises. */
+  changed: boolean;
+}) {
   const points = painPoints(
     undefined,
     plan.pain.map((reading) => ({
@@ -104,16 +120,64 @@ export function MyPlanPage({ plan, now }: { plan: MyPlan; now: Date }) {
         <h2 id="my-plan-exercises" className="font-semibold text-ink">
           Your exercises
         </h2>
+        {changed ? (
+          <p role="status" className="text-ink-secondary">
+            Your plan has changed. Here it is as it is now.
+          </p>
+        ) : null}
         {plan.plan && plan.plan.homeProgramme.length > 0 ? (
-          <ul className="flex flex-col divide-y divide-line">
-            {plan.plan.homeProgramme.map((row, index) => (
-              <li key={[index, row.exercise].join('-')} className="flex flex-col py-2">
-                <span className="font-medium text-ink">{row.exercise}</span>
-                {row.dose ? <span className="text-ink-secondary">{row.dose}</span> : null}
-                {row.note ? <span className="text-sm text-ink-secondary">{row.note}</span> : null}
-              </li>
-            ))}
-          </ul>
+          <>
+            <p className="text-sm text-ink-secondary">
+              Tick each exercise when you have done it today.
+            </p>
+            <ul className="flex flex-col divide-y divide-line">
+              {plan.plan.homeProgramme.map((row, index) => {
+                const done = plan.tickedToday.includes(index);
+                return (
+                  <li
+                    key={[index, row.exercise].join('-')}
+                    className="flex items-center justify-between gap-3 py-2"
+                    data-testid="my-plan-exercise"
+                  >
+                    <span className="flex flex-col">
+                      <span className="font-medium text-ink">{row.exercise}</span>
+                      {row.dose ? <span className="text-ink-secondary">{row.dose}</span> : null}
+                      {row.note ? (
+                        <span className="text-sm text-ink-secondary">{row.note}</span>
+                      ) : null}
+                    </span>
+                    <form action={tickExerciseAction}>
+                      <input type="hidden" name="token" value={token} />
+                      <input type="hidden" name="index" value={String(index)} />
+                      <input type="hidden" name="exercise" value={row.exercise} />
+                      <input type="hidden" name="done" value={done ? 'no' : 'yes'} />
+                      <button
+                        type="submit"
+                        aria-pressed={done}
+                        aria-label={`${row.exercise}: ${done ? 'done today, tap to undo' : 'mark done today'}`}
+                        className={`flex min-h-14 min-w-28 items-center justify-center rounded-control border px-3 font-semibold ${
+                          done
+                            ? 'border-accent bg-accent text-on-accent'
+                            : 'border-line-control bg-surface text-ink'
+                        }`}
+                      >
+                        {done ? 'Done today' : 'Mark done'}
+                      </button>
+                    </form>
+                  </li>
+                );
+              })}
+            </ul>
+            <WeekStrip
+              label="Days you did your exercises this week"
+              days={weekStripDays(
+                planWeekStart(new Date(plan.plan.since), plan.today),
+                plan.tickedDays,
+                plan.today,
+                plan.trackedFrom,
+              )}
+            />
+          </>
         ) : (
           <p className="text-ink-secondary">Your physio adds your exercises to your plan.</p>
         )}

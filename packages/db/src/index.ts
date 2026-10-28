@@ -603,6 +603,14 @@ export {
   type UnpaidBillRow,
 } from './finance';
 export { myPlanView } from './my-plan';
+export {
+  exerciseTickSubject,
+  exerciseTickedDays,
+  sessionAdherence,
+  tickExercise,
+  untickExercise,
+  type ExerciseTickSubject,
+} from './exercise-ticks';
 export { SERVICE_RECOVERY_ESCALATE_JOB, escalateServiceRecovery } from './service-recovery';
 export { episodeHasPlan, liveMyPlanLink } from './my-plan-link';
 export {

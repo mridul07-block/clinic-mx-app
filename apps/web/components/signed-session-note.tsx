@@ -7,6 +7,7 @@ import {
   sessionResponseLabels,
   type ModalityParameter,
   type SessionNote,
+  adherenceLine,
 } from '@clinic-mx/schemas';
 import type { ReactNode } from 'react';
 
@@ -68,6 +69,7 @@ export function SignedSessionNote({
             ? 'No'
             : 'Not answered'}
       </Row>
+      {note.adherence ? <Row title="Home exercises">{adherenceLine(note.adherence)}</Row> : null}
       {note.sinceLastVisit.trim() ? (
         <Row title="Since last visit">{note.sinceLastVisit.trim()}</Row>
       ) : null}

@@ -974,7 +974,13 @@ export {
   type FinanceTab,
 } from './finance';
 export { refundLookupSchema, refundSchema, type RefundInput } from './refunds';
-export { myPlanSchema, packageLine, planWeek, type MyPlan } from './my-plan';
+export {
+  exerciseTickInputSchema,
+  myPlanSchema,
+  packageLine,
+  planWeek,
+  type MyPlan,
+} from './my-plan';
 export {
   feedbackAnswers,
   feedbackCommentMax,
@@ -995,3 +1001,11 @@ export {
   type FeedbackSurvey,
   type FeedbackSurveyKey,
 } from './feedback';
+export {
+  adherenceLine,
+  adherenceSnapshotSchema,
+  planWeekStart,
+  weekStripDays,
+  type AdherenceSnapshot,
+  type WeekStripDay,
+} from './adherence';

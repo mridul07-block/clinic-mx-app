@@ -95,6 +95,7 @@ export default async function SessionPage({
           modalityDefinitions={note.modalities}
           baseline={note.baseline}
           reassessment={note.reassessment}
+          adherence={note.adherence}
         />
       ) : null}
       {note?.signed ? (

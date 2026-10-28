@@ -56,6 +56,19 @@ export const myPlanSchema = z.object({
       after: painValue,
     }),
   ),
+  /** Today in IST, the rows of the newest plan ticked today, and the days done lately (PAT-02). */
+  today: z.iso.date(),
+  tickedToday: z.array(z.number().int().min(0)),
+  tickedDays: z.array(z.iso.date()),
+  /** The first day the patient could tick (a plan and a My plan link); earlier days not tracked. */
+  trackedFrom: z.iso.date().nullable(),
+});
+
+/** A tick or an untick of a home programme row, as the My plan page posts it (PAT-02). */
+export const exerciseTickInputSchema = z.object({
+  index: z.coerce.number().int().min(0).max(29),
+  exercise: z.string().min(1).max(200),
+  done: z.enum(['yes', 'no']).transform((value) => value === 'yes'),
 });
 
 export type MyPlan = z.infer<typeof myPlanSchema>;

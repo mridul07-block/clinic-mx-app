@@ -89,8 +89,8 @@ recommended defaults chosen under the user's standing approval, 28 October 2026 
   once, saying so. A Review booked at the desk, which names no episode, counts for the patient's
   episode. A review booked late is not flagged.
 - **Waiting for the client:** plateau and no meaningful change (only lumbar has MCIDs, from its
-  workbook; the questionnaires come with OUT-02 and SET-08), low adherence (My plan, PAT-01 and
-  PAT-02), milestones missed (goals are text; phase times are typical, not deadlines) and repeated
+  workbook; the questionnaires come with OUT-02 and SET-08), low adherence (the days ticked on My
+  plan exist since PAT-02; what counts as low does not), milestones missed (goals are text; phase times are typical, not deadlines) and repeated
   missed sessions that are not in a row (ALT-04 covers those in a row). Each needs the client's
   rule or threshold.
 - **Closing:** with a written decision, as every task. Blueprint 11C's list (continue, modify,

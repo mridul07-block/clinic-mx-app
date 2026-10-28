@@ -2,6 +2,8 @@ import {
   auditEvent,
   completePatientLinkRow,
   createDb,
+  exerciseTick,
+  planOfCare,
   insertPatientLink,
   patientLink,
   revokeMyPlanLinks,
@@ -10,7 +12,8 @@ import {
   withActor,
   type NewPatientLink,
 } from '@clinic-mx/db';
-import { and, eq } from 'drizzle-orm';
+import { addDays, istDate } from '@clinic-mx/schemas';
+import { and, desc, eq } from 'drizzle-orm';
 import { testPatient } from './patients';
 
 // Patient links for end to end tests (IAM-09), made from the test runner the way the service
@@ -100,4 +103,42 @@ export async function linkViews(link: TestLink): Promise<number> {
       ),
     );
   return rows.length;
+}
+
+/**
+ * PAT-02: moves the episode's plans and the My plan link `days` back (as if made then), and ticks
+ * the newest plan's first exercise on the IST day `tickedDaysAgo` before today.
+ */
+export async function exercisedBefore(
+  episodeId: string,
+  linkId: string,
+  days: number,
+  tickedDaysAgo: number,
+): Promise<void> {
+  const then = new Date(Date.now() - days * 86_400_000);
+  await withActor(db(), tests, async (tx) => {
+    await tx.update(planOfCare).set({ createdAt: then }).where(eq(planOfCare.episodeId, episodeId));
+    await tx.update(patientLink).set({ createdAt: then }).where(eq(patientLink.id, linkId));
+    const [plan] = await tx
+      .select({
+        id: planOfCare.id,
+        homeProgramme: planOfCare.homeProgramme,
+        patientId: patientLink.patientId,
+      })
+      .from(planOfCare)
+      .innerJoin(patientLink, eq(patientLink.id, linkId))
+      .where(eq(planOfCare.episodeId, episodeId))
+      .orderBy(desc(planOfCare.version))
+      .limit(1);
+    if (!plan) throw new Error('The episode has no plan.');
+    await tx.insert(exerciseTick).values({
+      patientId: plan.patientId,
+      episodeId,
+      planOfCareId: plan.id,
+      exerciseIndex: 0,
+      exercise: plan.homeProgramme[0]?.exercise ?? '',
+      day: addDays(istDate(new Date()), -tickedDaysAgo),
+      patientLinkId: linkId,
+    });
+  });
 }

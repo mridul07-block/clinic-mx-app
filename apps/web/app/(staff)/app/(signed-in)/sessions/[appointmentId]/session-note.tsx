@@ -21,6 +21,8 @@ import {
   type ReassessmentEntry,
   type SessionModality,
   type SessionNote,
+  adherenceLine,
+  type AdherenceSnapshot,
 } from '@clinic-mx/schemas';
 import { startTransition, useActionState, useMemo, useState, type ReactNode } from 'react';
 import { primaryButtonClass, secondaryButtonClass } from '../../../../../../components/forms';
@@ -339,6 +341,7 @@ export function SessionNoteForm({
   modalityDefinitions,
   baseline,
   reassessment,
+  adherence,
 }: {
   appointmentId: string;
   serverValue: SessionNote;
@@ -358,6 +361,8 @@ export function SessionNoteForm({
   baseline: BaselineView | null;
   /** The reassessment session's section (OUT-05); null for any other session. */
   reassessment: ReassessmentView | null;
+  /** Home exercises ticked on My plan since the session before (PAT-02); null without a plan. */
+  adherence: AdherenceSnapshot | null;
 }) {
   const save = useMemo(() => saveSessionNoteDraft(appointmentId), [appointmentId]);
   const draft = useAutosave({
@@ -527,6 +532,11 @@ export function SessionNoteForm({
       </Section>
 
       <Section title="Since last visit">
+        {adherence ? (
+          <p className="text-ink-secondary" data-testid="adherence-line">
+            {adherenceLine(adherence)}
+          </p>
+        ) : null}
         <Note
           label="What the patient reports"
           value={note.sinceLastVisit}

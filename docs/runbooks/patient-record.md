@@ -95,8 +95,8 @@ signed consultation's then each signed session's (pain at rest, "pain now" at th
 after treatment are in the table); a **bullet graph per strength or hop LSI** taken in the episode:
 the bar to the newest LSI, a tick at the measure's pass (90%) labelled "Target 90%", the first LSI
 as a small grey mark, Pass or Not yet in words, and where and when the newest was taken; charts are
-**hand-built SVG** (no Recharts, though the TAD names it); the **week strip** waits for PAT-01's
-exercise ticks. Questionnaire lines join with OUT-02 and the phase stepper with OUT-04.
+**hand-built SVG** (no Recharts, though the TAD names it); the **week strip** shows the last seven
+days the patient ticked an exercise on My plan (PAT-02, `docs/runbooks/my-plan.md`). Questionnaire lines join with OUT-02 and the phase stepper with OUT-04.
 
 - For clinicians (`clinical.read`), like Notes; read under row level security, so pain comes only
   from what the reader may read, and drafts never (`episodePainReadings`).

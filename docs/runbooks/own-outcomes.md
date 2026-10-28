@@ -24,7 +24,8 @@ defaults chosen under the user's standing approval, 28 October 2026 (DECISION DS
   hold has a plan naming the physio but no proposed plan, so it shows between "Consultation held"
   and "Plan proposed".
 - **Not measured yet:** meaningful change (questionnaires, OUT-02 and SET-08), reinjury (PAT-10)
-  and home exercise adherence (the ticks on My plan, PAT-01 and PAT-02), each saying what brings it.
+  and home exercise adherence (each session note shows its patient's days ticked on My plan since
+  PAT-02; a measure across patients waits for the clinic to define one), each saying what brings it.
 
 ## How it works
 

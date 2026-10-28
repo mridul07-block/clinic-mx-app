@@ -14,6 +14,14 @@ import {
 } from './services';
 
 const fakeTx = { kind: 'transaction' };
+const adherence = {
+  from: '2026-10-21',
+  to: '2026-10-27',
+  since: 'last_session' as const,
+  days: 7,
+  daysDone: 5,
+  tracked: true,
+};
 const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
   sessionNoteOf: vi.fn(),
@@ -24,6 +32,7 @@ const db = vi.hoisted(() => ({
   planForSession: vi.fn(),
   saveSessionNote: vi.fn(),
   signSession: vi.fn(),
+  sessionAdherence: vi.fn(),
   staffTreatsNow: vi.fn(),
   lastSignedSessionNote: vi.fn(),
   latestKnowledgeVersion: vi.fn(),
@@ -289,6 +298,9 @@ describe('the session note', () => {
     db.addSessionAddendum.mockResolvedValue({ id: 'addendum-1' });
     db.staffTreatsNow.mockResolvedValue(true);
     db.signSession.mockResolvedValue('signed');
+    // PAT-02: the adherence a draft shows, kept with the note at signing (version 4, then 5).
+    db.sessionAdherence.mockResolvedValue(adherence);
+    db.saveSessionNote.mockResolvedValue({ status: 'saved', version: 5 });
     db.latestKnowledgeVersion.mockResolvedValue({ id: 'kb-1' });
     db.openSession.mockResolvedValue(sessionId);
   });
@@ -359,7 +371,9 @@ describe('the session note', () => {
       lastTime: null,
       addenda: [],
       addsAddenda: false,
+      adherence,
     });
+    expect(db.sessionAdherence).toHaveBeenCalledWith(fakeTx, sessionId);
     expect(db.sessionAddenda).not.toHaveBeenCalled();
 
     // SES-04: the previous signed note, for "Same as last time", only while the physio writes.
@@ -383,6 +397,8 @@ describe('the session note', () => {
       signed: { by: 'Test Physio' },
       addenda: [{ id: 'a1' }],
       addsAddenda: true,
+      // Signed: as kept in the note, never worked out again (here, before PAT-02: none).
+      adherence: null,
     });
     expect(db.sessionAddenda).toHaveBeenCalledWith(fakeTx, sessionId);
     // The Super Admin reads it; without the Treats patients tick they add nothing.
@@ -418,7 +434,11 @@ describe('the session note', () => {
       saveSessionNote(context(actor), { appointmentId, value: complete(), baseVersion: 4 });
     db.saveSessionNote.mockResolvedValueOnce({ status: 'saved', version: 5 });
     await expect(save()).resolves.toEqual({ status: 'saved', version: 5 });
-    expect(db.saveSessionNote).toHaveBeenCalledWith(fakeTx, sessionId, 4, complete());
+    // Adherence is never typed: whatever is posted, a draft holds none (PAT-02).
+    expect(db.saveSessionNote).toHaveBeenCalledWith(fakeTx, sessionId, 4, {
+      ...complete(),
+      adherence: null,
+    });
     db.saveSessionNote.mockResolvedValueOnce({
       status: 'conflict',
       version: 6,
@@ -444,9 +464,14 @@ describe('the session note', () => {
     await expect(closeSession(context(), { appointmentId, baseVersion: 4 })).resolves.toEqual({
       status: 'signed',
     });
+    // The adherence is kept with the note first, then the note is signed at that version.
+    expect(db.saveSessionNote).toHaveBeenCalledWith(fakeTx, sessionId, 4, {
+      ...complete(),
+      adherence,
+    });
     expect(db.signSession).toHaveBeenCalledWith(fakeTx, {
       sessionId,
-      baseVersion: 4,
+      baseVersion: 5,
       by: staff().id,
       pain: { rest: 2, activity: 4, after: 1 },
     });

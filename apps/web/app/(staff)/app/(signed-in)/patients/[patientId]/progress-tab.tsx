@@ -2,6 +2,7 @@ import { formatIstDate, istDate, type LsiBullet, type PainPoint } from '@clinic-
 import { BulletGraph } from '../../../../../../components/charts/bullet-graph';
 import { ChartTable } from '../../../../../../components/charts/chart-table';
 import { LineChart } from '../../../../../../components/charts/line-chart';
+import { WeekStrip } from '../../../../../../components/charts/week-strip';
 import { Tag } from '../../../../../../components/tag';
 import type { ProgressView } from '../../../../../../modules/progress/progress';
 import { EpisodeHeading } from './clinical-record';
@@ -113,8 +114,8 @@ function LsiPanel({ bullets }: { bullets: LsiBullet[] }) {
 /**
  * The Progress tab (OUT-03, Frontend Specification "Progress tab"): the phase stepper (OUT-04),
  * then the current episode's pain during activity as a line and each strength or hop LSI as a
- * bullet graph, each with its table. Questionnaire lines and the week strip join with OUT-02 and
- * PAT-01.
+ * bullet graph, each with its table, and the home exercise week strip (PAT-02). Questionnaire
+ * lines join with OUT-02.
  */
 export function ProgressTab({ view, patientId }: { view: ProgressView; patientId: string }) {
   if (!view.episode) {
@@ -129,6 +130,9 @@ export function ProgressTab({ view, patientId }: { view: ProgressView; patientId
         <PhaseStepper view={view.phases} ids={{ episodeId: view.episode.id, patientId }} />
       ) : null}
       <PainPanel points={view.pain} sentence={view.painSentence} />
+      <section className={panelClass} data-testid="progress-exercises">
+        <WeekStrip label="Home exercises ticked on My plan, last 7 days" days={view.exercises} />
+      </section>
       <LsiPanel bullets={view.bullets} />
     </div>
   );
