@@ -1,6 +1,7 @@
 import 'server-only';
 import {
   episodeHasPlan,
+  episodeIsNewest,
   episodeRecord,
   exerciseTickSubject,
   tickExercise,
@@ -46,9 +47,7 @@ export const showMyPlan = staffService({
   run: async (tx, input): Promise<IssuedLink> => {
     const found = await episodeRecord(tx, input.episodeId);
     if (!found) throw new PatientLinkError('That episode was not found.');
-    if (found.status === 'discharged') {
-      throw new PatientLinkError('The episode is discharged; its maintenance page comes later.');
-    }
+
     if (!(await episodeHasPlan(tx, input.episodeId))) {
       throw new PatientLinkError('My plan opens once the consultation’s plan is signed.');
     }
@@ -57,6 +56,11 @@ export const showMyPlan = staffService({
       const path = patientLinkPath({ id: live.id, purpose: 'my_plan', expiresAt: live.expiresAt });
       if (!path) throw new PatientLinkError('Patient links are not set up (PATIENT_LINK_SECRET).');
       return { linkId: live.id, path, expiresAt: live.expiresAt };
+    }
+    // PAT-03: a discharged episode's page is its maintenance mode; a new link for an older episode
+    // would stop the newer planned episode's working link, so none is issued then.
+    if (!(await episodeIsNewest(tx, input.episodeId))) {
+      throw new PatientLinkError('The patient has a newer episode with a plan; show its My plan.');
     }
     return issuePatientLink(tx, {
       patientId: found.patientId,

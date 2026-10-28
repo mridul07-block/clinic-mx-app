@@ -612,7 +612,7 @@ export {
   type ExerciseTickSubject,
 } from './exercise-ticks';
 export { SERVICE_RECOVERY_ESCALATE_JOB, escalateServiceRecovery } from './service-recovery';
-export { episodeHasPlan, liveMyPlanLink } from './my-plan-link';
+export { episodeHasPlan, episodeIsNewest, liveMyPlanLink } from './my-plan-link';
 export {
   dischargeFeedbackTarget,
   feedbackResponses,

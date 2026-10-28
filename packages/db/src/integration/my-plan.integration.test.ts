@@ -3,6 +3,7 @@ import { eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { patientActor, setAuditContext, systemActor, withActor } from '../audit';
 import { createDb } from '../client';
+import { updateEpisodeState } from '../episodes';
 import type { StaffMember } from '../identity';
 import {
   exerciseTickSubject,
@@ -16,6 +17,7 @@ import { myPlanView } from '../my-plan';
 import { insertPatientLink, revokeMyPlanLinks } from '../patient-links';
 import {
   appointment,
+  episode,
   exerciseTick,
   patientLink,
   patientPackage,
@@ -613,6 +615,136 @@ describe('Exercise ticks', () => {
           }),
         ).toBe('42501');
       }
+    });
+  });
+});
+
+// PAT-03: after discharge, My plan is the maintenance page: what the discharging consultant wrote
+// for the patient, as written, and never the staff note. A My plan link is not issued for an
+// older episode while the patient has a newer one.
+describe('Maintenance mode', () => {
+  const dischargedWith = async (tx: Tx, mine: Awaited<ReturnType<typeof planned>>) => {
+    await becomeStaff(tx, mine.physio);
+    expect(
+      await updateEpisodeState(
+        tx,
+        mine.id,
+        'active',
+        { status: 'discharged', pausedFrom: null },
+        {
+          reason: 'other',
+          note: 'Fake staff note',
+          returnPlan: 'Fake return plan text',
+          flarePlan: 'Fake flare plan text',
+          recommendations: 'Fake recommendations text',
+        },
+      ),
+    ).toBe(true);
+    await asSystem(tx);
+  };
+
+  it('shows the maintenance section only after discharge, as written, never the staff note', async () => {
+    await rolledBack(async (tx) => {
+      const mine = await planned(tx);
+      await asLink(tx, mine.link);
+      expect(await myPlanView(tx)).toMatchObject({ maintenance: null });
+      await asSystem(tx);
+      await dischargedWith(tx, mine);
+      await asLink(tx, mine.link);
+      const page = (await myPlanView(tx)) as Record<string, unknown>;
+      expect(page).toMatchObject({
+        episodeStatus: 'discharged',
+        maintenance: {
+          returnPlan: 'Fake return plan text',
+          flarePlan: 'Fake flare plan text',
+          ongoingNeeds: null,
+          recommendations: 'Fake recommendations text',
+        },
+      });
+      expect(JSON.stringify(page)).not.toContain('Fake staff note');
+      // Ticking still works after discharge.
+      const subject = await exerciseTickSubject(tx);
+      if (!subject) throw new Error('no subject');
+      await tickExercise(tx, {
+        linkId: mine.link.id,
+        subject,
+        index: 0,
+        exercise: 'Test step downs',
+      });
+      expect((await myPlanView(tx)) as Record<string, unknown>).toMatchObject({
+        tickedToday: [0],
+      });
+    });
+  });
+
+  it('keeps return and flare plans to discharged episodes', async () => {
+    await rolledBack(async (tx) => {
+      const mine = await planned(tx);
+      await asSystem(tx);
+      expect(
+        await failure(tx, (sp) =>
+          sp.update(episode).set({ dischargeFlarePlan: 'x' }).where(eq(episode.id, mine.id)),
+        ),
+      ).toBe('23514');
+    });
+  });
+
+  it('issues a discharged episode’s link, but never an older episode’s while a newer one exists', async () => {
+    await rolledBack(async (tx) => {
+      const mine = await planned(tx);
+      await dischargedWith(tx, mine);
+      const issue = (episodeId: string) =>
+        failure(tx, async (sp) => {
+          await becomeStaff(sp, deskHsr);
+          await insertPatientLink(sp, {
+            patientId: mine.patientId,
+            purpose: 'my_plan',
+            episodeId,
+            expiresAt: new Date(Date.now() + 86_400_000),
+          });
+        });
+      expect(await issue(mine.id)).toBeUndefined();
+      // A recurrence: a newer episode for the same patient (made later).
+      await asSystem(tx);
+      const newer = await episodeThrough(tx, hsr, ['awaiting_consultation'], mine.patientId);
+      await tx
+        .update(episode)
+        .set({ createdAt: new Date(Date.now() + 60_000) })
+        .where(eq(episode.id, newer.id));
+      // Still in intake, with no plan (and so no My plan): it stops nothing.
+      expect(await issue(mine.id)).toBeUndefined();
+      // Once the newer episode has a plan, a link for the older one would stop its link.
+      await asSystem(tx);
+      const kb = await knowledgeVersion(tx);
+      const seen = await visit(tx, {
+        centreId: hsr,
+        physio: mine.physio,
+        type: 'consultation',
+        day: today,
+        status: 'completed',
+        episodeId: newer.id,
+        patientId: mine.patientId,
+      });
+      const consultationId = await note(tx, {
+        appointmentId: seen.id,
+        episodeId: newer.id,
+        physio: mine.physio,
+        kbVersionId: kb,
+        signedAt: new Date(),
+      });
+      await asSystem(tx);
+      await tx.insert(planOfCare).values({
+        episodeId: newer.id,
+        consultationId,
+        version: 1,
+        goals: [],
+        homeProgramme: [],
+        reviewDate: addDays(today, 35),
+        treatingPhysioId: mine.physio.id,
+        createdBy: mine.physio.id,
+      });
+      expect(await issue(mine.id)).toBe('42501');
+      expect(await issue(newer.id)).toBeUndefined();
     });
   });
 });

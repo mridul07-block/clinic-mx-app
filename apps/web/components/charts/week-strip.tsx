@@ -74,9 +74,11 @@ export function WeekStrip({
               </li>
             ))}
         </ul>
-        <p className="text-sm text-ink-secondary">
-          {done} of {counted} days done so far
-        </p>
+        {counted > 0 ? (
+          <p className="text-sm text-ink-secondary">
+            {done} of {counted} days done so far
+          </p>
+        ) : null}
       </div>
     </ChartFrame>
   );

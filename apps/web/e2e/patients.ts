@@ -9,7 +9,12 @@ import {
   systemActor,
   withActor,
 } from '@clinic-mx/db';
-import type { DischargeReason, EpisodeStatus, GuardianRelationship } from '@clinic-mx/schemas';
+import type {
+  DischargeDetails,
+  DischargeReason,
+  EpisodeStatus,
+  GuardianRelationship,
+} from '@clinic-mx/schemas';
 import { eq, sql } from 'drizzle-orm';
 
 // Patients for end to end tests (SCH-01), made from the test runner. Generated details only
@@ -140,6 +145,8 @@ export async function moveEpisode(
   from: EpisodeStatus,
   statuses: EpisodeStatus[],
   reason: DischargeReason = 'goals_achieved',
+  /** What the discharge writes besides its reason (OUT-11, PAT-03). */
+  details: Omit<DischargeDetails, 'reason'> = {},
 ): Promise<void> {
   await withActor(db(), systemActor('tests'), async (tx) => {
     let at = from;
@@ -157,7 +164,7 @@ export async function moveEpisode(
         episodeId,
         at,
         { status: to, pausedFrom: null },
-        to === 'discharged' ? { reason } : undefined,
+        to === 'discharged' ? { ...details, reason } : undefined,
       );
       at = to;
     }

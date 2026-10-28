@@ -3,7 +3,7 @@ import { removeCalendarRows, startedAppointment } from './calendar';
 import { signedConsultation } from './consultations';
 import { removePipelineRows } from './intake';
 import { consultationTypeId, submittedWithAlert } from './my-patients';
-import { testPatient } from './patients';
+import { moveEpisode, testPatient } from './patients';
 import { activePlan } from './plan-sheet';
 import { exercisedBefore, testLink } from './patient-links';
 import { signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
@@ -172,4 +172,67 @@ test('the patient ticks today’s exercise on My plan; the physio sees it on Pro
     'Home exercises ticked on My plan: 1 of 3 days since the plan was made',
   );
   await page.screenshot({ path: test.info().outputPath('session-adherence.png'), fullPage: true });
+});
+
+// PAT-03 done when, in part: after discharge, the maintenance exercises, the return plan, the flare
+// plan and "Book a check up". Decisions (recommended defaults, user's standing approval of 28
+// October 2026): the discharging consultant writes the plans for the patient; the exercises are
+// the plan's home programme; the clinic books the check up (no self booking until WhatsApp).
+test('after discharge My plan is the maintenance page, with what the consultant wrote', async ({
+  page,
+  browser,
+}) => {
+  test.slow();
+  const physio = await temporaryWithCode('physiotherapist', ['HSR Layout'], { consultant: true });
+  physios.push(physio.id);
+  const patient = await testPatient();
+  const seen = await startedAppointment(physio.id, patient.id, 60, {
+    minutes: 45,
+    values: {
+      appointmentTypeId: await consultationTypeId(),
+      status: 'completed',
+      completedAt: new Date(),
+    },
+  });
+  visits.push(seen.id);
+  await submittedWithAlert(seen.id, patient.id);
+  const { consultationId } = await signedConsultation(seen.id, physio.id);
+  const episodeId = await activePlan(consultationId);
+  await moveEpisode(episodeId, 'active', ['discharged'], 'patient_choice', {
+    returnPlan: 'Fake return plan text',
+    flarePlan: 'Fake flare plan text',
+  });
+
+  // The desk shows the My plan QR on the discharged episode's sheet.
+  const desk = await temporaryDesk();
+  await signIn(page, desk.email);
+  await page.goto(`/app/plans/${episodeId}`);
+  const qr = page.getByTestId('my-plan-qr');
+  await qr.getByRole('button', { name: 'Show My plan QR' }).click();
+  const path = (await qr.getByTestId('my-plan-path').textContent())?.trim() ?? '';
+  expect(path).toMatch(/^\/p\/[^/]+$/);
+
+  const phone = await browser.newContext(test.info().project.use);
+  const mine = await phone.newPage();
+  await mine.goto(path);
+  await expect(mine.getByTestId('my-plan-discharged')).toContainText('Discharged on');
+  await expect(mine.getByTestId('my-plan-return')).toContainText('Fake return plan text');
+  await expect(mine.getByTestId('my-plan-flare')).toContainText('Fake flare plan text');
+  // Nothing the consultant did not write.
+  await expect(mine.getByTestId('my-plan-needs')).toHaveCount(0);
+  await expect(mine.getByTestId('my-plan-recommendations')).toHaveCount(0);
+  await expect(mine.getByTestId('my-plan-check-up')).toContainText(
+    'Call the clinic to book a check up',
+  );
+  await expect(mine.getByTestId('my-plan-exercises')).toContainText('Your maintenance exercises');
+  await expect(mine.getByTestId('my-plan-exercises')).toContainText('Step downs');
+  // No week of the plan, next visit or package after discharge.
+  await expect(mine.getByTestId('my-plan-week')).toHaveCount(0);
+  await expect(mine.getByTestId('my-plan-next')).toHaveCount(0);
+  await expect(mine.getByTestId('my-plan-package')).toHaveCount(0);
+  expect(await mine.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await mine.screenshot({ path: test.info().outputPath('maintenance.png'), fullPage: true });
+  await phone.close();
 });

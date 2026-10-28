@@ -534,9 +534,11 @@ discharge checks the tick at that moment and stores who signed). Decisions (user
   left for the desk.
 - **For the report (OUT-11):** the form lists the plan's goals (the latest signed consultation's
   newest plan), each marked Achieved, Partly achieved or Not achieved (all required), and takes
-  optional Ongoing needs and Recommendations. They are written with the discharge
-  (`episode.discharge_goals`, `discharge_ongoing_needs`, `discharge_recommendations`, null unless
-  discharged) and printed on the discharge report (`docs/runbooks/documents.md`).
+  optional Ongoing needs and Recommendations, and (PAT-03) an optional Return plan and Flare plan.
+  They are written with the discharge (`episode.discharge_goals`, `discharge_ongoing_needs`,
+  `discharge_recommendations`, `discharge_return_plan`, `discharge_flare_plan`, null unless
+  discharged), printed on the discharge report (`docs/runbooks/documents.md`) and shown, as
+  written, on the patient's My plan after discharge (`docs/runbooks/my-plan.md`).
 - **Stamped:** the database refuses a discharge by anyone else, the system included, and stamps
   `discharged_by` and `closed_at`; the episode heading shows "Goals achieved · discharged by …".
 - **Lost to follow up check:** every morning at 6:00 AM IST (`episodes.lost_to_follow_up`) an

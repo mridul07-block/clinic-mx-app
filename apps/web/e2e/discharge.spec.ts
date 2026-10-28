@@ -91,6 +91,9 @@ test('a consultant discharges a treated episode as Goals achieved, cancelling th
     .getByLabel('Ongoing needs (optional)')
     .fill('Keep the home programme twice a week.');
   await section.getByLabel('Recommendations (optional)').fill('Check up in 3 months.');
+  // PAT-03: the patient's return and flare plans.
+  await section.getByLabel('Return plan (optional)').fill('Fake return plan text');
+  await section.getByLabel('Flare plan (optional)').fill('Fake flare plan text');
 
   await reason('Goals achieved').check();
   await section.getByRole('button', { name: 'Discharge' }).click();
@@ -103,10 +106,20 @@ test('a consultant discharges a treated episode as Goals achieved, cancelling th
   await page.screenshot({ path: test.info().outputPath('discharged.png'), fullPage: true });
 
   const [closed] = await db()
-    .select({ status: episode.status, by: episode.dischargedBy })
+    .select({
+      status: episode.status,
+      by: episode.dischargedBy,
+      returnPlan: episode.dischargeReturnPlan,
+      flarePlan: episode.dischargeFlarePlan,
+    })
     .from(episode)
     .where(eq(episode.id, episodeId));
-  expect(closed).toEqual({ status: 'discharged', by: consultant.id });
+  expect(closed).toEqual({
+    status: 'discharged',
+    by: consultant.id,
+    returnPlan: 'Fake return plan text',
+    flarePlan: 'Fake flare plan text',
+  });
   const [cancelled] = await db()
     .select({ status: appointment.status, reason: appointment.changeReason })
     .from(appointment)

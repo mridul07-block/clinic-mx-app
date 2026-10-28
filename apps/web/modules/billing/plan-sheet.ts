@@ -16,6 +16,7 @@ import {
   type PlanChoiceEntry,
   type PlanForPricing,
   type StaffMember,
+  episodeIsNewest,
 } from '@clinic-mx/db';
 import {
   can,
@@ -61,6 +62,11 @@ export interface PlanSheet {
   canCollect: boolean;
   /** Whether this person shows the patient their My plan QR here (PAT-01): those who check in. */
   canShowMyPlan: boolean;
+  /**
+   * PAT-03: whether this episode's My plan is the patient's: not when a newer episode of theirs
+   * has a plan (its link would be stopped). Discharged, the page is the maintenance mode.
+   */
+  myPlanHere: boolean;
   /**
    * Discounts on unpaid bills (BIL-07): the clinic's presets in use, and whether this person
    * applies a preset (the desk, Finance, the Super Admin) or an Other discount (Finance and the
@@ -149,6 +155,7 @@ export async function planSheetOf(
       canCollect: !actor.support && collects,
       canShowMyPlan:
         !actor.support && can(actor, 'check_in.manage', { centreId: episode.centreId }),
+      myPlanHere: await episodeIsNewest(tx, episodeId),
       discounts: {
         presets: presets.map((preset) => ({
           id: preset.id,

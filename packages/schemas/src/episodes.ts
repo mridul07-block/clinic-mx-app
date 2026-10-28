@@ -126,6 +126,9 @@ export interface DischargeDetails {
   goals?: { text: string; outcome: GoalOutcome }[];
   ongoingNeeds?: string;
   recommendations?: string;
+  /** PAT-03: for My plan's maintenance mode and the discharge report. */
+  returnPlan?: string;
+  flarePlan?: string;
 }
 
 export type EpisodeTransition = { ok: true; next: EpisodeState } | { ok: false; refusal: string };

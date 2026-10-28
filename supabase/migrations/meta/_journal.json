@@ -1142,6 +1142,20 @@
       "when": 1793184297299,
       "tag": "20261028104457_exercise_ticks_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 163,
+      "version": "7",
+      "when": 1793188364538,
+      "tag": "20261028115244_maintenance_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 164,
+      "version": "7",
+      "when": 1793188366221,
+      "tag": "20261028115246_maintenance_mode_rules",
+      "breakpoints": true
     }
   ]
 }

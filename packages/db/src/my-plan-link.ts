@@ -37,3 +37,14 @@ export async function episodeHasPlan(db: DbOrTransaction, episodeId: string): Pr
   );
   return row?.has === true;
 }
+
+/**
+ * Whether no newer episode of the patient has a plan of care (PAT-03): a My plan link for an older
+ * episode would stop the newer one's working link, so none is issued for it then.
+ */
+export async function episodeIsNewest(db: DbOrTransaction, episodeId: string): Promise<boolean> {
+  const [row] = await db.execute<{ newest: boolean }>(
+    sql`select internal.episode_is_newest(${episodeId}::uuid) as newest`,
+  );
+  return row?.newest === true;
+}

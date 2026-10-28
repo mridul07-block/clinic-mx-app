@@ -96,6 +96,8 @@ export const dischargeEpisode = staffService({
         })),
         ...(input.ongoingNeeds ? { ongoingNeeds: input.ongoingNeeds } : {}),
         ...(input.recommendations ? { recommendations: input.recommendations } : {}),
+        ...(input.returnPlan ? { returnPlan: input.returnPlan } : {}),
+        ...(input.flarePlan ? { flarePlan: input.flarePlan } : {}),
       });
     } catch (error) {
       if (error instanceof EpisodeError) throw new ReviewError(error.message);
