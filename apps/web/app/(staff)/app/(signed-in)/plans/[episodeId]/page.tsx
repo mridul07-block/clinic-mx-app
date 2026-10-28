@@ -139,6 +139,13 @@ function BillCard({
             Recorded by {entry.payment.recordedByName ?? 'a former staff member'},{' '}
             {documentDateTime(entry.payment.recordedAt)}
           </span>
+          {entry.payment.refunds.map((refund) => (
+            <span key={refund.approvedAt.toISOString()} data-testid="refund">
+              Refunded {formatRupees(refund.amountPaise)} by {paymentMethodLabels[refund.method]},{' '}
+              {documentDateTime(refund.approvedAt)} · Approved by {refund.approvedByName} ·{' '}
+              {refund.reason}
+            </span>
+          ))}
           {entry.payment.invoiceNumber ? (
             entry.payment.invoiceDocumentId ? (
               <Link
@@ -213,7 +220,7 @@ function Bills({ sheet }: { sheet: PlanSheet }) {
       <p className="text-sm text-ink-muted">
         Prices come from the price master; bills cannot be edited here. The desk applies a discount
         from the clinic&apos;s list; any other discount is Finance&apos;s. The whole total is paid
-        at once; partial payments are not taken yet.
+        at once; partial payments are not taken yet. Refunds are Finance&apos;s.
       </p>
     </section>
   );

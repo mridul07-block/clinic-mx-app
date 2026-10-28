@@ -194,6 +194,48 @@ export const payment = pgTable(
   ],
 ).enableRLS();
 
+/**
+ * A refund (BIL-11, TAD `refund_credit`; decisions 9 and 12): money given back against a payment,
+ * by Finance or the Super Admin, with how, why and who approved it. Several may be recorded on one
+ * payment, never more than was paid; a full refund closes the payment's live package. The bill
+ * stays paid and the clinical episode is never touched. Credits wait for the client (decision 12).
+ * Only `internal.refund_payment` writes one.
+ */
+export const refundCredit = pgTable(
+  'refund_credit',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    paymentId: uuid('payment_id')
+      .notNull()
+      .references(() => payment.id),
+    /** The payment's bill, for row level security and joins. */
+    billId: uuid('bill_id')
+      .notNull()
+      .references(() => bill.id),
+    amountPaise: integer('amount_paise').notNull(),
+    method: paymentMethod('method').notNull(),
+    /** The UPI transaction ID, the card reversal number or a note, when given. */
+    reference: text('reference'),
+    reason: text('reason').notNull(),
+    approvedBy: uuid('approved_by')
+      .notNull()
+      .references(() => staffUser.id),
+    /** Their name when approved, so everyone who reads the bill sees who approved it. */
+    approvedByName: text('approved_by_name').notNull(),
+    approvedAt: timestamp('approved_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('refund_credit_payment_idx').on(table.paymentId),
+    index('refund_credit_approved_idx').on(table.approvedAt),
+    check('refund_credit_amount', sql`${table.amountPaise} > 0`),
+    check(
+      'refund_credit_reference',
+      sql`${table.reference} is null or length(${table.reference}) <= 40`,
+    ),
+    check('refund_credit_reason', sql`length(trim(${table.reason})) between 1 and 300`),
+  ],
+).enableRLS();
+
 export type Payment = typeof payment.$inferSelect;
 export type Bill = typeof bill.$inferSelect;
 export type BillLine = typeof billLine.$inferSelect;

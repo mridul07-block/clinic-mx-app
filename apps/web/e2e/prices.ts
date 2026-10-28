@@ -58,6 +58,7 @@ export async function restorePrices(snapshot: PriceSnapshot): Promise<void> {
       }
       await tx.execute(sql`delete from session where package_id::text in ${bought}`);
       await tx.execute(sql`delete from package where bill_id in ${chosenBills}`);
+      await tx.execute(sql`delete from refund_credit where bill_id in ${chosenBills}`);
       await tx.execute(sql`delete from payment where bill_id in ${chosenBills}`);
       await tx.execute(sql`delete from bill_line where bill_id in ${chosenBills}`);
       await tx.execute(sql`delete from bill where plan_choice_id in ${chosen}`);
@@ -74,6 +75,7 @@ export async function restorePrices(snapshot: PriceSnapshot): Promise<void> {
     ).map((row) => row.id);
     if (discounted.length > 0) {
       await tx.execute(sql`delete from package where bill_id in ${discounted}`);
+      await tx.execute(sql`delete from refund_credit where bill_id in ${discounted}`);
       await tx.execute(sql`delete from payment where bill_id in ${discounted}`);
       await tx.execute(sql`delete from bill_line where bill_id in ${discounted}`);
       await tx.execute(sql`delete from bill where id in ${discounted}`);

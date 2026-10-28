@@ -40,8 +40,11 @@ export async function overviewView(actor: StaffMember, now = new Date()): Promis
   const outcomes = await outcomesDashboard(actor, '90', now);
   const revenue = await revenueView(actor, now);
 
-  // Revenue over the last 7 days against the 7 before, from the 30 days of collections.
-  const daily = collections.daily.values;
+  // Revenue over the last 7 days against the 7 before, from the 30 days of collections less
+  // the refunds given on each (BIL-11), as the Revenue tab counts it.
+  const daily = collections.daily.values.map(
+    (value, index) => value - (collections.refundsDaily[index] ?? 0),
+  );
   const week = daily.slice(-7).reduce((sum, value) => sum + value, 0);
   const before = daily.slice(-14, -7).reduce((sum, value) => sum + value, 0);
   const difference = week - before;

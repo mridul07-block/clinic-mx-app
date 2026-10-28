@@ -46,6 +46,11 @@ export default async function FinanceCollectionsPage() {
               ? 'Nothing undone today.'
               : `${String(view.today.undone.payments)} undone today (${view.today.undone.text}), not counted.`}
           </span>
+          <span className="text-xs text-ink-secondary" data-testid="refunded-today">
+            {view.today.refunded.refunds === 0
+              ? 'Nothing refunded today.'
+              : `${String(view.today.refunded.refunds)} refunded today (${view.today.refunded.text}), counted in Revenue.`}
+          </span>
         </div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <HorizontalBars

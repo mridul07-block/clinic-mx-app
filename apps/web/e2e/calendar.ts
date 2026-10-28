@@ -246,6 +246,7 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
     const packages = sql`(select id::text from package where bill_id in ${bills})`;
     await tx.delete(job).where(sql`${job.payload} ->> 'packageId' in ${packages}`);
     await tx.execute(sql`delete from package where bill_id in ${bills}`);
+    await tx.execute(sql`delete from refund_credit where bill_id in ${bills}`);
     await tx.execute(sql`delete from payment where bill_id in ${bills}`);
     await tx.execute(sql`delete from bill_line where bill_id in ${bills}`);
     await tx.execute(sql`delete from bill where id in ${bills}`);

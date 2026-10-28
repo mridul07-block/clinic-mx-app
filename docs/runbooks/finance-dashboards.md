@@ -53,14 +53,16 @@ are recorded in the DECISION register as "DSH-04" for the client to confirm.
 
 **Revenue**
 
-- **Basis:** cash basis, meaning payments not undone, on the day they were recorded.
+- **Basis:** cash basis, meaning payments not undone, on the day they were recorded, less refunds
+  on the day each was given (BIL-11); a month may be below zero.
 - **Charts:**
   - each of the last 12 months against the same month a year before (grey), with this month
     hatched "so far";
   - this month by centre, in the centre colours;
   - the last 12 months by service (consultation fee or package).
 - **Fetching:** the two years are fetched as two calls of one year each.
-- **Not built yet:** refunds and credits come with BIL-11.
+- **Refunds** are on their own tab (BIL-11, `docs/runbooks/refunds.md`); Collections count them
+  apart. Credits wait for decision 12.
 
 **CSV**
 

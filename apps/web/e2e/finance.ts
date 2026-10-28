@@ -1,4 +1,13 @@
-import { bill, centre, createDb, payment, staffUser, systemActor, withActor } from '@clinic-mx/db';
+import {
+  bill,
+  centre,
+  createDb,
+  payment,
+  refundCredit,
+  staffUser,
+  systemActor,
+  withActor,
+} from '@clinic-mx/db';
 import { istDate, startOfIstDay } from '@clinic-mx/schemas';
 import { and, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { startedAppointment } from './calendar';
@@ -76,6 +85,7 @@ export async function removeBills(numbers: string[]): Promise<void> {
   if (numbers.length === 0) return;
   await withActor(db(), systemActor('tests'), async (tx) => {
     const made = tx.select({ id: bill.id }).from(bill).where(inArray(bill.number, numbers));
+    await tx.delete(refundCredit).where(inArray(refundCredit.billId, made));
     await tx.delete(payment).where(inArray(payment.billId, made));
     await tx.delete(bill).where(inArray(bill.number, numbers));
   });

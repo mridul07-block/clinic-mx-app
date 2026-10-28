@@ -1,6 +1,6 @@
 import { addDays, startOfIstDay, type BillKind, type PaymentMethod } from '@clinic-mx/schemas';
 import { and, desc, eq, gte, isNotNull, isNull, lt, sql } from 'drizzle-orm';
-import { bill, centre, patient, patientPackage, payment } from './schema';
+import { bill, centre, patient, patientPackage, payment, refundCredit } from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /**
@@ -12,7 +12,6 @@ import type { DbOrTransaction } from './versioned';
 
 const recordedDay = sql<string>`((${payment.recordedAt} at time zone 'Asia/Kolkata')::date)::text`;
 const undoneDay = sql<string>`((${payment.undoneAt} at time zone 'Asia/Kolkata')::date)::text`;
-const recordedMonth = sql<string>`to_char(${payment.recordedAt} at time zone 'Asia/Kolkata', 'YYYY-MM')`;
 
 /** Payments not undone per centre, IST day and method: how many, and the paise. */
 export async function paymentsDaily(
@@ -66,29 +65,67 @@ export async function paymentsUndone(
     .groupBy(bill.centreId, undoneDay);
 }
 
-/** Revenue (payments not undone) per centre, IST month and bill kind, from `from` to `to`. */
+/**
+ * Revenue per centre, IST month and bill kind, from `from` to `to`: payments not undone, less
+ * refunds (BIL-11) in the month each was given, so a month's figure may be below zero.
+ */
 export async function revenueMonthly(
   db: DbOrTransaction,
   from: string,
   to: string,
 ): Promise<{ centreId: string; month: string; kind: BillKind; paise: number }[]> {
+  const start = startOfIstDay(from).toISOString();
+  const end = startOfIstDay(addDays(to, 1)).toISOString();
+  const rows = await db.execute<{
+    centre_id: string;
+    month: string;
+    kind: BillKind;
+    paise: string;
+  }>(
+    sql`select m.centre_id, m.month, m.kind, sum(m.paise)::bigint as paise from (
+      select b.centre_id, to_char(p.recorded_at at time zone 'Asia/Kolkata', 'YYYY-MM') as month,
+        b.kind, p.amount_paise as paise
+      from payment p join bill b on b.id = p.bill_id
+      where p.undone_at is null and p.recorded_at >= ${start}::timestamptz and p.recorded_at < ${end}::timestamptz
+      union all
+      select b.centre_id, to_char(c.approved_at at time zone 'Asia/Kolkata', 'YYYY-MM'), b.kind,
+        -c.amount_paise
+      from refund_credit c join bill b on b.id = c.bill_id
+      where c.approved_at >= ${start}::timestamptz and c.approved_at < ${end}::timestamptz
+    ) m group by m.centre_id, m.month, m.kind`,
+  );
+  return rows.map((row) => ({
+    centreId: row.centre_id,
+    month: row.month,
+    kind: row.kind,
+    paise: Number(row.paise),
+  }));
+}
+
+const refundDay = sql<string>`((${refundCredit.approvedAt} at time zone 'Asia/Kolkata')::date)::text`;
+
+/** Refunds given per centre and IST day, from `from` to `to` (BIL-11): how many, and the paise. */
+export async function refundsDaily(
+  db: DbOrTransaction,
+  from: string,
+  to: string,
+): Promise<{ centreId: string; day: string; refunds: number; paise: number }[]> {
   return db
     .select({
       centreId: bill.centreId,
-      month: recordedMonth,
-      kind: bill.kind,
-      paise: sql<number>`sum(${payment.amountPaise})::bigint`.mapWith(Number),
+      day: refundDay,
+      refunds: sql<number>`count(*)::int`.mapWith(Number),
+      paise: sql<number>`sum(${refundCredit.amountPaise})::bigint`.mapWith(Number),
     })
-    .from(payment)
-    .innerJoin(bill, eq(bill.id, payment.billId))
+    .from(refundCredit)
+    .innerJoin(bill, eq(bill.id, refundCredit.billId))
     .where(
       and(
-        isNull(payment.undoneAt),
-        gte(payment.recordedAt, startOfIstDay(from)),
-        lt(payment.recordedAt, startOfIstDay(addDays(to, 1))),
+        gte(refundCredit.approvedAt, startOfIstDay(from)),
+        lt(refundCredit.approvedAt, startOfIstDay(addDays(to, 1))),
       ),
     )
-    .groupBy(bill.centreId, recordedMonth, bill.kind);
+    .groupBy(bill.centreId, refundDay);
 }
 
 export interface UnpaidBillRow {
