@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { aiSheetSettingSchema } from './ai';
+import { redFlagTiers } from './knowledge';
 
 /**
  * Business rules that the Super Admin changes without a code release (rule 6, PRD section 7).
@@ -321,6 +322,28 @@ export const settingDefinitions = {
       'PRD decision 23 (open, client lawyer) and PRD section 3 phase 5; AI-09: off until the Super Admin records the blind test pass and the legal clearance (recommended default, 28 October 2026)',
     description:
       'Whether the AI preparation sheet runs, with the blind test pass and legal clearance recorded to switch it on and the knowledge base version they were for.',
+  },
+  'ai.candidates_min': {
+    schema: z.int().positive(),
+    source:
+      'PRD section 6 (how the preparation sheet works, step 1) and TAD section 6: about 15 to 25 candidates; AI-02, recommended default, 28 October 2026',
+    description:
+      'The fewest knowledge base rows the preparation sheet filter keeps for the model to rank (all of the region when it has fewer).',
+  },
+  'ai.candidates_max': {
+    schema: z.int().positive(),
+    source:
+      'PRD section 6 (how the preparation sheet works, step 1) and TAD section 6: about 15 to 25 candidates; AI-02, recommended default, 28 October 2026',
+    description:
+      'The most knowledge base rows the preparation sheet filter keeps for the model to rank; must rule out rows are added on top.',
+  },
+  // DECISION AI-02: which rows are "high risk" is the client's; the Red flag tier is a placeholder.
+  'ai.must_rule_out_tiers': {
+    schema: z.array(z.enum(redFlagTiers)).min(1),
+    source:
+      'PRD section 6 step 2 and TAD section 6 step 3 (matching high risk rows always added); AI-02: the workbooks’ Red flag tier, recommended default, 28 October 2026',
+    description:
+      'The red flag tiers whose rows in the patient’s region and age range always go to Must rule out on the preparation sheet.',
   },
   'billing.consultation_fee_timing': {
     schema: z.enum(consultationFeeTimings),

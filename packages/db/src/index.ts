@@ -633,3 +633,4 @@ export {
   type FeedbackTarget,
 } from './feedback';
 export { aiSheetGate } from './ai-gate';
+export { episodeCandidateInput, type EpisodeCandidateInput } from './candidates';
