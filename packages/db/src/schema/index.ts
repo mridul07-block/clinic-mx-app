@@ -26,3 +26,4 @@ export * from './plan-choices';
 export * from './bills';
 export * from './packages';
 export * from './sessions';
+export * from './feedback';

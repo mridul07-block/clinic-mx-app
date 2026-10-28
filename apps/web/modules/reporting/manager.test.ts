@@ -17,6 +17,7 @@ const db = vi.hoisted(() => ({
   bookingChannels: vi.fn(),
   busyHours: vi.fn(),
   centreList: vi.fn(),
+  feedbackResponses: vi.fn(),
   kpiDaily: vi.fn(),
   kpiDiagnosisOutcomes: vi.fn(),
   kpiFunnel: vi.fn(),
@@ -260,8 +261,53 @@ describe('the Centre Manager’s dashboards', () => {
     expect(view.workload).toEqual([{ label: 'Test Physio', value: 5 }]);
   });
 
-  it('says what brings the feedback figures', async () => {
-    const view = await feedbackDashboard(manager);
+  it('counts Yes and No after the consultation by centre and physio, with the comments', async () => {
+    const answers = (plan: string) => ({
+      problem_explained: 'yes',
+      plan_understood: plan,
+      questions_answered: 'yes',
+      options_and_charges_explained: 'yes',
+    });
+    const row = (id: string, physioName: string, plan: string, comment: string | null) => ({
+      id,
+      submittedAt: new Date('2026-10-27T05:00:00Z'),
+      surveyVersion: 1,
+      centreId: hsr,
+      centreName: 'HSR Layout',
+      physioId: id,
+      physioName,
+      answers: answers(plan),
+      comment,
+    });
+    db.feedbackResponses.mockResolvedValue([
+      row('a', 'Test Physio A', 'no', 'Please explain the exercises again'),
+      row('b', 'Test Physio B', 'yes', null),
+      { ...row('c', 'Test Physio A', 'yes', null), physioId: 'a' },
+      // Another physio with the same name stays apart.
+      row('d', 'Test Physio B', 'yes', null),
+    ]);
+    const view = await feedbackDashboard(manager, '30', now);
+    // From the window's first IST day.
+    expect(db.feedbackResponses.mock.calls[0]?.[1]).toEqual(
+      new Date(`${addDays('2026-10-28', -29)}T00:00:00+05:30`),
+    );
+    expect(view.answered).toBe(4);
+    expect(view.questions.find((q) => q.key === 'plan_understood')).toMatchObject({
+      yes: 3,
+      no: 1,
+    });
+    expect(view.byCentre).toMatchObject([{ key: hsr, label: 'HSR Layout', answered: 4 }]);
+    expect(view.byPhysio.map((tally) => [tally.key, tally.label, tally.answered])).toEqual([
+      ['a', 'Test Physio A', 2],
+      ['b', 'Test Physio B', 1],
+      ['d', 'Test Physio B', 1],
+    ]);
+    expect(view.comments).toEqual([
+      expect.objectContaining({
+        physio: 'Test Physio A',
+        comment: 'Please explain the exercises again',
+      }),
+    ]);
     expect(view.figures.map((figure) => figure.label)).toEqual([
       'Net Promoter Score',
       'Patient satisfaction',
@@ -276,7 +322,7 @@ describe('the Centre Manager’s dashboards', () => {
       await expect(centresDashboard(someone, now)).rejects.toThrow(NotAllowedError);
       await expect(outcomesDashboard(someone, '90', now)).rejects.toThrow(NotAllowedError);
       await expect(teamDashboard(someone, now)).rejects.toThrow(NotAllowedError);
-      await expect(feedbackDashboard(someone)).rejects.toThrow(NotAllowedError);
+      await expect(feedbackDashboard(someone, '30', now)).rejects.toThrow(NotAllowedError);
     }
     expect(db.managerAlertCounts).not.toHaveBeenCalled();
   });

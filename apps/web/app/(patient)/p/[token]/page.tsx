@@ -33,12 +33,14 @@ import {
   networkKey,
   take,
 } from '../../../../modules/rate-limits/limits';
+import { loadFeedback } from '../../../../modules/feedback/services';
 import { loadMyPlan } from '../../../../modules/patient-links/my-plan';
 import { getSetting } from '../../../../modules/settings/settings';
-import type { MyPlan } from '@clinic-mx/schemas';
+import type { FeedbackSurvey, MyPlan } from '@clinic-mx/schemas';
 import { ChangesReview } from './changes-review';
 import { CheckAndSubmit } from './check-submit';
 import { ConsentScreenForm } from './consent-form';
+import { FeedbackForm } from './feedback-form';
 import { HealthFormScreenForm } from './health-form';
 import { KioskShell } from './kiosk-shell';
 import { MyPlanPage } from './my-plan';
@@ -68,7 +70,9 @@ import { patientPrimaryClass, patientSecondaryClass } from './patient-ui';
 // valid against its bad links. Over either, the page checks nothing and asks the patient to wait.
 //
 // A My plan link (PAT-01) opens the patient's page for their episode: the plan's week, the next
-// visit, the exercises, the package and the pain line, read as the patient.
+// visit, the exercises, the package and the pain line, read as the patient. A feedback link
+// (PAT-04) opens the four questions after the consultation while its consultation is signed and
+// unanswered.
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
@@ -107,7 +111,9 @@ function message(opened: Shown): { title: string; body: string } {
         body:
           opened.purpose === 'health_form'
             ? 'Thank you. Your answers are with your physiotherapist.'
-            : 'You have already sent this. Thank you.',
+            : opened.purpose === 'feedback'
+              ? 'Thank you. Your feedback has reached the clinic.'
+              : 'You have already sent this. Thank you.',
       };
     case 'expired':
     case 'revoked':
@@ -350,17 +356,25 @@ export default async function PatientPage({
     myPlan = await loadMyPlan(link.link, ip);
     if (!myPlan) opened = { status: 'closed', purpose: 'my_plan' };
   }
+  let survey: FeedbackSurvey | null = null;
+  if (link.status === 'valid' && link.link.purpose === 'feedback') {
+    const loaded = await loadFeedback(link.link, ip);
+    if (loaded.open) survey = loaded.survey;
+    else opened = { status: 'closed', purpose: 'feedback' };
+  }
   const { title, body } = kiosk ? kioskMessage(opened) : message(opened);
-  const formScreen = welcome?.open
-    ? healthFormScreen(
-        token,
-        welcome,
-        screenKey,
-        change === '1',
-        guardian === 'needed',
-        await getSetting('reports.max_file_mb'),
-      )
-    : null;
+  const formScreen = welcome?.open ? (
+    healthFormScreen(
+      token,
+      welcome,
+      screenKey,
+      change === '1',
+      guardian === 'needed',
+      await getSetting('reports.max_file_mb'),
+    )
+  ) : survey ? (
+    <FeedbackForm token={token} survey={survey} />
+  ) : null;
   const page = (
     <main data-voice="patient" className="min-h-dvh bg-surface px-4 py-6">
       <div className="mx-auto flex w-full max-w-signin flex-col gap-3">

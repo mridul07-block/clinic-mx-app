@@ -107,8 +107,12 @@ Then:
 
 **Feedback**
 
-- An empty state, plus satisfaction and the Net Promoter Score as "Not measured yet", until PAT-04,
-  PAT-07 and PAT-08.
+- After the consultation (PAT-04): Yes and No for each of the four questions over 30 days, 90 days
+  or 12 months, then by centre and by the physio who held the consultation (grouped by id, so two
+  people with one name stay apart), and what patients wrote. Read under the reader's access: the
+  Super Admin every centre, a Centre Manager theirs. See `docs/runbooks/feedback.md`.
+- Satisfaction (no question is out of 5 yet) and the Net Promoter Score (PAT-07) stay "Not
+  measured yet"; themes and service recovery come with PAT-07 and PAT-08.
 
 **Week strip**
 

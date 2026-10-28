@@ -94,7 +94,8 @@ overwrite). The database queues both (`internal.consultation_summary_jobs`,
 `internal.addendum_summary_job`), as staff cannot add jobs. Each job's key is recorded on the version
 it makes (`document.generation_key`), so a job that runs again makes nothing. The bundled WhatsApp
 message (`whatsapp.consultation_summary`, "Open My plan" and "Rate your visit") is queued on signing
-and sends nothing until WA-06.
+and sends nothing until WA-06. Its two links are the My plan link (PAT-01) and the visit's feedback
+link (PAT-04, `docs/runbooks/feedback.md`); until then the desk shows both as QR codes.
 
 **What it prints**, in the specification's order; a section with nothing in it is left out
 (`summarySections` in `apps/web/modules/documents/consultation-summary.tsx`):

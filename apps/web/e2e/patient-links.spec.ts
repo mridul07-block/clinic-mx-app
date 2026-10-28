@@ -60,7 +60,7 @@ test('an expired link says so, and a submitted form says thank you', async ({ pa
   await submitLink(feedback.id);
   await page.goto(feedback.path);
   await expect(page.getByRole('heading', { name: 'Your feedback' })).toBeVisible();
-  await expect(status(page)).toHaveText('You have already sent this. Thank you.');
+  await expect(status(page)).toHaveText('Thank you. Your feedback has reached the clinic.');
 });
 
 test('a new My plan link from WhatsApp stops the older one, which says how to get a new one', async ({

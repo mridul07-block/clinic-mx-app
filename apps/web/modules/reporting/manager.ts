@@ -5,6 +5,7 @@ import {
   bookingChannels,
   busyHours,
   centreList,
+  feedbackResponses,
   kpiDaily,
   kpiDiagnosisOutcomes,
   kpiFunnel,
@@ -25,12 +26,14 @@ import {
   alertsComing,
   can,
   centreColourIndex,
+  feedbackCounts,
   channelPartLabels,
   channelParts,
   formatIstDateTime,
   funnelStageLabels,
   funnelStages,
   istDate,
+  istInstant,
   kpiCatalogue,
   kpiStatus,
   kpiTally,
@@ -533,12 +536,60 @@ export async function teamDashboard(actor: StaffMember, now = new Date()): Promi
 
 // Feedback -------------------------------------------------------------------------------------
 
+/** Yes and No per question for a group of answers (PAT-04). */
+export interface FeedbackTally {
+  /** The centre's or physio's id. */
+  key: string;
+  label: string;
+  answered: number;
+  questions: { key: string; text: string; yes: number; no: number }[];
+}
+
 export interface FeedbackDashboard {
+  window: OutcomeWindow;
+  /** The feedback after the consultation in the window, as the reader may see it. */
+  answered: number;
+  questions: FeedbackTally['questions'];
+  byCentre: FeedbackTally[];
+  byPhysio: FeedbackTally[];
+  /** The comments in the window, newest first. */
+  comments: { id: string; when: string; centre: string; physio: string; comment: string }[];
   figures: { label: string; target: string | null; needs: string }[];
 }
 
-export async function feedbackDashboard(actor: StaffMember): Promise<FeedbackDashboard> {
+/** Groups by `key` (an id: two people may share a name), labelled by the group's name. */
+function tallies(
+  rows: { answers: Record<string, string>; key: string; label: string }[],
+): FeedbackTally[] {
+  const groups = new Map<string, { label: string; rows: { answers: Record<string, string> }[] }>();
+  for (const row of rows) {
+    const group = groups.get(row.key) ?? { label: row.label, rows: [] };
+    group.rows.push(row);
+    groups.set(row.key, group);
+  }
+  return [...groups.entries()]
+    .map(([key, { label, rows: group }]) => ({
+      key,
+      label,
+      answered: group.length,
+      questions: feedbackCounts('post_consultation', group),
+    }))
+    .sort((a, b) => b.answered - a.answered || a.label.localeCompare(b.label));
+}
+
+/**
+ * Feedback (DSH-03, PAT-04): the four questions after the consultation, Yes and No over the
+ * window, by centre and by the physio who held the consultation, with the comments; the
+ * recommendation score and satisfaction out of 5 say what brings them.
+ */
+export async function feedbackDashboard(
+  actor: StaffMember,
+  window: OutcomeWindow,
+  now = new Date(),
+): Promise<FeedbackDashboard> {
   assertReads(actor);
+  const { current } = windowDays(Number(window), istDate(now));
+  const rows = await asStaff(actor, (tx) => feedbackResponses(tx, istInstant(current.from, 0)));
   const figures: FeedbackDashboard['figures'] = [];
   for (const key of ['nps', 'patient_satisfaction']) {
     const definition = kpiCatalogue.find((figure) => figure.key === key);
@@ -552,5 +603,33 @@ export async function feedbackDashboard(actor: StaffMember): Promise<FeedbackDas
       : null;
     figures.push({ label: definition.label, target, needs: definition.measured.needs });
   }
-  return { figures };
+  return {
+    window,
+    answered: rows.length,
+    questions: feedbackCounts('post_consultation', rows),
+    byCentre: tallies(
+      rows.map((row) => ({ answers: row.answers, key: row.centreId, label: row.centreName })),
+    ),
+    byPhysio: tallies(
+      rows.map((row) => ({
+        answers: row.answers,
+        key: row.physioId ?? row.id,
+        label: row.physioName || 'A physio at another centre',
+      })),
+    ),
+    comments: rows.flatMap((row) =>
+      row.comment
+        ? [
+            {
+              id: row.id,
+              when: formatIstDateTime(row.submittedAt),
+              centre: row.centreName,
+              physio: row.physioName,
+              comment: row.comment,
+            },
+          ]
+        : [],
+    ),
+    figures,
+  };
 }
