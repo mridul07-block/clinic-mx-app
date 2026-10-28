@@ -2,7 +2,8 @@
 
 SET-05, TAD section 4 ("Knowledge base tables"), PRD rule 4 ("clinical knowledge is versioned
 data"). The nine Assessment and Management workbooks in `docs/Joint wise AI Training/` are
-imported as a knowledge base version. Condition search (CLN-06), the diagnosis shortlist (AI-02)
+imported as a knowledge base version. Condition search (CLN-06), the diagnosis shortlist (AI-02,
+`docs/runbooks/ai-candidates.md`)
 and the version viewer with approval (SET-06) read it. Later tickets import the other sheets:
 SET-07 exercises, SET-08 questionnaires, SET-09 programme phases and criteria (imported with OUT-04, `docs/runbooks/sessions.md` "Phase stepper"), SET-10 red flag
 rules.

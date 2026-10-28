@@ -1030,3 +1030,16 @@ export {
   type AiSheetSetting,
   type AiSheetSwitch,
 } from './ai';
+export {
+  candidateCase,
+  listingFit,
+  shortlistCandidates,
+  type CandidateCase,
+  type CandidateListing,
+  type CandidateSettings,
+  type Fit,
+  type SexFit,
+  type Shortlist,
+  type ShortlistGap,
+  type ShortlistItem,
+} from './candidates';

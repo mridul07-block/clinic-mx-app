@@ -10,6 +10,7 @@ import {
   saveConsultationSections,
   treatingPhysios,
 } from '../consultations';
+import { episodeCandidateInput } from '../candidates';
 import { insertEpisode } from '../episodes';
 import type { StaffMember } from '../identity';
 import { startVisit } from '../my-patients';
@@ -331,6 +332,49 @@ describe('consultation', () => {
       expect(await consultationIntake(tx, here.appointmentId)).toBeUndefined();
       await becomeStaff(tx, deskHsr);
       expect(await consultationIntake(tx, here.appointmentId)).toBeUndefined();
+    });
+  });
+
+  // AI-02: the preparation sheet's filter reads the episode's submitted form, never a draft, with
+  // the date of birth and sex on file.
+  it('reads an episode’s submitted health form for the candidate filter, never a draft', async () => {
+    await rolledBack(async (tx) => {
+      const { consultant, visit } = await setUp(tx);
+      const form = async (here: Awaited<ReturnType<typeof visit>>, submittedAt: Date | null) => {
+        const link = await insertPatientLink(tx, {
+          patientId: here.patientId,
+          purpose: 'health_form',
+          appointmentId: here.appointmentId,
+          expiresAt: new Date(Date.now() + 3600_000),
+        });
+        await tx.insert(intakeResponse).values({
+          appointmentId: here.appointmentId,
+          patientId: here.patientId,
+          patientLinkId: link.id,
+          episodeId: here.episodeId,
+          formVersion: 'hf-3',
+          answers: { region: 'knee', onset: 'gradual' },
+          submittedAt,
+        });
+      };
+      const draft = await visit(consultant.id);
+      await form(draft, null);
+      expect(await episodeCandidateInput(tx, draft.episodeId)).toBeUndefined();
+
+      const submitted = await visit(consultant.id);
+      await form(submitted, new Date());
+      await tx.execute(
+        sql`update patient set date_of_birth = '1996-01-15', sex = 'female' where id = ${submitted.patientId}`,
+      );
+      await tx.execute(
+        sql`update episode set body_region = 'knee' where id = ${submitted.episodeId}`,
+      );
+      expect(await episodeCandidateInput(tx, submitted.episodeId)).toEqual({
+        answers: { region: 'knee', onset: 'gradual' },
+        dateOfBirth: '1996-01-15',
+        sex: 'female',
+        bodyRegion: 'knee',
+      });
     });
   });
 
