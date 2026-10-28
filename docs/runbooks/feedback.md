@@ -103,6 +103,26 @@ Who can read them:
 The desk, Finance and the physio named do not read answers. Nobody changes or removes an answer
 (rule 5), and staff never write one.
 
+## Service recovery (PAT-08)
+
+PRD J7.2: "Negative answers or scores 0 to 6 create a service recovery task; complaints and adverse
+events escalate to the clinical director within 24 hours." Blueprint section 14: "Negative feedback
+should create a service-recovery task." Recommended defaults chosen under the user's standing
+approval, 28 October 2026 (DECISION PAT-08):
+
+- **When.** Any answer of No, after the consultation or at discharge, or a recommendation score at
+  or below `feedback.recovery_score_max` (6).
+- **The task.** A high `feedback.service_recovery` task for the centre's Centre Managers, made in the
+  patient's own transaction (`internal.feedback_service_recovery`). Its details name the questions
+  answered No and the score, never the patient; its card in Tasks lists those questions in their
+  words and the score (`serviceRecoveryOf`). It is closed with a decision, like every task.
+- **Escalation.** A complaint is service recovery not closed in time: a task still open after
+  `feedback.escalate_hours` (24) gives the Clinical Director a task too
+  (`feedback.service_recovery_director`, through the queued `feedback.recovery_escalate`). No
+  Clinical Director role exists, so the Super Admin holds it, as for adverse events (DECISION SES-06).
+  Adverse events already escalate at once.
+- **Alerts.** The Centre Manager's Alerts count open service recovery tasks, linked to Tasks.
+
 ## How it works
 
 | Part | Where |
@@ -126,4 +146,9 @@ The desk, Finance and the physio named do not read answers. Nobody changes or re
 | `packages/db/src/integration/feedback.integration.test.ts` | Covers: <ul><li>the answer for the consultation's centre and physio, audited as the patient;</li><li>no completion before the answer;</li><li>another subject, a second answer, a second link, a draft, a stopped or other link all refused;</li><li>no patient read;</li><li>Super Admin and Centre Manager reads by centre, with the desk, Finance and the physio refused;</li><li>nobody updates or deletes;</li><li>the desk issues only at its centre and only once signed.</li><li>At discharge: the answers and score for the episode's centre and discharging consultant; a score required; another subject, a second answer and an episode not yet discharged refused; the desk issues only at its centre, for the episode's own patient.</li></ul> |
 | `apps/web/e2e/feedback.spec.ts` (360 px and desktop) | After the consultation and at discharge: the desk QR (discharge only once discharged); the patient's answers with the missing-answer and missing-score messages; the thanks; received at the desk; the Centre Manager's screen with the Net Promoter Score |
 
-Dropping the subject check from `feedback_patient_answer`, or the discharged check from `internal.feedback_subject`, makes the database test fail.
+The database test also covers service recovery: a task for a No and none for all Yes, a score of
+6 and not 7 at discharge, the escalation queued 24 hours on, the Alerts count, and the Clinical
+Director's task once, never for a task closed in time. The end to end test sees the task in the
+Centre Manager's Tasks and on Alerts.
+
+Dropping the subject check from `feedback_patient_answer`, the discharged check from `internal.feedback_subject`, or the service recovery trigger makes the database test fail.

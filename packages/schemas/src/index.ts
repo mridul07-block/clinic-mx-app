@@ -984,6 +984,8 @@ export {
   feedbackSubmissionSchema,
   netPromoter,
   promoterFrom,
+  SERVICE_RECOVERY_TASKS,
+  serviceRecoveryOf,
   feedbackSurveyKeys,
   feedbackSurveys,
   postedFeedback,

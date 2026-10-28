@@ -10,6 +10,13 @@ describe('getSetting', () => {
 
   it('fails clearly when the database is not configured', async () => {
     vi.stubEnv('DATABASE_URL', '');
+    // The database package itself is not under test (and cold, its whole schema took over the 5
+    // second limit while every test file started at once); the real lib/db raises the message.
+    vi.doMock('@clinic-mx/db', () => ({
+      createDb: vi.fn(),
+      readSettingRows: vi.fn(),
+      createSettingsReader: (load: () => Promise<unknown>) => ({ get: load, invalidate: vi.fn() }),
+    }));
     const { getSetting } = await import('./settings');
     expect(() => getSetting('day.running_late_minutes')).toThrow('DATABASE_URL is not set');
   });

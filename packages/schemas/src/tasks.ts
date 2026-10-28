@@ -31,6 +31,8 @@ export const taskKindLabels: Record<string, string> = {
   'review.lost_to_follow_up': 'Lost to follow up',
   'review.worsening': 'Clinical review: worse or escalated',
   'review.overdue': '6 week review overdue',
+  'feedback.service_recovery': 'Service recovery',
+  'feedback.service_recovery_director': 'Service recovery: Clinical Director review',
 };
 
 export function taskKindLabel(kind: string): string {

@@ -37,9 +37,10 @@ are recorded in the DECISION register as "DSH-03" for the client to confirm.
   - 6 week reviews overdue (ALT-02; each a task held by the consultant, so counted only);
   - episodes On hold (no list of them exists yet, so the line says they show on each patient's
     record), and Lost to follow up.
-- Two items wait for the tickets that bring them, with no clinical rule invented here:
+- "Service recovery after a No or a low score" (PAT-08): open service recovery tasks, listed in
+  Tasks (`docs/runbooks/feedback.md`).
+- One item waits for the ticket that brings it, with no clinical rule invented here:
   - "Stalled progress": plateau and no change wait for the clinic's thresholds (DECISION ALT-02).
-  - "Service recovery" comes with discharge feedback (PAT-08).
 
 **Centres**
 
@@ -116,8 +117,8 @@ Then:
   the three questions, by centre and by the consultant who discharged (each with its score), and
   what patients said Movementology could improve. A name the reader may not see reads "Name not
   shown".
-- Satisfaction stays "Not measured yet" (no question is out of 5); themes and service recovery come
-  with PAT-08.
+- Satisfaction stays "Not measured yet" (no question is out of 5); themes in what patients write
+  wait for AI tagging. Service recovery tasks are counted on Alerts (PAT-08).
 
 **Week strip**
 

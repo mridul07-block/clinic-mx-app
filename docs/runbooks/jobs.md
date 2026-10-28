@@ -70,6 +70,9 @@ discharge; a migration queued the first day; OUT-10, see `docs/runbooks/sessions
 each day first queues the next day, then gives the consultant a task for each Active episode past
 its 6 week review date with no Review attended or booked ahead and no final test, and closes open
 ones no longer due; a migration queued the first day; ALT-02, see `docs/runbooks/tasks.md`);
+`feedback.recovery_escalate` (queued by the database with each service recovery task, to run
+`feedback.escalate_hours` later, key `feedback.recovery_escalate:<task id>`; a task still open gets
+the Clinical Director a task, once; PAT-08, see `docs/runbooks/feedback.md`);
 `documents.discharge_report` (queued by the database when an episode with a signed consultation is
 discharged, key `discharge_report:<episode id>`; renders the report, keyed like the summary;
 OUT-11, see `docs/runbooks/documents.md`); `whatsapp.discharge_report` (queued with it; does nothing

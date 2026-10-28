@@ -174,3 +174,34 @@ export function netPromoter(scores: number[]): {
     nps: scores.length === 0 ? null : Math.round(((promoters - detractors) / scores.length) * 100),
   };
 }
+
+/** The service recovery task kinds (PAT-08). */
+export const SERVICE_RECOVERY_TASKS = [
+  'feedback.service_recovery',
+  'feedback.service_recovery_director',
+] as const;
+
+/**
+ * What made a service recovery task (PAT-08), from its details: the questions answered No, in
+ * their words, and the score; null for details not shaped so.
+ */
+export function serviceRecoveryOf(
+  details: Record<string, unknown>,
+): { when: string; noQuestions: string[]; score: number | null } | null {
+  const parsed = z
+    .object({
+      surveyKey: z.enum(feedbackSurveyKeys),
+      noAnswers: z.array(z.string()),
+      score: z.number().int().nullable(),
+    })
+    .safeParse(details);
+  if (!parsed.success) return null;
+  const survey = feedbackSurveys[parsed.data.surveyKey];
+  return {
+    when: parsed.data.surveyKey === 'discharge' ? 'At discharge' : 'After the consultation',
+    noQuestions: parsed.data.noAnswers.map(
+      (key) => survey.questions.find((question) => question.key === key)?.text ?? key,
+    ),
+    score: parsed.data.score,
+  };
+}

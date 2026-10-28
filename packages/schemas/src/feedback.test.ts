@@ -5,6 +5,7 @@ import {
   feedbackSurveys,
   netPromoter,
   postedFeedback,
+  serviceRecoveryOf,
 } from './feedback';
 
 // PAT-04: the Blueprint's four questions after the consultation, Yes or No each, with an
@@ -112,5 +113,27 @@ describe('Feedback at discharge', () => {
       nps: 0,
     });
     expect(netPromoter([10, 10, 9, 5]).nps).toBe(50);
+  });
+});
+
+// PAT-08: a service recovery task card says what was negative, in the questions' own words.
+describe('Service recovery details', () => {
+  it('names the questions answered No and the score', () => {
+    expect(
+      serviceRecoveryOf({
+        feedbackId: 'f',
+        surveyKey: 'post_consultation',
+        noAnswers: ['plan_understood'],
+        score: null,
+      }),
+    ).toEqual({
+      when: 'After the consultation',
+      noQuestions: ['Did you understand the proposed treatment plan?'],
+      score: null,
+    });
+    expect(
+      serviceRecoveryOf({ surveyKey: 'discharge', noAnswers: [], score: 4, recoveryTaskId: 't' }),
+    ).toEqual({ when: 'At discharge', noQuestions: [], score: 4 });
+    expect(serviceRecoveryOf({ jobId: 'x' })).toBeNull();
   });
 });

@@ -603,6 +603,7 @@ export {
   type UnpaidBillRow,
 } from './finance';
 export { myPlanView } from './my-plan';
+export { SERVICE_RECOVERY_ESCALATE_JOB, escalateServiceRecovery } from './service-recovery';
 export { episodeHasPlan, liveMyPlanLink } from './my-plan-link';
 export {
   dischargeFeedbackTarget,

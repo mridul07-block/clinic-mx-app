@@ -2,6 +2,7 @@ import type { TaskEntry } from '@clinic-mx/db';
 import {
   REASSESSMENT_TASK,
   REVIEW_BOOKING_TASK,
+  SERVICE_RECOVERY_TASKS,
   UNSIGNED_NOTES_TASK,
   can,
   documentDateTime,
@@ -9,6 +10,7 @@ import {
   formatIstDateTime,
   reassessmentIdOf,
   reviewToBookOf,
+  serviceRecoveryOf,
   staffRoleLabels,
   taskKindLabel,
   taskPriorityLabels,
@@ -82,6 +84,25 @@ function ReviewToBook({ details }: { details: Record<string, unknown> }) {
       Review due {formatIstDate(review.reviewDate)} with {review.consultant}. No free time found up
       to {formatIstDate(review.searchedTo)}.
     </p>
+  );
+}
+
+/** What a service recovery task is about (PAT-08): the questions answered No and the score. */
+function ServiceRecovery({ details }: { details: Record<string, unknown> }) {
+  const recovery = serviceRecoveryOf(details);
+  if (!recovery) return null;
+  return (
+    <div className="flex flex-col gap-1 text-sm text-ink-secondary" data-testid="service-recovery">
+      <p>{recovery.when}.</p>
+      {recovery.noQuestions.length > 0 ? (
+        <ul className="list-disc pl-5">
+          {recovery.noQuestions.map((question) => (
+            <li key={question}>No: {question}</li>
+          ))}
+        </ul>
+      ) : null}
+      {recovery.score !== null ? <p>Recommendation score {recovery.score} out of 10.</p> : null}
+    </div>
   );
 }
 
@@ -159,6 +180,9 @@ function TaskCard({
         {task.kind === UNSIGNED_NOTES_TASK ? <UnsignedNotes details={task.details} /> : null}
         {task.kind === REVIEW_BOOKING_TASK ? <ReviewToBook details={task.details} /> : null}
         {task.kind === REASSESSMENT_TASK ? <ReassessmentLink details={task.details} /> : null}
+        {(SERVICE_RECOVERY_TASKS as readonly string[]).includes(task.kind) ? (
+          <ServiceRecovery details={task.details} />
+        ) : null}
       </div>
       {task.decision ? (
         <p className="text-sm text-ink-secondary" data-testid="task-decision">

@@ -242,6 +242,20 @@ export const settingDefinitions = {
     source: 'PRD section 9: Patient satisfaction (SOP target; DSH-01)',
     description: 'The target for the average satisfaction score, out of 5.',
   },
+  'feedback.recovery_score_max': {
+    schema: z.int().min(0).max(10),
+    source:
+      'PRD J7.2 and PAT-08: scores 0 to 6 create a service recovery task (the Net Promoter Score’s detractors)',
+    description:
+      'A recommendation score at or below this (0 to 10) gives the centre’s Centre Managers a service recovery task, as any No does.',
+  },
+  'feedback.escalate_hours': {
+    schema: z.int().positive().max(168),
+    source:
+      'PRD J7.2 and PAT-08: complaints escalate to the Clinical Director within 24 hours; recommended default chosen under the user’s standing approval, 28 October 2026',
+    description:
+      'Hours a service recovery task may stay open before the Clinical Director (the Super Admin) gets a task too.',
+  },
   'kpi.target_nps': {
     schema: z.number().min(-100).max(100),
     source: 'PRD section 9: Net Promoter Score (SOP target; DSH-01)',
