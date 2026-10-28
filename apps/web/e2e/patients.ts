@@ -130,3 +130,36 @@ export async function testEpisode(
     return id;
   });
 }
+
+/**
+ * Moves an episode on through `statuses` as the system, the discharge as the seed Super Admin with
+ * `reason` (DSH-06: a treated episode after its consultation is signed).
+ */
+export async function moveEpisode(
+  episodeId: string,
+  from: EpisodeStatus,
+  statuses: EpisodeStatus[],
+  reason: DischargeReason = 'goals_achieved',
+): Promise<void> {
+  await withActor(db(), systemActor('tests'), async (tx) => {
+    let at = from;
+    for (const to of statuses) {
+      if (to === 'discharged') {
+        const [admin] = await tx
+          .select({ id: staffUser.id })
+          .from(staffUser)
+          .where(eq(staffUser.email, 'super.admin@clinicmx.test'));
+        const claims = JSON.stringify({ clinic: { staff_id: admin?.id } });
+        await tx.execute(sql`select set_config('request.jwt.claims', ${claims}, true)`);
+      }
+      await updateEpisodeState(
+        tx,
+        episodeId,
+        at,
+        { status: to, pausedFrom: null },
+        to === 'discharged' ? { reason } : undefined,
+      );
+      at = to;
+    }
+  });
+}

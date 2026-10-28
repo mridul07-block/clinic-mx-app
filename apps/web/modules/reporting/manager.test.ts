@@ -218,7 +218,7 @@ describe('the Centre Manager’s dashboards', () => {
     expect(view.outcomes).toEqual([{ label: 'Patellofemoral pain', from: 7, to: 3, episodes: 4 }]);
     expect(view.tooFew).toEqual([{ label: 'Lateral ankle sprain', episodes: 1 }]);
     expect(view.topDiagnoses).toContainEqual({ label: 'Patellofemoral pain', value: 5 });
-    expect(db.kpiFunnel).toHaveBeenCalledWith({}, addDays(today, -89), today);
+    expect(db.kpiFunnel).toHaveBeenCalledWith({}, addDays(today, -89), today, 'centres');
     // A year and the year before are asked for one at a time, within the longest period.
     await outcomesDashboard(manager, '365', now);
     for (const [, from, to] of db.kpiDaily.mock.calls as [unknown, string, string][]) {

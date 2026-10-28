@@ -3,6 +3,7 @@ import { and, eq, gte, inArray, isNotNull, isNull, lt, notInArray, sql } from 'd
 import { appointment, staffUser } from './schema';
 import { loadPeople, windowsOn } from './slots';
 import type { DbOrTransaction } from './versioned';
+import type { FigureScope } from './kpis';
 
 /**
  * The Centre Manager's dashboards (DSH-03, docs/runbooks/manager-dashboards.md). Clinical and bill
@@ -76,9 +77,11 @@ export async function kpiFunnel(
   db: DbOrTransaction,
   from: string,
   to: string,
+  scope: FigureScope = 'centres',
 ): Promise<{ centreId: string; stage: string; episodes: number }[]> {
+  const fn = sql.raw(scope === 'own' ? 'internal.own_funnel' : 'internal.kpi_funnel');
   const rows = await db.execute<{ centre_id: string; stage: string; episodes: string | number }>(
-    sql`select centre_id, stage, episodes from internal.kpi_funnel(${from}::date, ${to}::date)`,
+    sql`select centre_id, stage, episodes from ${fn}(${from}::date, ${to}::date)`,
   );
   return rows.map((row) => ({
     centreId: row.centre_id,
@@ -102,7 +105,11 @@ export async function kpiDiagnosisOutcomes(
   db: DbOrTransaction,
   from: string,
   to: string,
+  scope: FigureScope = 'centres',
 ): Promise<DiagnosisOutcomeRow[]> {
+  const fn = sql.raw(
+    scope === 'own' ? 'internal.own_diagnosis_outcomes' : 'internal.kpi_diagnosis_outcomes',
+  );
   const rows = await db.execute<{
     centre_id: string;
     condition_id: string;
@@ -112,7 +119,7 @@ export async function kpiDiagnosisOutcomes(
     paired: string | number;
     baseline_pain: string | null;
     discharge_pain: string | null;
-  }>(sql`select * from internal.kpi_diagnosis_outcomes(${from}::date, ${to}::date)`);
+  }>(sql`select * from ${fn}(${from}::date, ${to}::date)`);
   return rows.map((row) => ({
     centreId: row.centre_id,
     conditionId: row.condition_id,

@@ -14,6 +14,7 @@ import {
   teamDaily,
   utilisationOn,
   type StaffMember,
+  type FigureScope,
 } from '@clinic-mx/db';
 import {
   addDays,
@@ -371,6 +372,20 @@ export async function outcomesDashboard(
   now = new Date(),
 ): Promise<OutcomesDashboard> {
   assertReads(actor);
+  return outcomesFor(actor, window, now, 'centres');
+}
+
+/**
+ * The Outcomes tab's figures over the centres the reader sees (DSH-03), or a treating
+ * clinician's own episodes (DSH-06): the same definitions, read under the reader's own access.
+ * Callers check who may read them first.
+ */
+export async function outcomesFor(
+  actor: StaffMember,
+  window: OutcomeWindow,
+  now: Date,
+  scope: FigureScope,
+): Promise<OutcomesDashboard> {
   const today = istDate(now);
   const days = Number(window);
   const { current, previous } = windowDays(days, today);
@@ -389,11 +404,11 @@ export async function outcomesDashboard(
   return asStaff(actor, async (tx) => {
     // Each window on its own: together a year and the year before would pass the longest period.
     const rows = [
-      ...(await kpiDaily(tx, previous.from, previous.to)),
-      ...(await kpiDaily(tx, current.from, current.to)),
+      ...(await kpiDaily(tx, previous.from, previous.to, scope)),
+      ...(await kpiDaily(tx, current.from, current.to, scope)),
     ];
-    const funnel = await kpiFunnel(tx, current.from, current.to);
-    const diagnoses = await kpiDiagnosisOutcomes(tx, current.from, current.to);
+    const funnel = await kpiFunnel(tx, current.from, current.to, scope);
+    const diagnoses = await kpiDiagnosisOutcomes(tx, current.from, current.to, scope);
     const bullets = bulletKeys.flatMap((key): OutcomeBullet[] => {
       const definition = kpiCatalogue.find((figure) => figure.key === key);
       if (!definition?.target) return [];

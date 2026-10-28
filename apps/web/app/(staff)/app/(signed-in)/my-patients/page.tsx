@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { loadColleagues, loadMyPatients } from '../../../../../modules/my-patients/services';
+import { readsOwnOutcomes } from '../../../../../modules/reporting/own-outcomes';
 import { getSetting } from '../../../../../modules/settings/settings';
 import { ColleaguesToday } from './colleagues-today';
 import { MyPatientsList } from './my-patients-list';
@@ -38,6 +39,15 @@ export default async function MyPatientsPage({
         <p className="text-sm text-ink-muted">
           {formatIstDate(date)} · Signed in as {staff.name}, {staffRoleLabels[staff.role]}
         </p>
+        {readsOwnOutcomes(staff) ? (
+          <Link
+            href="/app/my-patients/outcomes"
+            className="self-start text-sm text-accent underline underline-offset-2"
+            data-testid="my-outcomes-link"
+          >
+            My patients’ outcomes
+          </Link>
+        ) : null}
       </div>
       {closed ? (
         <p
