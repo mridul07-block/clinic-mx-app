@@ -15,6 +15,7 @@ import {
   recordReassessment,
   saveSessionNote as saveSessionNoteRow,
   sessionAddenda,
+  sessionAdherence,
   sessionModalities,
   sessionNoteById,
   sessionNoteOf,
@@ -29,6 +30,7 @@ import {
   type StaffMember,
 } from '@clinic-mx/db';
 import {
+  adherenceSnapshotSchema,
   baselineRecordings,
   reassessmentRecordings,
   can,
@@ -42,6 +44,7 @@ import {
   sessionNoteBlockers,
   sessionView,
   worksAtCentre,
+  type AdherenceSnapshot,
   type DraftSaveResponse,
   type InterventionKind,
   type SessionModality,
@@ -115,6 +118,11 @@ export interface SessionNoteView {
     modalities: { key: string; name: string }[];
     homeProgramme: { exercise: string; dose: string; note: string }[];
   };
+  /**
+   * Home exercise adherence (PAT-02): worked out now while a draft, as kept at signing once
+   * signed; null without a plan, or for a note signed before PAT-02.
+   */
+  adherence: AdherenceSnapshot | null;
   /** Session 1's baseline (OUT-01); null for any other session. */
   baseline: BaselineView | null;
   /** The reassessment session's section (OUT-05); null for any other session. */
@@ -261,6 +269,9 @@ export async function loadSession(
         !actor.support &&
         (own || worksAtCentre(actor, stored.centreId)),
       plan: plan ?? { interventions: [], modalities: [], homeProgramme: [] },
+      adherence: signed
+        ? readSessionNote(stored.note).adherence
+        : await adherenceNow(tx, stored.id),
       baseline: await baselineView(tx, stored),
       reassessment: await reassessmentView(tx, stored),
     };
@@ -292,13 +303,28 @@ async function ownDraft(tx: DbOrTransaction, appointmentId: string, actor: Staff
   return found;
 }
 
-/** Autosave of the note (FND-08): the physio's own draft, only at the version they saw. */
+/** A session's adherence as it stands now (PAT-02); null without a plan. */
+async function adherenceNow(
+  tx: DbOrTransaction,
+  sessionId: string,
+): Promise<AdherenceSnapshot | null> {
+  const raw = await sessionAdherence(tx, sessionId);
+  return raw === null ? null : adherenceSnapshotSchema.parse(raw);
+}
+
+/**
+ * Autosave of the note (FND-08): the physio's own draft, only at the version they saw. Adherence
+ * is never typed: a draft holds none, and signing keeps the figure as it then stands (PAT-02).
+ */
 export const saveSessionNote = staffService({
   action: 'session_notes.write',
   input: saveSessionNoteSchema,
   run: async (tx, input, actor): Promise<DraftSaveResponse<SessionNote>> => {
     const found = await ownDraft(tx, input.appointmentId, actor);
-    const saved = await saveSessionNoteRow(tx, found.id, input.baseVersion, input.value);
+    const saved = await saveSessionNoteRow(tx, found.id, input.baseVersion, {
+      ...input.value,
+      adherence: null,
+    });
     if (saved.status === 'saved') return saved;
     return {
       status: 'conflict',
@@ -343,9 +369,17 @@ export const closeSession = staffService({
     if (rest === null || activity === null || after === null) {
       throw new SessionError('Set the three pain readings.', 'refused');
     }
+    // The adherence kept with the note (PAT-02), so the signed note never changes.
+    const kept = await saveSessionNoteRow(tx, found.id, input.baseVersion, {
+      ...note,
+      adherence: await adherenceNow(tx, found.id),
+    });
+    if (kept.status !== 'saved') {
+      throw new SessionError('Your latest changes are still saving. Try again.', 'stale');
+    }
     const signed = await signSession(tx, {
       sessionId: found.id,
-      baseVersion: input.baseVersion,
+      baseVersion: kept.version,
       by: actor.id,
       pain: { rest, activity, after },
     });

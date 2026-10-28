@@ -2,15 +2,24 @@ import 'server-only';
 import {
   episodeHasPlan,
   episodeRecord,
+  exerciseTickSubject,
+  tickExercise,
+  untickExercise,
   liveMyPlanLink,
   myPlanView,
   type PatientLinkAccess,
 } from '@clinic-mx/db';
-import { myPlanSchema, type MyPlan } from '@clinic-mx/schemas';
+import { exerciseTickInputSchema, myPlanSchema, type MyPlan } from '@clinic-mx/schemas';
 import { z } from 'zod';
 import { asPatient } from '../access/patient-db';
-import { staffService } from '../access/service';
-import { PatientLinkError, issuePatientLink, patientLinkPath, type IssuedLink } from './services';
+import { patientService, staffService } from '../access/service';
+import {
+  PatientLinkError,
+  issuePatientLink,
+  patientLinkPath,
+  verifyPatientLink,
+  type IssuedLink,
+} from './services';
 
 /**
  * My plan (PAT-01, in part; docs/runbooks/my-plan.md). The patient's page reads its own episode
@@ -56,3 +65,42 @@ export const showMyPlan = staffService({
     });
   },
 });
+
+/**
+ * A tick or an untick of a home programme row (PAT-02), for today in IST, on the newest plan as it
+ * reads now; audited as the patient. The My plan link stays open: it is not used up by ticking.
+ */
+const tick = patientService({
+  input: exerciseTickInputSchema,
+  run: async (tx, input, link): Promise<'done' | 'changed'> => {
+    const subject = await exerciseTickSubject(tx);
+    if (subject?.homeProgramme[input.index]?.exercise !== input.exercise) return 'changed';
+    if (input.done) {
+      await tickExercise(tx, {
+        linkId: link.id,
+        subject,
+        index: input.index,
+        exercise: input.exercise,
+      });
+    } else {
+      await untickExercise(tx, { subject, index: input.index });
+    }
+    return 'done';
+  },
+});
+
+/**
+ * Ticks (or unticks) an exercise for the My plan link behind `token`: "done", "changed" when the
+ * plan changed under the page, or "link" when the link no longer opens My plan.
+ */
+export async function tickMyPlanExercise(
+  token: string,
+  form: { index: unknown; exercise: unknown; done: unknown },
+  ip?: string,
+): Promise<'done' | 'changed' | 'link'> {
+  const opened = await verifyPatientLink(token);
+  if (opened.status !== 'valid' || opened.link.purpose !== 'my_plan') return 'link';
+  const parsed = exerciseTickInputSchema.safeParse(form);
+  if (!parsed.success) return 'changed';
+  return tick(opened.link, form, ip);
+}

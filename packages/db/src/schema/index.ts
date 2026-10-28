@@ -27,3 +27,4 @@ export * from './bills';
 export * from './packages';
 export * from './sessions';
 export * from './feedback';
+export * from './exercise-ticks';

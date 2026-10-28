@@ -1128,6 +1128,20 @@
       "when": 1793179331313,
       "tag": "20261028092211_service_recovery",
       "breakpoints": true
+    },
+    {
+      "idx": 161,
+      "version": "7",
+      "when": 1793184295677,
+      "tag": "20261028104455_exercise_ticks",
+      "breakpoints": true
+    },
+    {
+      "idx": 162,
+      "version": "7",
+      "when": 1793184297299,
+      "tag": "20261028104457_exercise_ticks_rules",
+      "breakpoints": true
     }
   ]
 }

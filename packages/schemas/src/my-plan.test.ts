@@ -40,6 +40,10 @@ describe('My plan', () => {
       next: null,
       package: null,
       pain: [{ number: 1, signedAt: '2026-10-03T05:00:00+00:00', rest: 2, activity: 6, after: 1 }],
+      today: '2026-10-04',
+      tickedToday: [0],
+      tickedDays: ['2026-10-02', '2026-10-04'],
+      trackedFrom: '2026-10-01',
     };
     expect(myPlanSchema.parse(page)).toEqual(page);
     expect(

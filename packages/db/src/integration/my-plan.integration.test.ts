@@ -4,10 +4,24 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { patientActor, setAuditContext, systemActor, withActor } from '../audit';
 import { createDb } from '../client';
 import type { StaffMember } from '../identity';
+import {
+  exerciseTickSubject,
+  exerciseTickedDays,
+  sessionAdherence,
+  tickExercise,
+  untickExercise,
+} from '../exercise-ticks';
 import { episodeHasPlan, liveMyPlanLink } from '../my-plan-link';
 import { myPlanView } from '../my-plan';
 import { insertPatientLink, revokeMyPlanLinks } from '../patient-links';
-import { appointment, patientLink, patientPackage, planOfCare, treatmentSession } from '../schema';
+import {
+  appointment,
+  exerciseTick,
+  patientLink,
+  patientPackage,
+  planOfCare,
+  treatmentSession,
+} from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import { asSystem, episodeThrough, knowledgeVersion, note, visit } from './fake-figures';
 import { becomeStaff, testPhysio, typeId } from './fake-schedule';
@@ -396,6 +410,209 @@ describe('My plan', () => {
         .returning({ id: patientLink.id });
       await asLink(tx, { id: ended?.id ?? '', patientId: mine.patientId, purpose: 'my_plan' });
       expect(await myPlanView(tx)).toBeNull();
+    });
+  });
+});
+
+// PAT-02: the patient ticks their newest plan's exercises for today through their My plan link, and
+// unticks today's; nothing for another day, another row or wording, or another kind of link. A
+// clinician reads the days done since the session before; the desk does not.
+describe('Exercise ticks', () => {
+  const ticksOf = async (tx: Tx, episodeId: string) => {
+    await asSystem(tx);
+    return tx
+      .select({ day: exerciseTick.day, index: exerciseTick.exerciseIndex })
+      .from(exerciseTick)
+      .where(eq(exerciseTick.episodeId, episodeId));
+  };
+
+  it('ticks a row for today, once, unticks it, and shows it on My plan', async () => {
+    await rolledBack(async (tx) => {
+      const mine = await planned(tx);
+      await asLink(tx, mine.link);
+      const subject = await exerciseTickSubject(tx);
+      if (!subject) throw new Error('no subject');
+      expect(subject).toMatchObject({ episodeId: mine.id, today });
+      const tick = { linkId: mine.link.id, subject, index: 0, exercise: 'Test step downs' };
+      await tickExercise(tx, tick);
+      await tickExercise(tx, tick);
+      expect(await myPlanView(tx)).toMatchObject({
+        today,
+        tickedToday: [0],
+        tickedDays: [today],
+      });
+      expect(await ticksOf(tx, mine.id)).toEqual([{ day: today, index: 0 }]);
+      await asLink(tx, mine.link);
+      await untickExercise(tx, { subject, index: 0 });
+      expect(await myPlanView(tx)).toMatchObject({ tickedToday: [], tickedDays: [] });
+    });
+  });
+
+  it('refuses another day, row or wording, and other links; and keeps earlier days', async () => {
+    await rolledBack(async (tx) => {
+      const mine = await planned(tx);
+      await asLink(tx, mine.link);
+      const subject = await exerciseTickSubject(tx);
+      if (!subject) throw new Error('no subject');
+      const refused = (values: Partial<{ index: number; exercise: string; today: string }>) =>
+        failure(tx, async (sp) => {
+          await tickExercise(sp, {
+            linkId: mine.link.id,
+            subject: { ...subject, today: values.today ?? subject.today },
+            index: values.index ?? 0,
+            exercise: values.exercise ?? 'Test step downs',
+          });
+        });
+      expect(await refused({ exercise: 'Something else' })).toBe('42501');
+      expect(await refused({ index: 1 })).toBe('42501');
+      expect(await refused({ today: addDays(today, -1) })).toBe('42501');
+      expect(await refused({ today: addDays(today, 1) })).toBe('42501');
+      // Yesterday's tick stays: today's untick never reaches it.
+      await asSystem(tx);
+      const [plan] = await tx
+        .select({ id: planOfCare.id })
+        .from(planOfCare)
+        .where(eq(planOfCare.episodeId, mine.id));
+      await tx.insert(exerciseTick).values({
+        patientId: mine.patientId,
+        episodeId: mine.id,
+        planOfCareId: plan?.id ?? '',
+        exerciseIndex: 0,
+        exercise: 'Test step downs',
+        day: addDays(today, -1),
+        patientLinkId: mine.link.id,
+      });
+      await asLink(tx, mine.link);
+      await untickExercise(tx, { subject: { ...subject, today: addDays(today, -1) }, index: 0 });
+      expect(await ticksOf(tx, mine.id)).toHaveLength(1);
+      // Another episode's link ticks only its own plan, and other links tick nothing.
+      const theirs = await planned(tx);
+      await asLink(tx, theirs.link);
+      expect((await exerciseTickSubject(tx))?.episodeId).toBe(theirs.id);
+      expect(
+        await failure(tx, (sp) =>
+          tickExercise(sp, {
+            linkId: theirs.link.id,
+            subject,
+            index: 0,
+            exercise: 'Test step downs',
+          }),
+        ),
+      ).toBe('42501');
+      await asSystem(tx);
+      await tx
+        .update(patientLink)
+        .set({ revokedAt: new Date() })
+        .where(eq(patientLink.id, mine.link.id));
+      await asLink(tx, mine.link);
+      expect(await exerciseTickSubject(tx)).toBeUndefined();
+      // Staff never tick.
+      await asSystem(tx);
+      expect(
+        await failure(tx, async (sp) => {
+          await becomeStaff(sp, deskHsr);
+          await tickExercise(sp, { linkId: mine.link.id, subject, index: 0, exercise: 'x' });
+        }),
+      ).toBe('42501');
+    });
+  });
+
+  it('gives a clinician the days done since the session before, and the desk nothing', async () => {
+    await rolledBack(async (tx) => {
+      const mine = await planned(tx);
+      await asSystem(tx);
+      const kb = await knowledgeVersion(tx);
+      const [plan] = await tx
+        .select({ id: planOfCare.id })
+        .from(planOfCare)
+        .where(eq(planOfCare.episodeId, mine.id));
+      // The link from well before; session 1 signed 5 days ago; session 2 today, a draft.
+      await tx
+        .update(patientLink)
+        .set({ createdAt: new Date(Date.now() - 10 * 86_400_000) })
+        .where(eq(patientLink.id, mine.link.id));
+      const first = await visit(tx, {
+        centreId: hsr,
+        physio: mine.physio,
+        type: 'session',
+        day: addDays(today, -5),
+        status: 'completed',
+        episodeId: mine.id,
+        patientId: mine.patientId,
+      });
+      const second = await visit(tx, {
+        centreId: hsr,
+        physio: mine.physio,
+        type: 'session',
+        day: today,
+        status: 'in_progress',
+        episodeId: mine.id,
+        patientId: mine.patientId,
+      });
+      await tx.execute(sql`set local session_replication_role = replica`);
+      const base = {
+        episodeId: mine.id,
+        patientId: mine.patientId,
+        centreId: hsr,
+        physioId: mine.physio.id,
+        kbVersionId: kb,
+      };
+      await tx.insert(treatmentSession).values({
+        ...base,
+        appointmentId: first.id,
+        number: 1,
+        status: 'signed',
+        signedBy: mine.physio.id,
+        // Signed 3 days after its visit: the window still starts the day after the visit.
+        signedAt: istInstant(addDays(today, -2), 12 * 60),
+        painRest: 2,
+        painActivity: 4,
+        painAfter: 1,
+      });
+      const [draft] = await tx
+        .insert(treatmentSession)
+        .values({ ...base, appointmentId: second.id, number: 2 })
+        .returning({ id: treatmentSession.id });
+      await tx.execute(sql`set local session_replication_role = origin`);
+      for (const back of [6, 4, 3, 1]) {
+        await tx.insert(exerciseTick).values({
+          patientId: mine.patientId,
+          episodeId: mine.id,
+          planOfCareId: plan?.id ?? '',
+          exerciseIndex: 0,
+          exercise: 'Test step downs',
+          day: addDays(today, -back),
+          patientLinkId: mine.link.id,
+        });
+      }
+      await becomeStaff(tx, mine.physio);
+      expect(await sessionAdherence(tx, draft?.id ?? '')).toEqual({
+        from: addDays(today, -4),
+        to: addDays(today, -1),
+        since: 'last_session',
+        days: 4,
+        daysDone: 3,
+        tracked: true,
+      });
+      expect(await exerciseTickedDays(tx, mine.id, addDays(today, -6), today)).toEqual({
+        days: [addDays(today, -6), addDays(today, -4), addDays(today, -3), addDays(today, -1)],
+        // The plan was made today; the link 10 days ago: ticking became possible today.
+        trackedFrom: today,
+      });
+      for (const staff of [deskHsr]) {
+        expect(
+          await failure(tx, async (sp) => {
+            await becomeStaff(sp, staff);
+            await sessionAdherence(sp, draft?.id ?? '');
+          }),
+        ).toBe('42501');
+        expect(
+          await failure(tx, async (sp) => {
+            await becomeStaff(sp, staff);
+            await exerciseTickedDays(sp, mine.id, today, today);
+          }),
+        ).toBe('42501');
+      }
     });
   });
 });

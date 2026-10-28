@@ -331,10 +331,10 @@ export default async function PatientPage({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ screen?: string; change?: string; guardian?: string }>;
+  searchParams: Promise<{ screen?: string; change?: string; guardian?: string; changed?: string }>;
 }) {
   const { token } = await params;
-  const { screen: screenKey, change, guardian } = await searchParams;
+  const { screen: screenKey, change, guardian, changed } = await searchParams;
   const browser = await kioskBrowser();
   if (browser.status !== 'none') {
     const linkId = patientLinkIdFromToken(token);
@@ -379,7 +379,9 @@ export default async function PatientPage({
     <main data-voice="patient" className="min-h-dvh bg-surface px-4 py-6">
       <div className="mx-auto flex w-full max-w-signin flex-col gap-3">
         <p className="font-semibold text-ink-secondary">Movementology Clinics</p>
-        {myPlan ? <MyPlanPage plan={myPlan} now={new Date()} /> : null}
+        {myPlan ? (
+          <MyPlanPage plan={myPlan} now={new Date()} token={token} changed={changed === '1'} />
+        ) : null}
         {myPlan
           ? null
           : (formScreen ?? (

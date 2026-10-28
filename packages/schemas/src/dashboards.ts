@@ -76,7 +76,10 @@ export const alertItemWhere: Partial<Record<AlertItem, string>> = {
 export const ownOutcomesComing = [
   {
     label: 'Home exercise adherence',
-    needs: 'Patients tick their exercises on My plan (PAT-01, PAT-02)',
+    // DECISION PAT-02: each session note shows its patient's days ticked; no document defines a
+    // measure across patients, so none is made up here.
+    needs:
+      'A measure across patients, which the clinic has not defined; each session note shows its patient’s days ticked on My plan (PAT-02)',
   },
 ] as const;
 

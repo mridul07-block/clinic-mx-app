@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { adherenceSnapshotSchema } from './adherence';
 import { baselineBlockers, baselineEntrySchema, type BaselineMarker } from './baseline';
 import {
   reassessmentBlockers,
@@ -198,6 +199,11 @@ export const sessionNoteSchema = z.object({
     )
     .default({})
     .refine((entries) => Object.keys(entries).length <= 100, 'Too many reassessed measures.'),
+  /**
+   * Home exercise adherence (PAT-02), kept with the note when it is signed, so the signed note
+   * never changes; null while a draft (the screen works it out live) and in notes before PAT-02.
+   */
+  adherence: adherenceSnapshotSchema.nullable().default(null),
 });
 
 export type SessionNote = z.infer<typeof sessionNoteSchema>;

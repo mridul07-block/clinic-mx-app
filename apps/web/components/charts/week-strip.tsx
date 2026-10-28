@@ -6,7 +6,7 @@ import { ChartFrame } from './chart-frame';
  * to come; each day named in words, never by colour alone.
  */
 
-export const weekDayStates = ['done', 'missed', 'to_come'] as const;
+export const weekDayStates = ['done', 'missed', 'to_come', 'not_tracked'] as const;
 
 export type WeekDayState = (typeof weekDayStates)[number];
 
@@ -14,12 +14,14 @@ export const weekDayStateLabels: Record<WeekDayState, string> = {
   done: 'Done',
   missed: 'Missed',
   to_come: 'To come',
+  not_tracked: 'Not tracked',
 };
 
 const mark: Record<WeekDayState, string> = {
   done: 'border-viz-1 bg-viz-1',
   missed: 'border-ink-muted bg-surface',
   to_come: 'border-dashed border-line-control bg-surface',
+  not_tracked: 'border-transparent bg-surface-sunken',
 };
 
 export function WeekStrip({
@@ -31,7 +33,7 @@ export function WeekStrip({
   days: readonly { day: string; date: string; state: WeekDayState }[];
 }) {
   const done = days.filter((day) => day.state === 'done').length;
-  const counted = days.filter((day) => day.state !== 'to_come').length;
+  const counted = days.filter((day) => day.state === 'done' || day.state === 'missed').length;
   return (
     <ChartFrame
       label={label}
@@ -63,12 +65,14 @@ export function WeekStrip({
           className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-secondary"
           aria-hidden="true"
         >
-          {weekDayStates.map((state) => (
-            <li key={state} className="flex items-center gap-1">
-              <span className={`size-3 rounded-[2px] border-2 ${mark[state]}`} />
-              {weekDayStateLabels[state]}
-            </li>
-          ))}
+          {weekDayStates
+            .filter((state) => state !== 'not_tracked' || days.some((day) => day.state === state))
+            .map((state) => (
+              <li key={state} className="flex items-center gap-1">
+                <span className={`size-3 rounded-[2px] border-2 ${mark[state]}`} />
+                {weekDayStateLabels[state]}
+              </li>
+            ))}
         </ul>
         <p className="text-sm text-ink-secondary">
           {done} of {counted} days done so far

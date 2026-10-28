@@ -1,9 +1,12 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { serviceContext } from '../access/staff-db';
-import { showMyPlan } from './my-plan';
+import { clientIp } from '../auth/session';
+import { showMyPlan, tickMyPlanExercise } from './my-plan';
 import { PatientLinkError } from './services';
 
 /** What the My plan QR shows after a post (PAT-01): the page to open, or why not. */
@@ -34,4 +37,24 @@ export async function showMyPlanAction(
     }
     throw error;
   }
+}
+
+/** A token as signing makes it (base64url); anything else goes nowhere. */
+const tokenPattern = /^[A-Za-z0-9_-]{20,120}$/;
+
+/**
+ * Ticks or unticks an exercise on My plan (PAT-02), then shows the page again at the exercises; a
+ * plan changed under the page says so there. A plain form post, so it works without scripts.
+ */
+export async function tickExerciseAction(form: FormData): Promise<void> {
+  const token = form.get('token');
+  if (typeof token !== 'string' || !tokenPattern.test(token)) redirect('/');
+  const result = await tickMyPlanExercise(
+    token,
+    { index: form.get('index'), exercise: form.get('exercise'), done: form.get('done') },
+    await clientIp(),
+  );
+  // The same page again: drop the router's copy so it shows the tick.
+  revalidatePath(`/p/${token}`);
+  redirect(`/p/${token}${result === 'changed' ? '?changed=1' : ''}#my-plan-exercises`);
 }
