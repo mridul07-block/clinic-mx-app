@@ -33,12 +33,15 @@ import {
   networkKey,
   take,
 } from '../../../../modules/rate-limits/limits';
+import { loadMyPlan } from '../../../../modules/patient-links/my-plan';
 import { getSetting } from '../../../../modules/settings/settings';
+import type { MyPlan } from '@clinic-mx/schemas';
 import { ChangesReview } from './changes-review';
 import { CheckAndSubmit } from './check-submit';
 import { ConsentScreenForm } from './consent-form';
 import { HealthFormScreenForm } from './health-form';
 import { KioskShell } from './kiosk-shell';
+import { MyPlanPage } from './my-plan';
 import { patientPrimaryClass, patientSecondaryClass } from './patient-ui';
 
 // Patient pages at /p/<token> (IAM-09). The signed, single purpose link is checked before any
@@ -63,6 +66,9 @@ import { patientPrimaryClass, patientSecondaryClass } from './patient-ui';
 //
 // Rate limits (IAM-11): every open counts against the network's opens, and a link that is not
 // valid against its bad links. Over either, the page checks nothing and asks the patient to wait.
+//
+// A My plan link (PAT-01) opens the patient's page for their episode: the plan's week, the next
+// visit, the exercises, the package and the pain line, read as the patient.
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
@@ -90,7 +96,10 @@ function message(opened: Shown): { title: string; body: string } {
     case 'closed':
       return {
         title: titleOf(opened.purpose),
-        body: 'This form is no longer open. Please ask the front desk.',
+        body:
+          opened.purpose === 'my_plan'
+            ? 'Your plan cannot be shown. Please ask the clinic.'
+            : 'This form is no longer open. Please ask the front desk.',
       };
     case 'used':
       return {
@@ -332,9 +341,14 @@ export default async function PatientPage({
   const link = await openLimited(token, ip);
   let opened: Shown = link;
   let welcome: HealthFormWelcome | undefined;
+  let myPlan: MyPlan | null = null;
   if (link.status === 'valid' && link.link.purpose === 'health_form') {
     welcome = await loadHealthFormVisit(link.link, ip);
     if (!welcome.open) opened = { status: 'closed', purpose: 'health_form' };
+  }
+  if (link.status === 'valid' && link.link.purpose === 'my_plan') {
+    myPlan = await loadMyPlan(link.link, ip);
+    if (!myPlan) opened = { status: 'closed', purpose: 'my_plan' };
   }
   const { title, body } = kiosk ? kioskMessage(opened) : message(opened);
   const formScreen = welcome?.open
@@ -351,39 +365,42 @@ export default async function PatientPage({
     <main data-voice="patient" className="min-h-dvh bg-surface px-4 py-6">
       <div className="mx-auto flex w-full max-w-signin flex-col gap-3">
         <p className="font-semibold text-ink-secondary">Movementology Clinics</p>
-        {formScreen ?? (
-          <>
-            <h1 className="text-xl font-semibold text-ink">{title}</h1>
-            {welcome?.open ? (
-              <div className="flex flex-col gap-1" data-testid="health-form-visit">
-                <p className="text-lg font-semibold text-ink">Hello {welcome.firstName}</p>
-                <p className="text-ink">{welcome.when}</p>
-                <p className="text-ink">
-                  {welcome.centreName}, with {welcome.physioName}
+        {myPlan ? <MyPlanPage plan={myPlan} now={new Date()} /> : null}
+        {myPlan
+          ? null
+          : (formScreen ?? (
+              <>
+                <h1 className="text-xl font-semibold text-ink">{title}</h1>
+                {welcome?.open ? (
+                  <div className="flex flex-col gap-1" data-testid="health-form-visit">
+                    <p className="text-lg font-semibold text-ink">Hello {welcome.firstName}</p>
+                    <p className="text-ink">{welcome.when}</p>
+                    <p className="text-ink">
+                      {welcome.centreName}, with {welcome.physioName}
+                    </p>
+                  </div>
+                ) : null}
+                <p
+                  className="text-ink-secondary"
+                  data-testid="patient-link-status"
+                  data-status={opened.status}
+                >
+                  {body}
                 </p>
-              </div>
-            ) : null}
-            <p
-              className="text-ink-secondary"
-              data-testid="patient-link-status"
-              data-status={opened.status}
-            >
-              {body}
-            </p>
-            {welcome?.open ? (
-              <div className="fixed inset-x-0 bottom-0 border-t border-line bg-surface px-4 py-3">
-                <div className="mx-auto flex w-full max-w-signin">
-                  <Link
-                    href={`/p/${token}?screen=${welcome.resume}`}
-                    className={patientPrimaryClass}
-                  >
-                    {welcome.started ? 'Continue' : 'Start'}
-                  </Link>
-                </div>
-              </div>
-            ) : null}
-          </>
-        )}
+                {welcome?.open ? (
+                  <div className="fixed inset-x-0 bottom-0 border-t border-line bg-surface px-4 py-3">
+                    <div className="mx-auto flex w-full max-w-signin">
+                      <Link
+                        href={`/p/${token}?screen=${welcome.resume}`}
+                        className={patientPrimaryClass}
+                      >
+                        {welcome.started ? 'Continue' : 'Start'}
+                      </Link>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            ))}
       </div>
     </main>
   );

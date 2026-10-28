@@ -129,7 +129,7 @@ Headers on `/p/*` (`next.config.ts`):
 | --- | --- |
 | `packages/db/src/patient-links.test.ts` | Every changed character, other key, junk, respelling, rotation |
 | `apps/web/modules/patient-links/services.test.ts` | Issue, reissue, open states, complete |
-| `packages/db/src/integration/patient-links.integration.test.ts` | Checks, audit, a patient sees only its link and changes nothing, staff see none |
+| `packages/db/src/integration/patient-links.integration.test.ts` | Checks, audit, a patient sees only its link and changes nothing, staff see none of an episode they do not see (those who check in read the health form and My plan links at their centres: INT-03, PAT-01, `docs/runbooks/my-plan.md`) |
 | `apps/web/e2e/patient-links.spec.ts` | 360 px and desktop |
 
 ## The health form link (INT-03)

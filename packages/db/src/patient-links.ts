@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { patientLinkPurposes, type PatientLinkPurpose } from '@clinic-mx/schemas';
-import { and, eq, gt, isNull, ne, sql } from 'drizzle-orm';
+import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import { patientActor, setAuditContext } from './audit';
 import type { Db } from './client';
 import { patientLink, type PatientLink } from './schema';
@@ -108,27 +108,20 @@ export async function insertPatientLink(
 
 /**
  * Stops a patient's My plan links that still work, except `keep` (decision 22 October 2026:
- * only the newest works). Returns how many stopped.
+ * only the newest works). Returns how many stopped. Through `internal.stop_older_my_plan_links`:
+ * the desk issuing a link at one centre stops the patient's links at any centre, which it can
+ * neither read nor change itself; refused (42501) unless `keep` is a working My plan link of the
+ * patient that the caller may issue.
  */
 export async function revokeMyPlanLinks(
   db: DbOrTransaction,
   patientId: string,
-  keep?: string,
+  keep: string,
 ): Promise<number> {
-  const stopped = await db
-    .update(patientLink)
-    .set({ revokedAt: sql`now()` })
-    .where(
-      and(
-        eq(patientLink.patientId, patientId),
-        eq(patientLink.purpose, 'my_plan'),
-        isNull(patientLink.revokedAt),
-        gt(patientLink.expiresAt, sql`now()`),
-        keep ? ne(patientLink.id, keep) : undefined,
-      ),
-    )
-    .returning({ id: patientLink.id });
-  return stopped.length;
+  const [row] = await db.execute<{ stopped: number }>(
+    sql`select internal.stop_older_my_plan_links(${patientId}::uuid, ${keep}::uuid) as stopped`,
+  );
+  return row?.stopped ?? 0;
 }
 
 /** One link by id. */

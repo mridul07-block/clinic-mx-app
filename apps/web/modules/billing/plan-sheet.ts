@@ -59,6 +59,8 @@ export interface PlanSheet {
   bills: BillEntry[];
   /** Whether this person takes payment here (BIL-06). */
   canCollect: boolean;
+  /** Whether this person shows the patient their My plan QR here (PAT-01): those who check in. */
+  canShowMyPlan: boolean;
   /**
    * Discounts on unpaid bills (BIL-07): the clinic's presets in use, and whether this person
    * applies a preset (the desk, Finance, the Super Admin) or an Other discount (Finance and the
@@ -145,6 +147,8 @@ export async function planSheetOf(
         plan !== undefined && episode.status === 'plan_proposed' && !actor.support && collects,
       bills,
       canCollect: !actor.support && collects,
+      canShowMyPlan:
+        !actor.support && can(actor, 'check_in.manage', { centreId: episode.centreId }),
       discounts: {
         presets: presets.map((preset) => ({
           id: preset.id,
