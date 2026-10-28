@@ -360,6 +360,21 @@ export const settingDefinitions = {
       'PRD section 6 (learning loop) and TAD section 7 step 4: 3 to 5 similar confirmed past cases; AI-05, recommended default, 29 October 2026',
     description: 'The most similar confirmed cases the preparation sheet shows and sends.',
   },
+  // DECISION AI-08: what "often dismissed" means is the client's; these are placeholders.
+  'ai.kb_report_dismissed_min_marked': {
+    schema: z.int().min(1).max(1000),
+    source:
+      'PRD section 6 (monthly report: suggestions often dismissed); AI-08, recommended default placeholder, 29 October 2026',
+    description:
+      'How many times a suggested condition must be kept or dismissed in a month before the monthly knowledge base report can call it often dismissed.',
+  },
+  'ai.kb_report_dismissed_share_percent': {
+    schema: z.int().min(1).max(100),
+    source:
+      'PRD section 6 (monthly report: suggestions often dismissed); AI-08, recommended default placeholder, 29 October 2026',
+    description:
+      'The share of those times, in percent, that must be Dismiss for the monthly knowledge base report to call a suggestion often dismissed.',
+  },
   // DECISION AI-01: the daily cap is the client's; 200 rupees is a placeholder.
   'ai.daily_spend_cap_paise': {
     schema: z.int().positive(),

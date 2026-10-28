@@ -450,6 +450,16 @@ export {
 } from './confirmed-diagnosis';
 export { similarCasePool, type SimilarPoolRow } from './similar-cases';
 export {
+  KB_REPORT_JOB,
+  kbReportData,
+  kbReportOf,
+  kbReports,
+  queueNextKbReport,
+  storeKbReport,
+  type KbReportData,
+  type KbReportRecord,
+} from './kb-report';
+export {
   addReadinessMark,
   clearancesOf,
   episodeReadings,

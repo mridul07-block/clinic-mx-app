@@ -5,6 +5,7 @@ import {
   DISCHARGE_REPORT_MESSAGE_JOB,
   INTAKE_SUBMITTED_JOB,
   INVOICE_JOB,
+  KB_REPORT_JOB,
   LOST_TO_FOLLOW_UP_JOB,
   NO_SHOW_MESSAGE_JOB,
   PACKAGE_EXPIRY_REMINDER_JOB,
@@ -30,6 +31,7 @@ import { generateReferralLetter } from '../documents/referral-letter';
 import { runLostToFollowUpCheck } from '../episodes/lost-to-follow-up';
 import { runServiceRecoveryEscalation } from '../feedback/service-recovery';
 import { runReviewOverdueCheck } from '../episodes/review-overdue';
+import { runKbReport } from '../ai/kb-report';
 import { runPreparationSheet } from '../ai/preparation-sheet';
 import { AI_PREPARATION_SHEET_JOB, processIntakeSubmission } from '../intake/pipeline';
 import { runReviewBooking } from '../scheduling/review-booking';
@@ -109,6 +111,16 @@ export const jobHandlers: JobHandlers = {
    * gives each centre's Centre Manager the notes still unsigned. A migration queued the first
    * night; running a night twice changes nothing.
    */
+  /**
+   * The monthly knowledge base report (AI-08; TAD: 1st of each month): the next month queued first,
+   * then the month just ended built and sent to the Super Admin as a task, once.
+   */
+  [KB_REPORT_JOB]: defineJob({
+    payload: z.object({ month: z.string() }),
+    run: async ({ month }, { db }) => {
+      await runKbReport(db, { month });
+    },
+  }),
   [UNSIGNED_NOTES_FLAG_JOB]: defineJob({
     payload: z.object({ date: z.iso.date() }),
     run: async ({ date }, { db }) => {

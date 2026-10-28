@@ -16,10 +16,13 @@ import {
   taskPriorityLabels,
   unsignedNotesOf,
   type TaskPriority,
+  KB_REPORT_TASK,
+  reportMonthSchema,
 } from '@clinic-mx/schemas';
 import type { Tone } from '@clinic-mx/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { readsKbReports } from '../../../../../modules/ai/kb-report';
 import { FormMessage } from '../../../../../components/forms';
 import { Tag } from '../../../../../components/tag';
 import { requirePermission } from '../../../../../modules/access/require-permission';
@@ -106,6 +109,21 @@ function ServiceRecovery({ details }: { details: Record<string, unknown> }) {
   );
 }
 
+/** The monthly knowledge base report a task sends the Super Admin (AI-08). */
+function KbReportLink({ details, reads }: { details: Record<string, unknown>; reads: boolean }) {
+  const month = reportMonthSchema.safeParse(details.month);
+  if (!month.success) return null;
+  if (!reads) return <p className="text-sm text-ink-muted">The Super Admin reads this report.</p>;
+  return (
+    <Link
+      href={['/app/knowledge-base/reports', month.data].join('/')}
+      className="self-start text-sm text-accent underline underline-offset-2 pointer-coarse:py-3"
+    >
+      Open the report
+    </Link>
+  );
+}
+
 /** The reassessment a review task opens (OUT-05). */
 function ReassessmentLink({ details }: { details: Record<string, unknown> }) {
   const id = reassessmentIdOf(details);
@@ -126,12 +144,15 @@ function TaskCard({
   now,
   canAct,
   opensPatients,
+  readsReports,
 }: {
   task: TaskEntry;
   viewerId: string;
   now: Date;
   canAct: boolean;
   opensPatients: boolean;
+  /** The viewer reads the monthly knowledge base reports (AI-08). */
+  readsReports: boolean;
 }) {
   const overdue = task.status === 'open' && task.dueAt !== null && task.dueAt < now;
   const untaken = task.assigneeStaffUserId === null;
@@ -180,6 +201,9 @@ function TaskCard({
         {task.kind === UNSIGNED_NOTES_TASK ? <UnsignedNotes details={task.details} /> : null}
         {task.kind === REVIEW_BOOKING_TASK ? <ReviewToBook details={task.details} /> : null}
         {task.kind === REASSESSMENT_TASK ? <ReassessmentLink details={task.details} /> : null}
+        {task.kind === KB_REPORT_TASK ? (
+          <KbReportLink details={task.details} reads={readsReports} />
+        ) : null}
         {(SERVICE_RECOVERY_TASKS as readonly string[]).includes(task.kind) ? (
           <ServiceRecovery details={task.details} />
         ) : null}
@@ -212,6 +236,7 @@ export default async function TasksPage() {
   const { open, recentlyClosed, openAlerts, canAct } = await inboxOf(staff);
   const now = new Date();
   const opensPatients = can(staff, 'patients.view_contact');
+  const readsReports = readsKbReports(staff);
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
       <div className="flex flex-col gap-1.5">
@@ -251,6 +276,7 @@ export default async function TasksPage() {
                 now={now}
                 canAct={canAct}
                 opensPatients={opensPatients}
+                readsReports={readsReports}
               />
             ))}
           </ul>
@@ -270,6 +296,7 @@ export default async function TasksPage() {
                 now={now}
                 canAct={false}
                 opensPatients={opensPatients}
+                readsReports={readsReports}
               />
             ))}
           </ul>

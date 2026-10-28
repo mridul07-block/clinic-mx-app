@@ -1121,3 +1121,21 @@ export {
   type ConfirmedDiagnosisStage,
 } from './confirmed-diagnosis';
 export { similarCases, type SimilarCandidate, type SimilarSettings } from './similar-cases';
+export {
+  KB_REPORT_TASK,
+  KB_REPORT_TIME,
+  comparedTopCount,
+  dismissedShare,
+  inTopPercent,
+  istMonthBounds,
+  kbReportBodySchema,
+  kbReportTitle,
+  labelSections,
+  nextKbReportRun,
+  oftenDismissed,
+  reportMonthSchema,
+  topWords,
+  type ConfirmedLabel,
+  type DispositionCount,
+  type KbReportBody,
+} from './kb-report';

@@ -1,9 +1,15 @@
 import { knowledgeVersions } from '@clinic-mx/db';
-import { formatIstDateTime, knowledgeVersionStandingsOf } from '@clinic-mx/schemas';
+import {
+  formatIstDateTime,
+  inTopPercent,
+  knowledgeVersionStandingsOf,
+  monthLabel,
+} from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../modules/access/staff-db';
+import { loadKbReports } from '../../../../../modules/ai/kb-report';
 import { StandingTag } from './standing-tag';
 
 export const metadata: Metadata = { title: 'Knowledge base · Clinic Mx' };
@@ -17,6 +23,8 @@ export default async function KnowledgeBasePage() {
   const versions = await asStaff(staff, (tx) => knowledgeVersions(tx));
   const standings = knowledgeVersionStandingsOf(versions);
   const anyApproved = versions.some((version) => version.status === 'approved');
+  // AI-08: the monthly reports, for the Super Admin only.
+  const reports = await loadKbReports(staff);
 
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
@@ -71,13 +79,41 @@ export default async function KnowledgeBasePage() {
       ) : (
         <p className="text-ink-secondary">No knowledge base version has been imported yet.</p>
       )}
-      <section className="flex flex-col gap-1.5" aria-labelledby="improvement-heading">
+      <section className="flex flex-col gap-3" aria-labelledby="improvement-heading">
         <h2 id="improvement-heading" className="text-lg font-semibold">
-          Monthly improvement report
+          Monthly knowledge base report
         </h2>
-        <p className="text-sm text-ink-muted">
-          Suggestions for the next version, from how the knowledge base was used, arrive with AI-08.
-        </p>
+        {reports === null ? (
+          <p className="text-sm text-ink-muted">
+            Each month the Super Admin gets a report of suggestions often dismissed, diagnoses the
+            assistant missed and diagnoses changed at review.
+          </p>
+        ) : reports.length === 0 ? (
+          <p className="text-sm text-ink-muted" data-testid="kb-reports-none">
+            The first report comes on the 1st of next month, for this month.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {reports.map((report) => {
+              const percent = inTopPercent(report.body.totals);
+              return (
+                <li key={report.month} data-testid="kb-report-item">
+                  <Link
+                    href={['/app/knowledge-base/reports', report.month].join('/')}
+                    className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-4 hover:bg-surface-hover"
+                  >
+                    <span className="font-semibold text-ink">{monthLabel(report.month, true)}</span>
+                    <span className="text-sm text-ink-secondary">
+                      {percent === null
+                        ? 'No confirmed diagnosis to compare'
+                        : `Right diagnosis in the top suggestions: ${String(percent)}% of ${String(report.body.totals.labelsCompared)}`}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
     </main>
   );

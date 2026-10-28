@@ -33,6 +33,8 @@ export const taskKindLabels: Record<string, string> = {
   'review.overdue': '6 week review overdue',
   'feedback.service_recovery': 'Service recovery',
   'feedback.service_recovery_director': 'Service recovery: Clinical Director review',
+  'ai.spend_cap': 'AI spend cap reached',
+  'ai.kb_report': 'Knowledge base report',
 };
 
 export function taskKindLabel(kind: string): string {

@@ -102,6 +102,13 @@ recommended defaults chosen under the user's standing approval, 28 October 2026 
   overdue count linking to a list they cannot read (now counted only), and the job missing from
   `docs/runbooks/jobs.md`. All are fixed with tests.
 
+## Knowledge base report (AI-08)
+
+The monthly knowledge base report reaches the Super Admin as a task (`ai.kb_report`, "Knowledge
+base report", normal priority), titled "Knowledge base report for Oct 2026", with "Open the
+report". One per month, made with the report itself; see `docs/runbooks/ai-kb-report.md`. The
+daily AI spend cap's task (`ai.spend_cap`, AI-01) now shows its kind as "AI spend cap reached".
+
 ## Unsigned notes flag (CLN-10)
 
 PRD J3.9 ("Unsigned notes are flagged at end of day") and section 7 ("Flagged to the Centre
