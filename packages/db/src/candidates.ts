@@ -5,6 +5,8 @@ import type { DbOrTransaction } from './versioned';
 
 /** What the preparation sheet's candidate filter reads for an episode (AI-02). */
 export interface EpisodeCandidateInput {
+  /** Only so the patient's own past episodes are never their similar cases (AI-05). */
+  patientId: string;
   answers: HealthFormAnswers;
   dateOfBirth: string | null;
   sex: PatientSex | null;
@@ -21,6 +23,7 @@ export async function episodeCandidateInput(
 ): Promise<EpisodeCandidateInput | undefined> {
   const [row] = await db
     .select({
+      patientId: episode.patientId,
       answers: intakeResponse.answers,
       dateOfBirth: patient.dateOfBirth,
       sex: patient.sex,

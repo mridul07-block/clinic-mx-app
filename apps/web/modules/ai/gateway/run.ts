@@ -9,6 +9,7 @@ import {
   type NewAiRun,
 } from '@clinic-mx/db';
 import {
+  aiPromptsWithSimilarCases,
   aiRankInputSchema,
   aiRankOutputSchema,
   aiRecheckInputSchema,
@@ -53,6 +54,11 @@ type Output<K extends GatewayTask> = z.infer<(typeof TASKS)[K]['output']>;
 export type AiResult<T> =
   | { status: 'ok'; output: T; runId: string }
   | { status: 'unavailable'; reason: Exclude<AiRunStatus, 'ok'>; runId: string };
+
+function withoutSimilar(input: unknown): unknown {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+  return Object.fromEntries(Object.entries(input).filter(([key]) => key !== 'similar'));
+}
 
 /** JSON with keys in order, so the same input always hashes the same. */
 export function canonicalJson(value: unknown): string {
@@ -168,7 +174,10 @@ export async function runTask<K extends GatewayTask>(
     throw new Error('A blind test ranks anonymised cases only, outside any episode.');
   }
   const config = options.blindTest?.config ?? (await getSetting(TASKS[task].settingKey));
-  const parsed = TASKS[task].input.safeParse(rawInput);
+  // Similar cases (AI-05) go only to a prompt that is told about them.
+  const parsed = TASKS[task].input.safeParse(
+    aiPromptsWithSimilarCases.includes(config.promptVersion) ? rawInput : withoutSimilar(rawInput),
+  );
   const inputJson = canonicalJson(parsed.success ? parsed.data : rawInput);
   const base = {
     kind: task,

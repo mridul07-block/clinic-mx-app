@@ -102,6 +102,17 @@ export async function seedReadySheet(
           sport: ['Running'],
           goal: 'Run a 10 km race',
         },
+        // AI-05: three similar confirmed cases, as the system stores them (generated).
+        similar: [28, 41, 36].map((age, index) => ({
+          age,
+          sex: 'female',
+          region: 'knee',
+          symptoms: ['Front of knee'],
+          durationWeeks: 4 + index,
+          sport: ['Running'],
+          confirmed: ranked[index]?.name ?? '',
+          n: index + 2,
+        })),
       })
       .returning({ id: aiPreparationSheet.id });
     if (!sheet) throw new Error('no sheet');
@@ -132,6 +143,7 @@ export async function sheetOf(episodeId: string) {
       readyAt: aiPreparationSheet.readyAt,
       runStatus: aiRun.status,
       shortlist: aiPreparationSheet.shortlist,
+      similar: aiPreparationSheet.similar,
     })
     .from(aiPreparationSheet)
     .leftJoin(aiRun, eq(aiRun.id, aiPreparationSheet.aiRunId))

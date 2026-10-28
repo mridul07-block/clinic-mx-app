@@ -1233,6 +1233,27 @@
       "when": 1793218823699,
       "tag": "20261028202023_confirmed_diagnosis_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 176,
+      "version": "7",
+      "when": 1793219702616,
+      "tag": "20261028203502_ai_similar_cases",
+      "breakpoints": true
+    },
+    {
+      "idx": 177,
+      "version": "7",
+      "when": 1793219719503,
+      "tag": "20261028203519_ai_similar_cases_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 178,
+      "version": "7",
+      "when": 1793221094187,
+      "tag": "20261028205814_confirmed_diagnosis_review",
+      "breakpoints": true
     }
   ]
 }

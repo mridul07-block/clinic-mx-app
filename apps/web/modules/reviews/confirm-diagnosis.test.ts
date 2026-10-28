@@ -8,6 +8,7 @@ const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
   episodeRecord: vi.fn(),
+  episodeReviewed: vi.fn(),
   knowledgeAssessment: vi.fn(),
   latestConfirmedDiagnosis: vi.fn(),
   latestSignedDiagnosis: vi.fn(),
@@ -50,6 +51,7 @@ describe('the confirmed diagnosis', () => {
     );
     db.episodeRecord.mockResolvedValue({ id: episodeId, status: 'active' });
     db.staffTreatsNow.mockResolvedValue(true);
+    db.episodeReviewed.mockResolvedValue(true);
     db.latestSignedDiagnosis.mockResolvedValue(signed);
     db.latestConfirmedDiagnosis.mockResolvedValue(undefined);
     db.knowledgeAssessment.mockResolvedValue({
@@ -82,6 +84,9 @@ describe('the confirmed diagnosis', () => {
     db.latestSignedDiagnosis.mockResolvedValueOnce(undefined);
     await expect(confirm()).rejects.toThrow('Sign the consultation');
     await expect(confirm(consultant, 'KNE-999')).rejects.toThrow(ReviewError);
+    // Never the first impression: only once the episode has been reviewed or discharged.
+    db.episodeReviewed.mockResolvedValueOnce(false);
+    await expect(confirm()).rejects.toThrow('confirmed at review or discharge');
     await expect(
       confirmEpisodeDiagnosis(context(consultant), { episodeId, conditionId: '' }),
     ).rejects.toThrow('Choose the condition.');
@@ -107,7 +112,13 @@ describe('the confirmed diagnosis', () => {
     });
     expect(view.catalog?.conditions).toHaveLength(2);
     const read = await confirmDiagnosisView(fakeTx as never, physio, episodeId);
-    expect(read).toMatchObject({ confirms: false, catalog: null });
+    expect(read).toMatchObject({ confirms: false, waitsForReview: false, catalog: null });
+    db.episodeReviewed.mockResolvedValueOnce(false);
+    expect(await confirmDiagnosisView(fakeTx as never, consultant, episodeId)).toMatchObject({
+      confirms: false,
+      waitsForReview: true,
+      catalog: null,
+    });
     db.latestSignedDiagnosis.mockResolvedValue(undefined);
     expect(await confirmDiagnosisView(fakeTx as never, consultant, episodeId)).toMatchObject({
       signed: null,

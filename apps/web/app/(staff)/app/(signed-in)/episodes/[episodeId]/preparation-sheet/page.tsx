@@ -4,7 +4,9 @@ import {
   durationLabel,
   formatIstDateTime,
   knowledgeSource,
+  patientSexLabels,
   screeningRegionLabels,
+  type AiSimilarCase,
 } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -118,6 +120,59 @@ function SuggestionCard({
         canDispose={view.canDispose}
       />
     </li>
+  );
+}
+
+/**
+ * Similar confirmed cases (AI-05; PRD section 6: "shown to the model and the physio"): other
+ * patients' past cases a clinician confirmed at review or discharge, exactly as the model was sent
+ * them. Structured fields only: no names, dates, centres or IDs. Read only.
+ */
+function SimilarCases({ cases }: { cases: AiSimilarCase[] }) {
+  return (
+    <Panel title="Similar confirmed cases" id="sheet-similar">
+      {cases.length === 0 ? (
+        <p className="text-ink-secondary">Not enough confirmed past cases like this one yet.</p>
+      ) : (
+        <>
+          <p className="text-sm text-ink-muted">
+            Other patients’ cases, with the diagnosis a clinician confirmed at review or discharge.
+            Context only.
+          </p>
+          <ul className="flex flex-col gap-3">
+            {cases.map((c, index) => (
+              <li
+                // The cases have no IDs by design; their order is the sheet's.
+                key={index}
+                data-testid="similar-case"
+                className="flex flex-col gap-1 border-t border-line pt-3 first:border-0 first:pt-0"
+              >
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-ink">{c.confirmed}</span>
+                  <Tag tone="done">Confirmed diagnosis</Tag>
+                </span>
+                <span className="text-sm text-ink-secondary">
+                  {[
+                    c.age === null ? null : `Age ${String(c.age)}`,
+                    c.sex ? patientSexLabels[c.sex] : null,
+                    screeningRegionLabels[c.region],
+                    c.durationWeeks === null ? null : durationLabel(c.durationWeeks),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+                {c.symptoms.length > 0 ? (
+                  <span className="text-sm text-ink-secondary">Pain: {c.symptoms.join(', ')}</span>
+                ) : null}
+                {c.sport.length > 0 ? (
+                  <span className="text-sm text-ink-secondary">Activity: {c.sport.join(', ')}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </Panel>
   );
 }
 
@@ -302,6 +357,7 @@ export default async function PreparationSheetPage({
               </ul>
             </Panel>
           ) : null}
+          {sheet.similar ? <SimilarCases cases={sheet.similar} /> : null}
         </div>
         <div className="flex flex-col gap-4">
           <Panel title="Safety" id="sheet-safety" tone="danger">

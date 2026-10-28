@@ -1,6 +1,10 @@
 'use client';
 
-import { confirmedDiagnosisStageLabels, formatIstDateTime } from '@clinic-mx/schemas';
+import {
+  CONFIRM_AFTER_REVIEW,
+  confirmedDiagnosisStageLabels,
+  formatIstDateTime,
+} from '@clinic-mx/schemas';
 import { useActionState, useState } from 'react';
 import { ConditionSearch } from '../../../../../../../components/condition-search';
 import { FormMessage, primaryButtonClass } from '../../../../../../../components/forms';
@@ -42,7 +46,10 @@ export function ConfirmDiagnosisPanel({
         Confirmed diagnosis
       </h2>
       {!signed ? (
-        <p className="text-ink-muted">Confirmed once the consultation is signed.</p>
+        <p className="text-ink-muted">
+          A consultant confirms the diagnosis at review or discharge, once the consultation is
+          signed.
+        </p>
       ) : (
         <>
           <p className="text-sm text-ink-secondary" data-testid="signed-diagnosis">
@@ -63,6 +70,11 @@ export function ConfirmDiagnosisPanel({
           ) : (
             <p className="text-sm text-ink-muted">Not confirmed yet.</p>
           )}
+          {view.waitsForReview ? (
+            <p className="text-sm text-ink-muted" data-testid="confirm-waits">
+              {CONFIRM_AFTER_REVIEW}
+            </p>
+          ) : null}
           {view.confirms && catalog ? (
             <form action={action} className="flex flex-col gap-3">
               <input type="hidden" name="episodeId" value={episodeId} />
@@ -80,6 +92,7 @@ export function ConfirmDiagnosisPanel({
                   setConditionId(next.conditionId);
                 }}
                 label="Diagnosis to confirm"
+                noMatch="No condition matches. A confirmed diagnosis is a knowledge base condition."
               />
               {state.error ? <FormMessage tone="danger">{state.error}</FormMessage> : null}
               {state.done && !pending ? <FormMessage tone="info">Confirmed.</FormMessage> : null}

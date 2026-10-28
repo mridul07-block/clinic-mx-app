@@ -28,6 +28,7 @@ export function ConditionSearch({
   readOnly,
   onChoose,
   label = 'Tissue diagnosis',
+  noMatch = 'No condition matches. Anything outside the knowledge base goes in Notes.',
 }: {
   condition: AssessmentCondition | undefined;
   catalog: AssessmentCatalog;
@@ -35,6 +36,8 @@ export function ConditionSearch({
   readOnly: boolean;
   onChoose: (condition: AssessmentCondition) => void;
   label?: string;
+  /** What an empty search says. */
+  noMatch?: string;
 }) {
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
@@ -60,11 +63,10 @@ export function ConditionSearch({
       event.preventDefault();
       setActive((at) => Math.max(at - 1, 0));
     } else if (event.key === 'Enter') {
+      // Never submits a surrounding form: Enter only picks.
+      event.preventDefault();
       const next = results[active];
-      if (next) {
-        event.preventDefault();
-        pick(next);
-      }
+      if (next) pick(next);
     } else if (event.key === 'Escape') {
       setQuery('');
       if (condition) setSearching(false);
@@ -161,7 +163,7 @@ export function ConditionSearch({
           </ul>
         ) : (
           <p id={listId} className="text-sm text-ink-muted">
-            No condition matches. Anything outside the knowledge base goes in Notes.
+            {noMatch}
           </p>
         )
       ) : null}

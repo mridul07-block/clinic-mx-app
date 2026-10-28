@@ -16,6 +16,10 @@ export const confirmedDiagnosisStageLabels: Record<ConfirmedDiagnosisStage, stri
   discharge: 'At discharge',
 };
 
+/** Why a diagnosis cannot be confirmed yet: never the first impression. */
+export const CONFIRM_AFTER_REVIEW =
+  'A diagnosis is confirmed at review or discharge: after the session 4 reassessment or final testing is signed, or once the episode is discharged.';
+
 export const confirmDiagnosisSchema = z.strictObject({
   episodeId: z.guid({ error: 'That episode was not found.' }),
   /** The knowledge base condition, in the signed diagnosis's version. */

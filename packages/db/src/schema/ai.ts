@@ -117,6 +117,11 @@ export const aiPreparationSheet = pgTable(
     shortlist: jsonb('shortlist').notNull(),
     /** The de-identified case the model was sent; null when none could be made. */
     case: jsonb('case'),
+    /**
+     * The similar confirmed cases (AI-05) as sent and shown: structured fields only, no IDs. Null on
+     * a sheet made before them; empty when too few were found.
+     */
+    similar: jsonb('similar'),
     claimedAt: timestamp('claimed_at', { withTimezone: true }).notNull().defaultNow(),
     readyAt: timestamp('ready_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

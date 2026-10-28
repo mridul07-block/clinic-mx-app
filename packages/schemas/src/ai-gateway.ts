@@ -37,8 +37,22 @@ export const aiRunStatuses = [
 export type AiRunStatus = (typeof aiRunStatuses)[number];
 
 /** Each prompt by version; the text lives in apps/web/modules/ai/gateway/prompts.ts. */
-export const aiPromptVersions = ['rank_diagnoses.v1', 'recheck_with_findings.v1'] as const;
+export const aiPromptVersions = [
+  'rank_diagnoses.v1',
+  'recheck_with_findings.v1',
+  'rank_diagnoses.v2',
+  'recheck_with_findings.v2',
+] as const;
 export type AiPromptVersion = (typeof aiPromptVersions)[number];
+
+/** The prompts that are told about similar confirmed cases (AI-05); the others are never sent them. */
+export const aiPromptsWithSimilarCases: readonly AiPromptVersion[] = [
+  'rank_diagnoses.v2',
+  'recheck_with_findings.v2',
+];
+
+/** The most similar confirmed cases a clinical task may send (TAD section 7 step 4: 3 to 5). */
+export const AI_SIMILAR_MAX = 5;
 
 /** A task’s settings (`ai.task_<task>`). No model until the blind test chooses one (AI-06). */
 export const aiTaskConfigSchema = z.strictObject({
@@ -92,9 +106,31 @@ export const aiRankRowSchema = z.strictObject({
 });
 export type AiRankRow = z.infer<typeof aiRankRowSchema>;
 
+/**
+ * A similar confirmed case (AI-05) as sent and shown: structured fields only, never free text or IDs
+ * (strict, so an ID, date or name field is refused before any call).
+ */
+export const aiSimilarCaseSchema = z.strictObject({
+  age: z.int().min(0).max(120).nullable(),
+  sex: z.enum(patientSexes).nullable(),
+  region: z.enum(screeningRegions),
+  /** The body chart zones marked, by their labels. */
+  symptoms: z.array(z.string().max(200)).max(20),
+  durationWeeks: z.number().nonnegative().max(5200).nullable(),
+  /** The activities ticked, by their labels. */
+  sport: z.array(z.string().max(200)).max(20),
+  /** The confirmed condition, in the knowledge base's own words. */
+  confirmed: z.string().min(1).max(200),
+  /** Its row number on this sheet's shortlist; null when the shortlist does not hold it. */
+  n: z.int().positive().nullable(),
+});
+export type AiSimilarCase = z.infer<typeof aiSimilarCaseSchema>;
+
 export const aiRankInputSchema = z.strictObject({
   case: aiCaseSchema,
   rows: z.array(aiRankRowSchema).min(1).max(60),
+  /** Only for a prompt that is told about them (`aiPromptsWithSimilarCases`). */
+  similar: z.array(aiSimilarCaseSchema).max(AI_SIMILAR_MAX).optional(),
 });
 export type AiRankInput = z.infer<typeof aiRankInputSchema>;
 
@@ -103,6 +139,7 @@ export const aiRecheckInputSchema = z.strictObject({
   case: aiCaseSchema,
   rows: z.array(aiRankRowSchema).min(1).max(60),
   findings: z.array(shortText).max(AI_FINDINGS_MAX),
+  similar: z.array(aiSimilarCaseSchema).max(AI_SIMILAR_MAX).optional(),
 });
 export type AiRecheckInput = z.infer<typeof aiRecheckInputSchema>;
 

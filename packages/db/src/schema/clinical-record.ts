@@ -498,7 +498,10 @@ export const addendum = pgTable(
   ],
 ).enableRLS();
 
-export const confirmedDiagnosisStage = pgEnum('confirmed_diagnosis_stage', confirmedDiagnosisStages);
+export const confirmedDiagnosisStage = pgEnum(
+  'confirmed_diagnosis_stage',
+  confirmedDiagnosisStages,
+);
 
 /**
  * The diagnosis confirmed at review or discharge (AI-05; PRD section 6: the learning label, "not

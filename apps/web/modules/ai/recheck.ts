@@ -160,6 +160,8 @@ async function rerank(
     rows,
     episodeId,
     findings,
+    // The sheet's own similar cases (AI-05), as it sent them: steps 5 to 7 only run again.
+    similar: sheet.similar ?? [],
     forbidden: await episodeNameWords(db, episodeId),
     transport: options.transport,
   });

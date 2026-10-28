@@ -93,6 +93,13 @@ test('the visit’s consultant reads the sheet word for word and keeps or dismis
         seeded.mustRuleOut.discriminatingQuestion,
       );
       await expect(ruleOut.getByRole('button')).toHaveCount(0);
+      // AI-05: the similar confirmed cases, as sent: structured fields, no names, dates or IDs.
+      const similar = page.getByTestId('similar-case');
+      await expect(similar).toHaveCount(3);
+      await expect(similar.nth(0)).toContainText(seeded.suggestions[0]?.name ?? '');
+      await expect(similar.nth(0)).toContainText('Confirmed diagnosis');
+      await expect(similar.nth(0)).toContainText('Age 28 · Female · Knee · 4 weeks');
+      await expect(page.getByTestId('sheet-similar')).not.toContainText(/Test Patient|HSR-|2026/);
       await page.screenshot({
         path: test.info().outputPath('preparation-sheet.png'),
         fullPage: true,
@@ -187,6 +194,9 @@ test('the submit makes the sheet within 15 seconds, unavailable without a model'
       expect(flagged.length).toBeGreaterThan(0);
       await expect(page.getByTestId('sheet-told')).toContainText('Back');
       await expect(page.getByTestId('suggestion-card')).toHaveCount(0);
+      // AI-05: the similar cases chosen are kept with the sheet, and shown (none when too few).
+      expect(Array.isArray(sheet?.similar)).toBe(true);
+      await expect(page.getByTestId('sheet-similar')).toBeVisible();
       await page.screenshot({
         path: test.info().outputPath('preparation-sheet-unavailable.png'),
         fullPage: true,

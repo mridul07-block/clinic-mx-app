@@ -83,7 +83,7 @@ usual." (AI-03).
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `ai.task_rank_diagnoses`, `ai.task_recheck_with_findings` | model none, providers none, prompt v1, reasoning low, 6000 ms, 800 tokens | Set the model and providers after the blind test (AI-06). Two attempts of 6 seconds stay inside the 15 second target. |
+| `ai.task_rank_diagnoses`, `ai.task_recheck_with_findings` | model none, providers none, prompt v2 (since AI-05), reasoning low, 6000 ms, 800 tokens | Set the model and providers after the blind test (AI-06). Two attempts of 6 seconds stay inside the 15 second target. |
 | `ai.daily_spend_cap_paise` | 20000 | DECISION AI-01: a placeholder for the client. |
 | `ai.usd_rate_paise` | 9650 | Paise per US dollar, from TAD section 11. |
 
@@ -92,6 +92,11 @@ usual." (AI-03).
 `prompts.ts` holds the fixed instructions by version. They say how to answer, never what is
 clinically true. A prompt changes only as a new version, because a unit test pins each version's
 text. A new prompt or model means a new blind test (TAD section 7).
+
+Version 2 of both clinical prompts (AI-05) is told about the similar confirmed cases. The input
+schemas allow `similar` (strict structured cases, at most 5), and `runTask` sends it only to a
+prompt in `aiPromptsWithSimilarCases`; a v1 prompt never gets it
+(`docs/runbooks/ai-similar-cases.md`).
 
 ## The `ai_run` table
 

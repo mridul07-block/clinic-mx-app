@@ -1,4 +1,10 @@
-import { confirmedDiagnosis, createDb } from '@clinic-mx/db';
+import {
+  confirmedDiagnosis,
+  createDb,
+  systemActor,
+  updateEpisodeState,
+  withActor,
+} from '@clinic-mx/db';
 import { expect, test, type Page } from '@playwright/test';
 import { asc, eq } from 'drizzle-orm';
 import { completeVisit } from './bills';
@@ -67,6 +73,15 @@ test('a consultant confirms the signed diagnosis, then changes it; a physio read
   await signInWithCode(page, consultant.email, consultant.secret);
   await page.goto(`/app/episodes/${episodeId}/review`);
   const panel = page.getByTestId('confirm-diagnosis');
+  // Never the first impression: nothing to confirm before the episode is reviewed.
+  await expect(panel.getByTestId('confirm-waits')).toContainText(
+    'A diagnosis is confirmed at review or discharge',
+  );
+  await expect(panel.getByRole('button', { name: 'Confirm diagnosis' })).toHaveCount(0);
+  await withActor(db(), systemActor('tests'), (tx) =>
+    updateEpisodeState(tx, episodeId, 'active', { status: 'under_review', pausedFrom: null }),
+  );
+  await page.reload();
   await expect(panel.getByTestId('signed-diagnosis')).toHaveText(
     `Diagnosis at the consultation: ${conditionName}`,
   );
@@ -81,6 +96,10 @@ test('a consultant confirms the signed diagnosis, then changes it; a physio read
 
   // Changed at review: the later confirmation is the label.
   await panel.getByRole('button', { name: 'Change' }).click();
+  // Enter on a search with no match never confirms anything.
+  await panel.getByRole('combobox', { name: 'Diagnosis to confirm' }).fill('xyzzy');
+  await panel.getByRole('combobox', { name: 'Diagnosis to confirm' }).press('Enter');
+  await expect(panel).toContainText('A confirmed diagnosis is a knowledge base condition.');
   await panel.getByRole('combobox', { name: 'Diagnosis to confirm' }).fill('patellar tend');
   await panel.getByRole('combobox', { name: 'Diagnosis to confirm' }).press('Enter');
   await expect(panel.getByTestId('chosen-condition')).toContainText('Patellar Tendinopathy');

@@ -10,6 +10,18 @@ import type { DbOrTransaction } from './versioned';
  * diagnosis, and stamps the stage, who and when. Never changed: the latest is the label.
  */
 
+/**
+ * Whether the episode has been reviewed, so its diagnosis can be confirmed (not the first
+ * impression): Under review or discharged, its session 4 reassessment signed, or its final testing
+ * signed (`internal.episode_reviewed`, which the guard also checks).
+ */
+export async function episodeReviewed(db: DbOrTransaction, episodeId: string): Promise<boolean> {
+  const [row] = await db.execute<{ reviewed: boolean }>(
+    sql`select internal.episode_reviewed(${episodeId}) as reviewed`,
+  );
+  return row?.reviewed === true;
+}
+
 export interface SignedDiagnosis {
   id: string;
   kbVersionId: string;

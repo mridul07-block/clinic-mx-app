@@ -23,8 +23,10 @@ import {
   microUsdToPaise,
   seededRandom,
   shortlistCandidates,
+  similarCases,
   toCsv,
   validateRanking,
+  type AiPromptVersion,
   type BlindTestCase,
   type BlindTestOutput,
   type BlindTestScore,
@@ -206,10 +208,42 @@ export async function runBlindTest(
   ) {
     throw budgetReached;
   }
+  // AI-05: each case's similar confirmed cases are the file's other cases, as the sheet draws them
+  // from other patients (never the case itself, so its own answer is never in view).
+  const similarSettings = {
+    min: await getSetting('ai.similar_cases_min'),
+    max: await getSetting('ai.similar_cases_max'),
+    stage: {
+      acuteWeeksBelow: await getSetting('assessment.acute_weeks_below'),
+      chronicWeeksAbove: await getSetting('assessment.chronic_weeks_above'),
+    },
+  };
+  const pool = cases.flatMap((c) => {
+    const conditionId = c.confirmed[0] ?? '';
+    const listing = listings.find((l) => l.conditionId === conditionId);
+    return listing
+      ? [
+          {
+            episodeId: c.ref,
+            patientId: c.ref,
+            case: blindTestCandidateCase(c),
+            conditionId,
+            conditionName: listing.name,
+            confirmedAt: new Date(0),
+          },
+        ]
+      : [];
+  });
   let done = 0;
   for (const c of cases) {
     const shortlist = shortlistCandidates(listings, blindTestCandidateCase(c), settings);
     const rows: ShortlistRow[] = rowsFor(shortlist, listings);
+    const similar = similarCases(
+      { case: blindTestCandidateCase(c), patientId: c.ref, episodeId: c.ref },
+      pool,
+      rows,
+      similarSettings,
+    );
     const items = shortlist.items.filter((i) => rows.some((r) => r.conditionId === i.conditionId));
     const onShortlist = items.some((i) => c.confirmed.includes(i.conditionId));
     // A different order per case, so no model always goes first.
@@ -241,6 +275,7 @@ export async function runBlindTest(
           kbVersionId: version.id,
           case: c.case,
           rows,
+          similar,
           config: candidate.config,
           transport,
         });
@@ -530,7 +565,13 @@ export async function compareBlindTest(
     record,
     sheets,
     reference,
-    prompt: sha256(PROMPTS['rank_diagnoses.v1']),
+    // Each prompt the candidates ran, by version, so a later prompt change shows.
+    prompts: Object.fromEntries(
+      record.promptVersion
+        .split(', ')
+        .filter((v): v is AiPromptVersion => v in PROMPTS)
+        .map((v) => [v, sha256(PROMPTS[v])]),
+    ),
   });
   return reference;
 }

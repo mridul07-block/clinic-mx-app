@@ -326,6 +326,57 @@ describe('the clinical tasks', () => {
     expect(sent[0]?.messages[0]?.content).toBe(PROMPTS['recheck_with_findings.v1']);
     expect(sent[0]?.messages[1]?.content).toContain('Positive patellar grind');
   });
+  // AI-05: similar confirmed cases go only to a prompt that is told about them.
+  it('sends similar cases only with a v2 prompt, and logs what it sent', async () => {
+    const similar = [
+      {
+        age: 31,
+        sex: 'female' as const,
+        region: 'knee' as const,
+        symptoms: ['Front of knee'],
+        durationWeeks: 8,
+        sport: ['Running'],
+        confirmed: 'Patellar tendinopathy',
+        n: null,
+      },
+    ];
+    const v1 = fake();
+    await rankDiagnoses({} as Db, pass, {
+      case: theCase,
+      rows,
+      similar,
+      episodeId,
+      transport: v1.transport,
+    });
+    expect(v1.sent[0]?.messages[1]?.content).not.toContain('Patellar tendinopathy');
+    expect(recorded()[0]?.input).not.toHaveProperty('similar');
+
+    settings['ai.task_rank_diagnoses'] = { ...config, promptVersion: 'rank_diagnoses.v2' };
+    const v2 = fake();
+    await rankDiagnoses({} as Db, pass, {
+      case: theCase,
+      rows,
+      similar,
+      episodeId,
+      transport: v2.transport,
+    });
+    expect(v2.sent[0]?.messages[0]?.content).toBe(PROMPTS['rank_diagnoses.v2']);
+    expect(v2.sent[0]?.messages[1]?.content).toContain('Patellar tendinopathy');
+    expect(recorded()[1]).toMatchObject({ promptVersion: 'rank_diagnoses.v2' });
+    expect(recorded()[1]?.input).toHaveProperty('similar');
+
+    // A similar case carrying anything but its structured fields is refused, not sent.
+    const v2b = fake();
+    const refused = await rankDiagnoses({} as Db, pass, {
+      case: theCase,
+      rows,
+      similar: [{ ...similar[0], episodeId } as unknown as (typeof similar)[number]],
+      episodeId,
+      transport: v2b.transport,
+    });
+    expect(refused).toMatchObject({ status: 'unavailable', reason: 'blocked' });
+    expect(v2b.sent).toHaveLength(0);
+  });
 });
 
 // AI-06: a blind test runs a candidate's model for one call, never the task's settings, with its

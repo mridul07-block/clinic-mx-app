@@ -9,6 +9,7 @@ import {
   recordConfirmedDiagnosis,
 } from '../confirmed-diagnosis';
 import { insertEpisode, updateEpisodeState } from '../episodes';
+import { insertPatientLink } from '../patient-links';
 import type { StaffMember } from '../identity';
 import { latestKnowledgeVersion } from '../knowledge';
 import {
@@ -17,9 +18,11 @@ import {
   confirmedDiagnosis,
   consultation,
   diagnosis,
+  intakeResponse,
   kbCondition,
 } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
+import { similarCasePool } from '../similar-cases';
 import { becomeStaff, testPatient, testPhysio, typeId } from './fake-schedule';
 
 // AI-05: the diagnosis confirmed at review or discharge, the learning label (PRD section 6). An
@@ -101,14 +104,29 @@ async function setUp(tx: Tx) {
     .limit(2);
   const [first, second] = knee;
   if (!first || !second) throw new Error('The knowledge base has too few knee conditions.');
-  const physio = (consultant: boolean) =>
-    testPhysio(tx, { centreIds: [centreIds.hsrLayout], consultant, createdBy: superAdmin.id });
-  const consultant = await physio(true);
-  const notConsultant = await physio(false);
+  const consultant = await testPhysio(tx, {
+    centreIds: [centreIds.hsrLayout, centreIds.whitefield],
+    consultant: true,
+    createdBy: superAdmin.id,
+  });
+  const notConsultant = await testPhysio(tx, {
+    centreIds: [centreIds.hsrLayout],
+    createdBy: superAdmin.id,
+  });
   let visits = 0;
-  const signedEpisode = async () => {
-    const patientId = await testPatient(tx);
-    const episodeId = await insertEpisode(tx, { patientId, centreId: centreIds.hsrLayout });
+  /** A signed episode with its submitted health form; another patient's unless one is given. */
+  const signedEpisode = async (
+    options: {
+      patientId?: string;
+      centreId?: string;
+      answers?: Record<string, unknown>;
+      /** Moved on to Under review, so its diagnosis can be confirmed (the default). */
+      reviewed?: boolean;
+    } = {},
+  ) => {
+    const patientId = options.patientId ?? (await testPatient(tx));
+    const centreId = options.centreId ?? centreIds.hsrLayout;
+    const episodeId = await insertEpisode(tx, { patientId, centreId });
     for (let step = 1; step < path.length; step++) {
       await updateEpisodeState(tx, episodeId, path[step - 1] as EpisodeStatus, {
         status: path[step] as EpisodeStatus,
@@ -123,7 +141,7 @@ async function setUp(tx: Tx) {
       .values({
         number: '',
         patientId,
-        centreId: centreIds.hsrLayout,
+        centreId,
         physioId: consultant.id,
         appointmentTypeId: await typeId(tx, 'consultation'),
         episodeId,
@@ -134,6 +152,21 @@ async function setUp(tx: Tx) {
       })
       .returning({ id: appointment.id });
     if (!visit) throw new Error('no visit');
+    const link = await insertPatientLink(tx, {
+      patientId,
+      purpose: 'health_form',
+      appointmentId: visit.id,
+      expiresAt: new Date(Date.now() + 3600_000),
+    });
+    await tx.insert(intakeResponse).values({
+      appointmentId: visit.id,
+      patientId,
+      patientLinkId: link.id,
+      formVersion: 'hf-3',
+      answers: { region: 'knee', onset: 'gradual', ...options.answers },
+      submittedAt: new Date(),
+      episodeId,
+    });
     const [signed] = await tx
       .insert(consultation)
       .values({
@@ -160,7 +193,13 @@ async function setUp(tx: Tx) {
     });
     const source = await latestSignedDiagnosis(tx, episodeId);
     if (!source) throw new Error('no signed diagnosis');
-    return { episodeId, source };
+    if (options.reviewed ?? true) {
+      await updateEpisodeState(tx, episodeId, 'active', {
+        status: 'under_review',
+        pausedFrom: null,
+      });
+    }
+    return { episodeId, patientId, source };
   };
   return { version, first, second, consultant, notConsultant, signedEpisode };
 }
@@ -235,7 +274,7 @@ describe('the confirmed diagnosis', () => {
       await updateEpisodeState(
         tx,
         episodeId,
-        'active',
+        'under_review',
         { status: 'discharged', pausedFrom: null },
         { reason: 'goals_achieved' },
       );
@@ -268,6 +307,23 @@ describe('the confirmed diagnosis', () => {
         await asSystem(tx);
       }
       await becomeStaff(tx, s.consultant);
+      // Not yet reviewed: never the first impression.
+      const early = await (async () => {
+        await asSystem(tx);
+        const e = await s.signedEpisode({ reviewed: false });
+        await becomeStaff(tx, s.consultant);
+        return e;
+      })();
+      expect(
+        await failure(tx, (sp) =>
+          recordConfirmedDiagnosis(sp, {
+            episodeId: early.episodeId,
+            source: early.source,
+            conditionId: s.first.conditionId,
+            by: s.consultant.id,
+          }),
+        ),
+      ).toBe('23514');
       // Another episode's diagnosis.
       expect(
         await failure(tx, (sp) => confirm(sp, s.consultant.id, { source: other.source })),
@@ -286,6 +342,52 @@ describe('the confirmed diagnosis', () => {
       await asSystem(tx);
       // Nobody signed in: the system never confirms a diagnosis.
       expect(await failure(tx, (sp) => confirm(sp, s.consultant.id))).toBe('42501');
+    });
+  });
+});
+
+// AI-05: the pool similar confirmed cases are drawn from: confirmed episodes at any centre, never
+// the patient's own, each with its latest confirmation and latest submitted form.
+describe('the similar case pool', () => {
+  it('holds confirmed episodes at every centre, but the patient’s own', async () => {
+    await rolledBack(async (tx) => {
+      const s = await setUp(tx);
+      const current = await s.signedEpisode();
+      const own = await s.signedEpisode({ patientId: current.patientId });
+      const hsr = await s.signedEpisode({ answers: { sex: 'female' } });
+      const whitefield = await s.signedEpisode({ centreId: centreIds.whitefield });
+      const unconfirmed = await s.signedEpisode();
+      await becomeStaff(tx, s.consultant);
+      for (const e of [own, hsr, whitefield]) {
+        await recordConfirmedDiagnosis(tx, {
+          episodeId: e.episodeId,
+          source: e.source,
+          conditionId: s.first.conditionId,
+          by: s.consultant.id,
+        });
+      }
+      // Changed later: the latest confirmation is the one used.
+      await recordConfirmedDiagnosis(tx, {
+        episodeId: whitefield.episodeId,
+        source: whitefield.source,
+        conditionId: s.second.conditionId,
+        by: s.consultant.id,
+      });
+      await asSystem(tx);
+      const ours = new Set([own, hsr, whitefield, unconfirmed].map((e) => e.episodeId));
+      const pool = (await similarCasePool(tx, current.patientId)).filter((row) =>
+        ours.has(row.episodeId),
+      );
+      expect(pool.map((row) => [row.episodeId, row.conditionId]).sort()).toEqual(
+        [
+          [hsr.episodeId, s.first.conditionId],
+          [whitefield.episodeId, s.second.conditionId],
+        ].sort(),
+      );
+      expect(pool.find((row) => row.episodeId === hsr.episodeId)).toMatchObject({
+        answers: { region: 'knee', sex: 'female' },
+        conditionName: s.first.name,
+      });
     });
   });
 });

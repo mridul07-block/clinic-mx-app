@@ -370,6 +370,7 @@ describe('consultation', () => {
         sql`update episode set body_region = 'knee' where id = ${submitted.episodeId}`,
       );
       expect(await episodeCandidateInput(tx, submitted.episodeId)).toEqual({
+        patientId: submitted.patientId,
         answers: { region: 'knee', onset: 'gradual' },
         dateOfBirth: '1996-01-15',
         sex: 'female',
