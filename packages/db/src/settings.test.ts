@@ -39,6 +39,10 @@ const stored: Settings = {
   'ai.sheet_top_count': 3,
   'ai.sheet_also_consider_count': 2,
   'ai.sheet_retry_after_seconds': 60,
+  'ai.blocked_providers': ['deepseek'],
+  'ai.blind_test_budget_paise': 200000,
+  'ai.blind_test_cases_min': 30,
+  'ai.blind_test_cases_max': 50,
   'ai.task_rank_diagnoses': {
     model: null,
     providers: [],

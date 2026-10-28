@@ -24,7 +24,9 @@ recorded as DECISION AI-01 in `docs/PROGRESS.md`. No OpenRouter key exists yet.
 - Locally, in CI and on staging, each run is logged as `not_configured` and no model is called.
 - **Live calls need two things:**
   - `OPENROUTER_API_KEY` in the environment (server only; `apps/web/lib/env.ts`, `.env.example`);
-  - a model and pinned providers in the task settings, chosen by the blind test (AI-06).
+  - a model and pinned providers in the task settings, chosen by the blind test (AI-06,
+    `docs/runbooks/ai-blind-test.md`).
+- No clinical call ever goes to a provider in `ai.blocked_providers` (DeepSeek: PRD section 6).
 - Even then, the AI preparation sheet runs only while the AI gate is on (AI-09,
   `docs/runbooks/ai-gate.md`).
 

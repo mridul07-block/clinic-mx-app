@@ -637,6 +637,7 @@ export { episodeCandidateInput, type EpisodeCandidateInput } from './candidates'
 export {
   AI_SPEND_CAP_TASK,
   aiSpendSince,
+  blindTestSpend,
   insertAiRun,
   openAiSpendCapTask,
   type NewAiRun,

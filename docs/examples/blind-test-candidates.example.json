@@ -1,0 +1,26 @@
+{
+  "candidates": [
+    {
+      "id": "candidate-a",
+      "config": {
+        "model": "vendor-a/model-name",
+        "providers": ["host-a"],
+        "promptVersion": "rank_diagnoses.v1",
+        "reasoningEffort": "low",
+        "timeoutMs": 6000,
+        "maxTokens": 800
+      }
+    },
+    {
+      "id": "candidate-b",
+      "config": {
+        "model": "vendor-b/model-name",
+        "providers": ["host-b"],
+        "promptVersion": "rank_diagnoses.v1",
+        "reasoningEffort": "low",
+        "timeoutMs": 6000,
+        "maxTokens": 800
+      }
+    }
+  ]
+}

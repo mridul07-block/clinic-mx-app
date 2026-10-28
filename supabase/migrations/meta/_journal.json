@@ -1205,6 +1205,13 @@
       "when": 1793206004343,
       "tag": "20261028164644_ai_sheet_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 172,
+      "version": "7",
+      "when": 1793210169906,
+      "tag": "20261028175609_ai_blind_test",
+      "breakpoints": true
     }
   ]
 }

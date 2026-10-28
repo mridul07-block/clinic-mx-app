@@ -1,4 +1,4 @@
-import { gte, sql } from 'drizzle-orm';
+import { and, eq, gte, isNull, sql } from 'drizzle-orm';
 import { aiRun, task } from './schema';
 import type { DbOrTransaction } from './versioned';
 
@@ -11,12 +11,24 @@ export async function insertAiRun(tx: DbOrTransaction, run: NewAiRun): Promise<s
   return row.id;
 }
 
-/** What the AI has been charged since `since`, in millionths of a US dollar. */
+/**
+ * What the live AI has been charged since `since`, in millionths of a US dollar; blind test runs
+ * (AI-06) have their own budget and never count here.
+ */
 export async function aiSpendSince(db: DbOrTransaction, since: Date): Promise<bigint> {
   const [row] = await db
     .select({ total: sql<string>`coalesce(sum(${aiRun.costMicroUsd}), 0)::text` })
     .from(aiRun)
-    .where(gte(aiRun.createdAt, since));
+    .where(and(gte(aiRun.createdAt, since), isNull(aiRun.blindTestRun)));
+  return BigInt(row?.total ?? '0');
+}
+
+/** What one blind test run (AI-06) has been charged so far, in millionths of a US dollar. */
+export async function blindTestSpend(db: DbOrTransaction, runId: string): Promise<bigint> {
+  const [row] = await db
+    .select({ total: sql<string>`coalesce(sum(${aiRun.costMicroUsd}), 0)::text` })
+    .from(aiRun)
+    .where(eq(aiRun.blindTestRun, runId));
   return BigInt(row?.total ?? '0');
 }
 
