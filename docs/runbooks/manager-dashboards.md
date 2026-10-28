@@ -32,11 +32,13 @@ are recorded in the DECISION register as "DSH-03" for the client to confirm.
   - red flags not closed: emergencies, waiting for review, reviewed, referred;
   - notes started and not signed;
   - reassessments waiting for the consultant's decision;
-  - new symptoms and adverse events still to review (tasks held by consultants, counted only);
+  - new symptoms, adverse events and worse or escalated sessions still to review (tasks held by
+    consultants, counted only; ALT-02);
+  - 6 week reviews overdue (ALT-02; each a task held by the consultant, so counted only);
   - episodes On hold (no list of them exists yet, so the line says they show on each patient's
     record), and Lost to follow up.
 - Two items wait for the tickets that bring them, with no clinical rule invented here:
-  - "Stalled progress" comes with progress alerts (ALT-02).
+  - "Stalled progress": plateau and no change wait for the clinic's thresholds (DECISION ALT-02).
   - "Service recovery" comes with discharge feedback (PAT-08).
 
 **Centres**

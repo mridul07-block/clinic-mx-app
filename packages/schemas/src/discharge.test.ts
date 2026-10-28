@@ -4,6 +4,8 @@ import {
   dischargeEpisodeSchema,
   dischargeReasonRefusal,
   lostToFollowUpTitle,
+  REVIEW_OVERDUE_CHECK_TIME,
+  reviewOverdueTitle,
 } from './discharge';
 import { istInstant } from './ist';
 import { nextDailyRun, taskKindLabel } from './tasks';
@@ -98,5 +100,15 @@ describe('discharge', () => {
       /^Lost to follow up: no visit since 27 Sept? 2026$/,
     );
     expect(taskKindLabel('review.lost_to_follow_up')).toBe('Lost to follow up');
+  });
+
+  // ALT-02: the overdue 6 week review check names the review date; both new kinds have labels.
+  it('checks for overdue reviews every morning at 6:00 AM IST, naming the review date', () => {
+    expect(
+      nextDailyRun(istInstant('2026-11-02', 7 * 60), '2026-11-02', REVIEW_OVERDUE_CHECK_TIME),
+    ).toEqual({ date: '2026-11-03', runAt: istInstant('2026-11-03', 6 * 60) });
+    expect(reviewOverdueTitle('2026-12-09')).toBe('6 week review overdue since 9 Dec 2026');
+    expect(taskKindLabel('review.overdue')).toBe('6 week review overdue');
+    expect(taskKindLabel('review.worsening')).toBe('Clinical review: worse or escalated');
   });
 });

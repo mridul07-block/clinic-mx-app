@@ -66,6 +66,10 @@ desk a task; books nothing when one is booked already; OUT-06, see `docs/runbook
 `episodes.lost_to_follow_up:<IST date>`; each day first queues the next day, then marks episodes
 nobody attended for `clinical.lost_to_follow_up_days` Lost to follow up with a task, never a
 discharge; a migration queued the first day; OUT-10, see `docs/runbooks/sessions.md`);
+`episodes.review_overdue` (every morning at 6:00 AM IST, key `episodes.review_overdue:<IST date>`;
+each day first queues the next day, then gives the consultant a task for each Active episode past
+its 6 week review date with no Review attended or booked ahead and no final test, and closes open
+ones no longer due; a migration queued the first day; ALT-02, see `docs/runbooks/tasks.md`);
 `documents.discharge_report` (queued by the database when an episode with a signed consultation is
 discharged, key `discharge_report:<episode id>`; renders the report, keyed like the summary;
 OUT-11, see `docs/runbooks/documents.md`); `whatsapp.discharge_report` (queued with it; does nothing

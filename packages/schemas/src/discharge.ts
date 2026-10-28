@@ -90,6 +90,23 @@ export const LOST_TO_FOLLOW_UP_CHECK_TIME = '06:00';
 /** The task kind of the lost to follow up check, for the consultant. */
 export const LOST_TO_FOLLOW_UP_TASK = 'review.lost_to_follow_up';
 
+/**
+ * Progress alerts (ALT-02, in part; recommended defaults chosen under the user's standing approval,
+ * 28 October 2026; docs/runbooks/tasks.md). A session note signed "Worse", or with "Escalate"
+ * next, is a high task for the consultant (the database, at signing). A 6 week review whose date
+ * has passed, not attended, nothing booked ahead and no final test, is a task for them from the
+ * daily check at 6:00 AM IST, closed by itself once the review is booked or done. Plateau, no
+ * change, adherence, milestones and repeated missed sessions wait for the client (DECISION ALT-02).
+ */
+export const WORSENING_TASK = 'review.worsening';
+export const REVIEW_OVERDUE_TASK = 'review.overdue';
+export const REVIEW_OVERDUE_CHECK_TIME = '06:00';
+
+/** The overdue task's title, for example "6 week review overdue since 9 Dec 2026". */
+export function reviewOverdueTitle(reviewDate: string): string {
+  return `6 week review overdue since ${formatIstDate(reviewDate)}`;
+}
+
 /** The task's title, for example "Lost to follow up: no visit since 27 Sep 2026". */
 export function lostToFollowUpTitle(since: Date): string {
   return `Lost to follow up: no visit since ${formatIstDate(istDate(since))}`;
