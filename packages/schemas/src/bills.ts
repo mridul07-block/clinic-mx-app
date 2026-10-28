@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { istDate } from './ist';
+import { rupeesSchema } from './money';
 
 /**
  * Bills at fixed prices (BIL-05, PRD J4.6, TAD section 9). The database makes them, at the price
@@ -62,6 +63,11 @@ export const paymentMethodLabels: Record<PaymentMethod, string> = {
  */
 export const recordPaymentSchema = z.object({
   billId: z.guid({ error: 'That bill was not found.' }),
+  /** The total the desk was shown (BIL-07): a total changed meanwhile is refused. */
+  expectedTotalPaise: z
+    .string()
+    .regex(/^\d{1,10}$/, { error: 'Reload the page and try again.' })
+    .transform(Number),
   method: z.enum(paymentMethods, { error: 'Choose how the patient paid.' }),
   reference: z
     .string()
@@ -94,4 +100,65 @@ export function packageValidUntil(paidAt: Date, months: number): string {
   ).getUTCDate();
   target.setUTCDate(Math.min(day, lastDay));
   return target.toISOString().slice(0, 10);
+}
+
+const reason = z
+  .string()
+  .trim()
+  .min(1, { error: 'Say why this discount is given.' })
+  .max(300, { error: 'Keep the reason to 300 characters.' });
+
+/**
+ * A discount on a line of an unpaid bill (BIL-07, decision 15): a preset from the clinic's list
+ * (the desk, Finance, the Super Admin), or an Other discount of a whole percent or an amount with
+ * its reason (Finance and the Super Admin, whose name records the approval).
+ */
+export const applyDiscountSchema = z.discriminatedUnion(
+  'kind',
+  [
+    z.object({
+      kind: z.literal('preset'),
+      lineId: z.guid({ error: 'That bill was not found.' }),
+      presetId: z.guid({ error: 'Choose a discount.' }),
+    }),
+    z.object({
+      kind: z.literal('percent'),
+      lineId: z.guid({ error: 'That bill was not found.' }),
+      percent: z
+        .string()
+        .trim()
+        .regex(/^\d+$/, { error: 'Enter a whole percent from 1 to 99.' })
+        .transform(Number)
+        .pipe(
+          z
+            .number()
+            .int()
+            .min(1, { error: 'Enter a whole percent from 1 to 99.' })
+            .max(99, { error: 'Enter a whole percent from 1 to 99.' }),
+        ),
+      reason,
+    }),
+    z.object({
+      kind: z.literal('flat'),
+      lineId: z.guid({ error: 'That bill was not found.' }),
+      amount: rupeesSchema,
+      reason,
+    }),
+  ],
+  { error: 'Choose a discount.' },
+);
+
+export type ApplyDiscount = z.output<typeof applyDiscountSchema>;
+
+/** Taking a line's discount off an unpaid bill (BIL-07). */
+export const removeDiscountSchema = z.object({
+  lineId: z.guid({ error: 'That bill was not found.' }),
+});
+
+/**
+ * A percent discount on an amount, in paise: rounded half up to the paisa, the same rule the
+ * database checks (`bill_line_discount`).
+ */
+export function percentOff(amountPaise: number, percent: number): number {
+  return Math.floor((amountPaise * percent + 50) / 100);
 }

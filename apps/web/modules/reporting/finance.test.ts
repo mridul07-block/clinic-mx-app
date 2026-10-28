@@ -102,6 +102,7 @@ describe('Finance’s dashboards', () => {
         totalPaise: 2_400_000,
         createdAt: new Date('2026-10-25T06:00:00Z'),
         opNumber: 'HSR-00007',
+        episodeId: 'e1',
       },
     ]);
     const view = await unpaidView(finance, now);
@@ -113,6 +114,8 @@ describe('Finance’s dashboards', () => {
       amount: '₹24,000',
       days: 3,
       opNumber: 'HSR-00007',
+      // BIL-07: Finance opens the bill's plan and payment sheet to apply a discount.
+      href: '/app/plans/e1',
     });
     expect(view.coming).toContain('BIL-10');
   });

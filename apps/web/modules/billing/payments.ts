@@ -18,6 +18,10 @@ export class PaymentError extends Error {
 /** The database's refusals, as the desk reads them. */
 const refusals: [RegExp, string][] = [
   [/Only an unpaid bill is paid/, 'This bill is already paid.'],
+  [
+    /total has changed/,
+    'The bill’s total has changed. Reload the page, check the new total with the patient, then mark paid.',
+  ],
   [/already undone/, 'This payment is already undone.'],
   [
     /Sessions from this package have been used/,

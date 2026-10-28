@@ -19,8 +19,8 @@ import { generateDocument, type GeneratedDocument } from './services';
  * The invoice and receipt (BIL-09; Frontend Specification section 11: bill number, date, centre,
  * patient, line items, total, payment method and reference, package details and expiry). Made by
  * the job a payment queues; when the payment is undone the next version prints it as cancelled
- * (user decisions, 25 October 2026). No discounts yet (BIL-07); no tax line or legal details until
- * the client lists them (decision 17, DECISION ALT-05).
+ * (user decisions, 25 October 2026). A discount prints under its line, "Less: <name>" (BIL-07); no
+ * tax line or legal details until the client lists them (decision 17, DECISION ALT-05).
  */
 
 export interface InvoiceContent {
@@ -59,11 +59,25 @@ export function invoiceContent(facts: InvoiceFacts, validityMonths: number): Inv
       ['OP number', facts.patient.opNumber],
     ],
     items: [
-      ...facts.lines.map((line) => [
-        line.description,
-        String(line.quantity),
-        formatRupees(line.unitPaise),
-        formatRupees(line.amountPaise),
+      ...facts.lines.flatMap((line) => [
+        [
+          line.description,
+          String(line.quantity),
+          formatRupees(line.unitPaise),
+          formatRupees(line.amountPaise),
+        ],
+        ...(line.discount
+          ? [
+              [
+                `Less: ${line.discount.name}${
+                  line.discount.percent === null ? '' : ` (${String(line.discount.percent)}%)`
+                }`,
+                '',
+                '',
+                formatRupees(-line.discount.paise),
+              ],
+            ]
+          : []),
       ]),
       ['Total', '', '', formatRupees(facts.totalPaise)],
     ],

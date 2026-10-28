@@ -506,14 +506,18 @@ export {
   type PlanChoiceEntry,
 } from './plan-choice';
 export {
+  applyDiscount,
   billCentre,
   billsOfEpisode,
   consultationBillNow,
   consultationFeeState,
   recordPayment,
+  removeDiscount,
   undoPayment,
   type BillEntry,
+  type BillLineEntry,
   type ConsultationFeeState,
+  type LineDiscount,
   type PaymentEntry,
 } from './bills';
 export { INVOICE_JOB, RECEIPT_JOB, invoiceFacts, type InvoiceFacts } from './invoice';

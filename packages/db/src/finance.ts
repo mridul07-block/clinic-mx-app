@@ -99,6 +99,8 @@ export interface UnpaidBillRow {
   totalPaise: number;
   createdAt: Date;
   opNumber: string;
+  /** Its episode, for the plan and payment sheet (BIL-07: Finance applies other discounts there). */
+  episodeId: string | null;
 }
 
 /** Unpaid bills, the largest first: the bill and patient numbers, never the patient's name. */
@@ -112,6 +114,7 @@ export function unpaidBills(db: DbOrTransaction): Promise<UnpaidBillRow[]> {
       totalPaise: bill.totalPaise,
       createdAt: bill.createdAt,
       opNumber: patient.opNumber,
+      episodeId: bill.episodeId,
     })
     .from(bill)
     .innerJoin(centre, eq(centre.id, bill.centreId))

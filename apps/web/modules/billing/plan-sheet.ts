@@ -2,6 +2,7 @@ import 'server-only';
 import {
   billsOfEpisode,
   consultationFeeState,
+  discountPresetList,
   episodeRecord,
   packagesOfEpisode,
   packageTypeList,
@@ -19,6 +20,7 @@ import {
 import {
   can,
   consultationFeeDue,
+  formatRupees,
   istDate,
   planOptions,
   type EpisodeStatus,
@@ -57,6 +59,16 @@ export interface PlanSheet {
   bills: BillEntry[];
   /** Whether this person takes payment here (BIL-06). */
   canCollect: boolean;
+  /**
+   * Discounts on unpaid bills (BIL-07): the clinic's presets in use, and whether this person
+   * applies a preset (the desk, Finance, the Super Admin) or an Other discount (Finance and the
+   * Super Admin) here.
+   */
+  discounts: {
+    presets: { id: string; name: string; value: string }[];
+    preset: boolean;
+    other: boolean;
+  };
   /** The episode's packages, newest first (BIL-08). */
   packages: PackageEntry[];
   /** Today in IST and `packages.expiry_reminder_days`, for the meter's "Expiring" tag. */
@@ -111,6 +123,10 @@ export async function planSheetOf(
     const bought = await packagesOfEpisode(tx, episodeId, now);
     const fee = await consultationFeeState(tx, episodeId);
     const collects = can(actor, 'bills.create_and_collect', { centreId: episode.centreId });
+    const presetHere =
+      !actor.support && can(actor, 'discounts.apply_preset', { centreId: episode.centreId });
+    // DECISION 15: the list is the clinic's; until Finance enters it there are no presets.
+    const presets = presetHere ? (await discountPresetList(tx)).filter((p) => p.active) : [];
     return {
       episodeId,
       episodeStatus: episode.status,
@@ -129,6 +145,18 @@ export async function planSheetOf(
         plan !== undefined && episode.status === 'plan_proposed' && !actor.support && collects,
       bills,
       canCollect: !actor.support && collects,
+      discounts: {
+        presets: presets.map((preset) => ({
+          id: preset.id,
+          name: preset.name,
+          value:
+            preset.kind === 'percent'
+              ? `${String(preset.percent)}%`
+              : formatRupees(preset.amountPaise),
+        })),
+        preset: presetHere,
+        other: !actor.support && can(actor, 'discounts.apply_any', { centreId: episode.centreId }),
+      },
       packages: bought,
       today: istDate(now),
       expiringDays,
