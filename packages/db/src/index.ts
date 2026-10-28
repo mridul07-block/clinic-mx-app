@@ -577,7 +577,7 @@ export {
   openingEntryOf,
   type OpeningEntryRow,
 } from './opening-entries';
-export { kpiDaily } from './kpis';
+export { kpiDaily, type FigureScope } from './kpis';
 export {
   appointmentsPerDay,
   arrivalsToday,

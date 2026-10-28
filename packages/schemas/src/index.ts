@@ -937,6 +937,7 @@ export {
   alertItemWhere,
   alertItems,
   alertsComing,
+  ownOutcomesComing,
   changeWords,
   channelPartLabels,
   channelParts,

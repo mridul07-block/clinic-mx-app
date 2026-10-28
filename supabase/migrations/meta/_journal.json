@@ -1072,6 +1072,13 @@
       "when": 1793160111810,
       "tag": "20261028040151_progress_alerts_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1793163528335,
+      "tag": "20261028045848_own_outcomes",
+      "breakpoints": true
     }
   ]
 }

@@ -69,6 +69,14 @@ export const alertItemWhere: Partial<Record<AlertItem, string>> = {
   reviews_overdue: 'Each is a task held by the episode’s consultant, in their Tasks.',
 };
 
+/** A clinician's own outcomes (DSH-06) whose data no ticket has built yet. */
+export const ownOutcomesComing = [
+  {
+    label: 'Home exercise adherence',
+    needs: 'Patients tick their exercises on My plan (PAT-01, PAT-02)',
+  },
+] as const;
+
 /** The Frontend Specification's alert lines whose data no ticket has built yet. */
 export const alertsComing = [
   {
