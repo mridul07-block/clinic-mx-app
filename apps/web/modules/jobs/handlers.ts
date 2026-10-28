@@ -15,6 +15,7 @@ import {
   RED_FLAG_SAFETY_ADVICE_JOB,
   REVIEW_BOOK_JOB,
   REVIEW_OVERDUE_JOB,
+  SESSION_3_CHECK_JOB,
   REFERRAL_LETTER_JOB,
   SERVICE_RECOVERY_ESCALATE_JOB,
   THINK_ABOUT_IT_FOLLOW_UP_JOB,
@@ -79,6 +80,15 @@ export const jobHandlers: JobHandlers = {
    * send `first_treatment_check`. Until then the job completes without sending.
    */
   [FIRST_TREATMENT_CHECK_JOB]: defineJob({
+    payload: z.object({ sessionId: z.guid(), episodeId: z.guid(), appointmentId: z.guid() }),
+    run: () => Promise.resolve(),
+  }),
+  /**
+   * The session 3 check (PAT-06), queued by the database when an episode's session 3 is signed, to
+   * go at once. A message only: WA-06 sends `session_3_check` with the patient's name, worded with
+   * the client. Until then the job completes without sending.
+   */
+  [SESSION_3_CHECK_JOB]: defineJob({
     payload: z.object({ sessionId: z.guid(), episodeId: z.guid(), appointmentId: z.guid() }),
     run: () => Promise.resolve(),
   }),
