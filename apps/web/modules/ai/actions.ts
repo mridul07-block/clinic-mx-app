@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { serviceContext } from '../access/staff-db';
 import { invalidateSettings } from '../settings/settings';
+import { loadRecheck, recheckConsultation, type RecheckView } from './recheck';
 import { AiSheetError, recordDisposition } from './sheet';
 import { AiSwitchError, switchAiSheet } from './switch';
 
@@ -104,4 +105,44 @@ export async function recordDispositionAction(
   }
   revalidatePath(`/app/episodes/${text(form, 'episodeId')}/preparation-sheet`);
   return {};
+}
+
+/** What "Recheck with findings" shows after a tap (AI-04). */
+export interface RecheckState {
+  error?: string;
+  recheck?: RecheckView | null;
+}
+
+/** Reranks the sheet with the consultation's findings, after the latest edits are saved. */
+export async function recheckWithFindingsAction(
+  _state: RecheckState,
+  form: FormData,
+): Promise<RecheckState> {
+  const consultationId = text(form, 'consultationId');
+  const context = await serviceContext();
+  try {
+    await recheckConsultation(context, {
+      consultationId,
+      baseVersion: Number(text(form, 'baseVersion')),
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) return { error: 'Try again.' };
+    if (error instanceof AiSheetError || error instanceof ReadOnlyError) {
+      return { error: error.message };
+    }
+    if (error instanceof NotAllowedError) {
+      return { error: 'Only the consultant of the visit rechecks.' };
+    }
+    throw error;
+  }
+  const view = await loadRecheck(context.actor, consultationId);
+  if (view) revalidatePath(view.sheetHref);
+  return { recheck: view?.recheck ?? null };
+}
+
+/** The consultation's latest recheck, read again while one is running; nothing changes. */
+export async function recheckViewAction(consultationId: string): Promise<RecheckView | null> {
+  if (!z.guid().safeParse(consultationId).success) return null;
+  const view = await loadRecheck((await serviceContext()).actor, consultationId);
+  return view?.recheck ?? null;
 }

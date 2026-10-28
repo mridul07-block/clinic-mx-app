@@ -30,6 +30,7 @@ import {
   type ConsultationSection,
   type ConsultationSections,
   type ConsultationStep,
+  recheckFindings,
 } from '@clinic-mx/schemas';
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { primaryButtonClass, secondaryButtonClass } from '../../../../../../components/forms';
@@ -42,6 +43,8 @@ import { Addenda, type AddendumView } from './addenda';
 import { AssessmentInputs } from './assessment-inputs';
 import { ObjectiveInputs } from './objective-inputs';
 import { PlanInputs } from './plan-inputs';
+import type { RecheckView } from '../../../../../../modules/ai/recheck';
+import { RecheckPanel } from './recheck-panel';
 import { SignPanel } from './sign-panel';
 import { RedFlagFound, type RecordedRedFlag } from './red-flag-found';
 import { ScreeningItems } from './screening-items';
@@ -75,6 +78,7 @@ export function ConsultationStepper({
   treatingPhysios,
   planDefaults,
   redFlags,
+  recheck,
 }: {
   id: string;
   serverValue: ConsultationSections;
@@ -103,6 +107,8 @@ export function ConsultationStepper({
   planDefaults: PlanDefaults;
   /** The red flags recorded in this consultation (CLN-11). */
   redFlags: RecordedRedFlag[];
+  /** "Recheck with findings" (AI-04), when its consultant may recheck now. */
+  recheck: { recheck: RecheckView | null; sheetHref: string } | null;
 }) {
   const save = useMemo(() => saveConsultationDraft(id), [id]);
   const draft = useAutosave({ kind: 'consultation', id, serverValue, serverVersion, save });
@@ -269,6 +275,15 @@ export function ConsultationStepper({
             onChange={(objective) => {
               draft.setValue({ ...sections, objective });
             }}
+          />
+        ) : null}
+        {step === 'assessment' && editable && recheck ? (
+          <RecheckPanel
+            consultationId={id}
+            initial={recheck.recheck}
+            findings={recheckFindings(sections.objective, objectiveCatalog)}
+            sheetHref={recheck.sheetHref}
+            saveNow={draft.saveNow}
           />
         ) : null}
         {step === 'assessment' ? (
