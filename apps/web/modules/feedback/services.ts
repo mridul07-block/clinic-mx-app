@@ -4,15 +4,19 @@ import {
   episodeRecord,
   feedbackSubject,
   feedbackTarget,
+  firstTreatmentCheckTarget,
   insertFeedback,
   liveDischargeFeedbackLink,
   liveFeedbackLink,
   type PatientLinkAccess,
 } from '@clinic-mx/db';
 import {
+  FIRST_TREATMENT_ANSWER_KEY,
   feedbackSubmissionSchema,
   feedbackSurveyKeys,
   feedbackSurveys,
+  firstTreatmentAnswerSchema,
+  firstTreatmentCheck,
   postedFeedback,
   type FeedbackSurvey,
   type FeedbackSurveyKey,
@@ -42,11 +46,15 @@ import {
 export async function loadFeedback(
   link: PatientLinkAccess,
   ip?: string,
-): Promise<{ open: true; surveyKey: FeedbackSurveyKey; survey: FeedbackSurvey } | { open: false }> {
+): Promise<
+  | { open: true; surveyKey: FeedbackSurveyKey; survey: FeedbackSurvey }
+  | { open: true; surveyKey: 'first_treatment' }
+  | { open: false }
+> {
   const subject = await asPatient(link, (tx) => feedbackSubject(tx), ip);
-  return subject
-    ? { open: true, surveyKey: subject.surveyKey, survey: feedbackSurveys[subject.surveyKey] }
-    : { open: false };
+  if (!subject) return { open: false };
+  if (subject.surveyKey === 'first_treatment') return { open: true, surveyKey: 'first_treatment' };
+  return { open: true, surveyKey: subject.surveyKey, survey: feedbackSurveys[subject.surveyKey] };
 }
 
 /** A feedback link to show at the desk: the working one, or a new one; or already answered. */
@@ -104,6 +112,31 @@ export const showDischargeFeedback = staffService({
     const issued = await issuePatientLink(tx, {
       patientId: target.patientId,
       episodeId: input.episodeId,
+      purpose: 'feedback',
+    });
+    return { received: false, ...issued };
+  },
+});
+
+/**
+ * Show the day after first treatment check QR (PAT-05) for the episode's signed session 1, until
+ * WhatsApp sends it (WA-06); audited.
+ */
+export const showFirstTreatmentCheck = staffService({
+  action: 'check_in.manage',
+  input: episodeInput,
+  target: episodeCentre,
+  run: async (tx, input): Promise<FeedbackQr> => {
+    const target = await firstTreatmentCheckTarget(tx, input.episodeId);
+    if (!target) {
+      throw new PatientLinkError('The check opens once the first treatment is signed.');
+    }
+    if (target.received) return { received: true };
+    const live = await liveFeedbackLink(tx, target.appointmentId);
+    if (live) return shown(live);
+    const issued = await issuePatientLink(tx, {
+      patientId: target.patientId,
+      appointmentId: target.appointmentId,
       purpose: 'feedback',
     });
     return { received: false, ...issued };
@@ -193,4 +226,52 @@ export async function submitFeedback(
     throw error;
   }
   return { status: 'sent' };
+}
+
+/** The patient's one answer to the day after first treatment check (PAT-05). */
+const firstTreatmentAnswer = patientService({
+  input: firstTreatmentAnswerSchema,
+  run: async (tx, input, link) => {
+    const subject = await feedbackSubject(tx);
+    if (subject?.surveyKey !== 'first_treatment') {
+      throw new FeedbackClosedError('This check is no longer open.');
+    }
+    await insertFeedback(tx, {
+      linkId: link.id,
+      subject,
+      surveyVersion: firstTreatmentCheck.version,
+      answers: { [FIRST_TREATMENT_ANSWER_KEY]: input.answer },
+      comment: null,
+      score: null,
+    });
+    await completePatientLink(tx, link);
+  },
+});
+
+/**
+ * Sends the patient's tap (Better, Same or Still sore) for the feedback link behind `token`; a
+ * used link is already sent, and anything else is the link's own page again.
+ */
+export async function submitFirstTreatmentCheck(
+  token: string,
+  form: FormData,
+  ip?: string,
+): Promise<'sent' | 'link'> {
+  const opened = await verifyPatientLink(token);
+  if (opened.status === 'used' && opened.purpose === 'feedback') return 'sent';
+  if (opened.status !== 'valid' || opened.link.purpose !== 'feedback') return 'link';
+  const parsed = firstTreatmentAnswerSchema.safeParse({ answer: form.get('answer') });
+  if (!parsed.success) return 'link';
+  try {
+    await firstTreatmentAnswer(opened.link, parsed.data, ip);
+  } catch (error) {
+    if (error instanceof FeedbackClosedError || error instanceof PatientLinkError) return 'link';
+    // Tapped twice at once: the other tap's answer stands (unique, 23505) or closed the link
+    // first (42501); the page then thanks the patient.
+    const code =
+      (error as { cause?: { code?: string } }).cause?.code ?? (error as { code?: string }).code;
+    if (code === '23505' || code === '42501') return 'link';
+    throw error;
+  }
+  return 'sent';
 }

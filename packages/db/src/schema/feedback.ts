@@ -23,10 +23,15 @@ import { patient } from './patients';
  * Patient feedback (PAT-04; TAD `feedback`): one row per answered feedback link, written by the
  * patient through their link and never changed. Kept by centre and physio, as the ticket asks:
  * after the consultation, the consultation's centre and the physio who held it; at discharge
- * (PAT-07), the episode's centre and the consultant who discharged it, with the 0 to 10 score. The questions
+ * (PAT-07), the episode's centre and the consultant who discharged it, with the 0 to 10 score; the
+ * day after first treatment check (PAT-05), the first treatment's visit and physio. The questions
  * and their versions live in `@clinic-mx/schemas` (`feedbackSurveys`).
  */
-export const feedbackSurveyKey = pgEnum('feedback_survey_key', ['post_consultation', 'discharge']);
+export const feedbackSurveyKey = pgEnum('feedback_survey_key', [
+  'post_consultation',
+  'discharge',
+  'first_treatment',
+]);
 
 export const feedback = pgTable(
   'feedback',
@@ -63,6 +68,10 @@ export const feedback = pgTable(
     uniqueIndex('feedback_one_discharge_per_episode')
       .on(table.episodeId)
       .where(sql`${table.surveyKey} = 'discharge'`),
+    // PAT-05: the day after first treatment check, once per episode.
+    uniqueIndex('feedback_one_first_treatment_per_episode')
+      .on(table.episodeId)
+      .where(sql`${table.surveyKey} = 'first_treatment'`),
     index('feedback_centre_idx').on(table.centreId, table.submittedAt),
     index('feedback_physio_idx').on(table.physioId, table.submittedAt),
     check('feedback_answers', sql`jsonb_typeof(${table.answers}) = 'object'`),
@@ -82,6 +91,15 @@ export const feedback = pgTable(
     check(
       'feedback_post_consultation',
       sql`${table.surveyKey} <> 'post_consultation' or (${table.appointmentId} is not null and ${table.consultationId} is not null and ${table.physioId} is not null)`,
+    ),
+    // PAT-05: the first treatment's visit and physio, and one answer of the three, nothing more.
+    check(
+      'feedback_first_treatment',
+      sql`${table.surveyKey} <> 'first_treatment' or (${table.appointmentId} is not null
+        and ${table.consultationId} is null and ${table.physioId} is not null
+        and ${table.score} is null and ${table.comment} is null
+        and ${table.answers} ->> 'since_first_treatment' in ('better', 'same', 'still_sore')
+        and ${table.answers} - 'since_first_treatment' = '{}'::jsonb)`,
     ),
   ],
 ).enableRLS();

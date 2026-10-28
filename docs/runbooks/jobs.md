@@ -34,7 +34,9 @@ names or phone numbers; `last_error` keeps only the error's name and message.
 Kinds so far: `system.ping`; `intake.submitted` (the health form submit pipeline, queued by the
 patient's submit; INT-10); `ai.preparation_sheet` (queued by that pipeline; checks the AI gate,
 AI-09, `docs/runbooks/ai-gate.md`, then makes the preparation sheet if the submit's own run did
-not, AI-03, `docs/runbooks/ai-preparation-sheet.md`); `whatsapp.no_show` (queued by the database when an appointment becomes No show;
+not, AI-03, `docs/runbooks/ai-preparation-sheet.md`); `whatsapp.first_treatment_check` (queued by the database when an episode's session 1 is signed,
+for the next day at 10:00 IST, key `whatsapp.first_treatment_check:<episode id>`; does nothing
+until WA-06; PAT-05, see `docs/runbooks/feedback.md`); `whatsapp.no_show` (queued by the database when an appointment becomes No show;
 ALT-04; does nothing until the WhatsApp tickets); `documents.consultation_summary` (queued by the
 database on signing, key `consultation_summary:sign:<consultation id>`, and on each addendum,
 `consultation_summary:addendum:<addendum id>`; renders the summary's next version, recording the

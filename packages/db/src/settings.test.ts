@@ -36,6 +36,8 @@ const stored: Settings = {
   'ai.must_rule_out_tiers': ['red_flag'],
   'ai.similar_cases_min': 3,
   'ai.similar_cases_max': 5,
+  'feedback.first_treatment_check_days': 1,
+  'feedback.first_treatment_check_time': '10:00',
   'ai.kb_report_dismissed_min_marked': 5,
   'ai.kb_report_dismissed_share_percent': 50,
   'ai.daily_spend_cap_paise': 20000,

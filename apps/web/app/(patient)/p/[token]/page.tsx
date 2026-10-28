@@ -41,6 +41,7 @@ import { ChangesReview } from './changes-review';
 import { CheckAndSubmit } from './check-submit';
 import { ConsentScreenForm } from './consent-form';
 import { FeedbackForm } from './feedback-form';
+import { FirstTreatmentForm } from './first-treatment-form';
 import { HealthFormScreenForm } from './health-form';
 import { KioskShell } from './kiosk-shell';
 import { MyPlanPage } from './my-plan';
@@ -357,10 +358,12 @@ export default async function PatientPage({
     if (!myPlan) opened = { status: 'closed', purpose: 'my_plan' };
   }
   let survey: { key: FeedbackSurveyKey; definition: FeedbackSurvey } | null = null;
+  let firstTreatment = false;
   if (link.status === 'valid' && link.link.purpose === 'feedback') {
     const loaded = await loadFeedback(link.link, ip);
-    if (loaded.open) survey = { key: loaded.surveyKey, definition: loaded.survey };
-    else opened = { status: 'closed', purpose: 'feedback' };
+    if (!loaded.open) opened = { status: 'closed', purpose: 'feedback' };
+    else if (loaded.surveyKey === 'first_treatment') firstTreatment = true;
+    else survey = { key: loaded.surveyKey, definition: loaded.survey };
   }
   const { title, body } = kiosk ? kioskMessage(opened) : message(opened);
   const formScreen = welcome?.open ? (
@@ -374,6 +377,8 @@ export default async function PatientPage({
     )
   ) : survey ? (
     <FeedbackForm token={token} surveyKey={survey.key} survey={survey.definition} />
+  ) : firstTreatment ? (
+    <FirstTreatmentForm token={token} />
   ) : null;
   const page = (
     <main data-voice="patient" className="min-h-dvh bg-surface px-4 py-6">

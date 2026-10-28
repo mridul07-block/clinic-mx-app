@@ -205,3 +205,35 @@ export function serviceRecoveryOf(
     score: parsed.data.score,
   };
 }
+
+/**
+ * The day after first treatment check (PAT-05; PRD J5.6: "Day after first treatment check: Better,
+ * Same, Still sore. "Still sore" alerts the physio."; TAD jobs: next day, 10:00 AM). The answers are
+ * the PRD's, word for word; one tap each, nothing else asked. Recommended defaults chosen under the
+ * user's standing approval, 29 October 2026 (DECISION PAT-05, docs/runbooks/feedback.md).
+ */
+export const firstTreatmentAnswers = ['better', 'same', 'still_sore'] as const;
+export type FirstTreatmentAnswer = (typeof firstTreatmentAnswers)[number];
+
+export const firstTreatmentAnswerLabels: Record<FirstTreatmentAnswer, string> = {
+  better: 'Better',
+  same: 'Same',
+  still_sore: 'Still sore',
+};
+
+/** The key the answer is stored under in `feedback.answers`. */
+export const FIRST_TREATMENT_ANSWER_KEY = 'since_first_treatment';
+
+/** The physio's task when the answer is Still sore. */
+export const STILL_SORE_TASK = 'review.still_sore';
+
+export const firstTreatmentCheck = {
+  version: 1,
+  // DECISION PAT-05: no document words the question; a placeholder until the client gives theirs.
+  title: 'Since your first treatment',
+  question: 'How do you feel since your first treatment?',
+} as const;
+
+export const firstTreatmentAnswerSchema = z.strictObject({
+  answer: z.enum(firstTreatmentAnswers, { error: 'Choose Better, Same or Still sore.' }),
+});

@@ -102,6 +102,13 @@ recommended defaults chosen under the user's standing approval, 28 October 2026 
   overdue count linking to a list they cannot read (now counted only), and the job missing from
   `docs/runbooks/jobs.md`. All are fixed with tests.
 
+## Still sore after the first treatment (PAT-05)
+
+"Still sore" on the day after first treatment check gives the episode's treating physio (else the
+physio of session 1) a high task (`review.still_sore`, "Clinical review: still sore after the first
+treatment"), titled "Still sore the day after the first treatment", for the patient; counted with
+the open clinical reviews on the Centre Manager's Alerts. See `docs/runbooks/feedback.md`.
+
 ## Knowledge base report (AI-08)
 
 The monthly knowledge base report reaches the Super Admin as a task (`ai.kb_report`, "Knowledge

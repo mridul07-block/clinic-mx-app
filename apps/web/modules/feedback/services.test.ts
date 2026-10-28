@@ -1,7 +1,13 @@
 import type { Db, StaffMember } from '@clinic-mx/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotAllowedError } from '../access/guard';
-import { showDischargeFeedback, showFeedback, submitFeedback } from './services';
+import {
+  showDischargeFeedback,
+  showFeedback,
+  showFirstTreatmentCheck,
+  submitFeedback,
+  submitFirstTreatmentCheck,
+} from './services';
 
 const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
@@ -14,6 +20,7 @@ const db = vi.hoisted(() => ({
   liveDischargeFeedbackLink: vi.fn(),
   feedbackSubject: vi.fn(),
   insertFeedback: vi.fn(),
+  firstTreatmentCheckTarget: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
 const links = vi.hoisted(() => ({
@@ -242,5 +249,68 @@ describe('Discharge feedback', () => {
     ).toEqual({ status: 'link' });
     expect(await submitFeedback('token', posted(all, 'other'))).toEqual({ status: 'link' });
     expect(db.insertFeedback).not.toHaveBeenCalled();
+  });
+});
+
+// PAT-05: the day after first treatment check: the desk QR for session 1's visit, and one tap.
+describe('First treatment check', () => {
+  const tapped = (answer: string) => {
+    const form = new FormData();
+    form.set('answer', answer);
+    return form;
+  };
+  const firstTreatment = {
+    ...subject,
+    surveyKey: 'first_treatment' as const,
+    consultationId: null,
+  };
+
+  it('shows the working link for session 1’s visit, issues one, or says received', async () => {
+    db.firstTreatmentCheckTarget.mockResolvedValue({ appointmentId, patientId, received: false });
+    db.liveFeedbackLink.mockResolvedValue(undefined);
+    links.issuePatientLink.mockResolvedValue({ linkId: 'new', path: '/p/new', expiresAt });
+    expect(await showFirstTreatmentCheck(context(), { episodeId })).toMatchObject({
+      path: '/p/new',
+    });
+    expect(links.issuePatientLink).toHaveBeenCalledWith(fakeTx, {
+      patientId,
+      appointmentId,
+      purpose: 'feedback',
+    });
+    db.firstTreatmentCheckTarget.mockResolvedValue({ appointmentId, patientId, received: true });
+    expect(await showFirstTreatmentCheck(context(), { episodeId })).toEqual({ received: true });
+    db.firstTreatmentCheckTarget.mockResolvedValue(undefined);
+    await expect(showFirstTreatmentCheck(context(), { episodeId })).rejects.toThrow(
+      /first treatment is signed/,
+    );
+  });
+
+  it('records one of the three answers once, then completes the link', async () => {
+    links.verifyPatientLink.mockResolvedValue({ status: 'valid', link });
+    db.feedbackSubject.mockResolvedValue(firstTreatment);
+    expect(await submitFirstTreatmentCheck('token', tapped('still_sore'))).toBe('sent');
+    expect(db.insertFeedback).toHaveBeenCalledWith(fakeTx, {
+      linkId: 'link',
+      subject: firstTreatment,
+      surveyVersion: 1,
+      answers: { since_first_treatment: 'still_sore' },
+      comment: null,
+      score: null,
+    });
+    expect(links.completePatientLink).toHaveBeenCalledTimes(1);
+    // Anything but the three, or a link for another survey, opens nothing.
+    expect(await submitFirstTreatmentCheck('token', tapped('worse'))).toBe('link');
+    db.feedbackSubject.mockResolvedValue(subject);
+    expect(await submitFirstTreatmentCheck('token', tapped('same'))).toBe('link');
+    expect(db.insertFeedback).toHaveBeenCalledTimes(1);
+    links.verifyPatientLink.mockResolvedValue({ status: 'used', purpose: 'feedback' });
+    expect(await submitFirstTreatmentCheck('token', tapped('better'))).toBe('sent');
+    // Tapped twice at once: the other tap's answer stands.
+    links.verifyPatientLink.mockResolvedValue({ status: 'valid', link });
+    db.feedbackSubject.mockResolvedValue(firstTreatment);
+    db.insertFeedback.mockRejectedValue(
+      Object.assign(new Error('Failed query'), { cause: { code: '23505' } }),
+    );
+    expect(await submitFirstTreatmentCheck('token', tapped('better'))).toBe('link');
   });
 });

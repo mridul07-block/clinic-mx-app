@@ -259,6 +259,17 @@ export const settingDefinitions = {
     description:
       'Hours a service recovery task may stay open before the Clinical Director (the Super Admin) gets a task too.',
   },
+  'feedback.first_treatment_check_days': {
+    schema: z.int().min(0).max(7),
+    source: 'TAD jobs: Day after first treatment check, next day, 10:00 AM (PAT-05)',
+    description:
+      'Days after the first treatment is signed that its check is sent (1: the next day).',
+  },
+  'feedback.first_treatment_check_time': {
+    schema: timeOfDay,
+    source: 'TAD jobs: Day after first treatment check, next day, 10:00 AM (PAT-05)',
+    description: 'The time of day, in IST, the day after first treatment check is sent.',
+  },
   'kpi.target_nps': {
     schema: z.number().min(-100).max(100),
     source: 'PRD section 9: Net Promoter Score (SOP target; DSH-01)',

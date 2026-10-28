@@ -3,6 +3,7 @@ import {
   CONSULTATION_SUMMARY_MESSAGE_JOB,
   DISCHARGE_REPORT_JOB,
   DISCHARGE_REPORT_MESSAGE_JOB,
+  FIRST_TREATMENT_CHECK_JOB,
   INTAKE_SUBMITTED_JOB,
   INVOICE_JOB,
   KB_REPORT_JOB,
@@ -71,6 +72,16 @@ export const jobHandlers: JobHandlers = {
    * the sender must first check the appointment is still a no show (an undone one gets nothing),
    * then send the `no_show` template. Until then the job completes without sending.
    */
+  /**
+   * The day after first treatment check (PAT-05), queued by the database when an episode's session
+   * 1 is signed, for the next day at 10:00 IST. Nothing is sent yet: WA-06 fills this in, and its
+   * sender must first check the check is still unanswered (the desk QR may have taken it), then
+   * send `first_treatment_check`. Until then the job completes without sending.
+   */
+  [FIRST_TREATMENT_CHECK_JOB]: defineJob({
+    payload: z.object({ sessionId: z.guid(), episodeId: z.guid(), appointmentId: z.guid() }),
+    run: () => Promise.resolve(),
+  }),
   [NO_SHOW_MESSAGE_JOB]: defineJob({
     payload: z.object({ appointmentId: z.guid() }),
     run: () => Promise.resolve(),

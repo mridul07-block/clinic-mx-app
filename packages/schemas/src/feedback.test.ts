@@ -3,6 +3,9 @@ import {
   feedbackCounts,
   feedbackSubmissionSchema,
   feedbackSurveys,
+  firstTreatmentAnswerLabels,
+  firstTreatmentAnswerSchema,
+  firstTreatmentAnswers,
   netPromoter,
   postedFeedback,
   serviceRecoveryOf,
@@ -135,5 +138,22 @@ describe('Service recovery details', () => {
       serviceRecoveryOf({ surveyKey: 'discharge', noAnswers: [], score: 4, recoveryTaskId: 't' }),
     ).toEqual({ when: 'At discharge', noQuestions: [], score: 4 });
     expect(serviceRecoveryOf({ jobId: 'x' })).toBeNull();
+  });
+});
+
+// PAT-05: the day after first treatment check's answers are the PRD's, word for word.
+describe('the day after first treatment check', () => {
+  it('takes Better, Same or Still sore, nothing else', () => {
+    expect(firstTreatmentAnswers.map((a) => firstTreatmentAnswerLabels[a])).toEqual([
+      'Better',
+      'Same',
+      'Still sore',
+    ]);
+    expect(firstTreatmentAnswerSchema.parse({ answer: 'still_sore' })).toEqual({
+      answer: 'still_sore',
+    });
+    for (const bad of [{ answer: 'worse' }, {}, { answer: 'same', comment: 'Free text' }]) {
+      expect(firstTreatmentAnswerSchema.safeParse(bad).success).toBe(false);
+    }
   });
 });
