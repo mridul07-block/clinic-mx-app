@@ -36,7 +36,7 @@ import {
 import { loadFeedback } from '../../../../modules/feedback/services';
 import { loadMyPlan } from '../../../../modules/patient-links/my-plan';
 import { getSetting } from '../../../../modules/settings/settings';
-import type { FeedbackSurvey, MyPlan } from '@clinic-mx/schemas';
+import type { FeedbackSurvey, FeedbackSurveyKey, MyPlan } from '@clinic-mx/schemas';
 import { ChangesReview } from './changes-review';
 import { CheckAndSubmit } from './check-submit';
 import { ConsentScreenForm } from './consent-form';
@@ -356,10 +356,10 @@ export default async function PatientPage({
     myPlan = await loadMyPlan(link.link, ip);
     if (!myPlan) opened = { status: 'closed', purpose: 'my_plan' };
   }
-  let survey: FeedbackSurvey | null = null;
+  let survey: { key: FeedbackSurveyKey; definition: FeedbackSurvey } | null = null;
   if (link.status === 'valid' && link.link.purpose === 'feedback') {
     const loaded = await loadFeedback(link.link, ip);
-    if (loaded.open) survey = loaded.survey;
+    if (loaded.open) survey = { key: loaded.surveyKey, definition: loaded.survey };
     else opened = { status: 'closed', purpose: 'feedback' };
   }
   const { title, body } = kiosk ? kioskMessage(opened) : message(opened);
@@ -373,7 +373,7 @@ export default async function PatientPage({
       await getSetting('reports.max_file_mb'),
     )
   ) : survey ? (
-    <FeedbackForm token={token} survey={survey} />
+    <FeedbackForm token={token} surveyKey={survey.key} survey={survey.definition} />
   ) : null;
   const page = (
     <main data-voice="patient" className="min-h-dvh bg-surface px-4 py-6">

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."feedback_survey_key" ADD VALUE 'discharge';

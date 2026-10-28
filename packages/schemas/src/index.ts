@@ -978,8 +978,12 @@ export { myPlanSchema, packageLine, planWeek, type MyPlan } from './my-plan';
 export {
   feedbackAnswers,
   feedbackCommentMax,
+  detractorTo,
   feedbackCounts,
+  feedbackScoreMax,
   feedbackSubmissionSchema,
+  netPromoter,
+  promoterFrom,
   feedbackSurveyKeys,
   feedbackSurveys,
   postedFeedback,

@@ -162,7 +162,10 @@ export const kpiCatalogue: readonly KpiDefinition[] = [
     audience: 'clinical',
     over: 'sum',
     target: target('kpi.target_nps', 'above'),
-    measured: { needs: 'PAT-07 (feedback at discharge, 0 to 10)' },
+    // PAT-07: the Feedback screen shows it from the discharge scores; not yet a daily figure.
+    measured: {
+      needs: 'daily figures; the Feedback screen shows it from discharge feedback (PAT-07)',
+    },
     definition: 'Promoters less detractors, as a share of the answers to the 0 to 10 question.',
     prd: true,
   },

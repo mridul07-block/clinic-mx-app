@@ -235,9 +235,10 @@ export async function removeCalendarRows(physioIds: string[]): Promise<void> {
     await tx.execute(sql`delete from package where opening_entry_id in ${entries}`);
     await tx.execute(sql`delete from opening_entry where physio_id in ${physioIds}`);
     const consultations = sql`(select id from consultation where physio_id in ${physioIds})`;
-    // Feedback after their consultations (PAT-04).
+    // Feedback after their consultations (PAT-04), and at discharge of those episodes (PAT-07).
     await tx.execute(
-      sql`delete from feedback where consultation_id in ${consultations} or physio_id in ${physioIds}`,
+      sql`delete from feedback where consultation_id in ${consultations} or physio_id in ${physioIds}
+        or episode_id in (select episode_id from consultation where physio_id in ${physioIds})`,
     );
     // The patient's choices on their plans (BIL-02), with what "I'll think about it" raised.
     const plans = sql`(select id from plan_of_care where consultation_id in ${consultations})`;

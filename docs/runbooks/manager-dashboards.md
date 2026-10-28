@@ -111,8 +111,13 @@ Then:
   or 12 months, then by centre and by the physio who held the consultation (grouped by id, so two
   people with one name stay apart), and what patients wrote. Read under the reader's access: the
   Super Admin every centre, a Centre Manager theirs. See `docs/runbooks/feedback.md`.
-- Satisfaction (no question is out of 5 yet) and the Net Promoter Score (PAT-07) stay "Not
-  measured yet"; themes and service recovery come with PAT-07 and PAT-08.
+- At discharge (PAT-07), first: the Net Promoter Score from the 0 to 10 scores as a donut
+  (promoters 9 or 10, passives 7 or 8, detractors 0 to 6) against `kpi.target_nps`, Yes and No for
+  the three questions, by centre and by the consultant who discharged (each with its score), and
+  what patients said Movementology could improve. A name the reader may not see reads "Name not
+  shown".
+- Satisfaction stays "Not measured yet" (no question is out of 5); themes and service recovery come
+  with PAT-08.
 
 **Week strip**
 

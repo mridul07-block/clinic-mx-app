@@ -3,6 +3,7 @@ import {
   feedbackCounts,
   feedbackSubmissionSchema,
   feedbackSurveys,
+  netPromoter,
   postedFeedback,
 } from './feedback';
 
@@ -29,6 +30,7 @@ describe('Feedback after the consultation', () => {
     expect(schema.parse({ answers: all('yes'), comment: '  Thank you  ' })).toEqual({
       answers: all('yes'),
       comment: 'Thank you',
+      score: null,
     });
     expect(schema.parse({ answers: all('no'), comment: '   ' }).comment).toBeNull();
     expect(schema.parse({ answers: all('no') }).comment).toBeNull();
@@ -62,5 +64,53 @@ describe('Feedback after the consultation', () => {
       no: 1,
     });
     expect(counts[0]).toMatchObject({ key: 'problem_explained', yes: 2, no: 0 });
+  });
+});
+
+// PAT-07: at discharge, the Blueprint's three Yes or No questions, its fourth as the comment, and
+// the 0 to 10 recommendation score; the Net Promoter Score from the scores.
+describe('Feedback at discharge', () => {
+  const schema = feedbackSubmissionSchema('discharge');
+  const answers = {
+    goals_achieved: 'yes',
+    continue_independently: 'yes',
+    satisfied_with_care: 'no',
+  };
+
+  it('asks the Blueprint’s discharge questions word for word, its fourth as the comment', () => {
+    const survey = feedbackSurveys.discharge;
+    expect(survey.questions.map((question) => question.text)).toEqual([
+      'Have you achieved the functional goals that matter most to you?',
+      'Do you understand how to continue your rehabilitation independently?',
+      'Were you satisfied with your clinical care and communication?',
+    ]);
+    expect(survey.commentLabel).toBe('What could Movementology improve? (optional)');
+    expect(survey.score).not.toBeNull();
+  });
+
+  it('needs a whole score from 0 to 10, as posted', () => {
+    const form = new FormData();
+    for (const [key, value] of Object.entries(answers)) form.set(key, value);
+    form.set('score', '9');
+    expect(schema.parse(postedFeedback('discharge', form))).toEqual({
+      answers,
+      comment: null,
+      score: 9,
+    });
+    for (const wrong of [undefined, '', '11', '-1', '7.5', 'ten']) {
+      expect(schema.safeParse({ answers, score: wrong }).success).toBe(false);
+    }
+    expect(schema.safeParse({ answers, score: '0' }).success).toBe(true);
+  });
+
+  it('counts promoters, passives and detractors into the Net Promoter Score', () => {
+    expect(netPromoter([])).toEqual({ promoters: 0, passives: 0, detractors: 0, nps: null });
+    expect(netPromoter([10, 9, 8, 7, 6, 0])).toEqual({
+      promoters: 2,
+      passives: 2,
+      detractors: 2,
+      nps: 0,
+    });
+    expect(netPromoter([10, 10, 9, 5]).nps).toBe(50);
   });
 });

@@ -261,7 +261,7 @@ describe('the Centre Manager’s dashboards', () => {
     expect(view.workload).toEqual([{ label: 'Test Physio', value: 5 }]);
   });
 
-  it('counts Yes and No after the consultation by centre and physio, with the comments', async () => {
+  it('counts Yes and No by centre and physio, with the comments and the discharge scores', async () => {
     const answers = (plan: string) => ({
       problem_explained: 'yes',
       plan_understood: plan,
@@ -278,15 +278,38 @@ describe('the Centre Manager’s dashboards', () => {
       physioName,
       answers: answers(plan),
       comment,
+      score: null,
     });
-    db.feedbackResponses.mockResolvedValue([
+    const atDischarge = (id: string, score: number, comment: string | null) => ({
+      ...row(id, 'Test Consultant', 'yes', comment),
+      physioId: 'consultant',
+      answers: { goals_achieved: 'yes', continue_independently: 'no', satisfied_with_care: 'yes' },
+      score,
+    });
+    db.feedbackResponses.mockImplementation((_tx: unknown, _from: Date, survey: string) =>
+      Promise.resolve(
+        survey === 'discharge'
+          ? [
+              // Discharged before who discharged was recorded: one group, not one per answer.
+              { ...atDischarge('u', 8, null), physioId: null, physioName: '' },
+              { ...atDischarge('v', 8, null), physioId: null, physioName: '' },
+              atDischarge('x', 10, 'More evening slots'),
+              atDischarge('y', 9, null),
+              atDischarge('z', 5, null),
+              atDischarge('w', 7, null),
+            ]
+          : consulted,
+      ),
+    );
+    const consulted = [
       row('a', 'Test Physio A', 'no', 'Please explain the exercises again'),
       row('b', 'Test Physio B', 'yes', null),
       { ...row('c', 'Test Physio A', 'yes', null), physioId: 'a' },
       // Another physio with the same name stays apart.
       row('d', 'Test Physio B', 'yes', null),
-    ]);
-    const view = await feedbackDashboard(manager, '30', now);
+    ];
+    const dashboard = await feedbackDashboard(manager, '30', now);
+    const view = dashboard.afterConsultation;
     // From the window's first IST day.
     expect(db.feedbackResponses.mock.calls[0]?.[1]).toEqual(
       new Date(`${addDays('2026-10-28', -29)}T00:00:00+05:30`),
@@ -308,11 +331,27 @@ describe('the Centre Manager’s dashboards', () => {
         comment: 'Please explain the exercises again',
       }),
     ]);
-    expect(view.figures.map((figure) => figure.label)).toEqual([
-      'Net Promoter Score',
-      'Patient satisfaction',
+    // At discharge: promoters 2, passive 1, detractor 1, so +25 against the clinic's target.
+    expect(dashboard.atDischarge.recommendation).toEqual({
+      promoters: 2,
+      passives: 3,
+      detractors: 1,
+      nps: 17,
+    });
+    expect(dashboard.atDischarge.target).toBe('Over 60');
+    expect(dashboard.atDischarge.byPhysio).toMatchObject([
+      { key: 'consultant', answered: 4, recommendation: { nps: 25 } },
+      { key: 'not-recorded', label: 'Not recorded', answered: 2 },
     ]);
-    expect(view.figures[0]?.needs).toContain('PAT-07');
+    expect(
+      dashboard.atDischarge.questions.find((q) => q.key === 'continue_independently'),
+    ).toMatchObject({ yes: 0, no: 6 });
+    expect(dashboard.atDischarge.comments.map((entry) => entry.comment)).toEqual([
+      'More evening slots',
+    ]);
+    // After the consultation there is no score; satisfaction out of 5 is still to come.
+    expect(view.byCentre[0]?.recommendation).toBeNull();
+    expect(dashboard.figures.map((figure) => figure.label)).toEqual(['Patient satisfaction']);
   });
 
   it('is for the Super Admin and Centre Managers only', async () => {
