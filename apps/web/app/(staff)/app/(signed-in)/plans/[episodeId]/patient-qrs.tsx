@@ -1,5 +1,8 @@
 import { PatientLinkQr } from '../../../../../../components/patient-link-qr';
-import { showFeedbackAction } from '../../../../../../modules/feedback/actions';
+import {
+  showDischargeFeedbackAction,
+  showFeedbackAction,
+} from '../../../../../../modules/feedback/actions';
 import { showMyPlanAction } from '../../../../../../modules/patient-links/actions';
 
 /**
@@ -36,6 +39,26 @@ export function RateYourVisitQr({ episodeId, origin }: { episodeId: string; orig
       alt="QR code for the patient’s feedback"
       receivedText="Feedback received. Thank you."
       action={showFeedbackAction}
+      fields={{ episodeId }}
+      origin={origin}
+    />
+  );
+}
+
+/**
+ * Discharge feedback (PAT-07): the discharge questions and the 0 to 10 recommendation score, as
+ * the discharge report's "Give feedback" will offer them (OUT-11); once answered, received.
+ */
+export function DischargeFeedbackQr({ episodeId, origin }: { episodeId: string; origin: string }) {
+  return (
+    <PatientLinkQr
+      id="discharge-feedback"
+      title="Discharge feedback"
+      description="A few questions about the patient's care, with how likely they are to recommend us, answered on their phone."
+      buttonLabel="Show discharge feedback QR"
+      alt="QR code for the patient’s discharge feedback"
+      receivedText="Discharge feedback received. Thank you."
+      action={showDischargeFeedbackAction}
       fields={{ episodeId }}
       origin={origin}
     />

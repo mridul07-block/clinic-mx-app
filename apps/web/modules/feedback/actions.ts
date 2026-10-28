@@ -6,7 +6,7 @@ import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { serviceContext } from '../access/staff-db';
 import { clientIp } from '../auth/session';
 import { PatientLinkError } from '../patient-links/services';
-import { showFeedback, submitFeedback } from './services';
+import { showDischargeFeedback, showFeedback, submitFeedback, type FeedbackQr } from './services';
 
 /** What the feedback form shows after a post that needs answers (PAT-04). */
 export interface FeedbackFormState {
@@ -50,9 +50,21 @@ export async function showFeedbackAction(
   _state: FeedbackQrState,
   form: FormData,
 ): Promise<FeedbackQrState> {
+  return showing(form, showFeedback);
+}
+
+/** Show the discharge feedback QR for a discharged episode (PAT-07). */
+export async function showDischargeFeedbackAction(
+  _state: FeedbackQrState,
+  form: FormData,
+): Promise<FeedbackQrState> {
+  return showing(form, showDischargeFeedback);
+}
+
+async function showing(form: FormData, show: typeof showFeedback): Promise<FeedbackQrState> {
   const episodeId = form.get('episodeId');
   try {
-    const shown = await showFeedback(await serviceContext(), {
+    const shown: FeedbackQr = await show(await serviceContext(), {
       episodeId: typeof episodeId === 'string' ? episodeId : '',
     });
     if (shown.received) return { received: true };

@@ -1,0 +1,5 @@
+ALTER TABLE "feedback" ADD COLUMN "score" smallint;--> statement-breakpoint
+CREATE UNIQUE INDEX "feedback_one_discharge_per_episode" ON "feedback" USING btree ("episode_id") WHERE "feedback"."survey_key" = 'discharge';--> statement-breakpoint
+ALTER TABLE "feedback" ADD CONSTRAINT "feedback_score" CHECK ("feedback"."score" is null or "feedback"."score" between 0 and 10);--> statement-breakpoint
+ALTER TABLE "feedback" ADD CONSTRAINT "feedback_discharge" CHECK ("feedback"."survey_key" <> 'discharge' or ("feedback"."score" is not null and "feedback"."appointment_id" is null and "feedback"."consultation_id" is null));--> statement-breakpoint
+ALTER TABLE "feedback" ADD CONSTRAINT "feedback_post_consultation_score" CHECK ("feedback"."survey_key" <> 'post_consultation' or "feedback"."score" is null);

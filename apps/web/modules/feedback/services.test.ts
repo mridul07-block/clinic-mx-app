@@ -1,7 +1,7 @@
 import type { Db, StaffMember } from '@clinic-mx/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotAllowedError } from '../access/guard';
-import { showFeedback, submitFeedback } from './services';
+import { showDischargeFeedback, showFeedback, submitFeedback } from './services';
 
 const fakeTx = { kind: 'transaction' };
 const db = vi.hoisted(() => ({
@@ -10,6 +10,8 @@ const db = vi.hoisted(() => ({
   episodeRecord: vi.fn(),
   feedbackTarget: vi.fn(),
   liveFeedbackLink: vi.fn(),
+  dischargeFeedbackTarget: vi.fn(),
+  liveDischargeFeedbackLink: vi.fn(),
   feedbackSubject: vi.fn(),
   insertFeedback: vi.fn(),
 }));
@@ -43,6 +45,7 @@ const context = (actor = desk()) => ({ db: {} as Db, actor });
 const expiresAt = new Date('2026-11-04T00:00:00Z');
 const link = { id: 'link', patientId, purpose: 'feedback' as const };
 const subject = {
+  surveyKey: 'post_consultation' as const,
   patientId,
   episodeId,
   appointmentId,
@@ -51,8 +54,10 @@ const subject = {
   physioId: 'physio',
 };
 
-function posted(values: Record<string, string>): FormData {
+/** The form as posted; it names its survey, after the consultation unless said. */
+function posted(values: Record<string, string>, survey = 'post_consultation'): FormData {
   const form = new FormData();
+  form.set('survey', survey);
   for (const [key, value] of Object.entries(values)) form.set(key, value);
   return form;
 }
@@ -127,10 +132,10 @@ describe('Sending feedback', () => {
     expect(db.insertFeedback).toHaveBeenCalledWith(fakeTx, {
       linkId: 'link',
       subject,
-      surveyKey: 'post_consultation',
       surveyVersion: 1,
       answers: all,
       comment: 'Thanks',
+      score: null,
     });
     expect(links.completePatientLink).toHaveBeenCalledWith(fakeTx, link);
   });
@@ -172,5 +177,70 @@ describe('Sending feedback', () => {
     expect(await submitFeedback('token', posted(all))).toEqual({ status: 'link' });
     db.insertFeedback.mockRejectedValue(new Error('something else'));
     await expect(submitFeedback('token', posted(all))).rejects.toThrow('something else');
+  });
+});
+
+// PAT-07: the discharge feedback QR for a discharged episode, and its answers with the score.
+describe('Discharge feedback', () => {
+  const atDischarge = {
+    goals_achieved: 'yes',
+    continue_independently: 'yes',
+    satisfied_with_care: 'no',
+  };
+  const discharged = {
+    ...subject,
+    surveyKey: 'discharge' as const,
+    appointmentId: null,
+    consultationId: null,
+  };
+
+  it('shows the working link, issues one for the episode, or says received', async () => {
+    db.dischargeFeedbackTarget.mockResolvedValue({ patientId, received: false });
+    db.liveDischargeFeedbackLink.mockResolvedValue(undefined);
+    links.issuePatientLink.mockResolvedValue({ linkId: 'new', path: '/p/new', expiresAt });
+    expect(await showDischargeFeedback(context(), { episodeId })).toMatchObject({
+      received: false,
+      path: '/p/new',
+    });
+    expect(links.issuePatientLink).toHaveBeenCalledWith(fakeTx, {
+      patientId,
+      episodeId,
+      purpose: 'feedback',
+    });
+    db.dischargeFeedbackTarget.mockResolvedValue({ patientId, received: true });
+    expect(await showDischargeFeedback(context(), { episodeId })).toEqual({ received: true });
+    db.dischargeFeedbackTarget.mockResolvedValue(undefined);
+    await expect(showDischargeFeedback(context(), { episodeId })).rejects.toThrow(/discharged/);
+  });
+
+  it('records the answers with the score, and asks for the score when missing', async () => {
+    links.verifyPatientLink.mockResolvedValue({ status: 'valid', link });
+    db.feedbackSubject.mockResolvedValue(discharged);
+    const missing = await submitFeedback('token', posted(atDischarge, 'discharge'));
+    expect(missing).toMatchObject({
+      status: 'invalid',
+      errors: { score: 'Please choose a number from 0 to 10.' },
+    });
+    expect(
+      await submitFeedback('token', posted({ ...atDischarge, score: '8' }, 'discharge')),
+    ).toEqual({ status: 'sent' });
+    expect(db.insertFeedback).toHaveBeenCalledWith(fakeTx, {
+      linkId: 'link',
+      subject: discharged,
+      surveyVersion: 1,
+      answers: atDischarge,
+      comment: null,
+      score: 8,
+    });
+  });
+
+  it('refuses answers for another survey than the link’s, or a form naming none', async () => {
+    links.verifyPatientLink.mockResolvedValue({ status: 'valid', link });
+    db.feedbackSubject.mockResolvedValue(subject);
+    expect(
+      await submitFeedback('token', posted({ ...atDischarge, score: '8' }, 'discharge')),
+    ).toEqual({ status: 'link' });
+    expect(await submitFeedback('token', posted(all, 'other'))).toEqual({ status: 'link' });
+    expect(db.insertFeedback).not.toHaveBeenCalled();
   });
 });

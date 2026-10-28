@@ -6,6 +6,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -21,10 +22,11 @@ import { patient } from './patients';
 /**
  * Patient feedback (PAT-04; TAD `feedback`): one row per answered feedback link, written by the
  * patient through their link and never changed. Kept by centre and physio, as the ticket asks:
- * after the consultation, the consultation's centre and the physio who held it. The questions
+ * after the consultation, the consultation's centre and the physio who held it; at discharge
+ * (PAT-07), the episode's centre and the consultant who discharged it, with the 0 to 10 score. The questions
  * and their versions live in `@clinic-mx/schemas` (`feedbackSurveys`).
  */
-export const feedbackSurveyKey = pgEnum('feedback_survey_key', ['post_consultation']);
+export const feedbackSurveyKey = pgEnum('feedback_survey_key', ['post_consultation', 'discharge']);
 
 export const feedback = pgTable(
   'feedback',
@@ -52,16 +54,30 @@ export const feedback = pgTable(
     /** Question key to "yes" or "no". */
     answers: jsonb('answers').$type<Record<string, string>>().notNull(),
     comment: text('comment'),
+    /** The 0 to 10 recommendation score, at discharge. */
+    score: smallint('score'),
     submittedAt: timestamp('submitted_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex('feedback_one_per_consultation').on(table.consultationId),
+    uniqueIndex('feedback_one_discharge_per_episode')
+      .on(table.episodeId)
+      .where(sql`${table.surveyKey} = 'discharge'`),
     index('feedback_centre_idx').on(table.centreId, table.submittedAt),
     index('feedback_physio_idx').on(table.physioId, table.submittedAt),
     check('feedback_answers', sql`jsonb_typeof(${table.answers}) = 'object'`),
     check(
       'feedback_comment',
       sql`${table.comment} is null or length(${table.comment}) between 1 and 1000`,
+    ),
+    check('feedback_score', sql`${table.score} is null or ${table.score} between 0 and 10`),
+    check(
+      'feedback_discharge',
+      sql`${table.surveyKey} <> 'discharge' or (${table.score} is not null and ${table.appointmentId} is null and ${table.consultationId} is null)`,
+    ),
+    check(
+      'feedback_post_consultation_score',
+      sql`${table.surveyKey} <> 'post_consultation' or ${table.score} is null`,
     ),
     check(
       'feedback_post_consultation',

@@ -1,14 +1,17 @@
-# Feedback after the consultation
+# Patient feedback
 
 PAT-04: "Post consultation feedback". Done when: four questions from the bundled message, with the
-answers stored by centre and physio. Sources:
+answers stored by centre and physio. PAT-07: "Discharge feedback". Done when: four questions plus a
+0 to 10 recommendation score. Sources:
 - PRD J4.1 (the bundled message with "Open My plan" and "Rate your visit") and M14;
 - TAD `feedback`;
 - Blueprint section 14 ("Example feedback questions, after the initial consultation");
-- Frontend Specification, patient pages ("Feedback", "Thank you", 64 px Yes / No pairs).
+- Frontend Specification, patient pages ("Feedback", "Thank you", 64 px Yes / No pairs);
+- PRD J7.1 (discharge feedback: 4 questions plus a 0 to 10 recommendation score), the SOP's Net
+  Promoter Score target.
 
 These are recommended defaults chosen under the user's standing approval, 28 October 2026 (DECISION
-PAT-04).
+PAT-04 and PAT-07).
 
 ## The questions
 
@@ -29,15 +32,31 @@ How they are answered:
 The Blueprint calls these "example" questions. If the client changes the wording, that becomes
 version 2. Each answer keeps the version it was asked in.
 
+### At discharge (PAT-07)
+
+The Blueprint's discharge questions, word for word, as `discharge` version 1:
+
+1. Have you achieved the functional goals that matter most to you?
+2. Do you understand how to continue your rehabilitation independently?
+3. Were you satisfied with your clinical care and communication?
+4. What could Movementology improve? This one asks for words, so it is the optional comment.
+
+Then the 0 to 10 recommendation score, required, as 56 px numbers ("0 means not at all likely, 10
+extremely likely"). No document words the question; "How likely are you to recommend
+Movementology to a friend or family member?" stands in until the client gives theirs (DECISION
+PAT-07, a new version then). The Net Promoter Score is promoters (9 or 10) less detractors (0 to 6)
+as a share of the scores, rounded.
+
 ## How the patient answers
 
 **The link.** It is a feedback link (`/p/<token>`, purpose `feedback`) tied to the consultation's
 visit. It works for `links.feedback_days` (7) and takes one answer.
 
-**When it opens.** The page shows the four questions on one screen, then an optional comment, then
-Send (the gold action). This happens only while:
-- the visit's consultation is signed;
-- nobody has answered it yet;
+**When it opens.** The page shows the questions on one screen, then (at discharge) the score, then
+an optional comment, then Send (the gold action). The link's own survey decides which. This
+happens only while:
+- the visit's consultation is signed, or (a link for the episode) the episode is discharged;
+- nobody has answered it yet, by this link or another;
 - the link works.
 
 Otherwise the page says "This form is no longer open. Please ask the front desk."
@@ -63,6 +82,10 @@ patients in at the episode's centre.
 - a new link;
 - "Feedback received. Thank you." once the patient has answered.
 
+For a discharged episode the sheet also has **Discharge feedback** ("Show discharge feedback QR"):
+the episode's working link, a new one, or "Discharge feedback received. Thank you." The discharge
+report's WhatsApp "Give feedback" (OUT-11) will send the same link.
+
 The patient scans the QR with their phone camera. The shared `PatientLinkQr` component also draws
 the My plan QR (PAT-01). The kiosk tablet can open feedback links too (IAM-10).
 
@@ -85,7 +108,8 @@ The desk, Finance and the physio named do not read answers. Nobody changes or re
 | Part | Where |
 | --- | --- |
 | The answers | `feedback` table (`*_feedback.sql`): survey key and version, the link, patient, episode, visit, consultation, centre, physio, answers, comment, when. One per link and one per consultation |
-| What a link answers for | `internal.feedback_subject()`. The patient's link gives its visit's signed, unanswered consultation, centre and physio. It is SECURITY DEFINER and callable only by `clinic_patient` |
+| What a link answers for | `internal.feedback_subject()`. A link for a visit gives its signed, unanswered consultation (`post_consultation`), centre and physio; a link for an episode gives the discharged, unanswered episode (`discharge`), its centre and the consultant who discharged it. It is SECURITY DEFINER and callable only by `clinic_patient` |
+| At discharge | `score` (0 to 10, required at discharge, never after the consultation); one discharge answer per episode. `internal.discharge_feedback_target(episode)` and `internal.discharge_feedback_open(episode)` for the desk; `patient_link_discharge_feedback_read` and `_issue` for links of discharged episodes at their centres, for the episode's own patient |
 | The patient's write | `feedback_patient_answer`: insert only, for exactly that subject, now. The patient reads nothing back. `patient_link_patient_complete_feedback` closes the link once its answer is in (`internal.feedback_submitted`) |
 | The desk | `internal.feedback_target(episode)` returns the newest signed consultation's visit and patient and whether it was answered, for those who check in at its centre. `patient_link_feedback_read` and `_issue` let them read and issue feedback links for visits at their centres, for the visit's own patient, once signed and unanswered (`internal.feedback_open_for`) |
 | Readers | `feedback_manager_read`: Super Admin and Centre Managers, at their centres. `feedbackResponses` reads with the physio's name through `internal.record_staff_name` |
@@ -96,10 +120,10 @@ The desk, Finance and the physio named do not read answers. Nobody changes or re
 
 | Test | Covers |
 | --- | --- |
-| `packages/schemas/src/feedback.test.ts` | The four questions verbatim; Yes or No only; the comment; a missing, extra or other answer refused; counting |
-| `apps/web/modules/feedback/services.test.ts` | The working link again or a new one; received; refusals before signing, elsewhere, for a physio; sending; missing answers kept; used, other or closed links; a lost race |
-| `apps/web/modules/reporting/manager.test.ts` | Counts by centre and by physio id; comments; the window |
-| `packages/db/src/integration/feedback.integration.test.ts` | Covers: <ul><li>the answer for the consultation's centre and physio, audited as the patient;</li><li>no completion before the answer;</li><li>another subject, a second answer, a second link, a draft, a stopped or other link all refused;</li><li>no patient read;</li><li>Super Admin and Centre Manager reads by centre, with the desk, Finance and the physio refused;</li><li>nobody updates or deletes;</li><li>the desk issues only at its centre and only once signed.</li></ul> |
-| `apps/web/e2e/feedback.spec.ts` (360 px and desktop) | The desk QR; the patient's four answers with the missing-answer message; the thanks; received at the desk; the Centre Manager's screen |
+| `packages/schemas/src/feedback.test.ts` | Both surveys verbatim; Yes or No only; the comment; a missing, extra or other answer refused; the score a whole number from 0 to 10 as posted; counting; the Net Promoter Score |
+| `apps/web/modules/feedback/services.test.ts` | The working link again or a new one; received; refusals before signing or discharge, elsewhere, for a physio; sending with the score; missing answers kept; used, other or closed links; a form naming another survey; a lost race |
+| `apps/web/modules/reporting/manager.test.ts` | Counts by centre and by physio id; comments; the window; the Net Promoter Score overall and per group against the target |
+| `packages/db/src/integration/feedback.integration.test.ts` | Covers: <ul><li>the answer for the consultation's centre and physio, audited as the patient;</li><li>no completion before the answer;</li><li>another subject, a second answer, a second link, a draft, a stopped or other link all refused;</li><li>no patient read;</li><li>Super Admin and Centre Manager reads by centre, with the desk, Finance and the physio refused;</li><li>nobody updates or deletes;</li><li>the desk issues only at its centre and only once signed.</li><li>At discharge: the answers and score for the episode's centre and discharging consultant; a score required; another subject, a second answer and an episode not yet discharged refused; the desk issues only at its centre, for the episode's own patient.</li></ul> |
+| `apps/web/e2e/feedback.spec.ts` (360 px and desktop) | After the consultation and at discharge: the desk QR (discharge only once discharged); the patient's answers with the missing-answer and missing-score messages; the thanks; received at the desk; the Centre Manager's screen with the Net Promoter Score |
 
-Dropping the subject check from `feedback_patient_answer` makes the database test fail.
+Dropping the subject check from `feedback_patient_answer`, or the discharged check from `internal.feedback_subject`, makes the database test fail.

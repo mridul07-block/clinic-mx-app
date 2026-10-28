@@ -29,7 +29,7 @@ import {
 } from '../../../../../../modules/scheduling/plan-sessions';
 import { DiscountForm, RemoveDiscountForm } from './discount-forms';
 import { MakeBillForm } from './make-bill-form';
-import { MyPlanQr, RateYourVisitQr } from './patient-qrs';
+import { DischargeFeedbackQr, MyPlanQr, RateYourVisitQr } from './patient-qrs';
 import { PaymentForm, UndoPaymentForm } from './payment-forms';
 import { PlanChoiceForm, type ChoiceOption } from './plan-choice-form';
 import { PlanSessionsForm } from './plan-sessions-form';
@@ -547,6 +547,9 @@ export default async function PlanSheetPage({
           {showsMyPlan ? <MyPlanQr episodeId={sheet.episodeId} origin={origin} /> : null}
           {sheet.canShowMyPlan ? (
             <RateYourVisitQr episodeId={sheet.episodeId} origin={origin} />
+          ) : null}
+          {sheet.canShowMyPlan && sheet.episodeStatus === 'discharged' ? (
+            <DischargeFeedbackQr episodeId={sheet.episodeId} origin={origin} />
           ) : null}
 
           <section aria-labelledby="choice" className="flex flex-col gap-2">

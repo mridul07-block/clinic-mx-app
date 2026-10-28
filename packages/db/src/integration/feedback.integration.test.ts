@@ -3,11 +3,14 @@ import { eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { patientActor, setAuditContext, systemActor, withActor } from '../audit';
 import { createDb } from '../client';
+import { updateEpisodeState } from '../episodes';
 import {
+  dischargeFeedbackTarget,
   feedbackResponses,
   feedbackSubject,
   feedbackTarget,
   insertFeedback,
+  liveDischargeFeedbackLink,
   liveFeedbackLink,
 } from '../feedback';
 import type { StaffMember } from '../identity';
@@ -146,10 +149,10 @@ async function answer(tx: Tx, link: { id: string; patientId: string; purpose: st
   await insertFeedback(tx, {
     linkId: link.id,
     subject,
-    surveyKey: 'post_consultation',
     surveyVersion: 1,
     answers: yes,
     comment: 'Clear and kind',
+    score: null,
   });
   return subject;
 }
@@ -160,6 +163,7 @@ describe('Feedback after the consultation', () => {
       const held = await consulted(tx, centreIds.hsrLayout);
       const subject = await answer(tx, held.link);
       expect(subject).toEqual({
+        surveyKey: 'post_consultation',
         patientId: held.patientId,
         episodeId: held.episodeId,
         appointmentId: held.appointmentId,
@@ -220,10 +224,10 @@ describe('Feedback after the consultation', () => {
             await insertFeedback(sp, {
               linkId: held.link.id,
               subject: { ...subject, ...wrong },
-              surveyKey: 'post_consultation',
               surveyVersion: 1,
               answers: yes,
               comment: null,
+              score: null,
             });
           }),
         ).toBe('42501');
@@ -237,6 +241,7 @@ describe('Feedback after the consultation', () => {
           await insertFeedback(sp, {
             linkId: held.link.id,
             subject: {
+              surveyKey: 'post_consultation',
               patientId: held.patientId,
               episodeId: held.episodeId,
               appointmentId: held.appointmentId,
@@ -244,10 +249,10 @@ describe('Feedback after the consultation', () => {
               centreId: held.centreId,
               physioId: held.physio.id,
             },
-            surveyKey: 'post_consultation',
             surveyVersion: 1,
             answers: yes,
             comment: null,
+            score: null,
           });
         }),
       ).toBe('42501');
@@ -365,6 +370,186 @@ describe('Feedback after the consultation', () => {
       await becomeStaff(tx, deskHsr);
       expect((await feedbackTarget(tx, held.episodeId))?.received).toBe(true);
       expect(await issue(deskHsr, held)).toBe('42501');
+    });
+  });
+});
+
+/** An episode at `centreId` treated and discharged by a consultant, with a discharge feedback link. */
+async function discharged(tx: Tx, centreId: string, done = true) {
+  await asSystem(tx);
+  const consultant = await testPhysio(tx, {
+    centreIds: [centreId],
+    consultant: true,
+    createdBy: superAdmin.id,
+  });
+  const opened = await episodeThrough(tx, centreId, [
+    'awaiting_consultation',
+    'plan_proposed',
+    'active',
+  ]);
+  if (done) {
+    await becomeStaff(tx, consultant);
+    expect(
+      await updateEpisodeState(
+        tx,
+        opened.id,
+        'active',
+        { status: 'discharged', pausedFrom: null },
+        { reason: 'patient_choice' },
+      ),
+    ).toBe(true);
+    await asSystem(tx);
+  }
+  const link = await insertPatientLink(tx, {
+    patientId: opened.patientId,
+    purpose: 'feedback',
+    episodeId: opened.id,
+    expiresAt: new Date(Date.now() + 86_400_000),
+  });
+  return {
+    episodeId: opened.id,
+    patientId: opened.patientId,
+    centreId,
+    consultant,
+    link: { id: link.id, patientId: opened.patientId, purpose: 'feedback' },
+  };
+}
+
+const atDischarge = {
+  goals_achieved: 'yes',
+  continue_independently: 'yes',
+  satisfied_with_care: 'no',
+};
+
+// PAT-07: a feedback link for a discharged episode takes the discharge answers and the score once,
+// for the episode's centre and the consultant who discharged it; nothing before discharge; the
+// desk issues it at its centre only.
+describe('Feedback at discharge', () => {
+  it('takes the answers and score once, for the episode’s centre and its discharging consultant', async () => {
+    await rolledBack(async (tx) => {
+      const done = await discharged(tx, centreIds.hsrLayout);
+      await asLink(tx, done.link);
+      const subject = await feedbackSubject(tx);
+      expect(subject).toEqual({
+        surveyKey: 'discharge',
+        patientId: done.patientId,
+        episodeId: done.episodeId,
+        appointmentId: null,
+        consultationId: null,
+        centreId: done.centreId,
+        physioId: done.consultant.id,
+      });
+      if (!subject) throw new Error('no subject');
+      // A score is required at discharge, and the subject cannot be changed.
+      expect(
+        await failure(tx, (sp) =>
+          insertFeedback(sp, {
+            linkId: done.link.id,
+            subject,
+            surveyVersion: 1,
+            answers: atDischarge,
+            comment: null,
+            score: null,
+          }),
+        ),
+      ).toBe('23514');
+      expect(
+        await failure(tx, (sp) =>
+          insertFeedback(sp, {
+            linkId: done.link.id,
+            subject: { ...subject, physioId: physioHsr.id },
+            surveyVersion: 1,
+            answers: atDischarge,
+            comment: null,
+            score: 9,
+          }),
+        ),
+      ).toBe('42501');
+      await insertFeedback(tx, {
+        linkId: done.link.id,
+        subject,
+        surveyVersion: 1,
+        answers: atDischarge,
+        comment: 'More evening slots',
+        score: 9,
+      });
+      expect(await completePatientLinkRow(tx, done.link.id)).toBe(true);
+      // Answered: another link for the episode shows nothing.
+      await asSystem(tx);
+      const again = await insertPatientLink(tx, {
+        patientId: done.patientId,
+        purpose: 'feedback',
+        episodeId: done.episodeId,
+        expiresAt: new Date(Date.now() + 86_400_000),
+      });
+      await asLink(tx, { ...again, patientId: done.patientId, purpose: 'feedback' });
+      expect(await feedbackSubject(tx)).toBeUndefined();
+      await asSystem(tx);
+      await becomeStaff(tx, manager);
+      const [row] = await feedbackResponses(tx, new Date(Date.now() - 86_400_000), 'discharge');
+      expect(row).toMatchObject({
+        score: 9,
+        centreName: 'HSR Layout',
+        physioName: done.consultant.name,
+        comment: 'More evening slots',
+      });
+      expect(await feedbackResponses(tx, new Date(Date.now() - 86_400_000))).toEqual([]);
+    });
+  });
+
+  it('opens nothing before discharge, and lets the desk issue it at its centre only', async () => {
+    await rolledBack(async (tx) => {
+      const active = await discharged(tx, centreIds.hsrLayout, false);
+      await asLink(tx, active.link);
+      expect(await feedbackSubject(tx)).toBeUndefined();
+      await asSystem(tx);
+      const done = await discharged(tx, centreIds.hsrLayout);
+      await becomeStaff(tx, deskHsr);
+      expect(await dischargeFeedbackTarget(tx, done.episodeId)).toEqual({
+        patientId: done.patientId,
+        received: false,
+      });
+      expect(await dischargeFeedbackTarget(tx, active.episodeId)).toBeUndefined();
+      expect((await liveDischargeFeedbackLink(tx, done.episodeId))?.id).toBe(done.link.id);
+      const issue = (staff: StaffMember, of: { episodeId: string; patientId: string }) =>
+        failure(tx, async (sp) => {
+          await becomeStaff(sp, staff);
+          await insertPatientLink(sp, {
+            patientId: of.patientId,
+            purpose: 'feedback',
+            episodeId: of.episodeId,
+            expiresAt: new Date(Date.now() + 86_400_000),
+          });
+        });
+      expect(await issue(deskHsr, done)).toBeUndefined();
+      expect(await issue(deskHsr, active)).toBe('42501');
+      expect(await issue(deskKoramangala, done)).toBe('42501');
+      expect(await issue(physioHsr, done)).toBe('42501');
+      expect(await issue(deskHsr, { ...done, patientId: active.patientId })).toBe('42501');
+      await becomeStaff(tx, deskKoramangala);
+      expect(await dischargeFeedbackTarget(tx, done.episodeId)).toBeUndefined();
+      // Another centre's desk and a physio read no discharge feedback link.
+      for (const staff of [deskKoramangala, physioHsr]) {
+        await becomeStaff(tx, staff);
+        expect(await liveDischargeFeedbackLink(tx, done.episodeId)).toBeUndefined();
+      }
+      // Answered: received, and the desk issues no new link.
+      await asSystem(tx);
+      await asLink(tx, done.link);
+      const subject = await feedbackSubject(tx);
+      if (!subject) throw new Error('no subject');
+      await insertFeedback(tx, {
+        linkId: done.link.id,
+        subject,
+        surveyVersion: 1,
+        answers: atDischarge,
+        comment: null,
+        score: 3,
+      });
+      await asSystem(tx);
+      await becomeStaff(tx, deskHsr);
+      expect((await dischargeFeedbackTarget(tx, done.episodeId))?.received).toBe(true);
+      expect(await issue(deskHsr, done)).toBe('42501');
     });
   });
 });

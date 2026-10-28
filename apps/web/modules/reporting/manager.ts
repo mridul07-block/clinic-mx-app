@@ -16,6 +16,7 @@ import {
   utilisationOn,
   type StaffMember,
   type FigureScope,
+  type FeedbackResponse,
 } from '@clinic-mx/db';
 import {
   addDays,
@@ -27,6 +28,7 @@ import {
   can,
   centreColourIndex,
   feedbackCounts,
+  feedbackSurveys,
   channelPartLabels,
   channelParts,
   formatIstDateTime,
@@ -40,10 +42,12 @@ import {
   kpiTargetText,
   kpiValue,
   median,
+  netPromoter,
   seesAllCentres,
   waitMinutes,
   windowDays,
   type AlertItem,
+  type FeedbackSurveyKey,
   type FunnelStage,
   type KpiDailyRow,
   type KpiStatus,
@@ -536,32 +540,60 @@ export async function teamDashboard(actor: StaffMember, now = new Date()): Promi
 
 // Feedback -------------------------------------------------------------------------------------
 
-/** Yes and No per question for a group of answers (PAT-04). */
+/** The recommendation score's bands and Net Promoter Score for a group (PAT-07). */
+export interface FeedbackRecommendation {
+  promoters: number;
+  passives: number;
+  detractors: number;
+  /** Promoters less detractors as a share of the scores; null with none. */
+  nps: number | null;
+}
+
+/** Yes and No per question for a group of answers (PAT-04, PAT-07). */
 export interface FeedbackTally {
   /** The centre's or physio's id. */
   key: string;
   label: string;
   answered: number;
   questions: { key: string; text: string; yes: number; no: number }[];
+  /** At discharge, the group's recommendation scores. */
+  recommendation: FeedbackRecommendation | null;
 }
 
-export interface FeedbackDashboard {
-  window: OutcomeWindow;
-  /** The feedback after the consultation in the window, as the reader may see it. */
+/** One survey's answers in the window, as the reader may see them. */
+export interface FeedbackSurveyView {
   answered: number;
   questions: FeedbackTally['questions'];
   byCentre: FeedbackTally[];
   byPhysio: FeedbackTally[];
   /** The comments in the window, newest first. */
   comments: { id: string; when: string; centre: string; physio: string; comment: string }[];
+}
+
+export interface FeedbackDashboard {
+  window: OutcomeWindow;
+  /** After the consultation (PAT-04): by the physio who held it. */
+  afterConsultation: FeedbackSurveyView;
+  /** At discharge (PAT-07): by the consultant who discharged, with the recommendation score. */
+  atDischarge: FeedbackSurveyView & {
+    recommendation: FeedbackRecommendation;
+    /** The clinic's Net Promoter Score target, worded. */
+    target: string;
+  };
   figures: { label: string; target: string | null; needs: string }[];
 }
 
+type Answered = { answers: Record<string, string>; score: number | null };
+
+const scoresOf = (rows: Answered[]) =>
+  rows.flatMap((row) => (row.score === null ? [] : [row.score]));
+
 /** Groups by `key` (an id: two people may share a name), labelled by the group's name. */
 function tallies(
-  rows: { answers: Record<string, string>; key: string; label: string }[],
+  survey: FeedbackSurveyKey,
+  rows: (Answered & { key: string; label: string })[],
 ): FeedbackTally[] {
-  const groups = new Map<string, { label: string; rows: { answers: Record<string, string> }[] }>();
+  const groups = new Map<string, { label: string; rows: Answered[] }>();
   for (const row of rows) {
     const group = groups.get(row.key) ?? { label: row.label, rows: [] };
     group.rows.push(row);
@@ -572,49 +604,27 @@ function tallies(
       key,
       label,
       answered: group.length,
-      questions: feedbackCounts('post_consultation', group),
+      questions: feedbackCounts(survey, group),
+      recommendation: feedbackSurveys[survey].score ? netPromoter(scoresOf(group)) : null,
     }))
     .sort((a, b) => b.answered - a.answered || a.label.localeCompare(b.label));
 }
 
-/**
- * Feedback (DSH-03, PAT-04): the four questions after the consultation, Yes and No over the
- * window, by centre and by the physio who held the consultation, with the comments; the
- * recommendation score and satisfaction out of 5 say what brings them.
- */
-export async function feedbackDashboard(
-  actor: StaffMember,
-  window: OutcomeWindow,
-  now = new Date(),
-): Promise<FeedbackDashboard> {
-  assertReads(actor);
-  const { current } = windowDays(Number(window), istDate(now));
-  const rows = await asStaff(actor, (tx) => feedbackResponses(tx, istInstant(current.from, 0)));
-  const figures: FeedbackDashboard['figures'] = [];
-  for (const key of ['nps', 'patient_satisfaction']) {
-    const definition = kpiCatalogue.find((figure) => figure.key === key);
-    if (!definition || definition.measured === true) continue;
-    const target = definition.target
-      ? kpiTargetText(
-          await settingNumber(definition.target.setting),
-          definition.target.comparison,
-          definition.unit,
-        )
-      : null;
-    figures.push({ label: definition.label, target, needs: definition.measured.needs });
-  }
+function surveyView(survey: FeedbackSurveyKey, rows: FeedbackResponse[]): FeedbackSurveyView {
   return {
-    window,
     answered: rows.length,
-    questions: feedbackCounts('post_consultation', rows),
+    questions: feedbackCounts(survey, rows),
     byCentre: tallies(
-      rows.map((row) => ({ answers: row.answers, key: row.centreId, label: row.centreName })),
+      survey,
+      rows.map((row) => ({ ...row, key: row.centreId, label: row.centreName })),
     ),
     byPhysio: tallies(
+      survey,
       rows.map((row) => ({
-        answers: row.answers,
-        key: row.physioId ?? row.id,
-        label: row.physioName || 'A physio at another centre',
+        ...row,
+        // A discharge before OUT-10 recorded who discharged has no physio: one group for those.
+        key: row.physioId ?? 'not-recorded',
+        label: row.physioId ? row.physioName || 'Name not shown' : 'Not recorded',
       })),
     ),
     comments: rows.flatMap((row) =>
@@ -630,6 +640,48 @@ export async function feedbackDashboard(
           ]
         : [],
     ),
+  };
+}
+
+/**
+ * Feedback (DSH-03, PAT-04, PAT-07): over the window, Yes and No for the questions after the
+ * consultation (by centre and by the physio who held it) and at discharge (by centre and by the
+ * consultant who discharged), the Net Promoter Score from the discharge scores against the
+ * clinic's target, and what patients wrote; satisfaction out of 5 says what brings it.
+ */
+export async function feedbackDashboard(
+  actor: StaffMember,
+  window: OutcomeWindow,
+  now = new Date(),
+): Promise<FeedbackDashboard> {
+  assertReads(actor);
+  const { current } = windowDays(Number(window), istDate(now));
+  const from = istInstant(current.from, 0);
+  const [consulted, discharged] = await asStaff(actor, async (tx) => [
+    await feedbackResponses(tx, from, 'post_consultation'),
+    await feedbackResponses(tx, from, 'discharge'),
+  ]);
+  const figures: FeedbackDashboard['figures'] = [];
+  for (const key of ['patient_satisfaction']) {
+    const definition = kpiCatalogue.find((figure) => figure.key === key);
+    if (!definition || definition.measured === true) continue;
+    const target = definition.target
+      ? kpiTargetText(
+          await settingNumber(definition.target.setting),
+          definition.target.comparison,
+          definition.unit,
+        )
+      : null;
+    figures.push({ label: definition.label, target, needs: definition.measured.needs });
+  }
+  return {
+    window,
+    afterConsultation: surveyView('post_consultation', consulted),
+    atDischarge: {
+      ...surveyView('discharge', discharged),
+      recommendation: netPromoter(scoresOf(discharged)),
+      target: kpiTargetText(await settingNumber('kpi.target_nps'), 'above', 'nps'),
+    },
     figures,
   };
 }

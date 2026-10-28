@@ -28,7 +28,7 @@ test('the Super Admin reads every figure, overall and by centre, counted from th
   // The ten measured, and the eight PRD section 9 figures waiting for their data.
   await expect(page.getByTestId('figures-measured').locator(':scope > li')).toHaveCount(10);
   await expect(page.getByTestId('figures-waiting').locator(':scope > li')).toHaveCount(8);
-  await expect(page.locator('[data-figure="nps"]')).toContainText('Waiting for: PAT-07');
+  await expect(page.locator('[data-figure="nps"]')).toContainText('Waiting for: daily figures');
   await expect(page.locator('[data-figure="consultation_conversion"]')).toContainText(
     'Target: Over 75%',
   );
