@@ -270,6 +270,13 @@ export const settingDefinitions = {
     source: 'TAD jobs: Day after first treatment check, next day, 10:00 AM (PAT-05)',
     description: 'The time of day, in IST, the day after first treatment check is sent.',
   },
+  // DECISION PAT-06: which session's signing sends the session check; 3, as the TAD names it.
+  'feedback.session_check_number': {
+    schema: z.int().min(2).max(50),
+    source: 'TAD jobs: Session 3 check, after session 3 closes (PAT-06)',
+    description:
+      'The treatment session whose signing sends the session check message (3: the session 3 check).',
+  },
   'kpi.target_nps': {
     schema: z.number().min(-100).max(100),
     source: 'PRD section 9: Net Promoter Score (SOP target; DSH-01)',

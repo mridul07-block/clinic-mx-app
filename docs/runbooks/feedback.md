@@ -152,6 +152,31 @@ the user's standing approval, 29 October 2026 (DECISION PAT-05).
 - **Not built:** the amber tag beside the patient (the same gap as ALT-02's reviews), and a
   reminder when there is no answer.
 
+## Session 3 check (PAT-06)
+
+PRD J5.6: "Session 3 check message."; PRD M14; TAD jobs: "Session 3 check | After session 3 closes";
+PRD J5.5: closing a session signs its note. Every other choice is a recommended default chosen under
+the user's standing approval, 29 October 2026 (DECISION PAT-06).
+
+- **What:** a message only, as the PRD names it ("Session 3 check message"). The Blueprint
+  (section 14) does list four "After three sessions" example questions ("How do you feel compared
+  with your first visit?", "Are you noticing any change in pain or function?", "Are you clear about
+  your rehabilitation goals and home exercises?", "Is there anything we could improve about your
+  care?") and says negative feedback should create a service recovery task. They are not adopted
+  yet: the first has no answers to choose from in any document, and the PRD and TAD treat this one
+  as a message. Open for the client (DECISION PAT-06): word the message, or adopt the questions
+  as a survey (as PAT-04 and PAT-07 did) with their answers, which would then reach the manager's
+  Feedback screen and service recovery. The `session_3_check` template keeps no buttons until then.
+- **When:** signing the episode's session numbered `feedback.session_check_number` (3) queues
+  `whatsapp.session_3_check` at once (the TAD gives no time), once per episode (key per episode),
+  never for an opening entry's episode (numbering starts again at launch). It sends nothing until
+  WA-06, whose sender should skip an episode no longer active.
+- **Code:** `internal.session_3_check` and its trigger (`*_session_3_check_rules.sql`); the job stub
+  in `apps/web/modules/jobs/handlers.ts`.
+- **Tests:** `packages/db/src/integration/first-treatment-check.integration.test.ts` ("the session
+  3 check"): queued at once on signing session 3, not sessions 1, 2 or 4, once per episode, never
+  for an opening entry; the setting moves it. Disabling the trigger fails these tests.
+
 ## How it works
 
 | Part | Where |

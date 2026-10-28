@@ -7,7 +7,7 @@ import { managerAlertCounts } from '../dashboards';
 import { feedbackSubject, firstTreatmentCheckTarget, insertFeedback } from '../feedback';
 import type { StaffMember } from '../identity';
 import { insertPatientLink } from '../patient-links';
-import { job, openingEntry, planOfCare, task, treatmentSession } from '../schema';
+import { job, openingEntry, planOfCare, setting, task, treatmentSession } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import { asSystem, claimsOf, episodeThrough, knowledgeVersion, note, visit } from './fake-figures';
 import { becomeStaff, testPhysio } from './fake-schedule';
@@ -412,6 +412,67 @@ describe('the day after first treatment check', () => {
         expiresAt: new Date(Date.now() + 86_400_000),
       });
       await asSystem(tx);
+    });
+  });
+});
+
+// PAT-06 done when: sent after session 3 closes. A message only: signing session 3 queues it at
+// once, once per episode, never for an opening entry's episode.
+describe('the session 3 check', () => {
+  const sessionChecks = (tx: Tx, episodeId: string) =>
+    tx
+      .select({ runAt: job.runAt, payload: job.payload })
+      .from(job)
+      .where(eq(job.idempotencyKey, ['whatsapp.session_3_check', episodeId].join(':')));
+  /** Signs the episode's next sessions, today, and returns their numbers. */
+  const signNext = async (held: Awaited<ReturnType<typeof treated>>, count: number) => {
+    const numbers: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const next = await held.session(today);
+      await held.sign(next.id);
+      numbers.push(next.number);
+    }
+    return numbers;
+  };
+
+  it('is queued at once when session 3 is signed, once per episode, never before', async () => {
+    await rolledBack(async (tx) => {
+      const held = await treated(tx);
+      expect(await signNext(held, 1)).toEqual([2]);
+      expect(await sessionChecks(tx, held.id)).toHaveLength(0);
+      const third = await held.session(today);
+      expect(third.number).toBe(3);
+      expect(await sessionChecks(tx, held.id)).toHaveLength(0);
+      await held.sign(third.id);
+      const [clock] = await tx.execute<{ now: string }>(sql`select now()::text as now`);
+      const [queued, ...more] = await sessionChecks(tx, held.id);
+      expect(more).toHaveLength(0);
+      expect(queued?.runAt.getTime()).toBe(new Date(clock?.now ?? '').getTime());
+      expect(queued?.payload).toEqual({
+        sessionId: third.id,
+        episodeId: held.id,
+        appointmentId: third.appointmentId,
+      });
+      expect(await signNext(held, 1)).toEqual([4]);
+      expect(await sessionChecks(tx, held.id)).toHaveLength(1);
+      // An opening entry's episode: its third session here is not early progress.
+      const brought = await treated(tx, { opening: true });
+      expect(await signNext(brought, 2)).toEqual([2, 3]);
+      expect(await sessionChecks(tx, brought.id)).toHaveLength(0);
+    });
+  });
+
+  it('follows the session the setting names', async () => {
+    await rolledBack(async (tx) => {
+      await tx
+        .update(setting)
+        .set({ value: 4 })
+        .where(eq(setting.key, 'feedback.session_check_number'));
+      const held = await treated(tx);
+      await signNext(held, 2);
+      expect(await sessionChecks(tx, held.id)).toHaveLength(0);
+      await signNext(held, 1);
+      expect(await sessionChecks(tx, held.id)).toHaveLength(1);
     });
   });
 });

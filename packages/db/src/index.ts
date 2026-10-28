@@ -651,6 +651,7 @@ export {
   type FeedbackSubject,
   type FeedbackTarget,
   FIRST_TREATMENT_CHECK_JOB,
+  SESSION_3_CHECK_JOB,
   firstTreatmentCheckTarget,
 } from './feedback';
 export { aiSheetGate } from './ai-gate';

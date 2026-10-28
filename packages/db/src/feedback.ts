@@ -59,6 +59,12 @@ export async function liveFeedbackLink(
  */
 export const FIRST_TREATMENT_CHECK_JOB = 'whatsapp.first_treatment_check';
 
+/**
+ * The session 3 check (PAT-06): signing the episode's session 3 queues its WhatsApp message at once;
+ * a message only, which WA-06 words with the client and sends.
+ */
+export const SESSION_3_CHECK_JOB = 'whatsapp.session_3_check';
+
 /** What the desk's first treatment check QR is for: the episode's signed session 1's visit. */
 export async function firstTreatmentCheckTarget(
   db: DbOrTransaction,
