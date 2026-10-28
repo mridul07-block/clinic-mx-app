@@ -1,4 +1,4 @@
-# AI preparation sheet (AI-03)
+# AI preparation sheet (AI-03, AI-04)
 
 ## Sources
 
@@ -136,9 +136,88 @@ Two attempts of 6 seconds (AI-01's defaults) stay inside 15 seconds. A task time
   - a physio without the tick and the gate off are both refused;
   - the real submit makes an unavailable sheet within 15 seconds, with its must rule out rows.
 
+## Recheck with findings (AI-04, `apps/web/modules/ai/recheck.ts`)
+
+PRD J3.5: "reranks the AI suggestions on demand". TAD section 7: steps 5 to 7 run again "with the
+examination results, only when tapped". Recommended defaults chosen under the user's standing
+approval, 29 October 2026 (DECISION AI-04).
+
+- **Where:** a "Recheck with findings" panel on the consultation's Assessment step, above the
+  diagnosis. It shows only to the visit's consultant, in their own unsigned consultation, while
+  the AI gate is on and the episode has a sheet with a shortlist.
+- **What is sent:** the sheet's own case and shortlist (the same rows, numbered as before), plus
+  the findings from the Objective step, in the knowledge base's words
+  (`packages/schemas/src/ai-recheck.ts`):
+  - special tests with a result ("Lachman test: Positive");
+  - measures with a reading, with their LSI, deficit or reference result ("Quadriceps strength:
+    LSI 80% (Not yet)").
+
+  Positive tests and measures not passed come first. At most 40 lines of 200 characters each.
+  Interpretations and notes, which hold the clinician's free text, are never sent. The panel lists
+  what a tap would send ("Findings to send"), and a result lists what it was made from ("Sent with
+  this recheck").
+- **When:** only on the tap. The tap first saves the latest edits, then rechecks at the version
+  just saved; a stale version is refused.
+- **What is stored:** `ai_preparation_sheet.recheck_*`, in a column set the database keeps whole.
+  - The latest recheck is its own `ai_run` (`recheck_with_findings`), and its suggestions are
+    stored beside the first ranking's, under that run.
+  - The same findings already answered are never paid for again, and a second tap while one runs
+    takes nothing; the panel reads the running recheck again every 3 seconds until it ends.
+  - An unexpected error after the claim ends the recheck as unavailable (failed), so the next tap
+    can take it. A recheck whose run stopped (pending for longer than
+    `ai.sheet_retry_after_seconds`) shows as not running, and the next tap takes it again.
+  - New findings replace the latest recheck; the earlier suggestions and their dispositions stay
+    in `ai_suggestion`.
+- **Validation:** the same as the first ranking (`validateRanking`, the same counts). When the
+  model is unavailable or gives nothing valid, the panel says "Suggestions unavailable right now.
+  Continue the consultation as usual." and nothing is blocked.
+- **The sheet:** a "Rechecked with findings" panel shows above the first ranking, which is then
+  titled "Likely diagnoses before examination". It names the findings it was asked with, puts the
+  top suggestions first and the rest under Also consider, and each suggestion is kept or dismissed
+  like the first. Suggested examination and Load and biomechanics cover the recheck's conditions
+  too, each once.
+- **The consultation:** it shows the latest result, with "Your findings changed since this
+  recheck." when the draft no longer matches. Nothing enters the record.
+- **Refusals** (the panel is not shown in these cases either, except when there are no findings, where the
+  button is disabled):
+  - the gate is off;
+  - not the consultation's physio, or the consultation is signed;
+  - not the visit's consultant;
+  - the knowledge base changed since the sheet;
+  - no sheet;
+  - no findings.
+
+### Recheck tests
+
+- `packages/schemas/src/ai-recheck.test.ts`: wording and order; tests not done, unread measures
+  and free text left out; within the gateway's limits.
+- `apps/web/modules/ai/recheck.test.ts`:
+  - the findings sent without free text;
+  - a valid reranking kept;
+  - unavailable without a model;
+  - no second call while one runs or for the same findings;
+  - the claim released when something fails after it;
+  - the panel only for the consultation's own consultant and the sheet's knowledge base, a stopped
+    run shown as stopped;
+  - each refusal.
+- `packages/db/src/integration/ai-sheet.integration.test.ts`:
+  - claimed once per set of findings and finished only by its own claim;
+  - read beside the first ranking;
+  - kept by the visit's consultant;
+  - written by nobody signed in;
+  - kept whole by the check.
+
+  Dropping the same-findings condition fails this test.
+- `apps/web/e2e/recheck.spec.ts`, at 360 px and on desktop:
+  - disabled before any finding;
+  - the real tap stores an unavailable recheck (not configured) without free text;
+  - a running recheck holds the button, a stopped one frees it;
+  - a seeded ready recheck shown in the consultation and kept on the sheet;
+  - changed findings flagged;
+  - another consultant cannot open the consultation, and the gate off hides the panel.
+
 ## Later
 
-- Recheck with findings (AI-04).
 - Similar cases (AI-05).
 - The dispositions report (AI-08).
 - Kept suggestions offered first in the Assessment picker.

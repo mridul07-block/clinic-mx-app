@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { requireStaff } from '../../../../../../modules/auth/session';
 import { consultationRedFlagsOf } from '../../../../../../modules/alerts/services';
+import { loadRecheck } from '../../../../../../modules/ai/recheck';
 import { loadConsultation } from '../../../../../../modules/consultations/services';
 import { recurrenceView } from '../../../../../../modules/episodes/recurrence';
 import { ConsultationStepper } from './consultation-stepper';
@@ -39,6 +40,8 @@ export default async function ConsultationPage({
   const redFlags = await consultationRedFlagsOf(staff, consultation.id);
   // SCH-14: the patient's earlier episodes, to mark this one a recurrence.
   const recurrence = await recurrenceView(staff, consultation);
+  // AI-04: "Recheck with findings", for its own consultant while the AI gate is on.
+  const recheck = consultation.editable ? await loadRecheck(staff, consultation.id) : null;
   const { section } = await searchParams;
   return (
     <main className="flex w-full max-w-5xl flex-col gap-4 px-4 pt-6 md:pb-6">
@@ -87,6 +90,7 @@ export default async function ConsultationPage({
         }
         addenda={consultation.addenda}
         addsAddenda={consultation.addsAddenda}
+        recheck={recheck}
         patientAnswers={consultation.patientAnswers}
         objectiveCatalog={consultation.objectiveCatalog}
         assessmentCatalog={consultation.assessmentCatalog}

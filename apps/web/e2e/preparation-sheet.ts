@@ -164,3 +164,94 @@ export async function episodeOfVisit(appointmentId: string): Promise<string> {
   if (!row?.episodeId) throw new Error('The visit has no episode.');
   return row.episodeId;
 }
+
+/**
+ * The episode's latest recheck (AI-04) made ready, as the system stores one: the findings it was
+ * asked with kept, and the sheet's last two ranked rows ranked again under a new run.
+ */
+export async function seedRecheck(episodeId: string, version: { id: string }): Promise<string[]> {
+  return withActor(db(), systemActor('ai'), async (tx) => {
+    const [sheet] = await tx
+      .select({ id: aiPreparationSheet.id, findings: aiPreparationSheet.recheckFindings })
+      .from(aiPreparationSheet)
+      .where(eq(aiPreparationSheet.episodeId, episodeId));
+    if (!sheet?.findings) throw new Error('Tap Recheck with findings first.');
+    const rows = await tx
+      .select({
+        conditionId: aiSuggestion.conditionId,
+        region: aiSuggestion.region,
+        rowNumber: aiSuggestion.rowNumber,
+      })
+      .from(aiSuggestion)
+      .where(eq(aiSuggestion.sheetId, sheet.id))
+      .orderBy(desc(aiSuggestion.rank))
+      .limit(2);
+    const [run] = await tx
+      .insert(aiRun)
+      .values({
+        kind: 'recheck_with_findings',
+        episodeId,
+        kbVersionId: version.id,
+        model: 'vendor/e2e-model',
+        promptVersion: 'recheck_with_findings.v1',
+        inputHash: 'f'.repeat(64),
+        status: 'ok',
+        attempts: 1,
+        latencyMs: 900,
+      })
+      .returning({ id: aiRun.id });
+    if (!run) throw new Error('no run');
+    await tx
+      .update(aiPreparationSheet)
+      .set({
+        recheckStatus: 'ready',
+        recheckReason: null,
+        recheckAiRunId: run.id,
+        recheckReadyAt: new Date(),
+      })
+      .where(eq(aiPreparationSheet.id, sheet.id));
+    await tx.insert(aiSuggestion).values(
+      rows.map((row, index) => ({
+        sheetId: sheet.id,
+        aiRunId: run.id,
+        ...row,
+        rank: index + 1,
+        section: 'top' as const,
+        reason: `E2E recheck reason ${String(index + 1)}`,
+      })),
+    );
+    return rows.map((row) => row.conditionId);
+  });
+}
+
+/** The episode's latest recheck as stored, and its run. */
+export async function recheckOf(episodeId: string) {
+  const [row] = await db()
+    .select({
+      status: aiPreparationSheet.recheckStatus,
+      reason: aiPreparationSheet.recheckReason,
+      findings: aiPreparationSheet.recheckFindings,
+      runKind: aiRun.kind,
+      runStatus: aiRun.status,
+    })
+    .from(aiPreparationSheet)
+    .leftJoin(aiRun, eq(aiRun.id, aiPreparationSheet.recheckAiRunId))
+    .where(eq(aiPreparationSheet.episodeId, episodeId));
+  return row;
+}
+
+/** The episode's latest recheck as taken by a tap `minutesAgo` minutes ago and still running. */
+export async function recheckRunning(episodeId: string, minutesAgo: number): Promise<void> {
+  await withActor(db(), systemActor('ai'), (tx) =>
+    tx
+      .update(aiPreparationSheet)
+      .set({
+        recheckStatus: 'pending',
+        recheckReason: null,
+        recheckAiRunId: null,
+        recheckClaimedAt: new Date(Date.now() - minutesAgo * 60_000),
+        recheckReadyAt: null,
+      })
+      .where(eq(aiPreparationSheet.episodeId, episodeId)),
+  );
+}

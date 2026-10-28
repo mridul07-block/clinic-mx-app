@@ -121,6 +121,45 @@ function SuggestionCard({
   );
 }
 
+/** A ranking: the top suggestions, then the rest folded under Also consider (decision 3). */
+function Ranking({
+  suggestions,
+  view,
+  episodeId,
+  alsoTestId,
+}: {
+  suggestions: PreparationSheetView['sheet']['suggestions'];
+  view: PreparationSheetView;
+  episodeId: string;
+  alsoTestId: string;
+}) {
+  const card = (s: PreparationSheetView['sheet']['suggestions'][number]) => (
+    <SuggestionCard
+      key={s.id}
+      suggestion={s}
+      listing={view.listings[listingKey(s)]}
+      view={view}
+      episodeId={episodeId}
+    />
+  );
+  const also = suggestions.filter((s) => s.section === 'also_consider');
+  return (
+    <>
+      <ol className="flex flex-col gap-4">
+        {suggestions.filter((s) => s.section === 'top').map(card)}
+      </ol>
+      {also.length > 0 ? (
+        <details className="border-t border-line pt-3" data-testid={alsoTestId}>
+          <summary className="cursor-pointer font-semibold text-ink pointer-coarse:py-3">
+            Also consider ({also.length})
+          </summary>
+          <ol className="mt-3 flex flex-col gap-4">{also.map(card)}</ol>
+        </details>
+      ) : null}
+    </>
+  );
+}
+
 // The AI preparation sheet (AI-03; Frontend Specification "Preparation sheet", Consultant tick):
 // what the patient told us, safety, the likely diagnoses the model ranked (top 3 plus 2 under
 // Also consider, decision 3), must rule out by rule, and the knowledge base's examination and
@@ -146,7 +185,6 @@ export default async function PreparationSheetPage({
   const words = (row: { conditionId: string; region: string; rowNumber: number }) =>
     view.listings[listingKey(row)];
   const top = sheet.suggestions.filter((s) => s.section === 'top');
-  const also = sheet.suggestions.filter((s) => s.section === 'also_consider');
   const mustRuleOut = sheet.shortlist.items.filter((i) => i.mustRuleOut);
   const theCase = sheet.case;
   const told: [string, string][] = theCase
@@ -158,11 +196,15 @@ export default async function PreparationSheetPage({
         ['Goal', theCase.goal ?? ''],
       ]
     : [];
-  const examination = sheet.suggestions.flatMap((s) => {
+  // Every condition suggested, the recheck's first (AI-04), each once.
+  const suggested = [...(sheet.recheck?.suggestions ?? []), ...sheet.suggestions].filter(
+    (s, index, all) => all.findIndex((o) => listingKey(o) === listingKey(s)) === index,
+  );
+  const examination = suggested.flatMap((s) => {
     const text = words(s)?.details.examination_findings?.text;
     return text ? [{ s, text }] : [];
   });
-  const biomechanics = sheet.suggestions.flatMap((s) => {
+  const biomechanics = suggested.flatMap((s) => {
     const text = words(s)?.biomechanicalCause;
     return text ? [{ s, text }] : [];
   });
@@ -194,39 +236,40 @@ export default async function PreparationSheetPage({
       ) : null}
       <div className="flex flex-col gap-4 md:grid md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] md:items-start">
         <div className="flex flex-col gap-4">
-          <Panel title="Likely diagnoses" id="sheet-likely">
+          {sheet.recheck ? (
+            // AI-04: the latest "Recheck with findings", its own run beside the first ranking.
+            <Panel title="Rechecked with findings" id="sheet-recheck">
+              <p className="text-sm text-ink-muted">
+                {sheet.recheck.readyAt
+                  ? `Rechecked ${formatIstDateTime(sheet.recheck.readyAt)} with: `
+                  : 'Rechecking with: '}
+                {sheet.recheck.findings.join('; ')}
+              </p>
+              {sheet.recheck.status === 'ready' && sheet.recheck.suggestions.length > 0 ? (
+                <Ranking
+                  suggestions={sheet.recheck.suggestions}
+                  view={view}
+                  episodeId={episodeId}
+                  alsoTestId="recheck-also-consider"
+                />
+              ) : sheet.recheck.status === 'unavailable' ? (
+                <p className="text-ink-secondary" data-testid="recheck-unavailable">
+                  {SUGGESTIONS_UNAVAILABLE}
+                </p>
+              ) : null}
+            </Panel>
+          ) : null}
+          <Panel
+            title={sheet.recheck ? 'Likely diagnoses before examination' : 'Likely diagnoses'}
+            id="sheet-likely"
+          >
             {sheet.status === 'ready' && top.length > 0 ? (
-              <>
-                <ol className="flex flex-col gap-4">
-                  {top.map((s) => (
-                    <SuggestionCard
-                      key={s.id}
-                      suggestion={s}
-                      listing={words(s)}
-                      view={view}
-                      episodeId={episodeId}
-                    />
-                  ))}
-                </ol>
-                {also.length > 0 ? (
-                  <details className="border-t border-line pt-3" data-testid="sheet-also-consider">
-                    <summary className="cursor-pointer font-semibold text-ink pointer-coarse:py-3">
-                      Also consider ({also.length})
-                    </summary>
-                    <ol className="mt-3 flex flex-col gap-4">
-                      {also.map((s) => (
-                        <SuggestionCard
-                          key={s.id}
-                          suggestion={s}
-                          listing={words(s)}
-                          view={view}
-                          episodeId={episodeId}
-                        />
-                      ))}
-                    </ol>
-                  </details>
-                ) : null}
-              </>
+              <Ranking
+                suggestions={sheet.suggestions}
+                view={view}
+                episodeId={episodeId}
+                alsoTestId="sheet-also-consider"
+              />
             ) : sheet.status === 'pending' ? (
               <p className="text-ink-secondary">Not ready yet.</p>
             ) : (

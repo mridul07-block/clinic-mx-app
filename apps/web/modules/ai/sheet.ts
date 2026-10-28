@@ -78,14 +78,16 @@ export async function loadPreparationSheet(
     const sheet = await sheetForEpisode(tx, episodeId);
     const episode = await episodeRecord(tx, episodeId);
     if (!sheet || !episode) return null;
+    const rechecked = sheet.recheck?.suggestions ?? [];
     const ids = [
       ...sheet.suggestions.map((s) => s.conditionId),
+      ...rechecked.map((s) => s.conditionId),
       ...sheet.shortlist.items.filter((i) => i.mustRuleOut).map((i) => i.conditionId),
     ];
     const rows = await sheetListings(tx, sheet.kbVersionId, ids);
     const listings: Record<string, SheetListing> = {};
     for (const row of rows) {
-      const wanted = [...sheet.suggestions, ...sheet.shortlist.items].some(
+      const wanted = [...sheet.suggestions, ...rechecked, ...sheet.shortlist.items].some(
         (s) =>
           s.conditionId === row.conditionId &&
           s.region === row.region &&

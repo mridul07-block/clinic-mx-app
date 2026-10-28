@@ -644,8 +644,10 @@ export {
 } from './ai-runs';
 export {
   canDisposeSheet,
+  claimRecheck,
   claimSheet,
   episodeNameWords,
+  finishRecheck,
   finishSheet,
   setDisposition,
   sheetForEpisode,

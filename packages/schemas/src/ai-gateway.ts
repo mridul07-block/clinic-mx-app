@@ -56,7 +56,11 @@ export const aiTaskConfigSchema = z.strictObject({
 });
 export type AiTaskConfig = z.infer<typeof aiTaskConfigSchema>;
 
-const shortText = z.string().max(200);
+/** The longest text a case or finding may send, and the most findings in a recheck. */
+export const AI_TEXT_MAX = 200;
+export const AI_FINDINGS_MAX = 40;
+
+const shortText = z.string().max(AI_TEXT_MAX);
 
 /**
  * The case a clinical task may send: exactly what the TAD lists, nothing else (strict, so a name,
@@ -98,7 +102,7 @@ export type AiRankInput = z.infer<typeof aiRankInputSchema>;
 export const aiRecheckInputSchema = z.strictObject({
   case: aiCaseSchema,
   rows: z.array(aiRankRowSchema).min(1).max(60),
-  findings: z.array(shortText).max(40),
+  findings: z.array(shortText).max(AI_FINDINGS_MAX),
 });
 export type AiRecheckInput = z.infer<typeof aiRecheckInputSchema>;
 

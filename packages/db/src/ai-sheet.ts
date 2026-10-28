@@ -108,6 +108,18 @@ export async function finishSheet(
   return true;
 }
 
+type SheetSuggestion = {
+  id: string;
+  conditionId: string;
+  region: Shortlist['items'][number]['region'];
+  rowNumber: number;
+  rank: number;
+  section: 'top' | 'also_consider';
+  reason: string;
+  disposition: AiDisposition | null;
+  disposedAt: Date | null;
+};
+
 export interface PreparationSheet {
   id: string;
   episodeId: string;
@@ -118,17 +130,17 @@ export interface PreparationSheet {
   shortlist: Shortlist;
   case: AiCase | null;
   readyAt: Date | null;
-  suggestions: {
-    id: string;
-    conditionId: string;
-    region: Shortlist['items'][number]['region'];
-    rowNumber: number;
-    rank: number;
-    section: 'top' | 'also_consider';
-    reason: string;
-    disposition: AiDisposition | null;
-    disposedAt: Date | null;
-  }[];
+  suggestions: SheetSuggestion[];
+  /** The latest "Recheck with findings" (AI-04), beside the first ranking; null before one. */
+  recheck: {
+    status: AiSheetStatus;
+    reason: string | null;
+    findings: string[];
+    /** When the latest tap took it; a pending recheck older than the retry window has stopped. */
+    claimedAt: Date;
+    readyAt: Date | null;
+    suggestions: SheetSuggestion[];
+  } | null;
 }
 
 /** An episode's sheet with its suggestions, under the reader's access; undefined when none. */
@@ -148,28 +160,36 @@ export async function sheetForEpisode(
       case: aiPreparationSheet.case,
       readyAt: aiPreparationSheet.readyAt,
       aiRunId: aiPreparationSheet.aiRunId,
+      recheckStatus: aiPreparationSheet.recheckStatus,
+      recheckReason: aiPreparationSheet.recheckReason,
+      recheckFindings: aiPreparationSheet.recheckFindings,
+      recheckClaimedAt: aiPreparationSheet.recheckClaimedAt,
+      recheckReadyAt: aiPreparationSheet.recheckReadyAt,
+      recheckAiRunId: aiPreparationSheet.recheckAiRunId,
     })
     .from(aiPreparationSheet)
     .innerJoin(kbVersion, eq(kbVersion.id, aiPreparationSheet.kbVersionId))
     .where(eq(aiPreparationSheet.episodeId, episodeId));
   if (!sheet) return undefined;
-  const suggestions = sheet.aiRunId
-    ? await db
-        .select({
-          id: aiSuggestion.id,
-          conditionId: aiSuggestion.conditionId,
-          region: aiSuggestion.region,
-          rowNumber: aiSuggestion.rowNumber,
-          rank: aiSuggestion.rank,
-          section: aiSuggestion.section,
-          reason: aiSuggestion.reason,
-          disposition: aiSuggestion.disposition,
-          disposedAt: aiSuggestion.disposedAt,
-        })
-        .from(aiSuggestion)
-        .where(and(eq(aiSuggestion.sheetId, sheet.id), eq(aiSuggestion.aiRunId, sheet.aiRunId)))
-        .orderBy(asc(aiSuggestion.rank))
-    : [];
+  const suggestionsOf = async (runId: string | null): Promise<SheetSuggestion[]> =>
+    runId
+      ? db
+          .select({
+            id: aiSuggestion.id,
+            conditionId: aiSuggestion.conditionId,
+            region: aiSuggestion.region,
+            rowNumber: aiSuggestion.rowNumber,
+            rank: aiSuggestion.rank,
+            section: aiSuggestion.section,
+            reason: aiSuggestion.reason,
+            disposition: aiSuggestion.disposition,
+            disposedAt: aiSuggestion.disposedAt,
+          })
+          .from(aiSuggestion)
+          .where(and(eq(aiSuggestion.sheetId, sheet.id), eq(aiSuggestion.aiRunId, runId)))
+          .orderBy(asc(aiSuggestion.rank))
+      : [];
+  const suggestions = await suggestionsOf(sheet.aiRunId);
   return {
     id: sheet.id,
     episodeId: sheet.episodeId,
@@ -181,7 +201,88 @@ export async function sheetForEpisode(
     shortlist: sheet.shortlist as Shortlist,
     case: sheet.case as AiCase | null,
     suggestions,
+    recheck:
+      sheet.recheckStatus && sheet.recheckClaimedAt
+        ? {
+            status: sheet.recheckStatus,
+            reason: sheet.recheckReason,
+            findings: (sheet.recheckFindings ?? []) as string[],
+            claimedAt: sheet.recheckClaimedAt,
+            readyAt: sheet.recheckReadyAt,
+            suggestions: await suggestionsOf(sheet.recheckAiRunId),
+          }
+        : null,
   };
+}
+
+/**
+ * Takes the sheet's recheck to make (AI-04): none running, or one whose run stopped more than
+ * `retryAfterSeconds` ago, and not the same findings already answered (no second paid call). The
+ * claim's moment, or null when taken.
+ */
+export async function claimRecheck(
+  tx: DbOrTransaction,
+  recheck: { sheetId: string; findings: readonly string[]; by: string; retryAfterSeconds: number },
+): Promise<{ claimedAt: Date } | null> {
+  const findings = JSON.stringify(recheck.findings);
+  const [row] = await tx
+    .update(aiPreparationSheet)
+    .set({
+      recheckStatus: 'pending',
+      recheckReason: null,
+      recheckAiRunId: null,
+      recheckFindings: recheck.findings,
+      recheckBy: recheck.by,
+      recheckClaimedAt: sql`now()`,
+      recheckReadyAt: null,
+    })
+    .where(
+      and(
+        eq(aiPreparationSheet.id, recheck.sheetId),
+        sql`(${aiPreparationSheet.recheckStatus} is distinct from 'pending'
+          or ${aiPreparationSheet.recheckClaimedAt} < now() - make_interval(secs => ${recheck.retryAfterSeconds}))`,
+        sql`not (${aiPreparationSheet.recheckStatus} is not distinct from 'ready'
+          and ${aiPreparationSheet.recheckFindings} = ${findings}::jsonb)`,
+      ),
+    )
+    .returning({ claimedAt: aiPreparationSheet.recheckClaimedAt });
+  return row?.claimedAt ? { claimedAt: row.claimedAt } : null;
+}
+
+/** Records how the recheck ended, only while this run still holds its claim. Whether it wrote. */
+export async function finishRecheck(
+  tx: DbOrTransaction,
+  claim: { sheetId: string; claimedAt: Date },
+  result:
+    | { status: 'ready'; aiRunId: string; suggestions: readonly ValidatedSuggestion[] }
+    | { status: 'unavailable'; reason: AiSheetUnavailableReason; aiRunId: string | null },
+): Promise<boolean> {
+  const finished = await tx
+    .update(aiPreparationSheet)
+    .set({
+      recheckStatus: result.status,
+      recheckReason: result.status === 'unavailable' ? result.reason : null,
+      recheckAiRunId: result.aiRunId,
+      recheckReadyAt: sql`now()`,
+    })
+    .where(
+      and(
+        eq(aiPreparationSheet.id, claim.sheetId),
+        eq(aiPreparationSheet.recheckStatus, 'pending'),
+        // The claim's own moment, to the millisecond a Date holds.
+        sql`date_trunc('milliseconds', ${aiPreparationSheet.recheckClaimedAt}) = ${claim.claimedAt.toISOString()}::timestamptz`,
+      ),
+    )
+    .returning({ id: aiPreparationSheet.id });
+  if (finished.length === 0) return false;
+  if (result.status === 'ready' && result.suggestions.length > 0) {
+    await tx
+      .insert(aiSuggestion)
+      .values(
+        result.suggestions.map((s) => ({ ...s, sheetId: claim.sheetId, aiRunId: result.aiRunId })),
+      );
+  }
+  return true;
 }
 
 export type SheetListing = Pick<

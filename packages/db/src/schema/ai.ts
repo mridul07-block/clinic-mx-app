@@ -120,8 +120,26 @@ export const aiPreparationSheet = pgTable(
     claimedAt: timestamp('claimed_at', { withTimezone: true }).notNull().defaultNow(),
     readyAt: timestamp('ready_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** The latest "Recheck with findings" (AI-04): its own run, beside the first ranking. */
+    recheckStatus: aiSheetStatus('recheck_status'),
+    recheckReason: text('recheck_reason'),
+    recheckAiRunId: uuid('recheck_ai_run_id').references(() => aiRun.id),
+    /** The findings sent, exactly. */
+    recheckFindings: jsonb('recheck_findings'),
+    recheckBy: uuid('recheck_by').references(() => staffUser.id),
+    recheckClaimedAt: timestamp('recheck_claimed_at', { withTimezone: true }),
+    recheckReadyAt: timestamp('recheck_ready_at', { withTimezone: true }),
   },
   (table) => [
+    check(
+      'ai_preparation_sheet_recheck',
+      sql`(${table.recheckStatus} is null) = (${table.recheckFindings} is null)
+        and (${table.recheckStatus} is null) = (${table.recheckBy} is null)
+        and (${table.recheckStatus} is null) = (${table.recheckClaimedAt} is null)
+        and (${table.recheckStatus} is null or (${table.recheckStatus} = 'pending') = (${table.recheckReadyAt} is null))
+        and (${table.recheckStatus} is null or (${table.recheckStatus} = 'unavailable') = (${table.recheckReason} is not null))
+        and (${table.recheckReason} is null or ${table.recheckReason} in (${sql.raw(unavailableReasons)}))`,
+    ),
     check(
       'ai_preparation_sheet_reason',
       sql`(${table.status} = 'unavailable') = (${table.unavailableReason} is not null)

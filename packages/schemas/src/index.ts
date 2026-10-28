@@ -1044,6 +1044,8 @@ export {
   type ShortlistItem,
 } from './candidates';
 export {
+  AI_FINDINGS_MAX,
+  AI_TEXT_MAX,
   aiCaseSchema,
   aiPromptVersions,
   aiRankInputSchema,
@@ -1103,3 +1105,4 @@ export {
   type BlindTestScore,
   type CandidateMetrics,
 } from './blind-test';
+export { recheckFindings } from './ai-recheck';

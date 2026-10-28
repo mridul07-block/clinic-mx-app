@@ -1,7 +1,14 @@
 import { earlierToday } from '@clinic-mx/schemas';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
-import { claimSheet, finishSheet, setDisposition, sheetForEpisode } from '../ai-sheet';
+import {
+  claimRecheck,
+  claimSheet,
+  finishRecheck,
+  finishSheet,
+  setDisposition,
+  sheetForEpisode,
+} from '../ai-sheet';
 import { insertAiRun } from '../ai-runs';
 import { createDb } from '../client';
 import { insertEpisode } from '../episodes';
@@ -304,6 +311,113 @@ describe('the AI preparation sheet', () => {
       // A run whose claim was taken over writes nothing.
       expect(await finishSheet(tx, { id: claim.id, claimedAt: new Date(0) }, result)).toBe(false);
       expect(await finishSheet(tx, claim, result)).toBe(true);
+    });
+  });
+
+  // AI-04: the recheck is its own run beside the first ranking, one paid call per set of findings.
+  it('is rechecked with findings once per set, beside the first ranking', async () => {
+    await rolledBack(async (tx) => {
+      const s = await setUp(tx);
+      const findings = ['Lachman test: Positive'];
+      const recheck = {
+        sheetId: s.sheetId,
+        findings,
+        by: s.visitConsultant.id,
+        retryAfterSeconds: 60,
+      };
+      const held = await claimRecheck(tx, recheck);
+      if (!held) throw new Error('no recheck claim');
+      // One at a time: a second tap while it runs takes nothing.
+      expect(await claimRecheck(tx, recheck)).toBeNull();
+      const runId = await insertAiRun(tx, {
+        kind: 'recheck_with_findings',
+        episodeId: s.episodeId,
+        kbVersionId: s.version.id,
+        model: 'vendor/model-1',
+        promptVersion: 'recheck_with_findings.v1',
+        inputHash: 'b'.repeat(64),
+        status: 'ok',
+        attempts: 1,
+        latencyMs: 700,
+      });
+      const ready = {
+        status: 'ready' as const,
+        aiRunId: runId,
+        suggestions: [
+          {
+            conditionId: 'KNE-002',
+            region: 'knee' as const,
+            rowNumber: 4,
+            rank: 1,
+            section: 'top' as const,
+            reason: 'Lachman positive',
+          },
+        ],
+      };
+      // A run whose claim was taken over writes nothing.
+      expect(await finishRecheck(tx, { sheetId: s.sheetId, claimedAt: new Date(0) }, ready)).toBe(
+        false,
+      );
+      expect(await finishRecheck(tx, { sheetId: s.sheetId, ...held }, ready)).toBe(true);
+      expect(await finishRecheck(tx, { sheetId: s.sheetId, ...held }, ready)).toBe(false);
+      // The same findings are never paid for twice; new findings are.
+      expect(await claimRecheck(tx, recheck)).toBeNull();
+
+      await becomeStaff(tx, s.visitConsultant);
+      const sheet = await sheetForEpisode(tx, s.episodeId);
+      expect(sheet?.suggestions.map((x) => x.conditionId)).toEqual(['KNE-001', 'KNE-002']);
+      expect(sheet?.recheck).toMatchObject({ status: 'ready', reason: null, findings });
+      expect(sheet?.recheck?.suggestions.map((x) => [x.conditionId, x.rank])).toEqual([
+        ['KNE-002', 1],
+      ]);
+      // Kept or dismissed by the visit's consultant, like the first ranking.
+      const rechecked = sheet?.recheck?.suggestions[0]?.id ?? '';
+      expect(await setDisposition(tx, rechecked, 'kept', s.visitConsultant.id)).toBe(1);
+      // Nobody signed in writes the recheck.
+      expect(
+        await failure(tx, (sp) =>
+          sp.execute(
+            sql`update ai_preparation_sheet set recheck_status = 'pending' where id = ${s.sheetId}`,
+          ),
+        ),
+      ).toBe('42501');
+      await asSystem(tx);
+      expect(
+        await claimRecheck(tx, { ...recheck, findings: ['Lachman test: Negative'] }),
+      ).not.toBeNull();
+    });
+  });
+
+  it('keeps a recheck whole: findings, author and moment with every status', async () => {
+    await rolledBack(async (tx) => {
+      const s = await setUp(tx);
+      const broken = (set: string) =>
+        failure(tx, (sp) =>
+          sp.execute(sql`update ai_preparation_sheet set ${sql.raw(set)} where id = ${s.sheetId}`),
+        );
+      expect(await broken(`recheck_status = 'pending'`)).toBe('23514');
+      const held = await claimRecheck(tx, {
+        sheetId: s.sheetId,
+        findings: ['Lachman test: Positive'],
+        by: s.visitConsultant.id,
+        retryAfterSeconds: 60,
+      });
+      if (!held) throw new Error('no recheck claim');
+      expect(await broken(`recheck_status = 'unavailable', recheck_ready_at = now()`)).toBe(
+        '23514',
+      );
+      expect(await broken(`recheck_reason = 'anything'`)).toBe('23514');
+      expect(await broken(`recheck_findings = null`)).toBe('23514');
+      expect(
+        await finishRecheck(
+          tx,
+          { sheetId: s.sheetId, ...held },
+          { status: 'unavailable', reason: 'not_configured', aiRunId: null },
+        ),
+      ).toBe(true);
+      const sheet = await sheetForEpisode(tx, s.episodeId);
+      expect(sheet?.recheck).toMatchObject({ status: 'unavailable', reason: 'not_configured' });
+      expect(sheet?.recheck?.suggestions).toEqual([]);
     });
   });
 });
