@@ -14,6 +14,7 @@ import {
   REVIEW_BOOK_JOB,
   REVIEW_OVERDUE_JOB,
   REFERRAL_LETTER_JOB,
+  SERVICE_RECOVERY_ESCALATE_JOB,
   THINK_ABOUT_IT_FOLLOW_UP_JOB,
   THINK_ABOUT_IT_MESSAGE_JOB,
   UNSIGNED_NOTES_FLAG_JOB,
@@ -27,6 +28,7 @@ import { generateDischargeReport } from '../documents/discharge-report';
 import { generateInvoice } from '../documents/invoice';
 import { generateReferralLetter } from '../documents/referral-letter';
 import { runLostToFollowUpCheck } from '../episodes/lost-to-follow-up';
+import { runServiceRecoveryEscalation } from '../feedback/service-recovery';
 import { runReviewOverdueCheck } from '../episodes/review-overdue';
 import { AI_PREPARATION_SHEET_JOB, processIntakeSubmission } from '../intake/pipeline';
 import { runReviewBooking } from '../scheduling/review-booking';
@@ -159,6 +161,16 @@ export const jobHandlers: JobHandlers = {
    * Review with the consultant who signed the consultation at their first free time from the
    * plan's review date, or a task for the front desk. A review already booked is left as it is.
    */
+  /**
+   * Service recovery (PAT-08), queued with the task by the database for `feedback.escalate_hours`
+   * after a No or a low score: a task still open gets the Clinical Director a task, once.
+   */
+  [SERVICE_RECOVERY_ESCALATE_JOB]: defineJob({
+    payload: z.object({ taskId: z.guid() }),
+    run: async ({ taskId }, { db }) => {
+      await runServiceRecoveryEscalation(db, { taskId });
+    },
+  }),
   [REVIEW_BOOK_JOB]: defineJob({
     payload: z.object({ episodeId: z.guid() }),
     run: async ({ episodeId }, { db }) => {

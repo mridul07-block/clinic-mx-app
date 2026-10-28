@@ -40,7 +40,7 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
       { timeout: 20_000 },
     )
     .toBe(true);
-  await expect(page.getByTestId('alert-coming')).toHaveCount(2);
+  await expect(page.getByTestId('alert-coming')).toHaveCount(1);
   const fits = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
   expect(await fits()).toBe(true);
   await page.screenshot({ path: test.info().outputPath('dashboard-alerts.png'), fullPage: true });

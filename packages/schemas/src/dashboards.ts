@@ -30,6 +30,7 @@ export const alertItems = [
   'reassessments_awaiting',
   'reviews_open',
   'reviews_overdue',
+  'service_recovery',
   'episodes_on_hold',
   'episodes_lost',
 ] as const;
@@ -45,6 +46,7 @@ export const alertItemLabels: Record<AlertItem, string> = {
   reassessments_awaiting: 'Reassessments waiting for the consultant’s decision',
   reviews_open: 'New symptoms, adverse events and worsening to review',
   reviews_overdue: '6 week reviews overdue',
+  service_recovery: 'Service recovery after a No or a low score',
   episodes_on_hold: 'Episodes on hold',
   episodes_lost: 'Episodes lost to follow up',
 };
@@ -59,6 +61,7 @@ export const alertItemLinks: Record<AlertItem, string | null> = {
   reassessments_awaiting: '/app/tasks',
   reviews_open: '/app/tasks',
   reviews_overdue: null,
+  service_recovery: '/app/tasks',
   episodes_on_hold: null,
   episodes_lost: '/app/tasks',
 };
@@ -83,7 +86,6 @@ export const alertsComing = [
     label: 'Stalled progress',
     needs: 'Plateau and no change wait for the clinic’s thresholds (ALT-02, DECISION ALT-02)',
   },
-  { label: 'Service recovery', needs: 'Comes with discharge feedback (PAT-08)' },
 ] as const;
 
 /** The funnel from a consultation to a completed plan (`internal.kpi_funnel`), in order. */

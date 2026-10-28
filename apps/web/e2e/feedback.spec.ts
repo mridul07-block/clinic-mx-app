@@ -100,6 +100,18 @@ test('the patient rates their consultation from the desk’s QR, and the manager
   const office = await browser.newContext(test.info().project.use);
   const desktop = await office.newPage();
   await signInWithCode(desktop, manager.email, manager.secret);
+  // PAT-08: the No gave the Centre Managers at HSR Layout a service recovery task, counted on Alerts.
+  await desktop.goto('/app/tasks');
+  await expect(
+    desktop
+      .getByTestId('service-recovery')
+      .filter({ hasText: 'No: Did you understand the proposed treatment plan?' })
+      .first(),
+  ).toBeVisible();
+  await desktop.goto('/app/dashboard/alerts');
+  await expect(
+    desktop.locator('[data-testid="alert-count"][data-item="service_recovery"]'),
+  ).toBeVisible();
   await desktop.goto('/app/dashboard/feedback?window=30');
   await expect(desktop.getByTestId('after-consultation-by-centre')).toContainText('HSR Layout');
   const byPhysio = desktop

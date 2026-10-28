@@ -93,10 +93,12 @@ describe('the Centre Manager’s dashboards', () => {
       { name: 'Koramangala', n: 2 },
     ]);
     expect(view.items.find((item) => item.item === 'episodes_lost')?.total).toBe(0);
-    expect(view.coming.map((entry) => entry.label)).toEqual([
-      'Stalled progress',
-      'Service recovery',
-    ]);
+    expect(view.coming.map((entry) => entry.label)).toEqual(['Stalled progress']);
+    // PAT-08: open service recovery tasks are counted, and listed in Tasks.
+    expect(view.items.find((item) => item.item === 'service_recovery')).toMatchObject({
+      total: 0,
+      link: '/app/tasks',
+    });
   });
 
   it('shows each centre today: utilisation, no shows, waiting and payment pending', async () => {

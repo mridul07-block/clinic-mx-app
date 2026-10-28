@@ -67,6 +67,8 @@ Kinds so far:
 | `call.think_about_it` | "I'll think about it" still the patient's choice on day 2 (BIL-02, `docs/runbooks/plan-sheet.md`) | The Front Desk at the episode's centre |
 | `review.worsening` | A session note signed "Worse", or with "Escalate" next (ALT-02) | The consultant who signed the consultation (high), else the Centre Manager |
 | `review.overdue` | The daily 6:00 AM check: an Active episode past its 6 week review date, no Review attended or booked ahead, no final test (ALT-02); closed by itself once booked or done | The consultant (normal), else the Centre Manager |
+| `feedback.service_recovery` | Feedback with any No, or a recommendation score at or below `feedback.recovery_score_max` (PAT-08); its details name the questions answered No and the score, never the patient | The centre's Centre Managers (high) |
+| `feedback.service_recovery_director` | A service recovery task still open `feedback.escalate_hours` after the feedback (PAT-08, the queued `feedback.recovery_escalate`) | The Clinical Director: the Super Admin (high), as for adverse events |
 
 ## Progress alerts (ALT-02, in part)
 

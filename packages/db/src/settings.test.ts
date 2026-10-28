@@ -49,6 +49,8 @@ const stored: Settings = {
   'kpi.target_return_to_sport_percent': 85,
   'kpi.target_reinjury_percent': 15,
   'kpi.target_satisfaction_score': 4.5,
+  'feedback.recovery_score_max': 6,
+  'feedback.escalate_hours': 24,
   'kpi.target_nps': 60,
   'kpi.target_notes_same_day_percent': 95,
   'kpi.target_booking_flow_percent': 80,

@@ -1,8 +1,9 @@
 import { addDays, istDate } from '@clinic-mx/schemas';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { patientActor, setAuditContext, systemActor, withActor } from '../audit';
 import { createDb } from '../client';
+import { managerAlertCounts } from '../dashboards';
 import { updateEpisodeState } from '../episodes';
 import {
   dischargeFeedbackTarget,
@@ -15,7 +16,8 @@ import {
 } from '../feedback';
 import type { StaffMember } from '../identity';
 import { completePatientLinkRow, insertPatientLink } from '../patient-links';
-import { auditEvent, feedback, patientLink } from '../schema';
+import { auditEvent, feedback, job, patientLink, task } from '../schema';
+import { escalateServiceRecovery } from '../service-recovery';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import { asSystem, episodeThrough, knowledgeVersion, note, visit } from './fake-figures';
 import { becomeStaff, testPhysio } from './fake-schedule';
@@ -550,6 +552,145 @@ describe('Feedback at discharge', () => {
       await becomeStaff(tx, deskHsr);
       expect((await dischargeFeedbackTarget(tx, done.episodeId))?.received).toBe(true);
       expect(await issue(deskHsr, done)).toBe('42501');
+    });
+  });
+});
+
+// PAT-08: a No, or a score at or below `feedback.recovery_score_max` (6), gives the centre's Centre
+// Managers a high task at once and queues its escalation for `feedback.escalate_hours` (24); one
+// still open then gets the Clinical Director (the Super Admin) a task, once.
+describe('Service recovery', () => {
+  const recoveryOf = (tx: Tx, feedbackId: string) =>
+    tx
+      .select()
+      .from(task)
+      .where(
+        and(
+          eq(task.kind, 'feedback.service_recovery'),
+          sql`${task.details} ->> 'feedbackId' = ${feedbackId}`,
+        ),
+      );
+  const feedbackOf = async (tx: Tx, linkId: string) => {
+    const [row] = await tx
+      .select({ id: feedback.id })
+      .from(feedback)
+      .where(eq(feedback.patientLinkId, linkId));
+    return row?.id ?? '';
+  };
+
+  it('gives the Centre Managers a task for a No, queues its escalation, and nothing for all Yes', async () => {
+    await rolledBack(async (tx) => {
+      const held = await consulted(tx, centreIds.hsrLayout);
+      await answer(tx, held.link);
+      await asSystem(tx);
+      const [made] = await recoveryOf(tx, await feedbackOf(tx, held.link.id));
+      expect(made).toMatchObject({
+        title: 'Service recovery: feedback after the consultation',
+        priority: 'high',
+        status: 'open',
+        assigneeRole: 'centre_manager',
+        assigneeStaffUserId: null,
+        centreId: held.centreId,
+        patientId: held.patientId,
+        episodeId: held.episodeId,
+        details: { surveyKey: 'post_consultation', noAnswers: ['questions_answered'], score: null },
+      });
+      const [queued] = await tx
+        .select({ runAt: job.runAt })
+        .from(job)
+        .where(eq(job.idempotencyKey, `feedback.recovery_escalate:${made?.id ?? ''}`));
+      const hours = ((queued?.runAt.getTime() ?? 0) - Date.now()) / 3_600_000;
+      expect(hours).toBeGreaterThan(23.9);
+      expect(hours).toBeLessThan(24.1);
+      // The Centre Manager counts it among the alerts at the centre.
+      await becomeStaff(tx, manager);
+      const counted = (await managerAlertCounts(tx)).find(
+        (row) => row.centreId === held.centreId && row.item === 'service_recovery',
+      );
+      expect(counted?.n).toBeGreaterThanOrEqual(1);
+      // All Yes: no task.
+      await asSystem(tx);
+      const happy = await consulted(tx, centreIds.hsrLayout);
+      await asLink(tx, happy.link);
+      const subject = await feedbackSubject(tx);
+      if (!subject) throw new Error('no subject');
+      await insertFeedback(tx, {
+        linkId: happy.link.id,
+        subject,
+        surveyVersion: 1,
+        answers: { ...yes, questions_answered: 'yes' },
+        comment: null,
+        score: null,
+      });
+      await asSystem(tx);
+      expect(await recoveryOf(tx, await feedbackOf(tx, happy.link.id))).toEqual([]);
+    });
+  });
+
+  it('takes a score at or below the setting as negative at discharge, and 7 as not', async () => {
+    await rolledBack(async (tx) => {
+      const allYes = {
+        goals_achieved: 'yes',
+        continue_independently: 'yes',
+        satisfied_with_care: 'yes',
+      };
+      const scored = async (score: number) => {
+        const done = await discharged(tx, centreIds.hsrLayout);
+        await asLink(tx, done.link);
+        const subject = await feedbackSubject(tx);
+        if (!subject) throw new Error('no subject');
+        await insertFeedback(tx, {
+          linkId: done.link.id,
+          subject,
+          surveyVersion: 1,
+          answers: allYes,
+          comment: null,
+          score,
+        });
+        await asSystem(tx);
+        return recoveryOf(tx, await feedbackOf(tx, done.link.id));
+      };
+      const [low] = await scored(6);
+      expect(low).toMatchObject({
+        title: 'Service recovery: feedback at discharge',
+        details: { surveyKey: 'discharge', noAnswers: [], score: 6 },
+      });
+      expect(await scored(7)).toEqual([]);
+    });
+  });
+
+  it('escalates a task still open to the Clinical Director once, and never one closed in time', async () => {
+    await rolledBack(async (tx) => {
+      const held = await consulted(tx, centreIds.hsrLayout);
+      await answer(tx, held.link);
+      await asSystem(tx);
+      const [open] = await recoveryOf(tx, await feedbackOf(tx, held.link.id));
+      expect(await escalateServiceRecovery(tx, open?.id ?? '')).toBe(true);
+      expect(await escalateServiceRecovery(tx, open?.id ?? '')).toBe(false);
+      const [director] = await tx
+        .select()
+        .from(task)
+        .where(
+          and(
+            eq(task.kind, 'feedback.service_recovery_director'),
+            sql`${task.details} ->> 'recoveryTaskId' = ${open?.id ?? ''}`,
+          ),
+        );
+      expect(director).toMatchObject({
+        assigneeRole: 'super_admin',
+        priority: 'high',
+        centreId: held.centreId,
+      });
+      // Closed in time: no escalation.
+      const other = await consulted(tx, centreIds.hsrLayout);
+      await answer(tx, other.link);
+      await asSystem(tx);
+      const [closed] = await recoveryOf(tx, await feedbackOf(tx, other.link.id));
+      await tx
+        .update(task)
+        .set({ status: 'closed', closedAt: new Date(), decision: 'Called the patient; resolved.' })
+        .where(eq(task.id, closed?.id ?? ''));
+      expect(await escalateServiceRecovery(tx, closed?.id ?? '')).toBe(false);
     });
   });
 });
