@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "task_open_review_overdue_key" ON "task" USING btree ("episode_id") WHERE "task"."kind" = 'review.overdue' and "task"."status" = 'open';

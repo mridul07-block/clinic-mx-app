@@ -3401,6 +3401,77 @@ describe('counter payments', () => {
       });
     });
 
+    // ALT-02: "Worse" after treatment, or "Escalate" next, is the consultant's high task (SOP
+    // 15.2); Better or Same with Progress raises none.
+    it('gives the consultant a task when a session goes worse or is escalated, and none otherwise', async () => {
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        const worsening = async () => {
+          await asOwner(tx);
+          return tx
+            .select({
+              title: task.title,
+              priority: task.priority,
+              assignee: task.assigneeStaffUserId,
+              details: task.details,
+            })
+            .from(task)
+            .where(and(eq(task.episodeId, fixture.episodeId), eq(task.kind, 'review.worsening')));
+        };
+        const { sessionId } = await started(tx, fixture);
+        await becomeStaff(tx, fixture.consultant);
+        await saveSessionNote(tx, sessionId, 1, {
+          response: { rating: 'worse', note: 'Swelling after the stairs work' },
+          nextSession: { plan: 'regress', note: '' },
+        });
+        expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 2))).toBe('signed');
+        expect(await worsening()).toEqual([
+          {
+            title: 'Worse or escalated in session 1',
+            priority: 'high',
+            assignee: fixture.consultant.id,
+            details: expect.objectContaining({
+              sessionId,
+              rating: 'worse',
+              plan: 'regress',
+            }) as unknown,
+          },
+        ]);
+      });
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        const { sessionId } = await started(tx, fixture);
+        await becomeStaff(tx, fixture.consultant);
+        await saveSessionNote(tx, sessionId, 1, {
+          response: { rating: 'same', note: '' },
+          nextSession: { plan: 'escalate', note: 'Refer for imaging' },
+        });
+        expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 2))).toBe('signed');
+        await asOwner(tx);
+        const tasks = await tx
+          .select({ title: task.title })
+          .from(task)
+          .where(and(eq(task.episodeId, fixture.episodeId), eq(task.kind, 'review.worsening')));
+        expect(tasks).toHaveLength(1);
+      });
+      await rolledBack(async (tx) => {
+        const fixture = await chosenPackage(tx, 12);
+        const { sessionId } = await started(tx, fixture);
+        await becomeStaff(tx, fixture.consultant);
+        await saveSessionNote(tx, sessionId, 1, {
+          response: { rating: 'better', note: '' },
+          nextSession: { plan: 'progress', note: '' },
+        });
+        expect(await signSession(tx, closing(fixture.consultant.id, sessionId, 2))).toBe('signed');
+        await asOwner(tx);
+        const tasks = await tx
+          .select({ title: task.title })
+          .from(task)
+          .where(and(eq(task.episodeId, fixture.episodeId), eq(task.kind, 'review.worsening')));
+        expect(tasks).toHaveLength(0);
+      });
+    });
+
     // SES-05: the modalities of an imported knowledge base version give their parameters, read by
     // a physio writing a note (the fixture's own version holds no modalities).
     it('gives the imported modalities their session parameters', async () => {

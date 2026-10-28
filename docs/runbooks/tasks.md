@@ -65,6 +65,40 @@ Kinds so far:
 | `call.no_show` | A confirmed no show (ALT-04, `docs/runbooks/no-shows.md`) | The Front Desk at the centre |
 | `review.no_shows` | Missed appointments in a row (ALT-04) | The physio of the missed appointment |
 | `call.think_about_it` | "I'll think about it" still the patient's choice on day 2 (BIL-02, `docs/runbooks/plan-sheet.md`) | The Front Desk at the episode's centre |
+| `review.worsening` | A session note signed "Worse", or with "Escalate" next (ALT-02) | The consultant who signed the consultation (high), else the Centre Manager |
+| `review.overdue` | The daily 6:00 AM check: an Active episode past its 6 week review date, no Review attended or booked ahead, no final test (ALT-02); closed by itself once booked or done | The consultant (normal), else the Centre Manager |
+
+## Progress alerts (ALT-02, in part)
+
+PRD M11 and J5.9, Frontend Specification section 9 ("Reassessment overdue"), Blueprint 11C. Built
+from what the clinician records and the plan's dates, with no number no document gives;
+recommended defaults chosen under the user's standing approval, 28 October 2026 (DECISION ALT-02):
+
+- **Worse or escalated:** a session note signed with the response "Worse", or "Escalate" for the
+  next session, is a high task for the consultant who signed the episode's consultation (the
+  Centre Manager before one), as SOP 15.2 asks ("unexpected clinical deterioration … same-day
+  review"). One per signed note; the note shows "Closing the session gives the consultant a task
+  to review the patient today." Raised by `internal.session_closed` in the signing transaction.
+- **6 week review overdue:** every morning at 6:00 AM IST (`episodes.review_overdue`) an Active
+  episode whose newest plan's review date has passed, with no Review attended, none booked ahead
+  and no final test, gets one task (`task_open_review_overdue_key` keeps it to one open); an open
+  one whose review is since booked or done is closed with "Closed automatically: the review is
+  booked or done."; an episode leaving Active (discharged, on hold, lost to follow up) closes it at
+  once, saying so. A Review booked at the desk, which names no episode, counts for the patient's
+  episode. A review booked late is not flagged.
+- **Waiting for the client:** plateau and no meaningful change (only lumbar has MCIDs, from its
+  workbook; the questionnaires come with OUT-02 and SET-08), low adherence (My plan, PAT-01 and
+  PAT-02), milestones missed (goals are text; phase times are typical, not deadlines) and repeated
+  missed sessions that are not in a row (ALT-04 covers those in a row). Each needs the client's
+  rule or threshold.
+- **Closing:** with a written decision, as every task. Blueprint 11C's list (continue, modify,
+  regress, escalate, seek medical review, discharge) becomes a pick list only if the client says.
+- **Manager dashboards:** worse or escalated joins the reviews to do; overdue reviews are counted on
+  their own ("6 week reviews overdue").
+- **Review (28 October 2026):** an adversarial review found a Review booked at the desk (no
+  episode) ignored, tasks closed with the wrong reason or only the next morning, the manager's
+  overdue count linking to a list they cannot read (now counted only), and the job missing from
+  `docs/runbooks/jobs.md`. All are fixed with tests.
 
 ## Unsigned notes flag (CLN-10)
 
@@ -122,7 +156,12 @@ Tests:
 | `packages/db/src/integration/rls.integration.test.ts` | Tasks reach the people they are for and are closed by them. |
 | `apps/web/modules/tasks/services.test.ts` | Take and close as the actor; refusals for closed, missing, taken by someone else, another centre and support; the alerts count only for clinicians. |
 | `packages/schemas/src/tasks.test.ts` | The decision is required and trimmed; kind labels. |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (worse or escalated) | Worse gives the consultant one high task with the rating and plan; Escalate gives one; Better with Progress none (ALT-02). |
+| `packages/db/src/integration/review-overdue.integration.test.ts` | One task for the consultant however often the day runs, closed once a Review is booked; none before the date, after a Review attended or On hold; the Centre Manager without a signed consultation (ALT-02). |
+| `packages/db/src/integration/manager-dashboards.integration.test.ts` | Worse or escalated in the reviews; overdue reviews counted (ALT-02). |
 | `apps/web/e2e/tasks.spec.ts` | 360 px and desktop. A temporary desk opens Tasks from Home and sees generated HSR tasks most urgent first (an overdue one tagged); takes one, and a second desk no longer sees it; Close without a decision is refused; with one the task moves to Recently closed with its decision, audited as the desk. A physio does not see the desk's tasks. |
 
 Negative check: with the `task_lifecycle` trigger dropped, the taking and closing database tests
-failed (ALT-03).
+failed (ALT-03). With "Worse" taken out of `internal.session_closed`, the worse or escalated
+database test failed; with an attended Review no longer counted, the overdue test failed (ALT-02,
+28 October 2026).

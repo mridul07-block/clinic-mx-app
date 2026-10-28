@@ -391,6 +391,13 @@ export {
   type LostEpisode,
 } from './lost-to-follow-up';
 export {
+  REVIEW_OVERDUE_JOB,
+  flagOverdueReviews,
+  overdueReviews,
+  queueNextReviewOverdueCheck,
+  type OverdueReview,
+} from './review-overdue';
+export {
   UNSIGNED_NOTES_FLAG_JOB,
   flagUnsignedNotes,
   queueNextUnsignedNotesFlag,

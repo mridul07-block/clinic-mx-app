@@ -149,6 +149,22 @@ describe('the alert counts', () => {
         assigneeStaffUserId: physio.id,
         centreId: hsr,
       });
+      // ALT-02: a worse or escalated session joins the reviews; an overdue 6 week review counts
+      // on its own.
+      await tx.insert(task).values([
+        {
+          kind: 'review.worsening',
+          title: 'Worse or escalated in session 3',
+          assigneeStaffUserId: physio.id,
+          centreId: hsr,
+        },
+        {
+          kind: 'review.overdue',
+          title: '6 week review overdue',
+          assigneeStaffUserId: physio.id,
+          centreId: hsr,
+        },
+      ]);
       await episodeThrough(tx, hsr, ['awaiting_consultation', 'on_hold']);
 
       const after = await as(tx, manager, managerAlertCounts);
@@ -156,7 +172,8 @@ describe('the alert counts', () => {
         alertCount(after, centreId, item) - alertCount(before, centreId, item);
       expect(change('red_flags_emergency')).toBe(1);
       expect(change('unsigned_notes')).toBe(1);
-      expect(change('reviews_open')).toBe(1);
+      expect(change('reviews_open')).toBe(2);
+      expect(change('reviews_overdue')).toBe(1);
       expect(change('episodes_on_hold')).toBe(1);
       // The manager does not see Whitefield; the Super Admin does.
       expect(manager.centreIds).not.toContain(centreIds.whitefield);

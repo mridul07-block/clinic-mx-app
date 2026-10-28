@@ -12,6 +12,7 @@ import {
   RECEIPT_JOB,
   RED_FLAG_SAFETY_ADVICE_JOB,
   REVIEW_BOOK_JOB,
+  REVIEW_OVERDUE_JOB,
   REFERRAL_LETTER_JOB,
   THINK_ABOUT_IT_FOLLOW_UP_JOB,
   THINK_ABOUT_IT_MESSAGE_JOB,
@@ -26,6 +27,7 @@ import { generateDischargeReport } from '../documents/discharge-report';
 import { generateInvoice } from '../documents/invoice';
 import { generateReferralLetter } from '../documents/referral-letter';
 import { runLostToFollowUpCheck } from '../episodes/lost-to-follow-up';
+import { runReviewOverdueCheck } from '../episodes/review-overdue';
 import { AI_PREPARATION_SHEET_JOB, processIntakeSubmission } from '../intake/pipeline';
 import { runReviewBooking } from '../scheduling/review-booking';
 import { runUnsignedNotesFlag } from '../tasks/unsigned-notes';
@@ -138,6 +140,18 @@ export const jobHandlers: JobHandlers = {
     payload: z.object({ date: z.iso.date() }),
     run: async ({ date }, { db }) => {
       await runLostToFollowUpCheck(db, { date });
+    },
+  }),
+  /**
+   * The overdue 6 week review (ALT-02), every morning at 6:00 AM IST: it queues the next day, then
+   * gives the consultant a task for each Active episode past its review date with no Review
+   * attended or booked ahead and no final test, and closes open ones no longer due. A migration
+   * queued the first day; running a day twice adds nothing.
+   */
+  [REVIEW_OVERDUE_JOB]: defineJob({
+    payload: z.object({ date: z.iso.date() }),
+    run: async ({ date }, { db }) => {
+      await runReviewOverdueCheck(db, { date });
     },
   }),
   /**

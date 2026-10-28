@@ -818,6 +818,12 @@ export function SessionNoteForm({
             set({ nextSession: { ...note.nextSession, note: value } });
           }}
         />
+        {/* ALT-02: worse after treatment, or escalated, is the consultant's same-day review. */}
+        {editable && (note.response.rating === 'worse' || note.nextSession.plan === 'escalate') ? (
+          <p className="text-sm text-waiting-strong" data-testid="worsening-hint">
+            Closing the session gives the consultant a task to review the patient today.
+          </p>
+        ) : null}
       </Section>
 
       {editable && blockers.length > 0 ? (

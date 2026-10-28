@@ -356,6 +356,10 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
         .locator('label')
         .filter({ hasText: /^Worse$/ })
         .click();
+      // ALT-02: worse after treatment is the consultant's same-day review.
+      await expect(note.getByTestId('worsening-hint')).toHaveText(
+        'Closing the session gives the consultant a task to review the patient today.',
+      );
       // SES-05: the parameters came along; the reason is asked again.
       const again = note.locator(
         '[data-testid="modality-parameters"][data-modality="radial_shockwave"]',
@@ -389,6 +393,12 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
       await physioPage.goto('/app/tasks');
       await expect(
         physioPage.getByTestId('task-card').filter({ hasText: 'Adverse event in session 2' }),
+      ).toHaveCount(1);
+      await expect(
+        physioPage
+          .getByTestId('task-card')
+          .filter({ hasText: 'Worse or escalated in session 2' })
+          .filter({ hasText: 'Clinical review: worse or escalated' }),
       ).toHaveCount(1);
 
       // The Clinical Director (the Super Admin role) has its own task, and the record shows it.

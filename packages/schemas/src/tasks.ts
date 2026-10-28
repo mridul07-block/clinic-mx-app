@@ -29,6 +29,8 @@ export const taskKindLabels: Record<string, string> = {
   'book.review': 'Book the 6 week review',
   'review.reassessment': 'Reassessment review',
   'review.lost_to_follow_up': 'Lost to follow up',
+  'review.worsening': 'Clinical review: worse or escalated',
+  'review.overdue': '6 week review overdue',
 };
 
 export function taskKindLabel(kind: string): string {

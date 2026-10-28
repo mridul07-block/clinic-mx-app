@@ -1058,6 +1058,20 @@
       "when": 1793156066105,
       "tag": "20261028025426_refunds_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1793160110032,
+      "tag": "20261028040150_progress_alerts",
+      "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1793160111810,
+      "tag": "20261028040151_progress_alerts_rules",
+      "breakpoints": true
     }
   ]
 }

@@ -29,6 +29,7 @@ export const alertItems = [
   'unsigned_notes',
   'reassessments_awaiting',
   'reviews_open',
+  'reviews_overdue',
   'episodes_on_hold',
   'episodes_lost',
 ] as const;
@@ -42,7 +43,8 @@ export const alertItemLabels: Record<AlertItem, string> = {
   red_flags_referred: 'Red flags referred, not yet closed',
   unsigned_notes: 'Notes started and not signed',
   reassessments_awaiting: 'Reassessments waiting for the consultant’s decision',
-  reviews_open: 'New symptoms and adverse events to review',
+  reviews_open: 'New symptoms, adverse events and worsening to review',
+  reviews_overdue: '6 week reviews overdue',
   episodes_on_hold: 'Episodes on hold',
   episodes_lost: 'Episodes lost to follow up',
 };
@@ -56,6 +58,7 @@ export const alertItemLinks: Record<AlertItem, string | null> = {
   unsigned_notes: '/app/tasks',
   reassessments_awaiting: '/app/tasks',
   reviews_open: '/app/tasks',
+  reviews_overdue: null,
   episodes_on_hold: null,
   episodes_lost: '/app/tasks',
 };
@@ -63,11 +66,15 @@ export const alertItemLinks: Record<AlertItem, string | null> = {
 /** Where to find the items with no list of their own yet. */
 export const alertItemWhere: Partial<Record<AlertItem, string>> = {
   episodes_on_hold: 'Each one shows on the patient’s record; a list of them is not built yet.',
+  reviews_overdue: 'Each is a task held by the episode’s consultant, in their Tasks.',
 };
 
 /** The Frontend Specification's alert lines whose data no ticket has built yet. */
 export const alertsComing = [
-  { label: 'Stalled progress', needs: 'Comes with progress alerts (ALT-02)' },
+  {
+    label: 'Stalled progress',
+    needs: 'Plateau and no change wait for the clinic’s thresholds (ALT-02, DECISION ALT-02)',
+  },
   { label: 'Service recovery', needs: 'Comes with discharge feedback (PAT-08)' },
 ] as const;
 

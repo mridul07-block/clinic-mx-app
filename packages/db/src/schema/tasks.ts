@@ -1,5 +1,15 @@
 import { sql } from 'drizzle-orm';
-import { check, index, jsonb, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  check,
+  index,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { episode } from './episodes';
 import { centre, staffRole, staffUser } from './identity';
 import { patient } from './patients';
@@ -53,6 +63,10 @@ export const task = pgTable(
       .on(table.assigneeStaffUserId)
       .where(sql`${table.status} = 'open'`),
     index('task_closed_at_idx').on(table.closedAt),
+    // One open overdue 6 week review task per episode (ALT-02): the daily check never adds twice.
+    uniqueIndex('task_open_review_overdue_key')
+      .on(table.episodeId)
+      .where(sql`${table.kind} = 'review.overdue' and ${table.status} = 'open'`),
     // An undone no show closes the open tasks it raised (ALT-04).
     index('task_open_appointment_idx')
       .on(sql`(${table.details} ->> 'appointmentId')`)
