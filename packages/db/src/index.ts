@@ -634,3 +634,10 @@ export {
 } from './feedback';
 export { aiSheetGate } from './ai-gate';
 export { episodeCandidateInput, type EpisodeCandidateInput } from './candidates';
+export {
+  AI_SPEND_CAP_TASK,
+  aiSpendSince,
+  insertAiRun,
+  openAiSpendCapTask,
+  type NewAiRun,
+} from './ai-runs';

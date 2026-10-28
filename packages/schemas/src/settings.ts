@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { aiSheetSettingSchema } from './ai';
+import { aiTaskConfigSchema } from './ai-gateway';
 import { redFlagTiers } from './knowledge';
 
 /**
@@ -344,6 +345,35 @@ export const settingDefinitions = {
       'PRD section 6 step 2 and TAD section 6 step 3 (matching high risk rows always added); AI-02: the workbooks’ Red flag tier, recommended default, 28 October 2026',
     description:
       'The red flag tiers whose rows in the patient’s region and age range always go to Must rule out on the preparation sheet.',
+  },
+  // DECISION AI-01: the daily cap is the client's; 200 rupees is a placeholder.
+  'ai.daily_spend_cap_paise': {
+    schema: z.int().positive(),
+    source:
+      'TAD section 7 (a daily spend cap with an alert to the Super Admin); AI-01: a placeholder of 200 rupees a day, recommended default, 28 October 2026',
+    description:
+      'The most the AI may spend in an IST day, in paise; past it no model is called and the Super Admin gets a task.',
+  },
+  'ai.usd_rate_paise': {
+    schema: z.int().positive(),
+    source:
+      'TAD section 11 (about 96.5 rupees per US dollar); AI-01, recommended default, 28 October 2026',
+    description: 'Paise per US dollar, to count the AI provider’s charges against the daily cap.',
+  },
+  // DECISION AI-01: no model or provider until the blind test chooses them (AI-06).
+  'ai.task_rank_diagnoses': {
+    schema: aiTaskConfigSchema,
+    source:
+      'TAD section 7 (one function per task, each with its model, prompt version, reasoning effort, timeout and token limit in config); AI-01, recommended default, 28 October 2026',
+    description:
+      'The preparation sheet’s ranking: the model and pinned providers (none until the blind test), prompt version, reasoning effort, timeout and token limit.',
+  },
+  'ai.task_recheck_with_findings': {
+    schema: aiTaskConfigSchema,
+    source:
+      'TAD section 7 (one function per task, each with its model, prompt version, reasoning effort, timeout and token limit in config); AI-01, recommended default, 28 October 2026',
+    description:
+      'The recheck with findings: the model and pinned providers (none until the blind test), prompt version, reasoning effort, timeout and token limit.',
   },
   'billing.consultation_fee_timing': {
     schema: z.enum(consultationFeeTimings),

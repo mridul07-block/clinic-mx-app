@@ -38,7 +38,7 @@ They are recorded as DECISION 23 in `docs/PROGRESS.md`, and the client's lawyer 
   on for is still the live version (SET-06, `docs/runbooks/knowledge-base.md`).
   - Approving a newer version switches the sheet off until a new blind test is recorded. The TAD
     says the blind test reruns whenever the knowledge base changes.
-  - AI-01 adds the model and prompt to the same comparison.
+  - AI-06 adds the model and prompt that passed the blind test to the same comparison.
 - **Read fresh, fails closed:** `aiSheetGate` (`packages/db/src/ai-gate.ts`) reads the row each
   time, not the 60 second settings cache, so switching off takes effect everywhere at once. A
   missing or unreadable value counts as off. The pure logic is `aiSheetGateState`.
@@ -55,7 +55,7 @@ They are recorded as DECISION 23 in `docs/PROGRESS.md`, and the client's lawyer 
   - "Suggestions unavailable right now" (Frontend Specification) is only for a failure while the
     gate is on.
 
-## For AI-01 to AI-05
+## For AI-01 to AI-05 (the gateway: `docs/runbooks/ai-gateway.md`)
 
 Every AI step that suggests a diagnosis takes an `AiSheetPass` (`apps/web/modules/ai/gate.ts`).
 Only `aiSheetPass(db)` makes one, and only while the gate is on, so these steps cannot be called
