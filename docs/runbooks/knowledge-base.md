@@ -26,8 +26,46 @@ rules.
 - **Activity tags:** a fixed vocabulary (`activityTagVocabulary` in
   `packages/schemas/src/knowledge.ts`), matched by keywords. The report lists rows that matched
   no tag.
-- **Version state:** an import is a new version, recorded as a draft. Approval and the viewer
-  come with SET-06; nothing signed in can write or approve a version until then.
+- **Version state:** an import is a new version, recorded as a draft. The Super Admin approves
+  it (SET-06, below).
+
+## Versions, the viewer and approval (SET-06)
+
+Recommended defaults, chosen under the user's standing approval of 28 October 2026 (DECISION
+SET-06 in `docs/PROGRESS.md`).
+
+- **The live version** is what new clinical records take and store (consultations, session notes,
+  red flag rules at the health form submit, phases and readiness criteria): the newest approved
+  version. Before any version is approved, the newest import is live, so a fresh install works
+  (bootstrap). Once one version is approved, a draft never goes live. The selectors share
+  `liveVersionCondition` in `packages/db/src/knowledge.ts` (`latestKnowledgeVersion`,
+  `latestPhaseVersion`, `latestCriteriaVersion`).
+- **Records keep their version.** A consultation or session note stores the version it was opened
+  with; approving a newer version never changes it (rule 4).
+- **Where a version stands** is worked out, not stored (`knowledgeVersionStandingsOf` in
+  `packages/schemas/src/knowledge-versions.ts`): Live; Superseded (approved, older than live);
+  Draft, awaiting approval (newer than live); Passed over (a draft older than live, which can no
+  longer be approved).
+- **Approval:** only the Super Admin, not a Velyx support login, through
+  `internal.approve_kb_version` (the only write a signed in person makes to `kb_version`). It
+  refuses a version already approved, one not newer than the live version and an unknown one;
+  records the approver from the sign in, the time and an optional note (up to 1000 characters);
+  and is audited as the Super Admin. The form asks them to confirm they have read the import
+  report. Red flag rules and modality links awaiting clinical sign-off are shown, not a gate.
+- **Never changed:** the `kb_version_guard` trigger refuses any delete, any change to an approved
+  version, and any change to a draft other than its approval. There is no un-approve: a draft
+  that should not go live is passed over by approving a newer one.
+- **The viewer:** `/app/knowledge-base` (Home, "Knowledge base") lists the versions for knowledge
+  base readers (Super Admin, Centre Managers, physios). A version's page shows its source files
+  with their SHA-256 and the import report in folded parts. The Super Admin (not support) also
+  sees how many consultations and session notes stored it, drafts and every centre included
+  (`internal.kb_version_usage`, counts only), and the approve form. The monthly improvement report is
+  a placeholder until AI-08.
+- **Tests:** `packages/db/src/integration/knowledge.integration.test.ts` ("knowledge base
+  approval"), `apps/web/modules/knowledge-base/services.test.ts`,
+  `packages/schemas/src/knowledge-versions.test.ts` and `apps/web/e2e/knowledge-base.spec.ts`. The
+  end to end test approves CI's only version and puts it back to a draft afterwards
+  (`apps/web/e2e/knowledge-base.ts`, test harness only).
 
 ## What is stored
 

@@ -9,6 +9,7 @@ import type {
 } from '@clinic-mx/schemas';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { kbPhase, kbPhaseCriterion, kbVersion, phaseMark, phaseMove } from './schema';
+import { liveVersionCondition } from './knowledge';
 import type { DbOrTransaction } from './versioned';
 
 /**
@@ -18,7 +19,7 @@ import type { DbOrTransaction } from './versioned';
  * changes.
  */
 
-/** The newest knowledge base version holding phases for the region. */
+/** The newest live knowledge base version (SET-06) holding phases for the region. */
 export async function latestPhaseVersion(
   db: DbOrTransaction,
   region: KnowledgeRegion,
@@ -27,8 +28,11 @@ export async function latestPhaseVersion(
     .select({ id: kbVersion.id })
     .from(kbVersion)
     .where(
-      sql`exists (select 1 from ${kbPhase} p
-        where p.kb_version_id = ${kbVersion.id} and p.region = ${region})`,
+      and(
+        sql`exists (select 1 from ${kbPhase} p
+          where p.kb_version_id = ${kbVersion.id} and p.region = ${region})`,
+        liveVersionCondition,
+      ),
     )
     .orderBy(desc(kbVersion.number))
     .limit(1);

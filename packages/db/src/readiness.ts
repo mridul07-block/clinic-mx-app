@@ -15,6 +15,7 @@ import {
   readinessMark,
   readinessRecording,
 } from './schema';
+import { liveVersionCondition } from './knowledge';
 import type { DbOrTransaction } from './versioned';
 
 /**
@@ -24,7 +25,7 @@ import type { DbOrTransaction } from './versioned';
  * `internal.clearance_guard` hold who writes them, when, and that nothing changes.
  */
 
-/** The newest knowledge base version holding readiness criteria for the region. */
+/** The newest live knowledge base version (SET-06) holding readiness criteria for the region. */
 export async function latestCriteriaVersion(
   db: DbOrTransaction,
   region: KnowledgeRegion,
@@ -33,8 +34,11 @@ export async function latestCriteriaVersion(
     .select({ id: kbVersion.id })
     .from(kbVersion)
     .where(
-      sql`exists (select 1 from ${kbReadinessCriterion} c
-        where c.kb_version_id = ${kbVersion.id} and c.region = ${region})`,
+      and(
+        sql`exists (select 1 from ${kbReadinessCriterion} c
+          where c.kb_version_id = ${kbVersion.id} and c.region = ${region})`,
+        liveVersionCondition,
+      ),
     )
     .orderBy(desc(kbVersion.number))
     .limit(1);

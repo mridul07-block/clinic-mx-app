@@ -27,7 +27,8 @@ once per appointment; a repeat finds the same one. It needs:
 - a Consultation type visit, checked in, on its day, by its own physio (CLN-01's rules);
 - the Consultant tick (`consultant_records.write`): "Only a consultant starts a consultation.";
 - the episode the health form opened (see above);
-- a knowledge base version: the consultation keeps the newest one (rule 4). Before the first
+- a knowledge base version: the consultation keeps the live one (rule 4; the newest approved,
+  or before any approval the newest import, SET-06). Before the first
   import: "The knowledge base is not loaded yet. Ask the Super Admin to import it."
 
 Once started, the row on My patients today shows "Open consultation". Start session is unchanged

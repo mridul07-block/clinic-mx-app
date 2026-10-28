@@ -74,6 +74,11 @@ export default async function StaffHome() {
             Red flags
           </Link>
         ) : null}
+        {accessScope(staff, 'knowledge_base.view') ? (
+          <Link href="/app/knowledge-base" className={linkClass}>
+            Knowledge base
+          </Link>
+        ) : null}
         {accessScope(staff, 'templates.manage') ? (
           <Link href="/app/templates" className={linkClass}>
             WhatsApp templates

@@ -225,7 +225,7 @@ versions; red flag rules run; precautions are stored; the AI preparation sheet i
 
 Decisions (user, 23 October 2026):
 
-- **Rules:** the latest knowledge base version's red flag rules run, signed off or not. Each alert
+- **Rules:** the live knowledge base version's red flag rules run (SET-06), signed off or not. Each alert
   keeps the version and whether its rule was signed off, and the physio sees "awaiting clinical
   sign-off".
 - **The physio is told in the app:** a Notifications link with the unread count on every staff

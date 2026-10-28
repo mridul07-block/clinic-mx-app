@@ -1009,3 +1009,14 @@ export {
   type AdherenceSnapshot,
   type WeekStripDay,
 } from './adherence';
+export {
+  approveKnowledgeVersionSchema,
+  importReportSummarySchema,
+  knowledgeSourceSummarySchema,
+  knowledgeVersionApprovable,
+  knowledgeVersionStandingLabels,
+  knowledgeVersionStandings,
+  knowledgeVersionStandingsOf,
+  type ImportReportSummary,
+  type KnowledgeVersionStanding,
+} from './knowledge-versions';

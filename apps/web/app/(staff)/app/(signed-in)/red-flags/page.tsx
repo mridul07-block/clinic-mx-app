@@ -108,8 +108,9 @@ function RegionPresentations({
 }
 
 // Red flags (SET-10): the rules the health form submit runs over a patient's screening answers,
-// and each workbook's red flag presentations for clinicians. From the latest knowledge base
-// version, read only (knowledge_base.view); rules change only as a new version (SET-06).
+// and each workbook's red flag presentations for clinicians. From the live knowledge base
+// version, read only (knowledge_base.view); rules change only as a new version, live once the
+// Super Admin approves it (SET-06).
 export default async function RedFlagsPage() {
   const staff = await requirePermission('knowledge_base.view');
   const thresholds: ScreeningThresholds = {
