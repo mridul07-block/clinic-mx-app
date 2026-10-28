@@ -4,15 +4,20 @@ import { claimsForStaff } from '../access';
 import { createDb } from '../client';
 import type { StaffMember } from '../identity';
 import {
+  KnowledgeVersionNotApprovableError,
+  approveKnowledgeVersion,
   knowledgeAssessment,
   knowledgeConditions,
   knowledgeListings,
   knowledgeObjective,
   knowledgePlan,
+  knowledgeVersionUsage,
   latestKnowledgeVersion,
   redFlagPresentations,
   redFlagRules,
 } from '../knowledge';
+import { latestPhaseVersion } from '../phases';
+import { latestCriteriaVersion } from '../readiness';
 import { AlreadyImportedError, applyKnowledge, KB_IMPORT_ACTOR } from '../knowledge/apply';
 import { buildKnowledge, type BuiltKnowledge } from '../knowledge/build';
 import { buildCategories, type BuiltCategories } from '../knowledge/categories';
@@ -360,13 +365,192 @@ describe('the knowledge base import', () => {
           .where(eq(kbModality.kbVersionId, id))
           .returning({ id: kbModality.id });
         expect(modality, writer.email).toEqual([]);
-        // Approval arrives with SET-06; until then nobody signed in can approve a version.
+        // SET-06: only internal.approve_kb_version approves; direct writes stay invisible.
         const approved = await tx
           .update(kbVersion)
           .set({ status: 'approved', approvedBy: writer.id, approvedAt: new Date() })
           .where(eq(kbVersion.id, id))
           .returning({ id: kbVersion.id });
         expect(approved, writer.email).toEqual([]);
+      }
+    });
+  });
+});
+
+// SET-06 done when: the Super Admin approves a version; records store the version used. New
+// records take the live version: the newest approved, and before the first approval the newest
+// import. Approval goes only through internal.approve_kb_version: the Super Admin (not support), a
+// draft newer than the live version, audited; an approved version never changes, and none is
+// deleted.
+describe('knowledge base approval', () => {
+  /** The import as a draft, then a newer draft with no content, as the owner. */
+  async function twoDrafts(tx: Tx) {
+    const imported = await applyKnowledge(
+      tx,
+      built,
+      report,
+      redFlags,
+      objective,
+      categories,
+      planCatalog,
+    );
+    const [newer] = await tx
+      .insert(kbVersion)
+      .values({
+        number: imported.number + 1,
+        source: { files: [{ name: 'test.xlsx', sha256: 'test' }] },
+        report: {},
+        createdBy: KB_IMPORT_ACTOR,
+      })
+      .returning({ id: kbVersion.id, number: kbVersion.number });
+    if (!newer) throw new Error('no newer draft');
+    return { imported, newer };
+  }
+
+  it('lets the Super Admin approve a draft, audited, and makes it the live version', async () => {
+    await rolledBack(async (tx) => {
+      const { imported, newer } = await twoDrafts(tx);
+      // Nothing approved yet: the newest import is live.
+      expect((await latestKnowledgeVersion(tx))?.number).toBe(newer.number);
+      await becomes(tx, superAdmin);
+      expect(await approveKnowledgeVersion(tx, { versionId: imported.id, notes: ' Read ' })).toBe(
+        imported.number,
+      );
+      await tx.execute(sql`reset role`);
+      const [row] = await tx.select().from(kbVersion).where(eq(kbVersion.id, imported.id));
+      expect(row).toMatchObject({ status: 'approved', approvedBy: superAdmin.id, notes: 'Read' });
+      expect(row?.approvedAt).toBeInstanceOf(Date);
+      const [audited] = await tx
+        .select({ actor: auditEvent.actor, action: auditEvent.action })
+        .from(auditEvent)
+        .where(and(eq(auditEvent.entity, 'kb_version'), eq(auditEvent.entityId, imported.id)))
+        .orderBy(sql`${auditEvent.id} desc`)
+        .limit(1);
+      expect(audited).toEqual({ actor: `staff:${superAdmin.id}`, action: 'update' });
+      // Approved: the live version, and the newer draft never goes live while unapproved.
+      expect((await latestKnowledgeVersion(tx))?.id).toBe(imported.id);
+      await becomes(tx, superAdmin);
+      expect(await approveKnowledgeVersion(tx, { versionId: newer.id })).toBe(newer.number);
+      await tx.execute(sql`reset role`);
+      expect((await latestKnowledgeVersion(tx))?.id).toBe(newer.id);
+    });
+  });
+
+  it('refuses a second approval, an older version, and anyone but the Super Admin', async () => {
+    await rolledBack(async (tx) => {
+      const { imported, newer } = await twoDrafts(tx);
+      for (const someone of [manager, physio, desk, finance, support]) {
+        expect(
+          await failure(tx, async (sp) => {
+            await becomes(sp, someone);
+            await approveKnowledgeVersion(sp, { versionId: imported.id });
+          }),
+          someone.email,
+        ).toBe('42501');
+      }
+      await becomes(tx, superAdmin);
+      await approveKnowledgeVersion(tx, { versionId: newer.id });
+      // Each refusal in its own savepoint, as the error ends a transaction.
+      const refusal = (versionId: string) =>
+        tx.transaction((sp) => approveKnowledgeVersion(sp, { versionId }));
+      await expect(refusal(newer.id)).rejects.toThrow(KnowledgeVersionNotApprovableError);
+      // Older than the live version: it never goes live.
+      await expect(refusal(imported.id)).rejects.toThrow(/older than the live version/);
+      await expect(refusal('00000000-0000-4000-8000-000000000000')).rejects.toThrow(
+        KnowledgeVersionNotApprovableError,
+      );
+    });
+  });
+
+  it('never changes or deletes an approved version, nor changes a draft but by approval', async () => {
+    await rolledBack(async (tx) => {
+      const { imported, newer } = await twoDrafts(tx);
+      // Even the owner cannot.
+      expect(
+        await failure(tx, (sp) =>
+          sp.update(kbVersion).set({ report: {} }).where(eq(kbVersion.id, imported.id)),
+        ),
+      ).toBe('23514');
+      await becomes(tx, superAdmin);
+      await approveKnowledgeVersion(tx, { versionId: newer.id });
+      await tx.execute(sql`reset role`);
+      expect(
+        await failure(tx, (sp) =>
+          sp.update(kbVersion).set({ notes: 'Changed' }).where(eq(kbVersion.id, newer.id)),
+        ),
+      ).toBe('23514');
+      expect(
+        await failure(tx, (sp) => sp.delete(kbVersion).where(eq(kbVersion.id, newer.id))),
+      ).toBe('23514');
+      expect(
+        await failure(tx, (sp) => sp.delete(kbVersion).where(eq(kbVersion.id, imported.id))),
+      ).toBe('23514');
+    });
+  });
+
+  it('switches the phases and readiness criteria to the live version too', async () => {
+    await rolledBack(async (tx) => {
+      const older = await applyKnowledge(
+        tx,
+        built,
+        report,
+        redFlags,
+        objective,
+        categories,
+        planCatalog,
+      );
+      // A second import of the same content from a changed rules file: a newer full draft.
+      const newer = await applyKnowledge(
+        tx,
+        built,
+        report,
+        {
+          ...redFlags,
+          rulesFile: { ...redFlags.rulesFile, sha256: `${redFlags.rulesFile.sha256}1` },
+        },
+        objective,
+        categories,
+        planCatalog,
+      );
+      const phaseRegion = objective.phases[0]?.region;
+      const criteriaRegion = objective.readiness[0]?.region;
+      if (!phaseRegion || !criteriaRegion) throw new Error('no phases or criteria imported');
+      expect(await latestPhaseVersion(tx, phaseRegion)).toBe(newer.id);
+      expect(await latestCriteriaVersion(tx, criteriaRegion)).toBe(newer.id);
+      await becomes(tx, superAdmin);
+      await approveKnowledgeVersion(tx, { versionId: older.id });
+      await tx.execute(sql`reset role`);
+      // The newer draft holds phases and criteria too, but is not approved.
+      expect(await latestPhaseVersion(tx, phaseRegion)).toBe(older.id);
+      expect(await latestCriteriaVersion(tx, criteriaRegion)).toBe(older.id);
+      await becomes(tx, superAdmin);
+      await approveKnowledgeVersion(tx, { versionId: newer.id });
+      await tx.execute(sql`reset role`);
+      expect(await latestPhaseVersion(tx, phaseRegion)).toBe(newer.id);
+      expect(await latestCriteriaVersion(tx, criteriaRegion)).toBe(newer.id);
+    });
+  });
+
+  it('counts every record that stored a version, for the Super Admin only', async () => {
+    await rolledBack(async (tx) => {
+      const version = await latestKnowledgeVersion(tx);
+      if (!version) throw new Error('The knowledge base is not imported.');
+      // Drafts and records at any centre, as the owner counts them.
+      const [all] = await tx.execute<{ consultations: number; sessions: number }>(sql`
+        select (select count(*)::integer from public.consultation where kb_version_id = ${version.id})
+          as consultations,
+          (select count(*)::integer from public.session where kb_version_id = ${version.id})
+          as sessions`);
+      await becomes(tx, superAdmin);
+      expect(await knowledgeVersionUsage(tx, version.id)).toEqual(all);
+      for (const someone of [manager, physio, desk, finance, support]) {
+        expect(
+          await failure(tx, async (sp) => {
+            await becomes(sp, someone);
+            await knowledgeVersionUsage(sp, version.id);
+          }),
+          someone.email,
+        ).toBe('42501');
       }
     });
   });

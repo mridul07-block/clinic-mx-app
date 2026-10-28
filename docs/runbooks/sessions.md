@@ -479,7 +479,7 @@ assessed, the three statuses are signed, and an override takes a reason (PRD J6.
   - the yes or no rows only the overall verdict names (Bone Stress entry gates, Lumbar safety
     netting), after the section's
 - **Which version and region:** the region the signed consultation measured (as the baseline works it
-  out); the newest knowledge base version holding criteria for it. A clearance stores both.
+  out); the newest live knowledge base version (SET-06) holding criteria for it. A clearance stores both.
 - **Readings:** a measured criterion uses the newest reading in the episode (consultation, session,
   session 4, final testing or the panel), and an MCID the first. One never measured shows "Not
   measured in this episode."; the consultant records a reading on the panel ("Record a reading"),
@@ -594,7 +594,7 @@ Who and when:
 
 - Only while the episode is Active or Under review. The treating physio is the newest plan
   version's. The episode keeps the knowledge version and region of its first mark or move; before
-  that it follows the newest version holding phases for the consultation's region.
+  that it follows the newest live version (SET-06) holding phases for the consultation's region.
 - Clinical readers read the stepper at any centre (the Progress tab); the desk reads nothing;
   Velyx support never writes. Marks and moves are appended, never changed, and audited.
 - The database holds the same rules (`internal.phase_guard`): it stamps who and when, refuses a

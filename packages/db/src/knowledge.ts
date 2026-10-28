@@ -5,7 +5,7 @@ import type {
   KnowledgeSpecialTest,
   PlanCatalog,
 } from '@clinic-mx/schemas';
-import { asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, sql } from 'drizzle-orm';
 import {
   kbCondition,
   kbConditionListing,
@@ -17,6 +17,7 @@ import {
   kbRedFlagRule,
   kbSpecialTest,
   kbVersion,
+  staffUser,
 } from './schema';
 import type { DbOrTransaction } from './versioned';
 
@@ -31,7 +32,18 @@ export type KnowledgeVersion = Pick<
   'id' | 'number' | 'status' | 'approvedAt' | 'createdAt'
 >;
 
-/** The newest version, draft or approved; undefined before the first import. */
+/**
+ * The live version's condition (SET-06): approved, the newest of them; before the first approval
+ * any version, so the import works before anyone has approved one. A draft never goes live once a
+ * version is approved.
+ */
+export const liveVersionCondition = sql`(${kbVersion.status} = 'approved' or not exists (
+  select 1 from public.kb_version approved where approved.status = 'approved'))`;
+
+/**
+ * The live version new clinical records take (SET-06): the newest approved; before the first
+ * approval, the newest import. Undefined before the first import.
+ */
 export async function latestKnowledgeVersion(
   db: DbOrTransaction,
 ): Promise<KnowledgeVersion | undefined> {
@@ -44,9 +56,120 @@ export async function latestKnowledgeVersion(
       createdAt: kbVersion.createdAt,
     })
     .from(kbVersion)
+    .where(liveVersionCondition)
     .orderBy(desc(kbVersion.number))
     .limit(1);
   return version;
+}
+
+/** A version as the viewer lists it (SET-06). */
+export interface KnowledgeVersionEntry {
+  id: string;
+  number: number;
+  status: 'draft' | 'approved';
+  /** The workbooks and files it was imported from, with their SHA-256. */
+  source: (typeof kbVersion.$inferSelect)['source'];
+  createdBy: string;
+  createdAt: Date;
+  approvedAt: Date | null;
+  approvedByName: string | null;
+  notes: string | null;
+}
+
+const versionColumns = {
+  id: kbVersion.id,
+  number: kbVersion.number,
+  status: kbVersion.status,
+  source: kbVersion.source,
+  createdBy: kbVersion.createdBy,
+  createdAt: kbVersion.createdAt,
+  approvedAt: kbVersion.approvedAt,
+  approvedByName: staffUser.name,
+  notes: kbVersion.notes,
+};
+
+/** Every version, newest first, with who approved it. */
+export async function knowledgeVersions(db: DbOrTransaction): Promise<KnowledgeVersionEntry[]> {
+  const rows = await db
+    .select(versionColumns)
+    .from(kbVersion)
+    .leftJoin(staffUser, eq(staffUser.id, kbVersion.approvedBy))
+    .orderBy(desc(kbVersion.number));
+  return rows;
+}
+
+/** One version with its import report; undefined when not found. */
+export async function knowledgeVersionDetail(
+  db: DbOrTransaction,
+  versionId: string,
+): Promise<(KnowledgeVersionEntry & { report: Record<string, unknown> }) | undefined> {
+  const [row] = await db
+    .select({ ...versionColumns, report: kbVersion.report })
+    .from(kbVersion)
+    .leftJoin(staffUser, eq(staffUser.id, kbVersion.approvedBy))
+    .where(eq(kbVersion.id, versionId));
+  return row;
+}
+
+/** What a version holds still awaiting clinical sign off: red flag rules and modality links. */
+export async function knowledgeVersionSignOff(
+  db: DbOrTransaction,
+  versionId: string,
+): Promise<{ rules: number; modalities: number }> {
+  const [rules] = await db
+    .select({ n: count() })
+    .from(kbRedFlagRule)
+    .where(and(eq(kbRedFlagRule.kbVersionId, versionId), eq(kbRedFlagRule.signedOff, false)));
+  const [modalities] = await db
+    .select({ n: count() })
+    .from(kbModality)
+    .where(and(eq(kbModality.kbVersionId, versionId), eq(kbModality.signedOff, false)));
+  return { rules: rules?.n ?? 0, modalities: modalities?.n ?? 0 };
+}
+
+/**
+ * How many consultations and session notes stored a version, drafts included, whatever the
+ * reader's own access (`internal.kb_version_usage`, counts only): for the Super Admin only.
+ */
+export async function knowledgeVersionUsage(
+  db: DbOrTransaction,
+  versionId: string,
+): Promise<{ consultations: number; sessions: number }> {
+  const [row] = await db.execute<{ consultations: number; sessions: number }>(
+    sql`select consultations, sessions from internal.kb_version_usage(${versionId}::uuid)`,
+  );
+  return { consultations: row?.consultations ?? 0, sessions: row?.sessions ?? 0 };
+}
+
+/** A version the Super Admin cannot approve: already approved, or older than the live one. */
+export class KnowledgeVersionNotApprovableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'KnowledgeVersionNotApprovableError';
+  }
+}
+
+/**
+ * The Super Admin approves a draft (SET-06) through `internal.approve_kb_version`, which checks
+ * who, the draft and that it is newer than the live version, and names the approver itself.
+ * Returns the version's number.
+ */
+export async function approveKnowledgeVersion(
+  tx: DbOrTransaction,
+  values: { versionId: string; notes?: string },
+): Promise<number> {
+  try {
+    const [row] = await tx.execute<{ number: number }>(
+      sql`select internal.approve_kb_version(${values.versionId}::uuid, ${values.notes ?? null}) as number`,
+    );
+    return row?.number ?? 0;
+  } catch (error) {
+    const cause = (error as { cause?: { code?: string; message?: string } }).cause;
+    if (cause?.code === '23514' || cause?.code === 'P0002') {
+      throw new KnowledgeVersionNotApprovableError(cause.message ?? 'That version was not found.');
+    }
+    throw error;
+  }
 }
 
 export type KnowledgeCondition = typeof kbCondition.$inferSelect;

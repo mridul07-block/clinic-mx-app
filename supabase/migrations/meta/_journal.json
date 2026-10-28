@@ -1156,6 +1156,13 @@
       "when": 1793188366221,
       "tag": "20261028115246_maintenance_mode_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 165,
+      "version": "7",
+      "when": 1793191003081,
+      "tag": "20261028123643_kb_version_approval",
+      "breakpoints": true
     }
   ]
 }

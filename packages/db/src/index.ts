@@ -219,8 +219,14 @@ export {
 // The knowledge base readers. The importer (`src/knowledge/`, `pnpm kb:import`) is a script and is
 // not exported, so its workbook reader never reaches the web app.
 export {
+  KnowledgeVersionNotApprovableError,
+  approveKnowledgeVersion,
   knowledgeConditions,
   knowledgeListings,
+  knowledgeVersionDetail,
+  knowledgeVersionSignOff,
+  knowledgeVersionUsage,
+  knowledgeVersions,
   knowledgeAssessment,
   knowledgeObjective,
   knowledgePlan,
@@ -232,6 +238,7 @@ export {
   type KnowledgeRedFlagPresentation,
   type KnowledgeRedFlagRule,
   type KnowledgeVersion,
+  type KnowledgeVersionEntry,
 } from './knowledge';
 export {
   episodeRecord,
