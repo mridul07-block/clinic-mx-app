@@ -1177,6 +1177,20 @@
       "when": 1793199154541,
       "tag": "20261028145234_ai_candidates_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 168,
+      "version": "7",
+      "when": 1793202100875,
+      "tag": "20261028154140_ai_run",
+      "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1793202109478,
+      "tag": "20261028154149_ai_run_rules",
+      "breakpoints": true
     }
   ]
 }

@@ -67,6 +67,10 @@ export const task = pgTable(
     uniqueIndex('task_open_review_overdue_key')
       .on(table.episodeId)
       .where(sql`${table.kind} = 'review.overdue' and ${table.status} = 'open'`),
+    // One open AI spend cap task at a time (AI-01): a capped day never adds a second.
+    uniqueIndex('task_open_ai_spend_cap_key')
+      .on(table.kind)
+      .where(sql`${table.kind} = 'ai.spend_cap' and ${table.status} = 'open'`),
     // An undone no show closes the open tasks it raised (ALT-04).
     index('task_open_appointment_idx')
       .on(sql`(${table.details} ->> 'appointmentId')`)

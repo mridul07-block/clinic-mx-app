@@ -36,6 +36,11 @@ const serverEnvSchema = z.object({
   PATIENT_LINK_SECRET: z.string().min(32).optional(),
   /** The key before PATIENT_LINK_SECRET while it rotates: its links keep working until they end. */
   PATIENT_LINK_SECRET_PREVIOUS: z.string().min(32).optional(),
+  /**
+   * OpenRouter, for every AI model call (AI-01; TAD section 7); server only. Unset locally and in
+   * CI, so no model is ever called there and each run is logged as not configured.
+   */
+  OPENROUTER_API_KEY: z.string().min(20).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
