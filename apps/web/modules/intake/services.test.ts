@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { healthForms, visibleFields } from '@clinic-mx/schemas';
-import { saveHealthFormScreen, submitHealthForm } from './services';
+import { reviewHealthFormDetails, saveHealthFormScreen, submitHealthForm } from './services';
 
 // INT-04: saving a health form screen. The link is checked first; then, as the patient, the visit
 // must be on, the screen reachable and every shown field answered; answers a change has hidden
@@ -17,6 +17,8 @@ const db = vi.hoisted(() => ({
   insertPatientReport: vi.fn(),
   submitIntakeResponse: vi.fn(),
   enqueueIntakeSubmitted: vi.fn(),
+  healthFormCarrySource: vi.fn(),
+  saveDetailsReview: vi.fn(),
 }));
 const pipeline = vi.hoisted(() => ({ processIntakeSubmission: vi.fn() }));
 vi.mock('./pipeline', () => pipeline);
@@ -442,6 +444,136 @@ describe('saving a health form screen', () => {
       expect(await submitHealthForm('token')).toEqual({ status: 'submitted' });
       expect(links.completePatientLink).not.toHaveBeenCalled();
       expect(pipeline.processIntakeSubmission).not.toHaveBeenCalled();
+    });
+  });
+
+  // INT-08: a returning patient answers "Has anything changed?" after Part A, before anything else.
+  describe('a returning patient', () => {
+    const sourceId = '00000000-0000-4000-8000-000000000802';
+    const source = {
+      id: sourceId,
+      submittedAt: new Date('2026-06-01T05:00:00Z'),
+      answers: { sex: 'female', dominant_side: 'right', injuries: 'Ankle sprain' },
+    };
+    const started = {
+      ...consented,
+      formVersion: 'hf-3',
+      carriedFromId: null,
+      detailsChanged: null,
+    };
+    const review = (changed: boolean) => reviewHealthFormDetails('token', changed);
+
+    beforeEach(() => {
+      db.healthFormCarrySource.mockResolvedValue(source);
+      db.saveDetailsReview.mockResolvedValue(true);
+    });
+
+    it('saves no other screen, and submits nothing, until the review is answered', async () => {
+      db.ownIntakeResponse.mockResolvedValue(started);
+      expect(await save('about_you', { sex: 'female' })).toEqual({
+        status: 'elsewhere',
+        resume: 'changes',
+      });
+      expect(await submitHealthForm('token')).toEqual({ status: 'elsewhere', resume: 'changes' });
+      expect(db.saveIntakeResponse).not.toHaveBeenCalled();
+      expect(db.submitIntakeResponse).not.toHaveBeenCalled();
+    });
+
+    it('No changes keeps the details and counts About you and History as sent', async () => {
+      db.ownIntakeResponse.mockResolvedValue(started);
+      expect(await review(false)).toEqual({ status: 'saved', next: 'problem' });
+      expect(db.saveDetailsReview).toHaveBeenCalledWith(fakeTx, {
+        carriedFromId: sourceId,
+        detailsChanged: false,
+        // The date of birth on the record joins them (INT-05: the record wins).
+        answers: {
+          date_of_birth: '1990-01-01',
+          sex: 'female',
+          dominant_side: 'right',
+          injuries: 'Ankle sprain',
+        },
+        doneScreens: ['consent', 'about_you', 'history'],
+      });
+      // The months come from the setting; the earlier form is found again, as the patient.
+      expect(db.healthFormCarrySource).toHaveBeenCalledWith(
+        fakeTx,
+        expect.arrayContaining(['dominant_side', 'injuries']),
+        18,
+        null,
+      );
+    });
+
+    it('Something changed opens the carried screens again, filled in', async () => {
+      const carried = {
+        date_of_birth: '1990-01-01',
+        sex: 'female',
+        dominant_side: 'right',
+        injuries: 'Ankle sprain',
+      };
+      db.ownIntakeResponse.mockResolvedValue({
+        ...started,
+        answers: carried,
+        doneScreens: ['consent', 'about_you', 'history'],
+        carriedFromId: sourceId,
+        detailsChanged: false,
+      });
+      expect(await review(true)).toEqual({ status: 'saved', next: 'about_you' });
+      // About you and History, still exactly as No changes filled them, are to be sent again.
+      expect(db.saveDetailsReview).toHaveBeenCalledWith(fakeTx, {
+        carriedFromId: sourceId,
+        detailsChanged: true,
+        answers: carried,
+        doneScreens: ['consent'],
+      });
+      // The one already reviewed is asked for again, not the newest.
+      expect(db.healthFormCarrySource).toHaveBeenCalledWith(
+        fakeTx,
+        expect.any(Array),
+        18,
+        sourceId,
+      );
+    });
+
+    it('changes nothing when the same answer is given again', async () => {
+      db.ownIntakeResponse.mockResolvedValue({
+        ...started,
+        doneScreens: ['consent', 'about_you', 'problem'],
+        answers: { sex: 'female', region: 'knee' },
+        carriedFromId: sourceId,
+        detailsChanged: true,
+      });
+      expect(await review(true)).toEqual({ status: 'saved', next: 'warning_signs' });
+      expect(db.saveDetailsReview).not.toHaveBeenCalled();
+    });
+
+    it('takes no review before Part A, after submit, or without an earlier form', async () => {
+      db.ownIntakeResponse.mockResolvedValue({ ...started, doneScreens: [] });
+      expect(await review(false)).toEqual({ status: 'elsewhere', resume: 'consent' });
+      db.ownIntakeResponse.mockResolvedValue({ ...started, submittedAt: new Date() });
+      expect((await review(false)).status).toBe('elsewhere');
+      db.ownIntakeResponse.mockResolvedValue(started);
+      db.healthFormCarrySource.mockResolvedValue(undefined);
+      expect(await review(false)).toEqual({ status: 'elsewhere', resume: 'about_you' });
+      // An earlier form whose details are all gone from the form is no earlier form.
+      db.healthFormCarrySource.mockResolvedValue({ ...source, answers: { goals: 'Run' } });
+      expect(await review(false)).toEqual({ status: 'elsewhere', resume: 'about_you' });
+      expect(db.saveDetailsReview).not.toHaveBeenCalled();
+      db.healthFormVisit.mockResolvedValue({ ...visit, status: 'completed' });
+      expect(await review(false)).toEqual({ status: 'closed' });
+      links.verifyPatientLink.mockResolvedValue({ status: 'used', purpose: 'health_form' });
+      expect(await review(false)).toEqual({ status: 'link' });
+    });
+
+    it('lets the screens open once answered', async () => {
+      db.ownIntakeResponse.mockResolvedValue({
+        ...started,
+        carriedFromId: sourceId,
+        detailsChanged: true,
+      });
+      expect(await save('about_you', { sex: 'female' })).toEqual({
+        status: 'saved',
+        next: 'problem',
+      });
     });
   });
 });

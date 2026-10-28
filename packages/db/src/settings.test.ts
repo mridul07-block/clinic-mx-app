@@ -6,6 +6,7 @@ import { SettingsError, createSettingsReader, parseSettings } from './settings';
 const stored: Settings = {
   'scheduling.slot_minutes': 15,
   'patients.adult_age_years': 18,
+  'intake.carry_over_months': 24,
   'booking.slot_hold_minutes': 5,
   'live.refresh_seconds': 3,
   'billing.consultation_price_items': ['consultation', 'senior_consultation'],

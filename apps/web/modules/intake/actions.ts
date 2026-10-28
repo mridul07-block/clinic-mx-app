@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { clientIp } from '../auth/session';
-import { saveHealthFormScreen, submitHealthForm } from './services';
+import { reviewHealthFormDetails, saveHealthFormScreen, submitHealthForm } from './services';
 
 /** What a health form screen shows after a post that needs answers (INT-04). */
 export interface HealthFormState {
@@ -68,6 +68,24 @@ export async function submitAction(form: FormData): Promise<void> {
   if (typeof token !== 'string' || !tokenPattern.test(token)) redirect('/');
   const page = `/p/${token}`;
   const result = await submitHealthForm(token, await clientIp());
+  if (result.status === 'elsewhere') {
+    redirect(`${page}?screen=${encodeURIComponent(result.resume)}`);
+  }
+  redirect(page);
+}
+
+/**
+ * "Has anything changed?" (INT-08): No changes or Something changed, then the screen to carry on
+ * at. A plain form post, so it works without scripts.
+ */
+export async function reviewDetailsAction(form: FormData): Promise<void> {
+  const token = form.get('token');
+  const changed = form.get('changed');
+  if (typeof token !== 'string' || !tokenPattern.test(token)) redirect('/');
+  if (changed !== 'yes' && changed !== 'no') redirect(`/p/${token}`);
+  const page = `/p/${token}`;
+  const result = await reviewHealthFormDetails(token, changed === 'yes', await clientIp());
+  if (result.status === 'saved') redirect(`${page}?screen=${encodeURIComponent(result.next)}`);
   if (result.status === 'elsewhere') {
     redirect(`${page}?screen=${encodeURIComponent(result.resume)}`);
   }

@@ -392,6 +392,26 @@ export function parseScreen(
   return Object.keys(errors).length > 0 ? { ok: false, errors } : { ok: true, answers: fresh };
 }
 
+/** A saved answer as the form posts it back. */
+export function postedAnswer(answer: HealthFormAnswer): string | string[] {
+  if (typeof answer === 'boolean') return answer ? 'yes' : 'no';
+  if (typeof answer === 'number') return String(answer);
+  return typeof answer === 'string' ? answer : [...answer];
+}
+
+/**
+ * A saved answer read again as if posted to this field (INT-08): what the field takes today, or
+ * undefined when it would refuse it, so an answer from an earlier form passes the same checks.
+ */
+export function readAnswer(
+  field: HealthFormField,
+  answer: HealthFormAnswer,
+  context: ParseContext,
+): HealthFormAnswer | undefined {
+  const read = readField(field, postedAnswer(answer), context);
+  return read.error ? undefined : read.answer;
+}
+
 /** An answer as Check and submit reads it back (INT-05). */
 export function answerText(field: HealthFormField, answer: HealthFormAnswer): string {
   const list: readonly string[] =

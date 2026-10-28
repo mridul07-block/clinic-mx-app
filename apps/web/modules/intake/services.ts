@@ -6,6 +6,7 @@ import {
   insertPatientReport,
   ownGuardians,
   ownIntakeResponse,
+  saveDetailsReview,
   saveIntakeResponse,
   submitIntakeResponse,
   type PatientLinkAccess,
@@ -13,7 +14,9 @@ import {
 import {
   HEALTH_FORM_END,
   canOpen,
+  carryOver,
   consentStatements,
+  detailsReviewDue,
   reportContentTypes,
   reportExtensions,
   healthFormOpen,
@@ -25,6 +28,7 @@ import {
   parseSigner,
   pruneAnswers,
   resumeAt,
+  uncarry,
   visibleScreens,
   type ConsentSignature,
   type ConsentStatementKey,
@@ -39,7 +43,7 @@ import { completePatientLink, verifyPatientLink } from '../patient-links/service
 import { processIntakeSubmission } from './pipeline';
 import { getSetting } from '../settings/settings';
 import { signatureStore, type SignatureStore } from './signature-store';
-import { formFor } from './visit';
+import { formFor, resumeFor, returningForm } from './visit';
 
 /**
  * Saving the health form after each screen (INT-04, Frontend Specification §7: "progress saved
@@ -87,7 +91,10 @@ const saveScreenSchema = z.object({
     .default([]),
 });
 
-/** Where the form stands for a post: open, and the screen it may save. */
+/**
+ * Where the form stands for a post: open, and the screen it may save. A returning patient answers
+ * "Has anything changed?" after Part A before any other screen is saved (INT-08).
+ */
 async function standing(tx: Parameters<Parameters<typeof asPatient>[1]>[0], key: string) {
   const visit = await healthFormVisit(tx);
   if (!visit || !healthFormOpen(visit.status)) return { status: 'closed' as const };
@@ -95,9 +102,11 @@ async function standing(tx: Parameters<Parameters<typeof asPatient>[1]>[0], key:
   const form = formFor(saved?.formVersion);
   const answers = saved?.answers ?? {};
   const done = saved?.doneScreens ?? [];
+  const returning = await returningForm(tx, form, saved, visit);
   const screen = visibleScreens(form, answers).find((s) => s.key === key);
-  if (!screen || !canOpen(form, answers, done, key)) {
-    return { status: 'elsewhere' as const, resume: resumeAt(form, answers, done) };
+  const due = returning !== null && detailsReviewDue(form, returning.detailsChanged, done);
+  if (!screen || !canOpen(form, answers, done, key) || (due && !screen.consent)) {
+    return { status: 'elsewhere' as const, resume: resumeFor(form, answers, done, returning) };
   }
   return { status: 'open' as const, visit, form, answers, done, screen };
 }
@@ -361,6 +370,70 @@ export async function saveHealthFormScreen(
   return saveScreen(link, { screen, posted }, ip);
 }
 
+export type ReviewResult =
+  | { status: 'saved'; next: string }
+  /** Not the review's turn (Part A first), or not a returning patient: carry on there. */
+  | { status: 'elsewhere'; resume: string }
+  | { status: 'closed' }
+  | { status: 'link' };
+
+/**
+ * "Has anything changed?" (INT-08), in one patient transaction once Part A is done. The earlier
+ * form is found again here, never taken from the browser. No changes: the details join the answers
+ * and the screens they fill count as sent. Something changed: those screens are to be sent again,
+ * filled in. Either may be changed until submit.
+ */
+const reviewDetails = patientService({
+  input: z.object({ changed: z.boolean() }),
+  run: async (tx, { changed }): Promise<ReviewResult> => {
+    const visit = await healthFormVisit(tx);
+    if (!visit || !healthFormOpen(visit.status)) return { status: 'closed' };
+    const saved = await ownIntakeResponse(tx);
+    const form = formFor(saved?.formVersion);
+    const answers = saved?.answers ?? {};
+    const done = saved?.doneScreens ?? [];
+    const returning = await returningForm(tx, form, saved, visit);
+    const consentDone = form.screens.every(
+      (screen) => !screen.consent || done.includes(screen.key),
+    );
+    if (!saved || saved.submittedAt || !returning || !consentDone) {
+      return { status: 'elsewhere', resume: resumeFor(form, answers, done, returning) };
+    }
+    // The same answer again changes nothing.
+    if (changed === returning.detailsChanged) {
+      return { status: 'saved', next: resumeAt(form, answers, done) };
+    }
+    const next = changed
+      ? {
+          answers: { ...answers },
+          doneScreens:
+            returning.detailsChanged === false
+              ? uncarry(form, answers, done, returning.details)
+              : [...done],
+        }
+      : carryOver(form, answers, done, returning.details);
+    const recorded = await saveDetailsReview(tx, {
+      carriedFromId: returning.sourceId,
+      detailsChanged: changed,
+      ...next,
+    });
+    if (!recorded)
+      return { status: 'elsewhere', resume: resumeFor(form, answers, done, returning) };
+    return { status: 'saved', next: resumeAt(form, next.answers, next.doneScreens) };
+  },
+});
+
+/** Answers "Has anything changed?" on the health form behind `token` (INT-08). */
+export async function reviewHealthFormDetails(
+  token: string,
+  changed: boolean,
+  ip?: string,
+): Promise<ReviewResult> {
+  const opened = await verifyPatientLink(token);
+  if (opened.status !== 'valid' || opened.link.purpose !== 'health_form') return { status: 'link' };
+  return reviewDetails(opened.link, { changed }, ip);
+}
+
 export type SubmitResult =
   | { status: 'submitted' }
   /** Submitted by this request: the pipeline runs next (INT-10). */
@@ -387,8 +460,13 @@ const submit = patientService({
     const form = formFor(saved?.formVersion);
     const answers = saved?.answers ?? {};
     const done = saved?.doneScreens ?? [];
-    if (!saved || !canOpen(form, answers, done, HEALTH_FORM_END)) {
-      return { status: 'elsewhere', resume: resumeAt(form, answers, done) };
+    const returning = await returningForm(tx, form, saved, visit);
+    if (
+      !saved ||
+      !canOpen(form, answers, done, HEALTH_FORM_END) ||
+      (returning !== null && detailsReviewDue(form, returning.detailsChanged, done))
+    ) {
+      return { status: 'elsewhere', resume: resumeFor(form, answers, done, returning) };
     }
     await submitIntakeResponse(tx);
     await completePatientLink(tx, link);

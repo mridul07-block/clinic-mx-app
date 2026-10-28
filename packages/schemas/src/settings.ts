@@ -137,6 +137,13 @@ export const settingDefinitions = {
     description:
       'Patients younger than this many years need a guardian, who signs and attends (SCH-02).',
   },
+  'intake.carry_over_months': {
+    schema: z.int().positive().max(120),
+    source:
+      'PRD J2.8 (INT-08); recommended default chosen under the user’s standing approval, 28 October 2026: 24 months',
+    description:
+      'A health form submitted within this many months makes the patient a returning one: its details are carried over with "Has anything changed?".',
+  },
   'booking.plan_clash_alternatives': {
     schema: z.int().positive(),
     source: 'User decision 26 October 2026 (SCH-11): the 3 nearest free times that day',

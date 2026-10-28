@@ -1,4 +1,10 @@
-import { accessScope, formatIstDateTime, stepFromQuery } from '@clinic-mx/schemas';
+import {
+  accessScope,
+  formatIstDate,
+  formatIstDateTime,
+  istDate,
+  stepFromQuery,
+} from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -55,6 +61,13 @@ export default async function ConsultationPage({
           {consultation.centreName}
         </p>
       </div>
+      {consultation.detailsReview ? (
+        <p className="text-sm text-ink-secondary" data-testid="details-review">
+          Returning patient: details carried over from the health form of{' '}
+          {formatIstDate(istDate(consultation.detailsReview.carriedFromAt))}. The patient said{' '}
+          {consultation.detailsReview.changed ? 'something changed' : 'nothing changed'}.
+        </p>
+      ) : null}
       <PreviousEpisodes
         consultationId={consultation.id}
         patientId={consultation.patientId}

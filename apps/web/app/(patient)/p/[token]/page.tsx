@@ -1,8 +1,10 @@
 import {
+  HEALTH_FORM_CHANGES,
   HEALTH_FORM_END,
   canOpen,
   consentStatements,
   patientLinkDefinitions,
+  postedAnswer,
   previousScreen,
   screenLayout,
   stepOf,
@@ -32,6 +34,7 @@ import {
   take,
 } from '../../../../modules/rate-limits/limits';
 import { getSetting } from '../../../../modules/settings/settings';
+import { ChangesReview } from './changes-review';
 import { CheckAndSubmit } from './check-submit';
 import { ConsentScreenForm } from './consent-form';
 import { HealthFormScreenForm } from './health-form';
@@ -149,13 +152,6 @@ async function openLimited(token: string, ip: string | undefined): Promise<Shown
   return opened;
 }
 
-/** A saved answer as the form posts it back. */
-function posted(answer: HealthFormAnswer): string | string[] {
-  if (typeof answer === 'boolean') return answer ? 'yes' : 'no';
-  if (typeof answer === 'number') return String(answer);
-  return typeof answer === 'string' ? answer : [...answer];
-}
-
 /** A screen's rows with only the options its earlier answers show (INT-05: pregnancy for female). */
 function shownOptions(rows: HealthFormRow[], answers: Record<string, HealthFormAnswer>) {
   const shown = <F extends HealthFormRow['field']>(field: F): F =>
@@ -179,11 +175,31 @@ function healthFormScreen(
   reportMegabytes: number,
 ): ReactNode {
   if (!key) return null;
-  const { form, answers, doneScreens, resume } = welcome;
+  const { form, answers, doneScreens, resume, returning } = welcome;
   const here = `/p/${token}`;
+  const consentKeys = new Set(form.screens.filter((s) => s.consent).map((s) => s.key));
+  // A returning patient (INT-08): "Has anything changed?" comes after Part A, before the rest.
+  if (key === HEALTH_FORM_CHANGES) {
+    if (!returning || ![...consentKeys].every((k) => doneScreens.includes(k))) {
+      redirect(`${here}?screen=${resume}`);
+    }
+    return (
+      <ChangesReview
+        token={token}
+        submittedOn={returning.submittedOn}
+        details={returning.details}
+        answered={returning.detailsChanged}
+        backHref={`${here}?screen=${[...consentKeys][0] ?? ''}`}
+      />
+    );
+  }
   const back = previousScreen(form, answers, key);
-  const backHref = back ? `${here}?screen=${back}` : here;
+  const backTo = returning && back && consentKeys.has(back) ? HEALTH_FORM_CHANGES : back;
+  const backHref = backTo ? `${here}?screen=${backTo}` : here;
   if (!canOpen(form, answers, doneScreens, key)) redirect(`${here}?screen=${resume}`);
+  if (resume === HEALTH_FORM_CHANGES && !consentKeys.has(key)) {
+    redirect(`${here}?screen=${HEALTH_FORM_CHANGES}`);
+  }
   if (key === HEALTH_FORM_END) {
     return (
       <CheckAndSubmit
@@ -192,6 +208,7 @@ function healthFormScreen(
         answers={answers}
         reports={welcome.reports}
         backHref={backHref}
+        detailsChanged={returning ? returning.detailsChanged : undefined}
       />
     );
   }
@@ -258,18 +275,28 @@ function healthFormScreen(
       </>
     );
   }
-  // About you starts from the record until the screen is sent (INT-05).
+  // About you starts from the record until the screen is sent (INT-05); a returning patient's
+  // screens start from the details carried over (INT-08).
   const sent = doneScreens.includes(screen.key);
   const saved = Object.fromEntries(
     screen.fields.flatMap((field) => {
       const answer = answers[field.key] ?? (sent ? undefined : welcome.prefill[field.key]);
-      return answer === undefined ? [] : [[field.key, posted(answer)]];
+      return answer === undefined ? [] : [[field.key, postedAnswer(answer)]];
     }),
   );
+  const filledIn =
+    returning?.detailsChanged === true &&
+    !sent &&
+    screen.fields.some((field) => returning.carriedKeys.includes(field.key));
   return (
     <>
       {stepper}
       <h1 className="text-xl font-semibold text-ink">{screen.title}</h1>
+      {filledIn ? (
+        <p className="text-ink-secondary" data-testid="filled-in">
+          Filled in from your last form. Change anything that is different.
+        </p>
+      ) : null}
       <HealthFormScreenForm
         token={token}
         screenKey={screen.key}

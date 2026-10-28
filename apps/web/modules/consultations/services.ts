@@ -69,6 +69,11 @@ export class ConsultationError extends Error {
 /** What a consultation is read and signed against: the patient's answers and its version. */
 interface RecordContext {
   patientAnswers: HealthFormAnswers;
+  /**
+   * A returning patient's answer to "Has anything changed?" (INT-08) and when the form the details
+   * came from was submitted; null for a first form.
+   */
+  detailsReview: { changed: boolean; carriedFromAt: Date } | null;
   objectiveCatalog: { measures: KnowledgeMeasure[]; specialTests: KnowledgeSpecialTest[] };
   assessmentCatalog: AssessmentCatalog;
   planCatalog: PlanCatalog;
@@ -109,6 +114,7 @@ async function recordContext(
   const physios = await treatingPhysios(tx, found.centreId);
   return {
     patientAnswers: intake?.answers ?? {},
+    detailsReview: intake?.detailsReview ?? null,
     objectiveCatalog: await knowledgeObjective(tx, found.kbVersionId),
     assessmentCatalog: await knowledgeAssessment(tx, found.kbVersionId),
     planCatalog: await knowledgePlan(tx, found.kbVersionId),

@@ -11,7 +11,8 @@ import { patientPrimaryClass, patientSecondaryClass } from './patient-ui';
 
 // Check and submit (INT-05, PRD J2.3): every screen shown, its answers read back with Change to
 // go back to it, then Submit. A plain form post, so it works without scripts; after it the link
-// is used and its page thanks the patient.
+// is used and its page thanks the patient. A returning patient's answer to "Has anything
+// changed?" (INT-08) shows after Part A, and may be changed until submit.
 
 export function CheckAndSubmit({
   token,
@@ -19,6 +20,7 @@ export function CheckAndSubmit({
   answers,
   reports,
   backHref,
+  detailsChanged,
 }: {
   token: string;
   form: HealthFormDefinition;
@@ -26,6 +28,8 @@ export function CheckAndSubmit({
   /** Report photos added on History. */
   reports: number;
   backHref: string;
+  /** A returning patient's answer (INT-08); undefined for a first form. */
+  detailsChanged?: boolean | null;
 }) {
   const here = `/p/${token}`;
   return (
@@ -33,7 +37,7 @@ export function CheckAndSubmit({
       <h1 className="text-xl font-semibold text-ink">Check and submit</h1>
       <p className="text-ink">Check your answers, then submit them.</p>
       <div className="flex flex-col gap-4 pb-28" data-testid="check-submit">
-        {visibleScreens(form, answers).map((screen) => (
+        {visibleScreens(form, answers).map((screen) => [
           <section
             key={screen.key}
             aria-labelledby={`${screen.key}-answers`}
@@ -79,8 +83,36 @@ export function CheckAndSubmit({
                 ) : null}
               </dl>
             )}
-          </section>
-        ))}
+          </section>,
+          screen.consent && detailsChanged !== undefined ? (
+            <section
+              key={`${screen.key}-changes`}
+              aria-labelledby="changes-answers"
+              className="flex flex-col gap-3 rounded-panel border border-line p-4"
+              data-check="changes"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h2 id="changes-answers" className="font-semibold text-ink">
+                  Has anything changed?
+                </h2>
+                <Link
+                  href={`${here}?screen=changes`}
+                  className="inline-flex min-h-12 items-center px-2 font-medium text-accent underline"
+                  aria-label="Change your answer to Has anything changed?"
+                >
+                  Change
+                </Link>
+              </div>
+              <p className="text-ink">
+                {detailsChanged === null
+                  ? 'Not answered'
+                  : detailsChanged
+                    ? 'Something changed'
+                    : 'No changes'}
+              </p>
+            </section>
+          ) : null,
+        ])}
       </div>
       <form
         action={submitAction}
