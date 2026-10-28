@@ -36,6 +36,9 @@ const stored: Settings = {
   'ai.must_rule_out_tiers': ['red_flag'],
   'ai.daily_spend_cap_paise': 20000,
   'ai.usd_rate_paise': 9650,
+  'ai.sheet_top_count': 3,
+  'ai.sheet_also_consider_count': 2,
+  'ai.sheet_retry_after_seconds': 60,
   'ai.task_rank_diagnoses': {
     model: null,
     providers: [],

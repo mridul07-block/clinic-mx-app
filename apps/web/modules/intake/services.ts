@@ -34,13 +34,14 @@ import {
   type ConsentStatementKey,
   type HealthFormAnswer,
 } from '@clinic-mx/schemas';
+import { after } from 'next/server';
 import { z } from 'zod';
 import { asPatient } from '../access/patient-db';
 import { patientService } from '../access/service';
 import { checkReportFiles, ReportError } from '../front-desk/report-files';
 import { reportStore, type ReportStore } from '../front-desk/report-store';
 import { completePatientLink, verifyPatientLink } from '../patient-links/services';
-import { processIntakeSubmission } from './pipeline';
+import { prepareSheetNow, processIntakeSubmission } from './pipeline';
 import { getSetting } from '../settings/settings';
 import { signatureStore, type SignatureStore } from './signature-store';
 import { formFor, resumeFor, returningForm } from './visit';
@@ -483,7 +484,9 @@ export async function submitHealthForm(token: string, ip?: string): Promise<Subm
   const result = await submit(opened.link, {}, ip);
   if (result.status !== 'submitted_now') return result;
   try {
-    await processIntakeSubmission(result.appointmentId);
+    const pipeline = await processIntakeSubmission(result.appointmentId);
+    // The AI preparation sheet once the patient has their answer (AI-03; behind the AI gate).
+    after(() => prepareSheetNow(pipeline.episodeId));
   } catch {
     // The submit stands: the `intake.submitted` job it queued runs the pipeline again within a
     // minute, and after five failures it becomes a task for the Super Admin.

@@ -252,8 +252,9 @@ How it runs (`apps/web/modules/intake/pipeline.ts`):
    - Each Health check item ticked (never "None of these") becomes a `precaution` with the label
      as the patient saw it and the form version.
    - It queues `ai.preparation_sheet` (`{episodeId}`, once per episode). Its handler checks the AI
-     gate (AI-09, `docs/runbooks/ai-gate.md`) and does nothing while it is off; the AI gateway and
-     sheet come with AI-01 to AI-03.
+     gate (AI-09, `docs/runbooks/ai-gate.md`) and does nothing while it is off. The submit also
+     makes the sheet straight after the answer, with the job as its retry (AI-03,
+     `docs/runbooks/ai-preparation-sheet.md`).
    - It notifies the visit's physio: "Health form submitted", and "Red flag: emergency" when a
      raised rule's display is emergency.
 4. The drawer and Today keep showing the visit's own form, now Submitted

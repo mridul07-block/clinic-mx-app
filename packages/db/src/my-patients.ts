@@ -49,6 +49,11 @@ export interface MyPatientVisit {
   /** Open red flag alerts on the visit's episode, and how loud they are. */
   openAlerts: number;
   alertDisplays: AlertDisplay[];
+  /**
+   * The episode's AI preparation sheet is made (AI-03) and no consultation on it is signed; read
+   * under the reader's access, so only consultants see one. The caller also checks the AI gate.
+   */
+  preparationSheet: boolean;
 }
 
 /**
@@ -86,6 +91,13 @@ export async function myPatientsToday(
       alertDisplays: sql<AlertDisplay[]>`coalesce(
         (select array_agg(distinct r.display::text) from red_flag_alert r where ${openAlerts}),
         '{}'
+      )`,
+      preparationSheet: sql<boolean>`exists (
+        select 1 from ai_preparation_sheet s
+        where s.episode_id = ${appointment.episodeId} and s.status in ('ready', 'unavailable')
+          and not exists (
+            select 1 from consultation c where c.episode_id = s.episode_id and c.status = 'signed'
+          )
       )`,
     })
     .from(appointment)

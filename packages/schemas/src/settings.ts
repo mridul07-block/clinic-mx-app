@@ -375,6 +375,28 @@ export const settingDefinitions = {
     description:
       'The recheck with findings: the model and pinned providers (none until the blind test), prompt version, reasoning effort, timeout and token limit.',
   },
+  // DECISION #3: how many suggestions is the client's; top 3 plus 2 under Also consider is the
+  // documented default (PRD section 6).
+  'ai.sheet_top_count': {
+    schema: z.int().min(1).max(10),
+    source:
+      'PRD section 6 and decision 3 (open, client): the top 3 suggestions expanded; AI-03, recommended default, 28 October 2026',
+    description: 'How many of the model’s suggestions the preparation sheet shows expanded.',
+  },
+  // DECISION #3
+  'ai.sheet_also_consider_count': {
+    schema: z.int().min(0).max(10),
+    source:
+      'PRD section 6 and decision 3 (open, client): 2 under Also consider; AI-03, recommended default, 28 October 2026',
+    description: 'How many more suggestions the preparation sheet shows under Also consider.',
+  },
+  'ai.sheet_retry_after_seconds': {
+    schema: z.int().min(45).max(600),
+    source:
+      'AI-03: the job retries a preparation sheet left unfinished, after the longest a run can take; recommended default, 28 October 2026',
+    description:
+      'Seconds after which the job may take over a preparation sheet still being made, if its run stopped.',
+  },
   'billing.consultation_fee_timing': {
     schema: z.enum(consultationFeeTimings),
     source: 'PRD section 7: Consultation fee timing',
