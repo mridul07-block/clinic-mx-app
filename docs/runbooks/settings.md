@@ -54,6 +54,8 @@ were retired by migration `20261022082157_appointment_type_rules.sql`.
 ## Changing a setting
 
 `updateSetting(db, actor, key, value)` validates the value, stores who changed it and is audited
-with the value before and after. The Super Admin settings screen calls it from the settings module
-service after its permission check (Super Admin only), then `invalidateSettings()`. The table is
+with the value before and after. There is no general settings screen yet: settings the Super Admin
+switches have their own pages and services (opening entries, SCH-13; the AI preparation sheet,
+AI-09, `docs/runbooks/ai-gate.md`), each a staffService for the Super Admin that writes the row
+and then calls `invalidateSettings()`. The table is
 unreadable through the Supabase API roles; everything goes through the server.

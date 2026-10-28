@@ -30,6 +30,7 @@ import { generateReferralLetter } from '../documents/referral-letter';
 import { runLostToFollowUpCheck } from '../episodes/lost-to-follow-up';
 import { runServiceRecoveryEscalation } from '../feedback/service-recovery';
 import { runReviewOverdueCheck } from '../episodes/review-overdue';
+import { runPreparationSheet } from '../ai/preparation-sheet';
 import { AI_PREPARATION_SHEET_JOB, processIntakeSubmission } from '../intake/pipeline';
 import { runReviewBooking } from '../scheduling/review-booking';
 import { runUnsignedNotesFlag } from '../tasks/unsigned-notes';
@@ -49,13 +50,15 @@ export const jobHandlers: JobHandlers = {
     },
   }),
   /**
-   * The AI preparation sheet (INT-10 queues it on submit). Nothing runs yet: the AI gateway and
-   * the sheet come with AI-01 to AI-03, and AI-09 switches them on after the blind test and the
-   * legal check (PRD decision 23). Until then the job completes without calling any model.
+   * The AI preparation sheet (INT-10 queues it on submit). It checks the AI gate first (AI-09,
+   * PRD decision 23) and does nothing while the sheet is off; the sheet itself comes with AI-01 to
+   * AI-03, which take the gate's pass. No model is called yet.
    */
   [AI_PREPARATION_SHEET_JOB]: defineJob({
     payload: z.object({ episodeId: z.guid() }),
-    run: () => Promise.resolve(),
+    run: async ({ episodeId }, { db }) => {
+      await runPreparationSheet(db, episodeId);
+    },
   }),
   /**
    * The no show WhatsApp message (ALT-04, PRD J5.12), queued by the database when an appointment

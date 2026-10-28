@@ -28,7 +28,8 @@ Decisions (user, 24 October 2026):
   - "Start consultation" (Consultation type) or "Start session" (any other type) once the patient
     is checked in.
 - **"Preparation sheet ready"** (Consultant tick) joins each visit when AI-03 stores preparation
-  sheets; until the AI tickets, nothing is shown (the job is a placeholder, AI-09).
+  sheets, and only while the AI gate is on (AI-09, `docs/runbooks/ai-gate.md`); until then
+  nothing is shown.
 
 ## Start
 

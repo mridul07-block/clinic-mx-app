@@ -32,8 +32,8 @@ names or phone numbers; `last_error` keeps only the error's name and message.
 3. Test the handler, including running it twice.
 
 Kinds so far: `system.ping`; `intake.submitted` (the health form submit pipeline, queued by the
-patient's submit; INT-10); `ai.preparation_sheet` (queued by that pipeline; does nothing until
-AI-01 to AI-03); `whatsapp.no_show` (queued by the database when an appointment becomes No show;
+patient's submit; INT-10); `ai.preparation_sheet` (queued by that pipeline; checks the AI gate,
+AI-09, `docs/runbooks/ai-gate.md`, and makes nothing until AI-01 to AI-03); `whatsapp.no_show` (queued by the database when an appointment becomes No show;
 ALT-04; does nothing until the WhatsApp tickets); `documents.consultation_summary` (queued by the
 database on signing, key `consultation_summary:sign:<consultation id>`, and on each addendum,
 `consultation_summary:addendum:<addendum id>`; renders the summary's next version, recording the

@@ -1020,3 +1020,13 @@ export {
   type ImportReportSummary,
   type KnowledgeVersionStanding,
 } from './knowledge-versions';
+export {
+  aiSheetGateState,
+  aiSheetSettingSchema,
+  aiSheetSwitchChoices,
+  aiSheetSwitchSchema,
+  type AiSheetGateState,
+  type AiSheetOffReason,
+  type AiSheetSetting,
+  type AiSheetSwitch,
+} from './ai';

@@ -64,6 +64,11 @@ export default async function StaffHome() {
             Appointment types
           </Link>
         ) : null}
+        {accessScope(staff, 'settings.manage') ? (
+          <Link href="/app/ai-preparation-sheet" className={linkClass}>
+            AI preparation sheet
+          </Link>
+        ) : null}
         {accessScope(staff, 'red_flags.view') ? (
           <Link href="/app/alerts" className={linkClass}>
             Alerts
