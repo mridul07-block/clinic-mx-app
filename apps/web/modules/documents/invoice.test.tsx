@@ -28,7 +28,15 @@ const facts = (overrides: Partial<InvoiceFacts> = {}): InvoiceFacts => ({
   centreId: '00000000-0000-4000-8000-000000000004',
   centre: { name: 'HSR Layout', address: '27th Main, HSR Layout', phone: '+918041234567' },
   patient: { name: 'Test Patient 0000', opNumber: 'HSR-00001' },
-  lines: [{ description: 'Ten sessions', quantity: 1, unitPaise: 900000, amountPaise: 900000 }],
+  lines: [
+    {
+      description: 'Ten sessions',
+      quantity: 1,
+      unitPaise: 900000,
+      amountPaise: 900000,
+      discount: null,
+    },
+  ],
   totalPaise: 900000,
   method: 'upi',
   reference: 'UPI-4528',
@@ -84,7 +92,15 @@ describe('invoiceContent', () => {
         package: null,
         method: 'cash',
         reference: null,
-        lines: [{ description: 'Consultation', quantity: 1, unitPaise: 75000, amountPaise: 75000 }],
+        lines: [
+          {
+            description: 'Consultation',
+            quantity: 1,
+            unitPaise: 75000,
+            amountPaise: 75000,
+            discount: null,
+          },
+        ],
         totalPaise: 75000,
       }),
       3,
@@ -98,6 +114,31 @@ describe('invoiceContent', () => {
       'Received by',
     ]);
     expect(JSON.stringify(content)).not.toMatch(/tax|GST|discount/i);
+  });
+
+  // BIL-07: a discount prints under its line, and the total is what was paid.
+  it('prints a discount under its line and the paid total', () => {
+    const content = invoiceContent(
+      facts({
+        lines: [
+          {
+            description: 'Ten sessions',
+            quantity: 1,
+            unitPaise: 900000,
+            amountPaise: 900000,
+            discount: { name: 'Staff family', percent: 10, paise: 90000 },
+          },
+        ],
+        totalPaise: 810000,
+      }),
+      3,
+    );
+    expect(content.items).toEqual([
+      ['Ten sessions', '1', '₹9,000', '₹9,000'],
+      ['Less: Staff family (10%)', '', '', '-₹900'],
+      ['Total', '', '', '₹8,100'],
+    ]);
+    expect(content.payment).toContainEqual(['Amount paid', '₹8,100']);
   });
 
   it('marks the version made after an undo as cancelled, with the reason', () => {

@@ -45,15 +45,27 @@ describe('counter payments', () => {
   });
 
   it('records the method and the trimmed reference, never an amount', async () => {
-    await recordBillPayment(context(), { billId, method: 'upi', reference: '  UPI-1  ' });
+    await recordBillPayment(context(), {
+      billId,
+      expectedTotalPaise: '75000',
+      method: 'upi',
+      reference: '  UPI-1  ',
+    });
     expect(db.recordPayment).toHaveBeenCalledWith(fakeTx, {
       billId,
+      expectedTotalPaise: 75000,
       method: 'upi',
       reference: 'UPI-1',
     });
-    await recordBillPayment(context(), { billId, method: 'cash', reference: '' });
+    await recordBillPayment(context(), {
+      billId,
+      expectedTotalPaise: '75000',
+      method: 'cash',
+      reference: '',
+    });
     expect(db.recordPayment).toHaveBeenLastCalledWith(fakeTx, {
       billId,
+      expectedTotalPaise: 75000,
       method: 'cash',
       reference: undefined,
     });
@@ -61,8 +73,15 @@ describe('counter payments', () => {
 
   it('says a bill is already paid, and that yesterday’s payment is a refund for Finance', async () => {
     db.recordPayment.mockRejectedValue(refused('Only an unpaid bill is paid'));
-    await expect(recordBillPayment(context(), { billId, method: 'card' })).rejects.toThrow(
-      new PaymentError('This bill is already paid.'),
+    await expect(
+      recordBillPayment(context(), { billId, expectedTotalPaise: '75000', method: 'card' }),
+    ).rejects.toThrow(new PaymentError('This bill is already paid.'));
+    // BIL-07: a discount changed after the desk read the total.
+    db.recordPayment.mockRejectedValue(refused("The bill's total has changed"));
+    await expect(
+      recordBillPayment(context(), { billId, expectedTotalPaise: '75000', method: 'card' }),
+    ).rejects.toThrow(
+      'The bill’s total has changed. Reload the page, check the new total with the patient, then mark paid.',
     );
     db.undoPayment.mockRejectedValue(
       refused('A payment is undone only on the day it was recorded'),
@@ -84,15 +103,20 @@ describe('counter payments', () => {
   });
 
   it('refuses no method, the desk at another centre and a physio', async () => {
-    await expect(recordBillPayment(context(), { billId, method: '' })).rejects.toThrow(
-      'Choose how the patient paid.',
-    );
     await expect(
-      recordBillPayment(context(desk({ centreIds: [koramangala] })), { billId, method: 'cash' }),
+      recordBillPayment(context(), { billId, expectedTotalPaise: '75000', method: '' }),
+    ).rejects.toThrow('Choose how the patient paid.');
+    await expect(
+      recordBillPayment(context(desk({ centreIds: [koramangala] })), {
+        billId,
+        expectedTotalPaise: '75000',
+        method: 'cash',
+      }),
     ).rejects.toThrow(NotAllowedError);
     await expect(
       recordBillPayment(context(desk({ role: 'physiotherapist', treatsPatients: true })), {
         billId,
+        expectedTotalPaise: '75000',
         method: 'cash',
       }),
     ).rejects.toThrow(NotAllowedError);

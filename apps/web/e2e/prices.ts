@@ -65,10 +65,35 @@ export async function restorePrices(snapshot: PriceSnapshot): Promise<void> {
       await tx.delete(packageTypeItem).where(inArray(packageTypeItem.packageTypeId, added));
       await tx.delete(packageType).where(inArray(packageType.id, added));
     }
+    // Bills a test discounted with an "E2E" preset (BIL-07) go with it.
+    const discounted = (
+      await tx.execute<{ id: string }>(
+        sql`select distinct l.bill_id as id from bill_line l join discount_preset p
+          on p.id = l.discount_preset_id where p.name like 'E2E %'`,
+      )
+    ).map((row) => row.id);
+    if (discounted.length > 0) {
+      await tx.execute(sql`delete from package where bill_id in ${discounted}`);
+      await tx.execute(sql`delete from payment where bill_id in ${discounted}`);
+      await tx.execute(sql`delete from bill_line where bill_id in ${discounted}`);
+      await tx.execute(sql`delete from bill where id in ${discounted}`);
+    }
     await tx.delete(discountPreset).where(like(discountPreset.name, 'E2E %'));
     await tx.delete(priceItem).where(like(priceItem.label, 'E2E %'));
     for (const { id, label, amountPaise, active } of snapshot) {
       await tx.update(priceItem).set({ label, amountPaise, active }).where(eq(priceItem.id, id));
     }
   });
+}
+
+/** An "E2E …" preset discount (BIL-07), removed by `restorePrices`; its id. */
+export async function testDiscount(name: string, percent: number): Promise<string> {
+  const [row] = await withActor(db(), systemActor('tests'), (tx) =>
+    tx
+      .insert(discountPreset)
+      .values({ name, kind: 'percent', percent })
+      .returning({ id: discountPreset.id }),
+  );
+  if (!row) throw new Error('The discount was not added.');
+  return row.id;
 }

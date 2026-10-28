@@ -25,16 +25,20 @@ export function PaymentForm({
   episodeId,
   billId,
   total,
+  totalPaise,
 }: {
   episodeId: string;
   billId: string;
   total: string;
+  /** The total shown, posted back: a total changed meanwhile is refused (BIL-07). */
+  totalPaise: number;
 }) {
   const [state, action, pending] = useActionState(recordPaymentAction, initialState);
   return (
     <form action={action} className="flex flex-col gap-2" data-testid="payment-form" noValidate>
       <input type="hidden" name="episodeId" value={episodeId} />
       <input type="hidden" name="billId" value={billId} />
+      <input type="hidden" name="expectedTotal" value={totalPaise} />
       {state.error ? <FormMessage tone="danger">{state.error}</FormMessage> : null}
       <fieldset className="flex flex-wrap gap-x-5 gap-y-1">
         <legend className="mb-1 text-sm text-ink-secondary">Paid by</legend>

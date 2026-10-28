@@ -60,7 +60,19 @@ export default async function FinanceUnpaidPage() {
                   className="border-b border-line last:border-0"
                   data-testid="unpaid-row"
                 >
-                  <td className="px-3 py-2 font-mono text-ink">{row.number}</td>
+                  <td className="px-3 py-2 font-mono text-ink">
+                    {row.href ? (
+                      <Link
+                        href={row.href}
+                        prefetch={false}
+                        className="underline underline-offset-2"
+                      >
+                        {row.number}
+                      </Link>
+                    ) : (
+                      row.number
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-ink">{row.centre}</td>
                   <td className="px-3 py-2 text-ink">{row.kind}</td>
                   <td className="px-3 py-2 text-right text-ink">{row.amount}</td>

@@ -1,4 +1,10 @@
-import type { AppointmentStatus, BillKind, BillStatus, PaymentMethod } from '@clinic-mx/schemas';
+import type {
+  AppointmentStatus,
+  BillKind,
+  BillStatus,
+  DiscountKind,
+  PaymentMethod,
+} from '@clinic-mx/schemas';
 import { and, asc, desc, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm';
 import { appointment, appointmentType, bill, billLine, payment, staffUser } from './schema';
 import type { DbOrTransaction } from './versioned';
@@ -18,9 +24,32 @@ export interface BillEntry {
   totalPaise: number;
   createdAt: Date;
   cancelReason: string | null;
-  lines: { description: string; quantity: number; unitPaise: number; amountPaise: number }[];
+  lines: BillLineEntry[];
   /** Its live payment (BIL-06), when paid. */
   payment: PaymentEntry | null;
+}
+
+/** A line of a bill, with its discount (BIL-07) when it has one. */
+export interface BillLineEntry {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPaise: number;
+  amountPaise: number;
+  discount: LineDiscount | null;
+}
+
+/** A line's discount as applied: a copy of the preset, or Finance's Other discount. */
+export interface LineDiscount {
+  kind: DiscountKind;
+  /** A preset's; null for an Other discount. */
+  presetId: string | null;
+  name: string;
+  percent: number | null;
+  paise: number;
+  reason: string | null;
+  byName: string | null;
+  at: Date;
 }
 
 export interface PaymentEntry {
@@ -57,10 +86,19 @@ export async function billsOfEpisode(db: DbOrTransaction, episodeId: string): Pr
   const lines = await db
     .select({
       billId: billLine.billId,
+      id: billLine.id,
       description: billLine.description,
       quantity: billLine.quantity,
       unitPaise: billLine.unitPaise,
       amountPaise: billLine.amountPaise,
+      discountKind: billLine.discountKind,
+      discountPresetId: billLine.discountPresetId,
+      discountName: billLine.discountName,
+      discountPercent: billLine.discountPercent,
+      discountPaise: billLine.discountPaise,
+      discountReason: billLine.discountReason,
+      discountedByName: billLine.discountedByName,
+      discountedAt: billLine.discountedAt,
     })
     .from(billLine)
     .where(
@@ -69,7 +107,7 @@ export async function billsOfEpisode(db: DbOrTransaction, episodeId: string): Pr
         bills.map((entry) => entry.id),
       ),
     )
-    .orderBy(asc(billLine.description));
+    .orderBy(asc(billLine.description), asc(billLine.id));
   const payments = await db
     .select({
       billId: payment.billId,
@@ -104,11 +142,25 @@ export async function billsOfEpisode(db: DbOrTransaction, episodeId: string): Pr
     payment: paymentOf(payments.find((paid) => paid.billId === entry.id)),
     lines: lines
       .filter((line) => line.billId === entry.id)
-      .map(({ description, quantity, unitPaise, amountPaise }) => ({
-        description,
-        quantity,
-        unitPaise,
-        amountPaise,
+      .map((line) => ({
+        id: line.id,
+        description: line.description,
+        quantity: line.quantity,
+        unitPaise: line.unitPaise,
+        amountPaise: line.amountPaise,
+        discount:
+          line.discountKind && line.discountName && line.discountedAt
+            ? {
+                kind: line.discountKind,
+                presetId: line.discountPresetId,
+                name: line.discountName,
+                percent: line.discountPercent,
+                paise: line.discountPaise,
+                reason: line.discountReason,
+                byName: line.discountedByName,
+                at: line.discountedAt,
+              }
+            : null,
       })),
   }));
 }
@@ -189,15 +241,26 @@ export async function consultationBillNow(
 
 /**
  * Marks a bill paid by a method, for its whole total, as the signed in person (BIL-06); the
- * database refuses a bill already paid, or one this person does not take payment for.
+ * database refuses a bill already paid, or one this person does not take payment for. With the
+ * total the desk was shown (BIL-07), it refuses a total changed meanwhile and keeps the lines as
+ * charged for the invoice.
  */
 export async function recordPayment(
   db: DbOrTransaction,
-  values: { billId: string; method: PaymentMethod; reference?: string },
+  values: {
+    billId: string;
+    method: PaymentMethod;
+    reference?: string;
+    expectedTotalPaise?: number;
+  },
 ): Promise<string> {
   const [row] = await db.execute<{ id: string }>(
-    sql`select internal.record_payment(${values.billId}::uuid, ${values.method}::payment_method,
-      ${values.reference ?? null}) as id`,
+    values.expectedTotalPaise === undefined
+      ? sql`select internal.record_payment(${values.billId}::uuid, ${values.method}::payment_method,
+      ${values.reference ?? null}) as id`
+      : sql`select internal.record_payment_of(${values.billId}::uuid,
+      ${values.method}::payment_method, ${values.reference ?? null},
+      ${values.expectedTotalPaise}::int) as id`,
   );
   if (!row) throw new Error('The payment was not recorded.');
   return row.id;
@@ -211,18 +274,61 @@ export async function undoPayment(
   await db.execute(sql`select internal.undo_payment(${values.paymentId}::uuid, ${values.reason})`);
 }
 
-/** The centre a bill is at, or a payment's bill is at; undefined when the reader cannot see it. */
+/**
+ * The centre a bill is at, or a payment's or a line's bill is at; undefined when the reader
+ * cannot see it.
+ */
 export async function billCentre(
   db: DbOrTransaction,
-  ref: { billId: string } | { paymentId: string },
+  ref: { billId: string } | { paymentId: string } | { lineId: string },
 ): Promise<string | undefined> {
   const [row] =
     'billId' in ref
       ? await db.select({ centreId: bill.centreId }).from(bill).where(eq(bill.id, ref.billId))
-      : await db
-          .select({ centreId: bill.centreId })
-          .from(payment)
-          .innerJoin(bill, eq(bill.id, payment.billId))
-          .where(eq(payment.id, ref.paymentId));
+      : 'paymentId' in ref
+        ? await db
+            .select({ centreId: bill.centreId })
+            .from(payment)
+            .innerJoin(bill, eq(bill.id, payment.billId))
+            .where(eq(payment.id, ref.paymentId))
+        : await db
+            .select({ centreId: bill.centreId })
+            .from(billLine)
+            .innerJoin(bill, eq(bill.id, billLine.billId))
+            .where(eq(billLine.id, ref.lineId));
   return row?.centreId;
+}
+
+/**
+ * Applies a discount to a line of an unpaid bill, as the signed in person (BIL-07): a preset, or
+ * with no preset an Other discount of a percent or an amount with its reason (Finance and the
+ * Super Admin only). The database copies the preset, refuses a discount down to ₹0, and returns
+ * the bill's new total.
+ */
+export async function applyDiscount(
+  db: DbOrTransaction,
+  values: {
+    lineId: string;
+    presetId: string | null;
+    percent?: number | null;
+    amountPaise?: number | null;
+    reason?: string | null;
+  },
+): Promise<number> {
+  const [row] = await db.execute<{ total: number }>(
+    sql`select internal.apply_discount(${values.lineId}::uuid, ${values.presetId}::uuid,
+      ${values.percent ?? null}::int, ${values.amountPaise ?? null}::int,
+      ${values.reason ?? null}) as total`,
+  );
+  if (!row) throw new Error('The discount was not applied.');
+  return row.total;
+}
+
+/** Takes a line's discount off an unpaid bill (BIL-07); the bill's new total. */
+export async function removeDiscount(db: DbOrTransaction, lineId: string): Promise<number> {
+  const [row] = await db.execute<{ total: number }>(
+    sql`select internal.remove_discount(${lineId}::uuid) as total`,
+  );
+  if (!row) throw new Error('The discount was not removed.');
+  return row.total;
 }

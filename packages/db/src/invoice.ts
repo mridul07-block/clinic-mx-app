@@ -22,7 +22,15 @@ export interface InvoiceFacts {
   centreId: string;
   centre: { name: string; address: string | null; phone: string | null };
   patient: { name: string; opNumber: string };
-  lines: { description: string; quantity: number; unitPaise: number; amountPaise: number }[];
+  lines: {
+    description: string;
+    quantity: number;
+    unitPaise: number;
+    amountPaise: number;
+    /** Its discount (BIL-07), when it has one. */
+    discount: { name: string; percent: number | null; paise: number } | null;
+  }[];
+  /** What was paid: the bill's total, less its discounts, when it was paid. */
   totalPaise: number;
   method: PaymentMethod;
   reference: string | null;
@@ -44,13 +52,14 @@ export async function invoiceFacts(
       method: payment.method,
       reference: payment.reference,
       paidAt: payment.recordedAt,
+      chargedLines: payment.chargedLines,
       undoneAt: payment.undoneAt,
       undoReason: payment.undoReason,
       receivedBy: staffUser.name,
       billId: bill.id,
       billNumber: bill.number,
       billKind: bill.kind,
-      totalPaise: bill.totalPaise,
+      totalPaise: payment.amountPaise,
       patientId: bill.patientId,
       episodeId: bill.episodeId,
       centreId: bill.centreId,
@@ -71,6 +80,9 @@ export async function invoiceFacts(
       quantity: billLine.quantity,
       unitPaise: billLine.unitPaise,
       amountPaise: billLine.amountPaise,
+      discountName: billLine.discountName,
+      discountPercent: billLine.discountPercent,
+      discountPaise: billLine.discountPaise,
       packageName: packageType.name,
       packageSessions: packageType.sessions,
     })
@@ -89,12 +101,19 @@ export async function invoiceFacts(
     centreId: row.centreId,
     centre: { name: centre.name, address: centre.address, phone: centre.phone },
     patient: { name: row.patientName, opNumber: row.opNumber },
-    lines: lines.map(({ description, quantity, unitPaise, amountPaise }) => ({
-      description,
-      quantity,
-      unitPaise,
-      amountPaise,
-    })),
+    // The lines as this payment charged them (BIL-07); payments from before then, the bill's own.
+    lines:
+      row.chargedLines ??
+      lines.map((line) => ({
+        description: line.description,
+        quantity: line.quantity,
+        unitPaise: line.unitPaise,
+        amountPaise: line.amountPaise,
+        discount:
+          line.discountName && line.discountPaise > 0
+            ? { name: line.discountName, percent: line.discountPercent, paise: line.discountPaise }
+            : null,
+      })),
     totalPaise: row.totalPaise,
     method: row.method,
     reference: row.reference,

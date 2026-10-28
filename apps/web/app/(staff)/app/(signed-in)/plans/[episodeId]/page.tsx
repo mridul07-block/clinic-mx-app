@@ -26,6 +26,7 @@ import {
   planSessionsOf,
   type PlanSessionsView,
 } from '../../../../../../modules/scheduling/plan-sessions';
+import { DiscountForm, RemoveDiscountForm } from './discount-forms';
 import { MakeBillForm } from './make-bill-form';
 import { PaymentForm, UndoPaymentForm } from './payment-forms';
 import { PlanChoiceForm, type ChoiceOption } from './plan-choice-form';
@@ -37,17 +38,23 @@ const amount = 'tabular-nums text-right whitespace-nowrap';
 
 const billTones = { unpaid: 'waiting', paid: 'done', cancelled: 'neutral' } as const;
 
-/** One bill: its number, what it is for, its lines at the price master's amounts, its total. */
+/**
+ * One bill: its number, what it is for, its lines at the price master's amounts with any discount
+ * (BIL-07), its total.
+ */
 function BillCard({
   entry,
   episodeId,
   canCollect,
+  discounts,
 }: {
   entry: BillEntry;
   episodeId: string;
   canCollect: boolean;
+  discounts: PlanSheet['discounts'];
 }) {
   const cancelled = entry.status === 'cancelled';
+  const unpaid = entry.status === 'unpaid';
   return (
     <li
       data-testid="bill"
@@ -61,17 +68,52 @@ function BillCard({
         <Tag tone={billTones[entry.status]}>{billStatusLabels[entry.status]}</Tag>
       </span>
       <ul className="flex flex-col gap-1 text-sm">
-        {entry.lines.map((line) => (
-          <li key={line.description} className="flex justify-between gap-3">
-            <span>
-              {line.description}
-              {line.quantity > 1
-                ? ` · ${String(line.quantity)} × ${formatRupees(line.unitPaise)}`
-                : null}
-            </span>
-            <span className={amount}>{formatRupees(line.amountPaise)}</span>
-          </li>
-        ))}
+        {entry.lines.map((line) => {
+          const off = line.discount;
+          // Finance's Other discount stays with Finance; a preset is the desk's too.
+          const changes = unpaid && (off?.presetId === null ? discounts.other : discounts.preset);
+          return (
+            <li key={line.id} className="flex flex-col gap-1">
+              <span className="flex justify-between gap-3">
+                <span>
+                  {line.description}
+                  {line.quantity > 1
+                    ? ` · ${String(line.quantity)} × ${formatRupees(line.unitPaise)}`
+                    : null}
+                </span>
+                <span className={amount}>{formatRupees(line.amountPaise)}</span>
+              </span>
+              {off ? (
+                <span className="flex flex-col" data-testid="bill-discount">
+                  <span className="flex justify-between gap-3 text-ink-secondary">
+                    <span>
+                      Less: {off.name}
+                      {off.percent === null ? null : ` (${String(off.percent)}%)`}
+                    </span>
+                    <span className={amount}>{formatRupees(-off.paise)}</span>
+                  </span>
+                  <span className="text-ink-muted">
+                    {[off.reason, off.byName ? `By ${off.byName}` : null, documentDateTime(off.at)]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                </span>
+              ) : null}
+              {changes ? (
+                <>
+                  <DiscountForm
+                    episodeId={episodeId}
+                    lineId={line.id}
+                    presets={discounts.presets}
+                    other={discounts.other}
+                    replacing={off !== null}
+                  />
+                  {off ? <RemoveDiscountForm episodeId={episodeId} lineId={line.id} /> : null}
+                </>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
       <span className="flex justify-between gap-3 border-t border-line pt-2">
         <span className="font-medium text-ink">Total</span>
@@ -120,6 +162,7 @@ function BillCard({
           episodeId={episodeId}
           billId={entry.id}
           total={formatRupees(entry.totalPaise)}
+          totalPaise={entry.totalPaise}
         />
       ) : null}
       {canCollect && entry.payment?.undoable ? (
@@ -158,6 +201,7 @@ function Bills({ sheet }: { sheet: PlanSheet }) {
               entry={entry}
               episodeId={sheet.episodeId}
               canCollect={sheet.canCollect}
+              discounts={sheet.discounts}
             />
           ))}
         </ul>
@@ -167,8 +211,9 @@ function Bills({ sheet }: { sheet: PlanSheet }) {
         </p>
       )}
       <p className="text-sm text-ink-muted">
-        Prices come from the price master; bills cannot be edited here. The whole total is paid at
-        once; partial payments are not taken yet.
+        Prices come from the price master; bills cannot be edited here. The desk applies a discount
+        from the clinic&apos;s list; any other discount is Finance&apos;s. The whole total is paid
+        at once; partial payments are not taken yet.
       </p>
     </section>
   );

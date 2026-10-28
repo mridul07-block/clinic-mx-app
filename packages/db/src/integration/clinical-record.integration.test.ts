@@ -12,10 +12,12 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
 import {
+  applyDiscount,
   billsOfEpisode,
   consultationBillNow,
   consultationFeeState,
   recordPayment,
+  removeDiscount,
   undoPayment,
 } from '../bills';
 import { frozenBaseline, recordBaseline } from '../baseline';
@@ -81,6 +83,7 @@ import {
   consultation,
   payment,
   diagnosis,
+  discountPreset,
   clearance,
   episode,
   finalTest,
@@ -991,7 +994,14 @@ describe('the patient choice', () => {
       expect(made).toMatchObject({ kind: 'package', status: 'unpaid', totalPaise: 900000 });
       expect(made?.number).toMatch(/^HSR-B-\d{5}$/);
       expect(made?.lines).toEqual([
-        { description: 'Test Ten sessions', quantity: 1, unitPaise: 900000, amountPaise: 900000 },
+        {
+          id: expect.any(String) as string,
+          description: 'Test Ten sessions',
+          quantity: 1,
+          unitPaise: 900000,
+          amountPaise: 900000,
+          discount: null,
+        },
       ]);
 
       await record(tx, deskHsr, {
@@ -1681,6 +1691,235 @@ describe('counter payments', () => {
 
   // SCH-10: a reschedule the patient asks for uses one of the package's reschedules, and is
   // refused when none is left or for a Zero Gravity Treadmill package session; the clinic's never.
+  // BIL-07: a preset at the desk, any other discount by Finance or the Super Admin with a reason,
+  // only on an unpaid bill and never down to ₹0; the bill's total and its payment are net.
+  describe('discounts', () => {
+    const preset = async (
+      tx: Tx,
+      values: { kind: 'percent'; percent: number } | { kind: 'flat'; amountPaise: number },
+      active = true,
+    ) => {
+      await asOwner(tx);
+      const [row] = await tx
+        .insert(discountPreset)
+        .values({ name: `Test discount ${crypto.randomUUID().slice(0, 6)}`, active, ...values })
+        .returning({ id: discountPreset.id });
+      return row?.id ?? '';
+    };
+    const lineOf = async (tx: Tx, billId: string) => {
+      await asOwner(tx);
+      const [row] = await tx
+        .select({
+          id: billLine.id,
+          amount: billLine.amountPaise,
+          off: billLine.discountPaise,
+          name: billLine.discountName,
+          by: billLine.discountedBy,
+          total: bill.totalPaise,
+        })
+        .from(billLine)
+        .innerJoin(bill, eq(bill.id, billLine.billId))
+        .where(eq(billLine.billId, billId));
+      if (!row) throw new Error('no bill line');
+      return row;
+    };
+    const apply = async (
+      tx: Tx,
+      actor: StaffMember,
+      values: Parameters<typeof applyDiscount>[1],
+    ) => {
+      await asOwner(tx);
+      await becomeStaff(tx, actor);
+      return applyDiscount(tx, values);
+    };
+    const remove = async (tx: Tx, actor: StaffMember, lineId: string) => {
+      await asOwner(tx);
+      await becomeStaff(tx, actor);
+      return removeDiscount(tx, lineId);
+    };
+
+    it('applies a preset at the desk; the total and the payment are net, audited as the desk', async () => {
+      await rolledBack(async (tx) => {
+        const { feeBillId } = await billed(tx);
+        const tenPercent = await preset(tx, { kind: 'percent', percent: 10 });
+        const line = await lineOf(tx, feeBillId);
+        const off = Math.floor((line.amount * 10 + 50) / 100);
+        expect(await apply(tx, deskHsr, { lineId: line.id, presetId: tenPercent })).toBe(
+          line.amount - off,
+        );
+        // A later change to the preset leaves the line as applied.
+        await asOwner(tx);
+        await tx
+          .update(discountPreset)
+          .set({ name: 'Renamed', percent: 50 })
+          .where(eq(discountPreset.id, tenPercent));
+        const after = await lineOf(tx, feeBillId);
+        expect(after).toMatchObject({ off, by: deskHsr.id, total: line.amount - off });
+        expect(after.name).not.toBe('Renamed');
+        const audited = await tx
+          .select({ actor: auditEvent.actor })
+          .from(auditEvent)
+          .where(and(eq(auditEvent.entity, 'bill_line'), eq(auditEvent.entityId, line.id)));
+        expect(audited.some((row) => row.actor === `staff:${deskHsr.id}`)).toBe(true);
+        const paid = await pay(tx, deskHsr, feeBillId);
+        await asOwner(tx);
+        const [row] = await tx
+          .select({ amount: payment.amountPaise })
+          .from(payment)
+          .where(eq(payment.id, paid));
+        expect(row?.amount).toBe(line.amount - off);
+        expect((await invoiceFacts(tx, paid))?.lines[0]?.discount).toMatchObject({ paise: off });
+      });
+    });
+
+    it('leaves any other discount to Finance and the Super Admin, with a reason', async () => {
+      await rolledBack(async (tx) => {
+        const { consultant, feeBillId } = await billed(tx);
+        const flat = await preset(tx, { kind: 'flat', amountPaise: 100 });
+        const line = await lineOf(tx, feeBillId);
+        const other = { lineId: line.id, presetId: null, percent: 15, reason: 'Hardship' };
+        expect(await failure(tx, (sp) => apply(sp, deskHsr, other))).toBe('42501');
+        for (const outsider of [deskKoramangala, manager, consultant]) {
+          expect(
+            await failure(tx, (sp) => apply(sp, outsider, { lineId: line.id, presetId: flat })),
+            outsider.email,
+          ).toBe('42501');
+        }
+        expect(
+          await failure(tx, (sp) => apply(sp, support, { lineId: line.id, presetId: flat })),
+        ).toBeDefined();
+        expect(await failure(tx, (sp) => apply(sp, finance, { ...other, reason: '  ' }))).toBe(
+          '23514',
+        );
+        const off = Math.floor((line.amount * 15 + 50) / 100);
+        expect(await apply(tx, finance, other)).toBe(line.amount - off);
+        expect(await lineOf(tx, feeBillId)).toMatchObject({
+          name: 'Other discount',
+          by: finance.id,
+        });
+        // The desk neither replaces nor removes Finance's discount.
+        expect(
+          await failure(tx, (sp) => apply(sp, deskHsr, { lineId: line.id, presetId: flat })),
+        ).toBe('42501');
+        expect(await failure(tx, (sp) => remove(sp, deskHsr, line.id))).toBe('42501');
+        expect(await remove(tx, superAdmin, line.id)).toBe(line.amount);
+        expect(await lineOf(tx, feeBillId)).toMatchObject({ off: 0, name: null, by: null });
+      });
+    });
+
+    it('lets the desk take its own preset off, at its centre only, with the name kept for all', async () => {
+      await rolledBack(async (tx) => {
+        const { feeBillId } = await billed(tx);
+        const flat = await preset(tx, { kind: 'flat', amountPaise: 100 });
+        const line = await lineOf(tx, feeBillId);
+        await apply(tx, finance, { lineId: line.id, presetId: flat });
+        // The desk reads Finance's name, whose staff row it cannot see.
+        await asOwner(tx);
+        await becomeStaff(tx, deskHsr);
+        const [entry] = await billsOfEpisode(
+          tx,
+          (await tx.select({ id: bill.episodeId }).from(bill).where(eq(bill.id, feeBillId)))[0]
+            ?.id ?? '',
+        );
+        expect(entry?.lines[0]?.discount?.byName).toBe(finance.name);
+        expect(await failure(tx, (sp) => remove(sp, deskKoramangala, line.id))).toBe('42501');
+        await apply(tx, deskHsr, { lineId: line.id, presetId: flat });
+        expect(await remove(tx, deskHsr, line.id)).toBe(line.amount);
+      });
+    });
+
+    it('refuses a payment for a total the desk was not shown, and keeps the charged lines', async () => {
+      await rolledBack(async (tx) => {
+        const { feeBillId } = await billed(tx);
+        const tenPercent = await preset(tx, { kind: 'percent', percent: 10 });
+        const line = await lineOf(tx, feeBillId);
+        const net = await apply(tx, deskHsr, { lineId: line.id, presetId: tenPercent });
+        // Shown the total before the discount: refused, nothing recorded.
+        expect(
+          await failure(tx, async (sp) => {
+            await asOwner(sp);
+            await becomeStaff(sp, deskHsr);
+            await recordPayment(sp, {
+              billId: feeBillId,
+              method: 'cash',
+              expectedTotalPaise: line.amount,
+            });
+          }),
+        ).toBe('23514');
+        await asOwner(tx);
+        await becomeStaff(tx, deskHsr);
+        const first = await recordPayment(tx, {
+          billId: feeBillId,
+          method: 'cash',
+          expectedTotalPaise: net,
+        });
+        // Undone, the discount taken off and paid again: the first invoice still says what it charged.
+        await undoPayment(tx, { paymentId: first, reason: 'Wrong method' });
+        expect(await remove(tx, deskHsr, line.id)).toBe(line.amount);
+        await asOwner(tx);
+        await becomeStaff(tx, deskHsr);
+        const second = await recordPayment(tx, {
+          billId: feeBillId,
+          method: 'upi',
+          expectedTotalPaise: line.amount,
+        });
+        await asOwner(tx);
+        const before = await invoiceFacts(tx, first);
+        expect(before?.totalPaise).toBe(net);
+        expect(before?.lines[0]?.discount).toMatchObject({ percent: 10, paise: line.amount - net });
+        const after = await invoiceFacts(tx, second);
+        expect(after?.totalPaise).toBe(line.amount);
+        expect(after?.lines[0]?.discount).toBeNull();
+      });
+    });
+
+    it('refuses ₹0, a preset not in use, a direct write and a paid bill', async () => {
+      await rolledBack(async (tx) => {
+        const { feeBillId } = await billed(tx);
+        const line = await lineOf(tx, feeBillId);
+        const whole = await preset(tx, { kind: 'percent', percent: 100 });
+        const tooMuch = await preset(tx, { kind: 'flat', amountPaise: line.amount });
+        const retired = await preset(tx, { kind: 'flat', amountPaise: 100 }, false);
+        for (const presetId of [whole, tooMuch, retired]) {
+          expect(await failure(tx, (sp) => apply(sp, deskHsr, { lineId: line.id, presetId }))).toBe(
+            '23514',
+          );
+        }
+        // Nobody signed in writes a line directly.
+        expect(
+          await failure(tx, async (sp) => {
+            await becomeStaff(sp, finance);
+            await sp.update(billLine).set({ discountPaise: 1 }).where(eq(billLine.id, line.id));
+          }),
+        ).toBe('42501');
+        const flat = await preset(tx, { kind: 'flat', amountPaise: 100 });
+        await apply(tx, deskHsr, { lineId: line.id, presetId: flat });
+        await pay(tx, deskHsr, feeBillId);
+        expect(
+          await failure(tx, (sp) => apply(sp, finance, { lineId: line.id, presetId: flat })),
+        ).toBe('23514');
+        expect(await failure(tx, (sp) => remove(sp, finance, line.id))).toBe('23514');
+        // Whoever writes it, a paid bill keeps its discount.
+        expect(
+          await failure(tx, async (sp) => {
+            await asOwner(sp);
+            await sp
+              .update(billLine)
+              .set({
+                discountKind: null,
+                discountPresetId: null,
+                discountName: null,
+                discountPaise: 0,
+                discountedBy: null,
+                discountedAt: null,
+              })
+              .where(eq(billLine.id, line.id));
+          }),
+        ).toBe('23514');
+      });
+    });
+  });
+
   describe('the package reschedule allowance', () => {
     const settings = {
       sessionTypes: ['session', 'zero_gravity_treadmill'],

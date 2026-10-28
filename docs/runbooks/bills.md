@@ -2,7 +2,7 @@
 
 BIL-05: "Bills at fixed prices". Sources: PRD J4.6 ("Prices cannot be edited at the desk") and §7 (the consultation fee by the consulting physio's level; the fee timing setting), and TAD §4 and §9. Decisions made by the user on 25 October 2026.
 
-Payment is BIL-06 (below); discounts (BIL-07), package activation (BIL-08) and the invoice PDF (BIL-09) come with their own tickets. Per-session and per-use modality bills come with the session tickets.
+Payment is BIL-06, discounts BIL-07, package activation BIL-08 and the invoice PDF BIL-09 (below). Per-session and per-use modality bills come with the session tickets.
 
 ## Who makes a bill
 
@@ -101,6 +101,63 @@ PRD J4.7 and section 7, TAD section 4, Frontend Specification (package meter, Fi
   - the plan and payment sheet's "Package" section and the patient record's Overview ("Packages"): the meter with sessions used of total, valid until and reschedules left, tagged Active, Expiring (within the reminder days), Used up, Expired or Cancelled
   - `/app/packages` (home link "Packages") for those who see amounts: Active, Expiring in 14 days, and Expired with sessions left, soonest expiry first
 
+## Discounts (BIL-07)
+
+PRD section 3: discounts are "preset only" at the front desk and "full" for Finance; decision 15
+(the clinic's list of discount types) is still open, so the list is empty until Finance adds it on
+Prices. The rest are recommended defaults chosen under the user's standing approval, 28 October 2026
+(DECISION BIL-07).
+
+- **The desk** applies a preset from the list (`discounts.apply_preset`: front desk, Finance,
+  Super Admin) to an unpaid bill at its centre, from the plan and payment sheet ("Apply a
+  discount"). It may change or remove a preset discount.
+- **Other discounts** (a whole percent from 1 to 99, or an amount) are Finance's and the Super
+  Admin's (`discounts.apply_any`), with a reason. Applying one is the approval: their name and the
+  time are recorded on the line. The desk can neither replace nor remove one. Finance reaches a
+  bill from Finance, Unpaid: the bill number opens its plan and payment sheet.
+- **One discount per line.** Every bill has one line today, so per line is per bill.
+- **Unpaid bills only.** A paid or cancelled bill keeps the discount it had; a payment undone puts
+  the bill back to unpaid with its discount, to change again. A new bill (a new package choice, a
+  check in again) starts with none.
+- **Never down to ₹0** (`// DECISION BIL-07`): a payment is above ₹0 and partial payments wait for
+  decision 10. A 100% preset is refused at the desk.
+- **The amount:** a percent is rounded half up to the paisa (`percentOff`), the same rule the
+  database checks; the preset's name and percent are copied on, so changing the preset later
+  changes nothing on the bill.
+- **The total:** `bill.total_paise` is the lines less their discounts. "Mark paid", the payment,
+  the invoice ("Less: <name> (10%)" under the line, "Amount paid" the payment's amount), Today's
+  "Unpaid" tag, Finance's dashboards and exports all read it, so all are net.
+
+Enforced in the database (`20261028014900_bill_discounts.sql`,
+`20261028014928_bill_discounts_rules.sql`):
+
+| Rule | Where |
+| --- | --- |
+| Only `internal.apply_discount` and `internal.remove_discount` write a discount; staff still have no write on `bill` or `bill_line` | the functions (SECURITY DEFINER), the existing revokes |
+| The desk at the bill's centre, Finance or the Super Admin, never support | `internal.collects_at` |
+| An Other discount, or changing one, by Finance or the Super Admin with a reason | `apply_discount`, `remove_discount` |
+| Only an active preset; never ₹0; unpaid only | `apply_discount` |
+| A discount's columns all set or all empty; a percent's amount matches the rounding; less than the line | `bill_line_discount` check |
+| A paid or cancelled bill's discount never changes, whoever writes it | `bill_line_discount_guard` trigger |
+| Audited as the person | `audit_change` on `bill_line` and `bill` |
+
+- **The total the desk saw:** "Mark paid" posts the total shown, and
+  `internal.record_payment_of` refuses a total changed meanwhile ("The bill's total has changed.
+  Reload the page, check the new total with the patient, then mark paid"). It then keeps the lines
+  as charged on the payment (`payment.charged_lines`); the invoice prints those, so an undone
+  payment and a new discount never rewrite an earlier invoice. Payments from before keep printing
+  the bill's lines.
+- **Who applied it:** the name is copied onto the line (`discounted_by_name`), because the desk
+  cannot read Finance's or the Super Admin's staff record.
+- **Review (28 October 2026):** an adversarial review found the stale total at payment, the
+  invoice reading live lines, the approver's name hidden from the desk, a cancelled bill called
+  paid, and no test of the desk removing its own preset. All are fixed with tests
+  (`20261028021844_bill_discount_snapshots.sql`, `20261028021845_bill_discount_snapshots_rules.sql`).
+
+Services: `apps/web/modules/billing/discounts.ts` (`applyBillDiscount` checks
+`discounts.apply_preset` for a preset and `discounts.apply_any` for any other; `removeBillDiscount`).
+Screen: `plans/[episodeId]/discount-forms.tsx`. A discount is never typed as a new price.
+
 ## Tests
 
 | Test | Covers |
@@ -111,11 +168,15 @@ PRD J4.7 and section 7, TAD section 4, Frontend Specification (package meter, Fi
 | `apps/web/modules/billing/payments.test.ts` | the method and the trimmed reference, never an amount; already paid; yesterday's payment; no method; another centre and a physio refused |
 | `apps/web/e2e/payments.spec.ts` | 360 px and desktop: no method refused; the package paid by UPI with its reference makes the episode Active; the fee paid by cash clears Today's tag; undone with a reason; nothing for the desk at another centre |
 | `packages/db/src/integration/clinical-record.integration.test.ts` (counter payments) | invoice numbers in the centre's own series, consecutive and fresh after an undo; the invoice and receipt jobs per payment and the invoice again on undo; the invoice's facts |
-| `apps/web/modules/documents/invoice.test.tsx` | the numbers, patient, items and payment; the package's expiry at month end; a consultation by cash without a reference; no tax or discount; the cancelled notice; the PDF; keyed, never twice |
+| `apps/web/modules/documents/invoice.test.tsx` | the numbers, patient, items and payment; the package's expiry at month end; a consultation by cash without a reference; no tax, and a discount only when given; the cancelled notice; the PDF; keyed, never twice |
 | `apps/web/e2e/invoices.spec.ts` | 360 px and desktop: paid, the invoice is being made, then after the tick its link opens a PDF; listed under Invoices; undone, version 2 after the tick; the desk at another centre cannot open it |
 | `packages/db/src/integration/clinical-record.integration.test.ts` (counter payments) | packages: activated by the package bill only, with sessions, reschedules, valid to the month's end and the reminder at 10:00 AM IST; a session used only while active and only by the system; the undo cancels it, refused once a session is used; read by the desk, Finance, the Super Admin and its physio, not another centre or the manager; nobody writes one |
 | `packages/schemas/src/packages.test.ts` | the state on its last day and the day after, used up, cancelled; reschedules rounded down |
 | `apps/web/e2e/packages.spec.ts` | 360 px and desktop: paid by UPI, the sheet's meter "0 of 12 used · Valid until … · 1 reschedule left"; the patient record lists it; Finance's Active, Expiring in 14 days and Expired with sessions left; nothing for the desk at another centre; the physio sees the sessions and no price; the undo cancels it |
 | `apps/web/e2e/bills.spec.ts` | 360 px and desktop: "Unpaid ₹750" on Today; the fee bill on the sheet; a package billed then cancelled; a physio refused; no bills for the desk at another centre; no fee set, then made after the fee is set (Senior, ₹1,000) |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (counter payments, discounts) | a preset at the desk, net total and payment, the preset copied, audited as the desk, on the invoice; another discount refused to the desk, another centre, the manager, a physio and support, refused to Finance without a reason, applied by Finance, kept from the desk, removed by the Super Admin; the desk removes its own preset, not at another centre, and reads Finance's name; a payment for a total not shown refused, and an invoice keeping its charged lines after an undo and a new discount; a 100% preset, a discount as large as the bill and a preset not in use refused; no direct write; a paid bill's discount kept, whoever writes |
+| `packages/schemas/src/bills.test.ts` | rounding half up to the paisa; a preset, a percent or an amount with its reason; no reason, a percent outside 1 to 99, no choice refused |
+| `apps/web/modules/billing/discounts.test.ts` | a preset at the desk's centre only; another discount, another centre, the manager and a physio refused; Finance's percent and amount with the reason; the database's refusals in plain words; removal |
+| `apps/web/e2e/discounts.spec.ts` | 360 px and desktop: the desk has no Other discount, must choose, applies a 10% preset ("Less: … (10%)", "-₹75", "Mark paid ₹675"); Finance opens the bill from Unpaid and applies 20% with its reason; the desk can no longer change it and takes ₹600 by cash |
 
-**Negative checks:** let `make_consultation_bill` bill every visit type, and the "bills nothing but a consultation" database test fails; let `activate_if_paid` activate on a paid fee whatever the choice, and the "moves the episode to Active" database test fails; drop the invoice job from `undo_payment`, and the invoice numbering database test fails; drop the package from `record_payment`, and the four package database tests fail.
+**Negative checks:** let `make_consultation_bill` bill every visit type, and the "bills nothing but a consultation" database test fails; let `activate_if_paid` activate on a paid fee whatever the choice, and the "moves the episode to Active" database test fails; drop the invoice job from `undo_payment`, and the invoice numbering database test fails; drop the package from `record_payment`, and the four package database tests fail; let the desk apply any discount in `apply_discount`, and the "leaves any other discount to Finance" database test fails (BIL-07).

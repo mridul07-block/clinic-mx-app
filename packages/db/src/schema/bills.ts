@@ -4,6 +4,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -16,9 +17,18 @@ import { episode } from './episodes';
 import { centre, staffUser } from './identity';
 import { patient } from './patients';
 import { patientPlanChoice } from './plan-choices';
-import { packageType, priceItem } from './prices';
+import { discountKind, discountPreset, packageType, priceItem } from './prices';
 
 export const billKind = pgEnum('bill_kind', billKinds);
+
+/** A bill line as a payment charged it (BIL-07). */
+export interface ChargedLine {
+  description: string;
+  quantity: number;
+  unitPaise: number;
+  amountPaise: number;
+  discount: { name: string; percent: number | null; paise: number } | null;
+}
 export const billStatus = pgEnum('bill_status', billStatuses);
 
 /**
@@ -72,7 +82,12 @@ export const bill = pgTable(
   ],
 ).enableRLS();
 
-/** A line of a bill, copied from the price master when the bill is made. */
+/**
+ * A line of a bill, copied from the price master when the bill is made. A discount (BIL-07) is
+ * kept on the line with a copy of what it was (a preset's name and percent, or Finance's "Other
+ * discount" with its reason) and who applied it; the bill's total is the lines less their
+ * discounts. Only `internal.apply_discount` and `internal.remove_discount` write them.
+ */
 export const billLine = pgTable(
   'bill_line',
   {
@@ -86,6 +101,18 @@ export const billLine = pgTable(
     quantity: integer('quantity').notNull().default(1),
     unitPaise: integer('unit_paise').notNull(),
     amountPaise: integer('amount_paise').notNull(),
+    discountKind: discountKind('discount_kind'),
+    /** The preset applied; none for an Other discount (Finance or the Super Admin). */
+    discountPresetId: uuid('discount_preset_id').references(() => discountPreset.id),
+    /** The preset's name when applied, or "Other discount". */
+    discountName: text('discount_name'),
+    discountPercent: integer('discount_percent'),
+    discountPaise: integer('discount_paise').notNull().default(0),
+    discountReason: text('discount_reason'),
+    discountedBy: uuid('discounted_by').references(() => staffUser.id),
+    /** Their name when applied, so everyone who reads the bill sees who approved it. */
+    discountedByName: text('discounted_by_name'),
+    discountedAt: timestamp('discounted_at', { withTimezone: true }),
   },
   (table) => [
     index('bill_line_bill_idx').on(table.billId),
@@ -95,6 +122,25 @@ export const billLine = pgTable(
     ),
     check('bill_line_quantity', sql`${table.quantity} > 0`),
     check('bill_line_amount', sql`${table.amountPaise} = ${table.quantity} * ${table.unitPaise}`),
+    check(
+      'bill_line_discount',
+      sql`case
+        when ${table.discountKind} is null then ${table.discountPaise} = 0
+          and ${table.discountPresetId} is null and ${table.discountName} is null
+          and ${table.discountPercent} is null and ${table.discountReason} is null
+          and ${table.discountedBy} is null and ${table.discountedAt} is null
+        else ${table.discountPaise} >= 1 and ${table.discountPaise} < ${table.amountPaise}
+          and ${table.discountedBy} is not null and ${table.discountedAt} is not null
+          and length(trim(${table.discountName})) between 1 and 60
+          and (${table.discountPresetId} is not null
+            or length(trim(${table.discountReason})) between 1 and 300)
+          and case ${table.discountKind}
+            when 'percent' then ${table.discountPercent} between 1 and 100
+              and ${table.discountPaise} = (${table.amountPaise}::bigint * ${table.discountPercent} + 50) / 100
+            else ${table.discountPercent} is null
+          end
+      end`,
+    ),
   ],
 ).enableRLS();
 
@@ -129,6 +175,11 @@ export const payment = pgTable(
     undoneAt: timestamp('undone_at', { withTimezone: true }),
     undoneBy: uuid('undone_by').references(() => staffUser.id),
     undoReason: text('undo_reason'),
+    /**
+     * The lines as they were charged, discounts included (BIL-07): the invoice prints these, so a
+     * payment undone and a bill discounted again never changes an earlier invoice.
+     */
+    chargedLines: jsonb('charged_lines').$type<ChargedLine[]>(),
   },
   (table) => [
     uniqueIndex('payment_live_key')

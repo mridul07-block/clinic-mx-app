@@ -158,6 +158,8 @@ export interface UnpaidView {
     amount: string;
     days: number;
     opNumber: string;
+    /** The bill's plan and payment sheet, where Finance applies a discount (BIL-07). */
+    href: string | null;
   }[];
   coming: string;
 }
@@ -180,6 +182,7 @@ export async function unpaidView(actor: StaffMember, now = new Date()): Promise<
           Math.floor((start - startOfIstDay(istDate(row.createdAt)).getTime()) / 86_400_000),
         ),
         opNumber: row.opNumber,
+        href: row.episodeId ? ['/app/plans', row.episodeId].join('/') : null,
       })),
       coming: financeComing.unpaid,
     };

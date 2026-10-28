@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { serviceContext } from '../access/staff-db';
 import { BillError, makeConsultationBill } from './bills';
+import { DiscountError, applyBillDiscount, removeBillDiscount } from './discounts';
 import { PaymentError, recordBillPayment, undoBillPayment } from './payments';
 import { PlanChoiceError, recordPatientPlanChoice } from './plan-choice';
 
@@ -31,6 +32,7 @@ function failure(error: unknown): string {
     error instanceof PlanChoiceError ||
     error instanceof BillError ||
     error instanceof PaymentError ||
+    error instanceof DiscountError ||
     error instanceof ReadOnlyError
   ) {
     return error.message;
@@ -98,6 +100,7 @@ export async function recordPaymentAction(
   try {
     await recordBillPayment(await serviceContext(), {
       billId: text(form, 'billId'),
+      expectedTotalPaise: text(form, 'expectedTotal'),
       method: values.method,
       reference: values.reference,
     });
@@ -121,6 +124,66 @@ export async function undoPaymentAction(
     });
   } catch (error) {
     return { error: failure(error), values };
+  }
+  revalidatePath(['/app/plans', text(form, 'episodeId')].join('/'));
+  return { done: true };
+}
+
+/** What a discount form shows after a post (BIL-07). */
+export interface DiscountFormState {
+  error?: string;
+  done?: boolean;
+  /** What was picked and typed, given back with a refusal (the form resets after each post). */
+  values?: Record<string, string>;
+}
+
+const discountRefused = (error: unknown) =>
+  error instanceof NotAllowedError
+    ? 'Only Finance or the Super Admin applies a discount that is not on the list.'
+    : failure(error);
+
+/**
+ * Applies a discount to a bill's line: a preset from the list (`preset:<id>`), or for Finance and
+ * the Super Admin an Other discount, a percent or an amount with its reason.
+ */
+export async function applyDiscountAction(
+  _state: DiscountFormState,
+  form: FormData,
+): Promise<DiscountFormState> {
+  const values = {
+    choice: text(form, 'choice'),
+    by: text(form, 'by'),
+    percent: text(form, 'percent'),
+    amount: text(form, 'amount'),
+    reason: text(form, 'reason'),
+  };
+  const lineId = text(form, 'lineId');
+  const input = values.choice.startsWith('preset:')
+    ? { kind: 'preset', lineId, presetId: values.choice.slice('preset:'.length) }
+    : values.choice === 'other'
+      ? values.by === 'amount'
+        ? { kind: 'flat', lineId, amount: values.amount, reason: values.reason }
+        : { kind: 'percent', lineId, percent: values.percent, reason: values.reason }
+      : undefined;
+  if (!input) return { error: 'Choose a discount.', values };
+  try {
+    await applyBillDiscount(await serviceContext(), input);
+  } catch (error) {
+    return { error: discountRefused(error), values };
+  }
+  revalidatePath(['/app/plans', text(form, 'episodeId')].join('/'));
+  return { done: true };
+}
+
+/** Takes a line's discount off an unpaid bill. */
+export async function removeDiscountAction(
+  _state: DiscountFormState,
+  form: FormData,
+): Promise<DiscountFormState> {
+  try {
+    await removeBillDiscount(await serviceContext(), { lineId: text(form, 'lineId') });
+  } catch (error) {
+    return { error: discountRefused(error) };
   }
   revalidatePath(['/app/plans', text(form, 'episodeId')].join('/'));
   return { done: true };
