@@ -154,8 +154,10 @@ describe('a patient page under row level security', () => {
     expect(row).toEqual({ role: 'clinic_patient', actor: `patient:${link.patientId}` });
   });
 
-  it('is the only way to read links: signed in staff see none', async () => {
-    await issue();
+  // Those who check in also read the health form and My plan links of visits and episodes at their
+  // centres (INT-03, PAT-01; their own tests); a link of no episode they see stays hidden.
+  it('is the only way to read links: signed in staff see none of an episode they do not see', async () => {
+    const mine = await issue();
     const seed = seedStaff.find((s) => s.email === 'super.admin@clinicmx.test');
     if (!seed?.id) throw new Error('seed Super Admin missing');
     const superAdmin: StaffMember = {
@@ -169,7 +171,10 @@ describe('a patient page under row level security', () => {
       support: false,
     };
     const seen = await withStaffAccess(db, { actor: superAdmin }, (tx) =>
-      tx.select({ n: sql<number>`count(*)::int` }).from(patientLink),
+      tx
+        .select({ n: sql<number>`count(*)::int` })
+        .from(patientLink)
+        .where(eq(patientLink.id, mine.id)),
     );
     expect(seen[0]?.n).toBe(0);
   });

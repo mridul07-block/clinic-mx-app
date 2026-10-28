@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { secondaryButtonClass } from '../../../../../../components/forms';
 import { PackageMeter } from '../../../../../../components/package-meter';
 import { Tag } from '../../../../../../components/tag';
+import { ownOrigin } from '../../../../../../lib/own-origin';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { planSheetOf, type PlanSheet } from '../../../../../../modules/billing/plan-sheet';
 import {
@@ -28,6 +29,7 @@ import {
 } from '../../../../../../modules/scheduling/plan-sessions';
 import { DiscountForm, RemoveDiscountForm } from './discount-forms';
 import { MakeBillForm } from './make-bill-form';
+import { MyPlanQr } from './my-plan-qr';
 import { PaymentForm, UndoPaymentForm } from './payment-forms';
 import { PlanChoiceForm, type ChoiceOption } from './plan-choice-form';
 import { PlanSessionsForm } from './plan-sessions-form';
@@ -348,6 +350,8 @@ export default async function PlanSheetPage({
     sheet.plan && can(staff, 'bookings.manage')
       ? await planSessionsOf(staff, episodeId)
       : undefined;
+  const showsMyPlan = sheet.canShowMyPlan && sheet.episodeStatus !== 'discharged';
+  const origin = showsMyPlan ? await ownOrigin() : '';
   const { plan, options } = sheet;
   const [current, ...earlier] = sheet.choices;
   const choiceOptions: ChoiceOption[] = options
@@ -540,6 +544,7 @@ export default async function PlanSheetPage({
           <Bills sheet={sheet} />
           <Packages sheet={sheet} />
           {planSessions ? <PlanSessions view={planSessions} /> : null}
+          {showsMyPlan ? <MyPlanQr episodeId={sheet.episodeId} origin={origin} /> : null}
 
           <section aria-labelledby="choice" className="flex flex-col gap-2">
             <h2 id="choice" className="font-semibold text-ink">

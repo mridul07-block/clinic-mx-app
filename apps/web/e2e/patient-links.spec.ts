@@ -66,10 +66,12 @@ test('an expired link says so, and a submitted form says thank you', async ({ pa
 test('a new My plan link from WhatsApp stops the older one, which says how to get a new one', async ({
   page,
 }) => {
+  // The generated links name no real episode: they open, with no plan to show ("closed"); the
+  // page itself has its own spec (my-plan.spec.ts).
   const first = await testLink({ purpose: 'my_plan' });
   await page.goto(first.path);
   await expect(page.getByRole('heading', { name: 'My plan' })).toBeVisible();
-  await expect(status(page)).toHaveAttribute('data-status', 'valid');
+  await expect(status(page)).toHaveAttribute('data-status', 'closed');
 
   const second = await reissuedMyPlan(first.patientId);
   await page.goto(first.path);
@@ -77,9 +79,9 @@ test('a new My plan link from WhatsApp stops the older one, which says how to ge
     'This link has expired. To get a new one, send "My plan" to Movementology Clinics on WhatsApp.',
   );
   await page.goto(second.path);
-  await expect(status(page)).toHaveAttribute('data-status', 'valid');
+  await expect(status(page)).toHaveAttribute('data-status', 'closed');
 
   // A My plan link keeps working through repeated visits until it ends.
   await page.reload();
-  await expect(status(page)).toHaveAttribute('data-status', 'valid');
+  await expect(status(page)).toHaveAttribute('data-status', 'closed');
 });
