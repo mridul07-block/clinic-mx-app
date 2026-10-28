@@ -62,6 +62,19 @@ export const myPlanSchema = z.object({
   tickedDays: z.array(z.iso.date()),
   /** The first day the patient could tick (a plan and a My plan link); earlier days not tracked. */
   trackedFrom: z.iso.date().nullable(),
+  /**
+   * PAT-03: after discharge, what the discharging consultant wrote for the patient, as written;
+   * null while the episode is open.
+   */
+  maintenance: z
+    .object({
+      dischargedAt: z.string(),
+      returnPlan: z.string().nullable(),
+      flarePlan: z.string().nullable(),
+      ongoingNeeds: z.string().nullable(),
+      recommendations: z.string().nullable(),
+    })
+    .nullable(),
 });
 
 /** A tick or an untick of a home programme row, as the My plan page posts it (PAT-02). */

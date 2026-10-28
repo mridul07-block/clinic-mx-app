@@ -9,12 +9,25 @@ import { showMyPlanAction } from '../../../../../../modules/patient-links/action
  * Show My plan QR (PAT-01): the patient's page with their next visit, exercises, package and
  * pain; the episode's working link, or a new one, working for `links.my_plan_days`.
  */
-export function MyPlanQr({ episodeId, origin }: { episodeId: string; origin: string }) {
+export function MyPlanQr({
+  episodeId,
+  origin,
+  discharged,
+}: {
+  episodeId: string;
+  origin: string;
+  /** PAT-03: after discharge the page is the maintenance mode. */
+  discharged: boolean;
+}) {
   return (
     <PatientLinkQr
       id="my-plan"
       title="My plan for the patient"
-      description="The patient's page with their next visit, exercises, package and pain. They scan it with their phone camera."
+      description={
+        discharged
+          ? "The patient's maintenance page: their exercises, the return and flare plans as written at discharge, and how to book a check up. They scan it with their phone camera."
+          : "The patient's page with their next visit, exercises, package and pain. They scan it with their phone camera."
+      }
       buttonLabel="Show My plan QR"
       alt="QR code for the patient’s My plan"
       action={showMyPlanAction}

@@ -54,6 +54,12 @@ export const dischargeEpisodeSchema = z
       .default([]),
     ongoingNeeds: reportText('the ongoing needs'),
     recommendations: reportText('the recommendations'),
+    /**
+     * PAT-03: the patient's return and flare plans, written by the discharging consultant for this
+     * patient; My plan's maintenance mode and the discharge report show them as written.
+     */
+    returnPlan: reportText('the return plan'),
+    flarePlan: reportText('the flare plan'),
   })
   .refine((input) => input.reason !== 'other' || Boolean(input.note), {
     error: 'Say why the episode is discharged.',

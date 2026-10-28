@@ -164,6 +164,8 @@ export async function dischargeEpisodeAction(
   );
   const ongoingNeeds = text(form, 'ongoingNeeds').trim();
   const recommendations = text(form, 'recommendations').trim();
+  const returnPlan = text(form, 'returnPlan').trim();
+  const flarePlan = text(form, 'flarePlan').trim();
   try {
     await dischargeEpisode(await serviceContext(), {
       episodeId,
@@ -172,6 +174,8 @@ export async function dischargeEpisodeAction(
       goals,
       ...(ongoingNeeds ? { ongoingNeeds } : {}),
       ...(recommendations ? { recommendations } : {}),
+      ...(returnPlan ? { returnPlan } : {}),
+      ...(flarePlan ? { flarePlan } : {}),
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

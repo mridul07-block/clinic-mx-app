@@ -350,7 +350,8 @@ export default async function PlanSheetPage({
     sheet.plan && can(staff, 'bookings.manage')
       ? await planSessionsOf(staff, episodeId)
       : undefined;
-  const showsMyPlan = sheet.canShowMyPlan && sheet.episodeStatus !== 'discharged';
+  // PAT-03: after discharge, My plan is the patient's maintenance page.
+  const showsMyPlan = sheet.canShowMyPlan && sheet.myPlanHere;
   const origin = sheet.canShowMyPlan ? await ownOrigin() : '';
   const { plan, options } = sheet;
   const [current, ...earlier] = sheet.choices;
@@ -544,7 +545,13 @@ export default async function PlanSheetPage({
           <Bills sheet={sheet} />
           <Packages sheet={sheet} />
           {planSessions ? <PlanSessions view={planSessions} /> : null}
-          {showsMyPlan ? <MyPlanQr episodeId={sheet.episodeId} origin={origin} /> : null}
+          {showsMyPlan ? (
+            <MyPlanQr
+              episodeId={sheet.episodeId}
+              origin={origin}
+              discharged={sheet.episodeStatus === 'discharged'}
+            />
+          ) : null}
           {sheet.canShowMyPlan ? (
             <RateYourVisitQr episodeId={sheet.episodeId} origin={origin} />
           ) : null}

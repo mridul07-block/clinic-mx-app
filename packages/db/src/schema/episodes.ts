@@ -56,6 +56,9 @@ export const episode = pgTable(
     dischargeGoals: jsonb('discharge_goals').$type<{ text: string; outcome: GoalOutcome }[]>(),
     dischargeOngoingNeeds: text('discharge_ongoing_needs'),
     dischargeRecommendations: text('discharge_recommendations'),
+    /** PAT-03: written at discharge for My plan's maintenance mode and the discharge report. */
+    dischargeReturnPlan: text('discharge_return_plan'),
+    dischargeFlarePlan: text('discharge_flare_plan'),
     /** The discharged episode a recurrence follows (PRD J7.5). */
     linkedEpisodeId: uuid('linked_episode_id').references((): AnyPgColumn => episode.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -81,6 +84,10 @@ export const episode = pgTable(
     check(
       'episode_discharge_report',
       sql`${table.status} = 'discharged' or (${table.dischargeGoals} is null and ${table.dischargeOngoingNeeds} is null and ${table.dischargeRecommendations} is null)`,
+    ),
+    check(
+      'episode_discharge_plans',
+      sql`${table.status} = 'discharged' or (${table.dischargeReturnPlan} is null and ${table.dischargeFlarePlan} is null)`,
     ),
     check(
       'episode_paused_from',

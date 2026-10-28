@@ -8,6 +8,7 @@ const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
   episodeRecord: vi.fn(),
   episodeHasPlan: vi.fn(),
+  episodeIsNewest: vi.fn(),
   liveMyPlanLink: vi.fn(),
   myPlanView: vi.fn(),
   withPatientAccess: vi.fn(),
@@ -64,6 +65,7 @@ describe('Show My plan QR', () => {
       status: 'active',
     });
     db.episodeHasPlan.mockResolvedValue(true);
+    db.episodeIsNewest.mockResolvedValue(true);
   });
 
   it('shows the working link again, signed from its row', async () => {
@@ -88,20 +90,27 @@ describe('Show My plan QR', () => {
     });
   });
 
-  it('refuses a discharged episode, one without a plan, another centre and a physio', async () => {
+  // PAT-03: a discharged episode's link opens its maintenance page.
+  it('issues for a discharged episode, its maintenance page', async () => {
     db.episodeRecord.mockResolvedValue({
       id: episodeId,
       patientId,
       centreId: hsr,
       status: 'discharged',
     });
-    await expect(showMyPlan(context(), { episodeId })).rejects.toThrow(/discharged/);
-    db.episodeRecord.mockResolvedValue({
-      id: episodeId,
-      patientId,
-      centreId: hsr,
-      status: 'active',
-    });
+    db.liveMyPlanLink.mockResolvedValue(undefined);
+    services.issuePatientLink.mockResolvedValue({ linkId: 'new', path: '/p/new', expiresAt });
+    expect((await showMyPlan(context(), { episodeId })).path).toBe('/p/new');
+  });
+
+  it('refuses an older episode, one without a plan, another centre and a physio', async () => {
+    db.episodeIsNewest.mockResolvedValue(false);
+    await expect(showMyPlan(context(), { episodeId })).rejects.toThrow(/newer episode/);
+    // Its working link is still shown again: showing it stops nothing.
+    db.liveMyPlanLink.mockResolvedValueOnce({ id: 'link', expiresAt });
+    services.patientLinkPath.mockReturnValueOnce('/p/token');
+    expect((await showMyPlan(context(), { episodeId })).path).toBe('/p/token');
+    db.episodeIsNewest.mockResolvedValue(true);
     db.episodeHasPlan.mockResolvedValue(false);
     await expect(showMyPlan(context(), { episodeId })).rejects.toThrow(/plan is signed/);
     db.episodeHasPlan.mockResolvedValue(true);

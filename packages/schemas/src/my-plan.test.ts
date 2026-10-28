@@ -44,6 +44,7 @@ describe('My plan', () => {
       tickedToday: [0],
       tickedDays: ['2026-10-02', '2026-10-04'],
       trackedFrom: '2026-10-01',
+      maintenance: null,
     };
     expect(myPlanSchema.parse(page)).toEqual(page);
     expect(

@@ -157,7 +157,8 @@ one); baseline against final as a table, greyscale; the goals as the consultant 
 discharge; ongoing needs and recommendations as written at discharge ("None recorded." when left
 empty). Discharging queues `documents.discharge_report` (key `discharge_report:<episode id>`) and
 `whatsapp.discharge_report` in the same transaction (`internal.episode_discharged_follow_up`), so it
-is made once. Its "Give feedback" link is the episode's discharge feedback link (PAT-07,
+is made once. A Return plan and a Flare plan written at discharge print after the
+Recommendations (PAT-03), only when written. Its "Give feedback" link is the episode's discharge feedback link (PAT-07,
 `docs/runbooks/feedback.md`); until WA-06 the desk shows it as a QR. `reportSections` in `apps/web/modules/documents/discharge-report.tsx`; the facts from
 `dischargeReportFacts` (`packages/db/src/discharge-report.ts`), final testing from
 `finalTestingOf` and the criteria from `readinessView`, all read as the system at generation.

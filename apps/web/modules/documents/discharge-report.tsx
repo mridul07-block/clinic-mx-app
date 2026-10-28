@@ -166,6 +166,9 @@ export function reportSections(
 
   add('Ongoing needs', { kind: 'lines', lines: [episode.ongoingNeeds ?? NONE] });
   add('Recommendations', { kind: 'lines', lines: [episode.recommendations ?? NONE] });
+  // PAT-03: the return and flare plans, only when the consultant wrote them.
+  if (episode.returnPlan) add('Return plan', { kind: 'lines', lines: [episode.returnPlan] });
+  if (episode.flarePlan) add('Flare plan', { kind: 'lines', lines: [episode.flarePlan] });
   return out;
 }
 

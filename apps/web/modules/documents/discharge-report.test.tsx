@@ -48,6 +48,8 @@ const facts = (overrides: Partial<DischargeReportFacts['episode']> = {}): Discha
     ],
     ongoingNeeds: 'Keep the home programme twice a week.',
     recommendations: null,
+    returnPlan: null,
+    flarePlan: null,
     ...overrides,
   },
   diagnosis: {
@@ -153,6 +155,19 @@ describe('the discharge report', () => {
     expect(printed).toContain('["Return to sport","Not signed"]');
     expect(printed).toContain('Keep the home programme twice a week.');
     expect(printed).toContain('Recommendations: [{"kind":"lines","lines":["None recorded."]}]');
+  });
+
+  // PAT-03: the return and flare plans, only when the consultant wrote them.
+  it('prints the return and flare plans when written', () => {
+    const sections = reportSections(
+      facts({ returnPlan: 'Fake return plan text', flarePlan: 'Fake flare plan text' }),
+      testing(true),
+      readiness,
+    );
+    expect(sections.map((s) => s.heading).slice(-2)).toEqual(['Return plan', 'Flare plan']);
+    expect(printedOf(sections)).toContain(
+      'Flare plan: [{"kind":"lines","lines":["Fake flare plan text"]}]',
+    );
   });
 
   it('says so when final testing was not signed, there was no baseline, or no criteria', () => {

@@ -102,6 +102,8 @@ describe('discharge', () => {
       goals: ['achieved', 'partly_achieved'],
       ongoingNeeds: 'Keep the home programme twice a week.',
       recommendations: 'Check up in 3 months.',
+      returnPlan: 'Fake return plan text',
+      flarePlan: 'Fake flare plan text',
     });
     expect(db.updateEpisodeState).toHaveBeenCalledWith(
       fakeTx,
@@ -116,6 +118,8 @@ describe('discharge', () => {
         ],
         ongoingNeeds: 'Keep the home programme twice a week.',
         recommendations: 'Check up in 3 months.',
+        returnPlan: 'Fake return plan text',
+        flarePlan: 'Fake flare plan text',
       },
     );
   });

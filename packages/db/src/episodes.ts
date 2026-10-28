@@ -161,6 +161,9 @@ export async function updateEpisodeState(
             dischargeGoals: discharge?.goals ?? [],
             dischargeOngoingNeeds: discharge?.ongoingNeeds?.trim() || null,
             dischargeRecommendations: discharge?.recommendations?.trim() || null,
+            // PAT-03: for My plan's maintenance mode.
+            dischargeReturnPlan: discharge?.returnPlan?.trim() || null,
+            dischargeFlarePlan: discharge?.flarePlan?.trim() || null,
           }
         : {}),
       updatedAt: sql`now()`,

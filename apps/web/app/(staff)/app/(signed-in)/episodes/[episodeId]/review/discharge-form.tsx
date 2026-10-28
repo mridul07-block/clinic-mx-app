@@ -121,6 +121,19 @@ export function DischargeForm({ episodeId, view }: { episodeId: string; view: Di
           className={textarea}
         />
       </label>
+      {/* PAT-03: shown to the patient on My plan after discharge, as written. */}
+      <label className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-ink-secondary">Return plan (optional)</span>
+        <textarea name="returnPlan" rows={2} maxLength={DISCHARGE_TEXT_MAX} className={textarea} />
+      </label>
+      <label className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-ink-secondary">Flare plan (optional)</span>
+        <textarea name="flarePlan" rows={2} maxLength={DISCHARGE_TEXT_MAX} className={textarea} />
+      </label>
+      <p className="text-sm text-ink-muted">
+        Ongoing needs, recommendations and the return and flare plans show on the patient&apos;s My
+        plan after discharge, as you write them.
+      </p>
       {ahead.length > 0 ? (
         <div
           className="flex flex-col gap-1 rounded-control border border-waiting-line bg-waiting-soft px-3 py-2.5"

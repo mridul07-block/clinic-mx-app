@@ -56,6 +56,8 @@ export interface DischargeReportFacts {
     goals: { text: string; outcome: GoalOutcome }[];
     ongoingNeeds: string | null;
     recommendations: string | null;
+    returnPlan: string | null;
+    flarePlan: string | null;
   };
   diagnosis: ConsultationSummaryFacts['diagnosis'];
   /** Who signed the consultation. */
@@ -127,6 +129,8 @@ export async function dischargeReportFacts(
       goals: found.dischargeGoals ?? [],
       ongoingNeeds: found.dischargeOngoingNeeds,
       recommendations: found.dischargeRecommendations,
+      returnPlan: found.dischargeReturnPlan,
+      flarePlan: found.dischargeFlarePlan,
     },
     diagnosis: summary.diagnosis,
     consultant: summary.signer.name,
