@@ -197,3 +197,23 @@ export const aiSuggestion = pgTable(
     ),
   ],
 ).enableRLS();
+
+/**
+ * The monthly knowledge base report (AI-08; PRD section 6; TAD: 1st of each month): one per month,
+ * built by the server from counts only and kept as built. Read by the Super Admin; nobody signed in
+ * writes one, and none is ever changed or deleted.
+ */
+export const kbReport = pgTable(
+  'kb_report',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** The calendar month it covers, "2026-10", in IST. */
+    month: text('month').notNull().unique(),
+    /** The live knowledge base version when it was built (rule 4). */
+    kbVersionId: uuid('kb_version_id').references(() => kbVersion.id),
+    /** `kbReportBodySchema`: counts and knowledge base names, never a patient, episode or staff. */
+    body: jsonb('body').notNull(),
+    generatedAt: timestamp('generated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [check('kb_report_month', sql`${table.month} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`)],
+).enableRLS();

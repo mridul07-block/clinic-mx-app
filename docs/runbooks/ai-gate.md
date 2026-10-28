@@ -49,7 +49,8 @@ They are recorded as DECISION 23 in `docs/PROGRESS.md`, and the client's lawyer 
   recheck (AI-04) and similar cases (AI-05).
   - It does not cover the blind test harness (AI-06), which must run before go live.
   - It does not cover patient content (AI-07), which a clinician approves before patients see it.
-  - It does not cover the monthly report (AI-08).
+  - It does not cover the monthly report (AI-08, `docs/runbooks/ai-kb-report.md`), which counts
+    whether the gate is on or off.
 - **While off:**
   - The health form submit still queues `ai.preparation_sheet`. Its job checks the gate and does
     nothing (`apps/web/modules/ai/preparation-sheet.ts`). No sheet is made later for forms

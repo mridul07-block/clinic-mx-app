@@ -60,7 +60,10 @@ database once per series booked with Book plan sessions, key
 series' appointments still Booked or Confirmed; SCH-11); `notes.unsigned_flag` (every night at
 9:00 PM IST, key `notes.unsigned_flag:<IST date>`; each night first queues the next night in its
 own transaction, then flags; a migration queued the first night; CLN-10, see
-`docs/runbooks/tasks.md`); `review.book` (queued by the database once when an episode turns Active,
+`docs/runbooks/tasks.md`); `ai.kb_report` (on the 1st of each month at 01:00 IST for the month
+just ended, key `ai.kb_report:<month>`; first queues the next month's run, then builds the monthly
+knowledge base report once and gives the Super Admin its task; a migration queued the first month;
+AI-08, see `docs/runbooks/ai-kb-report.md`); `review.book` (queued by the database once when an episode turns Active,
 key `review.book:<episode id>`; books the 6 week Review with the consultant, or gives the front
 desk a task; books nothing when one is booked already; OUT-06, see `docs/runbooks/calendar.md`);
 `episodes.lost_to_follow_up` (every morning at 6:00 AM IST, key

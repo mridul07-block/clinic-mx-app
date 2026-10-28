@@ -60,8 +60,8 @@ SET-06 in `docs/PROGRESS.md`).
   base readers (Super Admin, Centre Managers, physios). A version's page shows its source files
   with their SHA-256 and the import report in folded parts. The Super Admin (not support) also
   sees how many consultations and session notes stored it, drafts and every centre included
-  (`internal.kb_version_usage`, counts only), and the approve form. The monthly improvement report is
-  a placeholder until AI-08.
+  (`internal.kb_version_usage`, counts only), and the approve form. The monthly knowledge base report
+  (AI-08) is listed below the versions for the Super Admin (`docs/runbooks/ai-kb-report.md`).
 - **Tests:** `packages/db/src/integration/knowledge.integration.test.ts` ("knowledge base
   approval"), `apps/web/modules/knowledge-base/services.test.ts`,
   `packages/schemas/src/knowledge-versions.test.ts` and `apps/web/e2e/knowledge-base.spec.ts`. The

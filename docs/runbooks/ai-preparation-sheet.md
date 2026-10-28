@@ -223,6 +223,7 @@ the v2 prompts; the recheck sends the same ones again. See `docs/runbooks/ai-sim
 
 ## Later
 
-- The dispositions report (AI-08).
+- The dispositions are counted in the monthly knowledge base report (AI-08,
+  `docs/runbooks/ai-kb-report.md`).
 - Kept suggestions offered first in the Assessment picker.
 - A page per knowledge base row for the source link.
