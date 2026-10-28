@@ -1,4 +1,4 @@
-import { addDays, istDate, istInstant, type Block } from '@clinic-mx/schemas';
+import { addDays, istDate, istInstant, startOfIstDay, type Block } from '@clinic-mx/schemas';
 import { eq, sql } from 'drizzle-orm';
 import { claimsForStaff } from '../access';
 import { setAuditContext, staffActor } from '../audit';
@@ -15,6 +15,17 @@ import { fakePatientDetails } from './fake-patients';
 
 /** A date far enough ahead that every slot on it is in the future. */
 export const testDate = addDays(istDate(new Date()), 30);
+
+/**
+ * Minutes left before a test's past visits fit on today's IST date: the database checks visits in,
+ * marks no shows and undoes either on their own day only, so a visit "a few minutes ago" cannot
+ * exist in the first minutes after midnight. Such a test skips then (docs/runbooks/local-gate.md,
+ * "Time of day"); the margin covers the test's own run time.
+ */
+export function tooEarlyToday(minutesAgo: number, now = new Date()): boolean {
+  const intoDay = (now.getTime() - startOfIstDay(istDate(now)).getTime()) / 60_000;
+  return intoDay < minutesAgo + 5;
+}
 
 /** A wall clock time on the test date, minutes after midnight IST. */
 export const on = (minutes: number, date = testDate) => istInstant(date, minutes);

@@ -115,8 +115,10 @@ export default defineConfig(
     // a patient link is the patients' sign in (IAM-09): the signed token is checked first. A clinic
     // tablet's cookie is its sign in (IAM-10): the token's hash finds the tablet. Rate limit counters
     // (IAM-11) are bookkeeping no person drives. The health form's submit pipeline (INT-10) runs
-    // as the system after the patient's own submit, and from its job.
+    // as the system after the patient's own submit, and from its job. The blind test (AI-06) is
+    // an operator's command line tool, with no person signed in.
     files: [
+      'apps/web/scripts/blind-test.ts',
       'apps/web/modules/intake/pipeline.ts',
       'apps/web/proxy.ts',
       'apps/web/lib/**',
@@ -153,6 +155,12 @@ export default defineConfig(
     // Backups (FND-13): an operator's command line tool. Every path it reads or writes is one the
     // operator or the backup workflow passes in, or a folder under it; none comes from a request.
     files: ['packages/db/src/backup/**'],
+    rules: { 'security/detect-non-literal-fs-filename': 'off' },
+  },
+  {
+    // The blind test (AI-06): an operator's command line tool. Every path it reads or writes is a
+    // file or folder the operator passes in, or one under that folder; none comes from a request.
+    files: ['apps/web/modules/ai/blind-test*.ts', 'apps/web/scripts/blind-test.ts'],
     rules: { 'security/detect-non-literal-fs-filename': 'off' },
   },
   {

@@ -1,6 +1,6 @@
 import 'server-only';
 import type { Db } from '@clinic-mx/db';
-import type { AiCase, AiRankRow } from '@clinic-mx/schemas';
+import type { AiCase, AiRankRow, AiTaskConfig } from '@clinic-mx/schemas';
 import type { AiSheetPass } from '../gate';
 import { runTask, type AiResult, type RunOptions } from './run';
 
@@ -65,6 +65,36 @@ export async function rankDiagnoses(
       episodeId: call.episodeId,
       kbVersionId: pass.kbVersionId,
       forbidden: call.forbidden,
+      transport: call.transport,
+    },
+  );
+  return byCondition(call.rows, result);
+}
+
+/**
+ * Ranks an anonymised case's shortlist with one blind test candidate (AI-06): its model and
+ * providers for this call only, still with zero data retention, the identifier guard and pinning;
+ * never an episode and never a gate pass (the sheet itself always reads the task's settings).
+ */
+export async function rankForBlindTest(
+  db: Db,
+  call: {
+    runId: string;
+    kbVersionId: string;
+    case: AiCase;
+    rows: readonly ShortlistRow[];
+    config: AiTaskConfig & { model: string };
+    transport?: RunOptions['transport'];
+  },
+): Promise<AiResult<RankedCondition[]>> {
+  const result = await runTask(
+    db,
+    'rank_diagnoses',
+    { case: call.case, rows: numbered(call.rows) },
+    {
+      episodeId: null,
+      kbVersionId: call.kbVersionId,
+      blindTest: { runId: call.runId, config: call.config },
       transport: call.transport,
     },
   );

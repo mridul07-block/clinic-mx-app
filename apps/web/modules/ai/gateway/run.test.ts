@@ -2,7 +2,7 @@ import type { Db } from '@clinic-mx/db';
 import type { AiRankInput, AiTaskConfig } from '@clinic-mx/schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { z } from 'zod';
-import { rankDiagnoses, recheckWithFindings } from './index';
+import { rankDiagnoses, rankForBlindTest, recheckWithFindings } from './index';
 import { PROMPTS } from './prompts';
 import { buildRequest, runTask } from './run';
 import type { AiRequest, AiTransport, AiTransportResult } from './transport';
@@ -10,6 +10,7 @@ import type { AiRequest, AiTransport, AiTransportResult } from './transport';
 const db = vi.hoisted(() => ({
   insertAiRun: vi.fn(),
   aiSpendSince: vi.fn(),
+  blindTestSpend: vi.fn(),
   openAiSpendCapTask: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
@@ -112,6 +113,8 @@ describe('the AI gateway', () => {
       'ai.task_recheck_with_findings': { ...config, promptVersion: 'recheck_with_findings.v1' },
       'ai.daily_spend_cap_paise': 20000,
       'ai.usd_rate_paise': 9650,
+      'ai.blocked_providers': ['deepseek'],
+      'ai.blind_test_budget_paise': 200000,
     });
   });
 
@@ -322,5 +325,92 @@ describe('the clinical tasks', () => {
     expect(result.status).toBe('ok');
     expect(sent[0]?.messages[0]?.content).toBe(PROMPTS['recheck_with_findings.v1']);
     expect(sent[0]?.messages[1]?.content).toContain('Positive patellar grind');
+  });
+});
+
+// AI-06: a blind test runs a candidate's model for one call, never the task's settings, with its
+// own budget, and keeps every privacy rule of a live run.
+describe('the blind test', () => {
+  const runId = '00000000-0000-4000-8000-000000000b01';
+  const candidate = { ...config, model: 'vendor/candidate-b', providers: ['provider-b'] };
+  const blind = (transport: AiTransport, extra: Partial<typeof candidate> = {}) =>
+    rankForBlindTest({} as Db, {
+      runId,
+      kbVersionId,
+      case: theCase,
+      rows,
+      config: { ...candidate, ...extra },
+      transport,
+    });
+
+  beforeEach(() => {
+    for (const fn of Object.values(db)) fn.mockReset();
+    db.insertAiRun.mockResolvedValue('00000000-0000-4000-8000-000000000a01');
+    db.aiSpendSince.mockResolvedValue(0n);
+    db.blindTestSpend.mockResolvedValue(0n);
+    // The task itself has no model: the blind test never reads it.
+    settings['ai.task_rank_diagnoses'] = { ...config, model: null, providers: [] };
+  });
+
+  it('runs the candidate’s model, pinned, with zero data retention, tagged', async () => {
+    const { transport, sent } = fake();
+    expect((await blind(transport)).status).toBe('ok');
+    expect(sent[0]).toMatchObject({
+      model: 'vendor/candidate-b',
+      provider: {
+        zdr: true,
+        data_collection: 'deny',
+        order: ['provider-b'],
+        allow_fallbacks: false,
+      },
+    });
+    expect(recorded()[0]).toMatchObject({
+      blindTestRun: runId,
+      episodeId: null,
+      model: 'vendor/model-1',
+    });
+  });
+
+  it('counts its own budget, never the daily cap, and tells nobody', async () => {
+    db.aiSpendSince.mockResolvedValue(10_000_000n);
+    const { transport, sent } = fake();
+    expect((await blind(transport)).status).toBe('ok');
+    // 20,725,389 millionths of a dollar at 96.50 rupees is just past 2,000 rupees.
+    db.blindTestSpend.mockResolvedValue(20_725_389n);
+    expect(await blind(transport)).toMatchObject({ reason: 'capped' });
+    expect(sent).toHaveLength(1);
+    expect(db.openAiSpendCapTask).not.toHaveBeenCalled();
+  });
+
+  it('never routes to a blocked provider, live or blind', async () => {
+    const { transport, sent } = fake();
+    expect(await blind(transport, { providers: ['DeepSeek'] })).toMatchObject({
+      reason: 'not_configured',
+    });
+    settings['ai.task_rank_diagnoses'] = { ...config, providers: ['deepseek'] };
+    expect(await run(transport)).toMatchObject({ reason: 'not_configured' });
+    expect(sent).toHaveLength(0);
+  });
+
+  it('keeps the identifier guard, and refuses an episode', async () => {
+    const { transport, sent } = fake();
+    const named = await rankForBlindTest({} as Db, {
+      runId,
+      kbVersionId,
+      case: { ...theCase, symptoms: ['Call 98765 43210'] },
+      rows,
+      config: candidate,
+      transport,
+    });
+    expect(named).toMatchObject({ reason: 'blocked' });
+    await expect(
+      runTask({} as Db, 'rank_diagnoses', rankInput, {
+        episodeId,
+        kbVersionId,
+        blindTest: { runId, config: candidate },
+        transport,
+      }),
+    ).rejects.toThrow('outside any episode');
+    expect(sent).toHaveLength(0);
   });
 });

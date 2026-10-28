@@ -61,10 +61,19 @@ export const aiRun = pgTable(
     costMicroUsd: bigint('cost_micro_usd', { mode: 'bigint' }),
     tokensIn: integer('tokens_in'),
     tokensOut: integer('tokens_out'),
+    /** The blind test run (AI-06) this belongs to; none for a live run. */
+    blindTestRun: uuid('blind_test_run'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('ai_run_created_at_idx').on(table.createdAt),
+    index('ai_run_blind_test_idx')
+      .on(table.blindTestRun)
+      .where(sql`${table.blindTestRun} is not null`),
+    check(
+      'ai_run_blind_test',
+      sql`${table.blindTestRun} is null or (${table.episodeId} is null and ${table.kind} = 'rank_diagnoses')`,
+    ),
     index('ai_run_episode_idx').on(table.episodeId),
     check('ai_run_input_hash', sql`${table.inputHash} ~ '^[0-9a-f]{64}$'`),
     check('ai_run_attempts', sql`${table.attempts} between 0 and 2`),

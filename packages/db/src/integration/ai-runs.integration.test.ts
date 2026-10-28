@@ -1,7 +1,13 @@
 import { istDate, startOfIstDay } from '@clinic-mx/schemas';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
-import { AI_SPEND_CAP_TASK, aiSpendSince, insertAiRun, openAiSpendCapTask } from '../ai-runs';
+import {
+  AI_SPEND_CAP_TASK,
+  aiSpendSince,
+  blindTestSpend,
+  insertAiRun,
+  openAiSpendCapTask,
+} from '../ai-runs';
 import { createDb } from '../client';
 import { insertEpisode } from '../episodes';
 import type { StaffMember } from '../identity';
@@ -164,6 +170,29 @@ describe('the AI run log', () => {
       expect(await failure(tx, (sp) => sp.delete(aiRun).where(eq(aiRun.id, id)))).toBe('23514');
       // A clinical run names its knowledge base version.
       expect(await failure(tx, () => s.run({ kbVersionId: null }))).toBe('23514');
+    });
+  });
+
+  // AI-06: a blind test's runs are tagged, outside any episode, counted against their own budget
+  // and never against the live daily cap, and read by nobody signed in.
+  it('keeps blind test runs out of the live spend, and out of sight', async () => {
+    await rolledBack(async (tx) => {
+      const s = await setUp(tx);
+      const blindRun = '00000000-0000-4000-8000-000000000b01';
+      const today = startOfIstDay(istDate(new Date()));
+      const before = await aiSpendSince(tx, today);
+      const id = await s.run({ episodeId: null, blindTestRun: blindRun, costMicroUsd: 7000n });
+      await s.run({ episodeId: null, blindTestRun: blindRun, costMicroUsd: 3000n });
+      expect(await blindTestSpend(tx, blindRun)).toBe(10000n);
+      expect(await aiSpendSince(tx, today)).toBe(before);
+      expect(await sees(tx, s.consultantHere, id)).toBe(false);
+      // A blind run is never an episode's, and only ever a ranking.
+      expect(await failure(tx, () => s.run({ blindTestRun: blindRun }))).toBe('23514');
+      expect(
+        await failure(tx, () =>
+          s.run({ episodeId: null, blindTestRun: blindRun, kind: 'recheck_with_findings' }),
+        ),
+      ).toBe('23514');
     });
   });
 

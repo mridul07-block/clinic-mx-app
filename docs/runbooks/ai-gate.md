@@ -38,7 +38,8 @@ They are recorded as DECISION 23 in `docs/PROGRESS.md`, and the client's lawyer 
   on for is still the live version (SET-06, `docs/runbooks/knowledge-base.md`).
   - Approving a newer version switches the sheet off until a new blind test is recorded. The TAD
     says the blind test reruns whenever the knowledge base changes.
-  - AI-06 adds the model and prompt that passed the blind test to the same comparison.
+  - The model and prompt that passed the blind test join the same comparison when the winner is
+    adopted (AI-06, `docs/runbooks/ai-blind-test.md`).
 - **Read fresh, fails closed:** `aiSheetGate` (`packages/db/src/ai-gate.ts`) reads the row each
   time, not the 60 second settings cache, so switching off takes effect everywhere at once. A
   missing or unreadable value counts as off. The pure logic is `aiSheetGateState`.

@@ -397,6 +397,30 @@ export const settingDefinitions = {
     description:
       'Seconds after which the job may take over a preparation sheet still being made, if its run stopped.',
   },
+  'ai.blocked_providers': {
+    schema: z.array(z.string().min(1)).max(20),
+    source:
+      'PRD section 6 and TAD section 7 (DeepSeek’s own API is never used for patient data); AI-06, recommended default, 28 October 2026',
+    description:
+      'OpenRouter providers no clinical AI call is ever routed to, whatever a task or blind test names.',
+  },
+  // DECISION AI-06: the blind test's budget is the client's; 2,000 rupees is a placeholder.
+  'ai.blind_test_budget_paise': {
+    schema: z.int().positive(),
+    source:
+      'AI-06: a blind test run is counted against its own budget, not the daily cap; a placeholder of 2,000 rupees, recommended default, 28 October 2026',
+    description: 'The most one blind test run may spend, in paise; past it the run stops.',
+  },
+  'ai.blind_test_cases_min': {
+    schema: z.int().positive(),
+    source: 'PRD section 6 and AI-06: 30 to 50 anonymised cases',
+    description: 'The fewest cases a blind test runs on.',
+  },
+  'ai.blind_test_cases_max': {
+    schema: z.int().positive(),
+    source: 'PRD section 6 and AI-06: 30 to 50 anonymised cases',
+    description: 'The most cases a blind test runs on.',
+  },
   'billing.consultation_fee_timing': {
     schema: z.enum(consultationFeeTimings),
     source: 'PRD section 7: Consultation fee timing',

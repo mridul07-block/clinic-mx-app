@@ -31,3 +31,6 @@ apps/web/e2e/.auth/
 Thumbs.db
 desktop.ini
 ~$*
+
+# AI-06 blind test working folders: real cases and results never enter the repository.
+.blind-test/

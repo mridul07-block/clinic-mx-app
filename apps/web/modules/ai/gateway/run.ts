@@ -2,6 +2,7 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 import {
   aiSpendSince,
+  blindTestSpend,
   insertAiRun,
   openAiSpendCapTask,
   type Db,
@@ -147,6 +148,11 @@ export interface RunOptions {
   forbidden?: readonly string[];
   transport?: AiTransport | null;
   now?: Date;
+  /**
+   * A blind test run (AI-06): the candidate's settings in place of the task's, for this call only,
+   * its own budget, and the run tagged. Only `rankForBlindTest` passes it.
+   */
+  blindTest?: { runId: string; config: AiTaskConfig & { model: string } };
 }
 
 export async function runTask<K extends GatewayTask>(
@@ -157,7 +163,11 @@ export async function runTask<K extends GatewayTask>(
 ): Promise<AiResult<Output<K>>> {
   const started = Date.now();
   const now = options.now ?? new Date();
-  const config = await getSetting(TASKS[task].settingKey);
+  // A blind test (AI-06) runs its candidate's settings for this run only; nothing is stored.
+  if (options.blindTest && (options.episodeId !== null || task !== 'rank_diagnoses')) {
+    throw new Error('A blind test ranks anonymised cases only, outside any episode.');
+  }
+  const config = options.blindTest?.config ?? (await getSetting(TASKS[task].settingKey));
   const parsed = TASKS[task].input.safeParse(rawInput);
   const inputJson = canonicalJson(parsed.success ? parsed.data : rawInput);
   const base = {
@@ -167,6 +177,7 @@ export async function runTask<K extends GatewayTask>(
     model: config.model,
     promptVersion: config.promptVersion,
     inputHash: createHash('sha256').update(inputJson).digest('hex'),
+    blindTestRun: options.blindTest?.runId ?? null,
   } satisfies Partial<NewAiRun>;
 
   const finish = async (
@@ -193,17 +204,33 @@ export async function runTask<K extends GatewayTask>(
   if (!transport || !model || (clinicalAiTasks.includes(task) && config.providers.length === 0)) {
     return finish('not_configured');
   }
+  // Never a blocked provider for a clinical call (PRD: DeepSeek's own API never gets patient data).
+  const blocked = new Set(
+    (await getSetting('ai.blocked_providers')).map((provider) => provider.toLowerCase()),
+  );
+  if (
+    clinicalAiTasks.includes(task) &&
+    config.providers.some((provider) => blocked.has(provider.toLowerCase()))
+  ) {
+    return finish('not_configured');
+  }
   if (!outboundAllowed(textsOf(parsed.data), options.forbidden)) return finish('blocked');
 
-  const capPaise = await getSetting('ai.daily_spend_cap_paise');
-  const day = istDate(now);
-  const spent = microUsdToPaise(
-    await aiSpendSince(db, startOfIstDay(day)),
-    await getSetting('ai.usd_rate_paise'),
-  );
-  if (spent >= BigInt(capPaise)) {
-    await raiseSpendCap(db, { capPaise, spentPaise: spent.toString(), day });
-    return finish('capped');
+  const rate = await getSetting('ai.usd_rate_paise');
+  if (options.blindTest) {
+    // A blind test has its own budget; it never stops the live sheet or tells the Super Admin.
+    const spentOnTest = microUsdToPaise(await blindTestSpend(db, options.blindTest.runId), rate);
+    if (spentOnTest >= BigInt(await getSetting('ai.blind_test_budget_paise'))) {
+      return finish('capped');
+    }
+  } else {
+    const capPaise = await getSetting('ai.daily_spend_cap_paise');
+    const day = istDate(now);
+    const spent = microUsdToPaise(await aiSpendSince(db, startOfIstDay(day)), rate);
+    if (spent >= BigInt(capPaise)) {
+      await raiseSpendCap(db, { capPaise, spentPaise: spent.toString(), day });
+      return finish('capped');
+    }
   }
 
   const request = buildRequest(task, { ...config, model }, inputJson);
