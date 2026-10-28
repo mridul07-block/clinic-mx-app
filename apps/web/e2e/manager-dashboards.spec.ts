@@ -71,7 +71,8 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
   await page.getByRole('link', { name: 'Team', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Rosters and leave' })).toBeVisible();
   await page.getByRole('link', { name: 'Feedback', exact: true }).click();
-  await expect(page.getByTestId('feedback-empty')).toBeVisible();
+  // Empty, or the HSR answers other tests left (PAT-04 has its own spec).
+  await expect(page.getByRole('heading', { name: 'After the consultation' })).toBeVisible();
   await expect(page.locator('main')).toContainText('PAT-07');
   expect(await fits()).toBe(true);
 });

@@ -148,7 +148,10 @@ export const kpiCatalogue: readonly KpiDefinition[] = [
     audience: 'clinical',
     over: 'sum',
     target: target('kpi.target_satisfaction_score', 'above'),
-    measured: { needs: 'PAT-04 (feedback after the consultation)' },
+    // DECISION PAT-04: the questions after the consultation are Yes or No; none is out of 5.
+    measured: {
+      needs: 'a satisfaction question out of 5, which the client has not given (PAT-04)',
+    },
     definition: 'The average satisfaction score, out of 5.',
     prd: true,
   },

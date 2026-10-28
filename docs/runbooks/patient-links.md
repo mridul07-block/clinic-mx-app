@@ -24,7 +24,8 @@ Each link is:
 
 - **Only the newest My plan link works.** Issuing one stops the patient's older My plan links.
 - **Form links accept one submission.** Health form, consent, questionnaire and feedback links show
-  "You have already sent this. Thank you." afterwards. My plan links work until they end.
+  a thank you afterwards ("Thank you. Your feedback has reached the clinic." for feedback, PAT-04).
+  My plan links work until they end.
 
 ## The token
 
