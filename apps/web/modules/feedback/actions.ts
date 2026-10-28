@@ -6,7 +6,14 @@ import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { serviceContext } from '../access/staff-db';
 import { clientIp } from '../auth/session';
 import { PatientLinkError } from '../patient-links/services';
-import { showDischargeFeedback, showFeedback, submitFeedback, type FeedbackQr } from './services';
+import {
+  showDischargeFeedback,
+  showFeedback,
+  showFirstTreatmentCheck,
+  submitFeedback,
+  submitFirstTreatmentCheck,
+  type FeedbackQr,
+} from './services';
 
 /** What the feedback form shows after a post that needs answers (PAT-04). */
 export interface FeedbackFormState {
@@ -37,6 +44,17 @@ export async function sendFeedbackAction(
   redirect(`/p/${token}`);
 }
 
+/**
+ * Sends the patient's tap on the day after first treatment check (PAT-05), then shows the link's
+ * page, which thanks them. A plain form post, so it works without scripts.
+ */
+export async function sendFirstTreatmentCheckAction(form: FormData): Promise<void> {
+  const token = form.get('token');
+  if (typeof token !== 'string' || !tokenPattern.test(token)) redirect('/');
+  await submitFirstTreatmentCheck(token, form, await clientIp());
+  redirect(`/p/${token}`);
+}
+
 /** What the "Rate your visit" QR shows after a post: the page to open, received, or why not. */
 export interface FeedbackQrState {
   error?: string;
@@ -51,6 +69,14 @@ export async function showFeedbackAction(
   form: FormData,
 ): Promise<FeedbackQrState> {
   return showing(form, showFeedback);
+}
+
+/** Show the day after first treatment check QR for the episode's signed session 1 (PAT-05). */
+export async function showFirstTreatmentCheckAction(
+  _state: FeedbackQrState,
+  form: FormData,
+): Promise<FeedbackQrState> {
+  return showing(form, showFirstTreatmentCheck);
 }
 
 /** Show the discharge feedback QR for a discharged episode (PAT-07). */

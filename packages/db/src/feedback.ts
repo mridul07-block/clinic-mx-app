@@ -53,22 +53,42 @@ export async function liveFeedbackLink(
   return row;
 }
 
+/**
+ * The day after first treatment check (PAT-05): signing session 1 queues its WhatsApp message,
+ * which waits for WA-06 to send it (the job keeps the session, episode and visit).
+ */
+export const FIRST_TREATMENT_CHECK_JOB = 'whatsapp.first_treatment_check';
+
+/** What the desk's first treatment check QR is for: the episode's signed session 1's visit. */
+export async function firstTreatmentCheckTarget(
+  db: DbOrTransaction,
+  episodeId: string,
+): Promise<FeedbackTarget | undefined> {
+  const [row] = await db.execute<{
+    appointment_id: string;
+    patient_id: string;
+    received: boolean;
+  }>(sql`select * from internal.first_treatment_check_target(${episodeId}::uuid)`);
+  if (!row) return undefined;
+  return { appointmentId: row.appointment_id, patientId: row.patient_id, received: row.received };
+}
+
 /** What the patient's feedback link answers for, read as the patient; undefined once closed. */
 export interface FeedbackSubject {
-  surveyKey: 'post_consultation' | 'discharge';
+  surveyKey: 'post_consultation' | 'discharge' | 'first_treatment';
   patientId: string;
   episodeId: string;
-  /** The visit and its consultation, after the consultation; none at discharge. */
+  /** The visit (the consultation's, or the first treatment's), and the consultation; none at discharge. */
   appointmentId: string | null;
   consultationId: string | null;
   centreId: string;
-  /** Who held the consultation, or who discharged the episode. */
+  /** Who held the consultation or the first treatment, or who discharged the episode. */
   physioId: string | null;
 }
 
 export async function feedbackSubject(db: DbOrTransaction): Promise<FeedbackSubject | undefined> {
   const [row] = await db.execute<{
-    survey_key: 'post_consultation' | 'discharge';
+    survey_key: FeedbackSubject['surveyKey'];
     patient_id: string;
     episode_id: string;
     appointment_id: string | null;

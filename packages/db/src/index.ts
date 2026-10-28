@@ -650,6 +650,8 @@ export {
   type FeedbackResponse,
   type FeedbackSubject,
   type FeedbackTarget,
+  FIRST_TREATMENT_CHECK_JOB,
+  firstTreatmentCheckTarget,
 } from './feedback';
 export { aiSheetGate } from './ai-gate';
 export { episodeCandidateInput, type EpisodeCandidateInput } from './candidates';

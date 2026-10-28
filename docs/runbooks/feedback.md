@@ -123,6 +123,35 @@ approval, 28 October 2026 (DECISION PAT-08):
   Adverse events already escalate at once.
 - **Alerts.** The Centre Manager's Alerts count open service recovery tasks, linked to Tasks.
 
+## Day after first treatment check (PAT-05)
+
+PRD J5.6: "Day after first treatment check: Better, Same, Still sore. "Still sore" alerts the
+physio." TAD jobs: next day, 10:00 AM. Every other choice is a recommended default chosen under
+the user's standing approval, 29 October 2026 (DECISION PAT-05).
+
+- **When:** signing the episode's session 1 queues `whatsapp.first_treatment_check` for the day
+  after session 1's visit (`feedback.first_treatment_check_days`, 1) at 10:00 IST
+  (`feedback.first_treatment_check_time`), or at once when the note is signed after that; once per
+  episode (key per episode). Never for an opening entry's episode (SCH-13): those patients had
+  their first treatment before launch (`internal.first_treatment_episode`). The job sends
+  nothing until WA-06, whose sender must first check the check is still unanswered.
+- **Until WhatsApp:** the desk shows "First treatment check" as a QR on the plan and payment
+  sheet, for the episode's signed session 1's visit (a feedback link for that visit, working for
+  `links.feedback_days`); before session 1 is signed it says the check opens then; once answered,
+  "Answer received".
+- **The question:** "How do you feel since your first treatment?" is a placeholder (DECISION
+  PAT-05); the answers are the PRD's, Better, Same and Still sore, as three 64 px buttons, one tap
+  sends it. Nothing else is asked or stored. The WhatsApp template keeps its three quick replies;
+  when WA-03 routes them, they write through the same service.
+- **Still sore:** the episode's treating physio (the plan of care's), else the physio of session 1,
+  gets a high task, "Still sore the day after the first treatment" (`review.still_sore`), counted
+  with the open clinical reviews on the Centre Manager's Alerts ("New symptoms, adverse events,
+  worsening and still sore to review"). It names no patient in its
+  details. Never service recovery (PAT-08): that is for feedback about the service.
+- **Better and Same:** recorded only.
+- **Not built:** the amber tag beside the patient (the same gap as ALT-02's reviews), and a
+  reminder when there is no answer.
+
 ## How it works
 
 | Part | Where |
@@ -135,6 +164,7 @@ approval, 28 October 2026 (DECISION PAT-08):
 | Readers | `feedback_manager_read`: Super Admin and Centre Managers, at their centres. `feedbackResponses` reads with the physio's name through `internal.record_staff_name` |
 | Services | `apps/web/modules/feedback/services.ts`: `loadFeedback`, `showFeedback` (`check_in.manage`, audited), `submitFeedback` (patient, audited as `patient:<id>`); actions in `actions.ts` |
 | Pages | `app/(patient)/p/[token]/feedback-form.tsx`; `plans/[episodeId]/patient-qrs.tsx`; `dashboard/feedback/page.tsx` |
+| First treatment check (PAT-05) | `survey_key = 'first_treatment'`, one per episode, its visit and physio, one answer of the three (`feedback_first_treatment`); `internal.feedback_subject()` gives a link for session 1's visit once signed and unanswered; `internal.first_treatment_check_target(episode)` and `internal.feedback_open_for` for the desk; `session_first_treatment_check` queues the job; `feedback_still_sore` makes the task; `first-treatment-form.tsx`, `showFirstTreatmentCheck`, `submitFirstTreatmentCheck` |
 
 ## Tests
 
@@ -144,6 +174,8 @@ approval, 28 October 2026 (DECISION PAT-08):
 | `apps/web/modules/feedback/services.test.ts` | The working link again or a new one; received; refusals before signing or discharge, elsewhere, for a physio; sending with the score; missing answers kept; used, other or closed links; a form naming another survey; a lost race |
 | `apps/web/modules/reporting/manager.test.ts` | Counts by centre and by physio id; comments; the window; the Net Promoter Score overall and per group against the target |
 | `packages/db/src/integration/feedback.integration.test.ts` | Covers: <ul><li>the answer for the consultation's centre and physio, audited as the patient;</li><li>no completion before the answer;</li><li>another subject, a second answer, a second link, a draft, a stopped or other link all refused;</li><li>no patient read;</li><li>Super Admin and Centre Manager reads by centre, with the desk, Finance and the physio refused;</li><li>nobody updates or deletes;</li><li>the desk issues only at its centre and only once signed.</li><li>At discharge: the answers and score for the episode's centre and discharging consultant; a score required; another subject, a second answer and an episode not yet discharged refused; the desk issues only at its centre, for the episode's own patient.</li></ul> |
+| `packages/db/src/integration/first-treatment-check.integration.test.ts` | Signing session 1 queues one job for the next day at 10:00 IST, session 2 and a draft none; Better and Same once, no task; Still sore a high task for the treating physio (else session 1's physio), never service recovery, read by them and counted for the manager; an answer outside the three or with a comment refused; the desk's target at its centre once signed, and the link only then. Disabling `feedback_still_sore` fails this test |
+| `apps/web/e2e/first-treatment-check.spec.ts` (360 px and desktop) | Closed before session 1 is signed; the desk QR; the patient's three buttons and one tap; the thanks; received at the desk; the physio's task |
 | `apps/web/e2e/feedback.spec.ts` (360 px and desktop) | After the consultation and at discharge: the desk QR (discharge only once discharged); the patient's answers with the missing-answer and missing-score messages; the thanks; received at the desk; the Centre Manager's screen with the Net Promoter Score |
 
 The database test also covers service recovery: a task for a No and none for all Yes, a score of

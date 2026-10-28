@@ -2,6 +2,7 @@ import { PatientLinkQr } from '../../../../../../components/patient-link-qr';
 import {
   showDischargeFeedbackAction,
   showFeedbackAction,
+  showFirstTreatmentCheckAction,
 } from '../../../../../../modules/feedback/actions';
 import { showMyPlanAction } from '../../../../../../modules/patient-links/actions';
 
@@ -52,6 +53,32 @@ export function RateYourVisitQr({ episodeId, origin }: { episodeId: string; orig
       alt="QR code for the patient’s feedback"
       receivedText="Feedback received. Thank you."
       action={showFeedbackAction}
+      fields={{ episodeId }}
+      origin={origin}
+    />
+  );
+}
+
+/**
+ * Day after first treatment check (PAT-05): Better, Same or Still sore, as the WhatsApp check the
+ * day after session 1 will ask (WA-06); once answered, received.
+ */
+export function FirstTreatmentCheckQr({
+  episodeId,
+  origin,
+}: {
+  episodeId: string;
+  origin: string;
+}) {
+  return (
+    <PatientLinkQr
+      id="first-treatment-check"
+      title="First treatment check"
+      description="How the patient feels since their first treatment: Better, Same or Still sore, answered on their phone. Still sore alerts the physio."
+      buttonLabel="Show first treatment check QR"
+      alt="QR code for the patient’s first treatment check"
+      receivedText="Answer received. Thank you."
+      action={showFirstTreatmentCheckAction}
       fields={{ episodeId }}
       origin={origin}
     />
