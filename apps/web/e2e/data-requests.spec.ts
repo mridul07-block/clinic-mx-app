@@ -39,7 +39,7 @@ test('the Super Admin records a request for a copy, downloads the data and close
   const download = page.waitForEvent('download');
   await page.getByTestId('data-request-export').click();
   const file = await download;
-  expect(file.suggestedFilename()).toBe(`clinic-mx-${patient.opNumber}-data.json`);
+  expect(file.suggestedFilename()).toBe(['clinic-mx', patient.opNumber, 'data.json'].join('-'));
   const { readFile } = await import('node:fs/promises');
   const data = JSON.parse(await readFile(await file.path(), 'utf8')) as {
     patient: { id: string };

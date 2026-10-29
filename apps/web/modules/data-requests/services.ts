@@ -93,6 +93,6 @@ export async function exportForRequest(
     const request = await dataRequestRecord(tx, requestId);
     if (request?.kind !== 'export' || request.status !== 'open') return undefined;
     const data = await patientExport(tx, request.id);
-    return { fileName: `clinic-mx-${request.opNumber}-data.json`, data };
+    return { fileName: ['clinic-mx', request.opNumber, 'data.json'].join('-'), data };
   });
 }
