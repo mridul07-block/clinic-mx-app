@@ -237,3 +237,45 @@ export const firstTreatmentCheck = {
 export const firstTreatmentAnswerSchema = z.strictObject({
   answer: z.enum(firstTreatmentAnswers, { error: 'Choose Better, Same or Still sore.' }),
 });
+
+/**
+ * Follow ups after discharge (PAT-10; PRD J7.4: "Follow ups at 2 weeks, 6 weeks, 3 months and 12
+ * months with Doing well, Some pain, Injured again"; J7.5: ""Injured again" records a recurrence and
+ * alerts the consultant"). The answers are the PRD's, word for word; one tap each, for one
+ * interval. Recommended defaults chosen under the user's standing approval, 29 October 2026
+ * (DECISION PAT-10, docs/runbooks/feedback.md).
+ */
+export const followUpAnswers = ['doing_well', 'some_pain', 'injured_again'] as const;
+export type FollowUpAnswer = (typeof followUpAnswers)[number];
+
+export const followUpAnswerLabels: Record<FollowUpAnswer, string> = {
+  doing_well: 'Doing well',
+  some_pain: 'Some pain',
+  injured_again: 'Injured again',
+};
+
+/** The keys the answer and its interval are stored under in `feedback.answers`. */
+export const FOLLOW_UP_ANSWER_KEY = 'since_discharge';
+export const FOLLOW_UP_INTERVAL_KEY = 'follow_up';
+
+/** The consultant's task when the answer is Injured again. */
+export const INJURED_AGAIN_TASK = 'review.injured_again';
+
+export const followUpCheck = {
+  version: 1,
+  // DECISION PAT-10: no document words the question; a placeholder until the client gives theirs.
+  title: 'How are you doing?',
+  question: 'How have you been since you finished your treatment with us?',
+} as const;
+
+export const followUpAnswerSchema = z.strictObject({
+  answer: z.enum(followUpAnswers, { error: 'Choose Doing well, Some pain or Injured again.' }),
+});
+
+/** "2 weeks", "3 months" for an interval key such as "2_week"; null for anything else. */
+export function followUpPeriod(key: string): string | null {
+  const match = /^(\d+)_(week|month)$/.exec(key);
+  if (!match) return null;
+  const count = Number(match[1]);
+  return `${String(count)} ${match[2] ?? ''}${count === 1 ? '' : 's'}`;
+}

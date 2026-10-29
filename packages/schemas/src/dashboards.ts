@@ -44,7 +44,7 @@ export const alertItemLabels: Record<AlertItem, string> = {
   red_flags_referred: 'Red flags referred, not yet closed',
   unsigned_notes: 'Notes started and not signed',
   reassessments_awaiting: 'Reassessments waiting for the consultant’s decision',
-  reviews_open: 'New symptoms, adverse events, worsening and still sore to review',
+  reviews_open: 'New symptoms, adverse events, worsening, still sore and injured again to review',
   reviews_overdue: '6 week reviews overdue',
   service_recovery: 'Service recovery after a No or a low score',
   episodes_on_hold: 'Episodes on hold',

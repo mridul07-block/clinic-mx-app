@@ -4,6 +4,7 @@ import {
   DISCHARGE_REPORT_JOB,
   DISCHARGE_REPORT_MESSAGE_JOB,
   FIRST_TREATMENT_CHECK_JOB,
+  FOLLOW_UP_CHECK_JOB,
   INTAKE_SUBMITTED_JOB,
   INVOICE_JOB,
   KB_REPORT_JOB,
@@ -96,6 +97,21 @@ export const jobHandlers: JobHandlers = {
    * visibly, as a background job failure, when the centre has none). Until then the job completes
    * without sending.
    */
+  /**
+   * The follow ups after discharge (PAT-10), queued by the database at discharge, one per interval
+   * of `engagement.follow_ups_after_discharge`, each on its day at 10:00 IST. Nothing is sent yet:
+   * WA-06 sends `follow_up_check` with the period, after checking the interval is still unanswered
+   * (the desk QR may have taken it) and skipping when the patient has a newer episode not yet
+   * discharged. Until then the job completes without sending.
+   */
+  [FOLLOW_UP_CHECK_JOB]: defineJob({
+    payload: z.object({
+      episodeId: z.guid(),
+      count: z.int().positive(),
+      unit: z.enum(['week', 'month']),
+    }),
+    run: () => Promise.resolve(),
+  }),
   [REVIEW_REQUEST_MESSAGE_JOB]: defineJob({
     payload: z.object({ episodeId: z.guid() }),
     run: () => Promise.resolve(),

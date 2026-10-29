@@ -10,8 +10,10 @@ import {
   showDischargeFeedback,
   showFeedback,
   showFirstTreatmentCheck,
+  showFollowUpCheck,
   submitFeedback,
   submitFirstTreatmentCheck,
+  submitFollowUpCheck,
   type FeedbackQr,
 } from './services';
 
@@ -55,6 +57,14 @@ export async function sendFirstTreatmentCheckAction(form: FormData): Promise<voi
   redirect(`/p/${token}`);
 }
 
+/** Sends the patient's tap on a follow up after discharge (PAT-10), then thanks them. */
+export async function sendFollowUpCheckAction(form: FormData): Promise<void> {
+  const token = form.get('token');
+  if (typeof token !== 'string' || !tokenPattern.test(token)) redirect('/');
+  await submitFollowUpCheck(token, form, await clientIp());
+  redirect(`/p/${token}`);
+}
+
 /** What the "Rate your visit" QR shows after a post: the page to open, received, or why not. */
 export interface FeedbackQrState {
   error?: string;
@@ -77,6 +87,14 @@ export async function showFirstTreatmentCheckAction(
   form: FormData,
 ): Promise<FeedbackQrState> {
   return showing(form, showFirstTreatmentCheck);
+}
+
+/** Show the follow up QR for a discharged episode with a follow up due (PAT-10). */
+export async function showFollowUpCheckAction(
+  _state: FeedbackQrState,
+  form: FormData,
+): Promise<FeedbackQrState> {
+  return showing(form, showFollowUpCheck);
 }
 
 /** Show the discharge feedback QR for a discharged episode (PAT-07). */

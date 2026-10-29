@@ -5,8 +5,10 @@ import {
   showDischargeFeedback,
   showFeedback,
   showFirstTreatmentCheck,
+  showFollowUpCheck,
   submitFeedback,
   submitFirstTreatmentCheck,
+  submitFollowUpCheck,
 } from './services';
 
 const fakeTx = { kind: 'transaction' };
@@ -21,6 +23,8 @@ const db = vi.hoisted(() => ({
   feedbackSubject: vi.fn(),
   insertFeedback: vi.fn(),
   firstTreatmentCheckTarget: vi.fn(),
+  followUpCheckTarget: vi.fn(),
+  liveFollowUpLink: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
 const links = vi.hoisted(() => ({
@@ -312,5 +316,58 @@ describe('First treatment check', () => {
       Object.assign(new Error('Failed query'), { cause: { code: '23505' } }),
     );
     expect(await submitFirstTreatmentCheck('token', tapped('better'))).toBe('link');
+  });
+});
+
+// PAT-10: the follow up QR for a discharged episode with one due, and one tap for that interval.
+describe('Follow ups after discharge', () => {
+  const tapped = (answer: string) => {
+    const form = new FormData();
+    form.set('answer', answer);
+    return form;
+  };
+  const followUpLink = { ...link, purpose: 'follow_up' as const };
+  const due = {
+    ...subject,
+    surveyKey: 'follow_up' as const,
+    appointmentId: null,
+    consultationId: null,
+    followUp: '6_week',
+  };
+
+  it('issues a link for the episode while one is due, and refuses otherwise', async () => {
+    db.followUpCheckTarget.mockResolvedValue({ patientId, due: '6_week', nextOn: null });
+    db.liveFollowUpLink.mockResolvedValue(undefined);
+    links.issuePatientLink.mockResolvedValue({ linkId: 'new', path: '/p/new', expiresAt });
+    expect(await showFollowUpCheck(context(), { episodeId })).toMatchObject({ path: '/p/new' });
+    expect(links.issuePatientLink).toHaveBeenCalledWith(fakeTx, {
+      patientId,
+      episodeId,
+      purpose: 'follow_up',
+    });
+    db.followUpCheckTarget.mockResolvedValue({ patientId, due: null, nextOn: '2026-12-01' });
+    await expect(showFollowUpCheck(context(), { episodeId })).rejects.toThrow(
+      /No follow up is due/,
+    );
+  });
+
+  it('records the answer with its interval once, then completes the link', async () => {
+    links.verifyPatientLink.mockResolvedValue({ status: 'valid', link: followUpLink });
+    db.feedbackSubject.mockResolvedValue(due);
+    expect(await submitFollowUpCheck('token', tapped('injured_again'))).toBe('sent');
+    expect(db.insertFeedback).toHaveBeenCalledWith(fakeTx, {
+      linkId: 'link',
+      subject: due,
+      surveyVersion: 1,
+      answers: { since_discharge: 'injured_again', follow_up: '6_week' },
+      comment: null,
+      score: null,
+    });
+    expect(links.completePatientLink).toHaveBeenCalledTimes(1);
+    expect(await submitFollowUpCheck('token', tapped('worse'))).toBe('link');
+    // A feedback link is not a follow up link.
+    links.verifyPatientLink.mockResolvedValue({ status: 'valid', link });
+    expect(await submitFollowUpCheck('token', tapped('doing_well'))).toBe('link');
+    expect(db.insertFeedback).toHaveBeenCalledTimes(1);
   });
 });

@@ -555,6 +555,12 @@ export const settingDefinitions = {
     source: 'PRD section 7: Follow ups',
     description: 'When follow up messages are sent, counted from the discharge date.',
   },
+  'engagement.follow_up_time': {
+    schema: timeOfDay,
+    source:
+      'PAT-10: the PRD and TAD give the days, not the time; 10:00 IST as the other checks (recommended default)',
+    description: 'The time of day, in IST, each follow up after discharge is sent.',
+  },
   'security.desktop_idle_logout_minutes': {
     schema: minutes,
     source: 'PRD section 7: Auto logout',
@@ -584,6 +590,11 @@ export const settingDefinitions = {
     schema: days,
     source: 'User decision, 22 October 2026 (IAM-09)',
     description: 'Days a questionnaire link stays valid.',
+  },
+  'links.follow_up_days': {
+    schema: z.int().positive().max(90),
+    source: 'PAT-10: as the feedback links (recommended default)',
+    description: 'Days a follow up link stays open for its answer.',
   },
   'links.feedback_days': {
     schema: days,

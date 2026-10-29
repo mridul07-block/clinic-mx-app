@@ -42,6 +42,7 @@ import { CheckAndSubmit } from './check-submit';
 import { ConsentScreenForm } from './consent-form';
 import { FeedbackForm } from './feedback-form';
 import { FirstTreatmentForm } from './first-treatment-form';
+import { FollowUpForm } from './follow-up-form';
 import { HealthFormScreenForm } from './health-form';
 import { KioskShell } from './kiosk-shell';
 import { MyPlanPage } from './my-plan';
@@ -112,7 +113,7 @@ function message(opened: Shown): { title: string; body: string } {
         body:
           opened.purpose === 'health_form'
             ? 'Thank you. Your answers are with your physiotherapist.'
-            : opened.purpose === 'feedback'
+            : opened.purpose === 'feedback' || opened.purpose === 'follow_up'
               ? 'Thank you. Your feedback has reached the clinic.'
               : 'You have already sent this. Thank you.',
       };
@@ -361,9 +362,17 @@ export default async function PatientPage({
   let firstTreatment = false;
   if (link.status === 'valid' && link.link.purpose === 'feedback') {
     const loaded = await loadFeedback(link.link, ip);
-    if (!loaded.open) opened = { status: 'closed', purpose: 'feedback' };
-    else if (loaded.surveyKey === 'first_treatment') firstTreatment = true;
+    if (!loaded.open || loaded.surveyKey === 'follow_up') {
+      opened = { status: 'closed', purpose: 'feedback' };
+    } else if (loaded.surveyKey === 'first_treatment') firstTreatment = true;
     else survey = { key: loaded.surveyKey, definition: loaded.survey };
+  }
+  // PAT-10: a follow up after discharge, for the interval due now.
+  let followUp: string | null = null;
+  if (link.status === 'valid' && link.link.purpose === 'follow_up') {
+    const loaded = await loadFeedback(link.link, ip);
+    if (loaded.open && loaded.surveyKey === 'follow_up') followUp = loaded.followUp;
+    else opened = { status: 'closed', purpose: 'follow_up' };
   }
   const { title, body } = kiosk ? kioskMessage(opened) : message(opened);
   const formScreen = welcome?.open ? (
@@ -379,6 +388,8 @@ export default async function PatientPage({
     <FeedbackForm token={token} surveyKey={survey.key} survey={survey.definition} />
   ) : firstTreatment ? (
     <FirstTreatmentForm token={token} />
+  ) : followUp ? (
+    <FollowUpForm token={token} followUp={followUp} />
   ) : null;
   const page = (
     <main data-voice="patient" className="min-h-dvh bg-surface px-4 py-6">

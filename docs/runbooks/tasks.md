@@ -109,6 +109,14 @@ physio of session 1) a high task (`review.still_sore`, "Clinical review: still s
 treatment"), titled "Still sore the day after the first treatment", for the patient; counted with
 the open clinical reviews on the Centre Manager's Alerts. See `docs/runbooks/feedback.md`.
 
+## Injured again after discharge (PAT-10)
+
+"Injured again" on a follow up after discharge gives the consultant who discharged the episode (the
+centre's Centre Managers when they are no longer active) a high task (`review.injured_again`,
+"Clinical review: injured again after discharge"), titled "Injured again after discharge", for the
+patient; counted with the open clinical reviews on the Centre Manager's Alerts. See
+`docs/runbooks/feedback.md`.
+
 ## Knowledge base report (AI-08)
 
 The monthly knowledge base report reaches the Super Admin as a task (`ai.kb_report`, "Knowledge

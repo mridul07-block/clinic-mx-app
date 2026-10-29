@@ -34,6 +34,7 @@ export const taskKindLabels: Record<string, string> = {
   'feedback.service_recovery': 'Service recovery',
   'feedback.service_recovery_director': 'Service recovery: Clinical Director review',
   'review.still_sore': 'Clinical review: still sore after the first treatment',
+  'review.injured_again': 'Clinical review: injured again after discharge',
   'ai.spend_cap': 'AI spend cap reached',
   'ai.kb_report': 'Knowledge base report',
 };

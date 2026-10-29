@@ -5,6 +5,8 @@ import {
   feedbackSubject,
   feedbackTarget,
   firstTreatmentCheckTarget,
+  followUpCheckTarget,
+  liveFollowUpLink,
   insertFeedback,
   liveDischargeFeedbackLink,
   liveFeedbackLink,
@@ -14,6 +16,10 @@ import {
 } from '@clinic-mx/db';
 import {
   FIRST_TREATMENT_ANSWER_KEY,
+  FOLLOW_UP_ANSWER_KEY,
+  FOLLOW_UP_INTERVAL_KEY,
+  followUpAnswerSchema,
+  followUpCheck,
   feedbackSubmissionSchema,
   feedbackSurveyKeys,
   feedbackSurveys,
@@ -52,11 +58,17 @@ export async function loadFeedback(
 ): Promise<
   | { open: true; surveyKey: FeedbackSurveyKey; survey: FeedbackSurvey }
   | { open: true; surveyKey: 'first_treatment' }
+  | { open: true; surveyKey: 'follow_up'; followUp: string }
   | { open: false }
 > {
   const subject = await asPatient(link, (tx) => feedbackSubject(tx), ip);
   if (!subject) return { open: false };
   if (subject.surveyKey === 'first_treatment') return { open: true, surveyKey: 'first_treatment' };
+  if (subject.surveyKey === 'follow_up') {
+    return subject.followUp
+      ? { open: true, surveyKey: 'follow_up', followUp: subject.followUp }
+      : { open: false };
+  }
   return { open: true, surveyKey: subject.surveyKey, survey: feedbackSurveys[subject.surveyKey] };
 }
 
@@ -289,4 +301,91 @@ export async function loadReviewLink(
   episodeId: string,
 ): Promise<{ link: string | null } | undefined> {
   return asStaff(actor, (tx) => reviewLinkTarget(tx, episodeId));
+}
+
+/**
+ * Show the follow up QR for a discharged episode (PAT-10), while a follow up is due and until
+ * WhatsApp sends them (WA-06); audited. The link answers the newest due follow up.
+ */
+export const showFollowUpCheck = staffService({
+  action: 'check_in.manage',
+  input: episodeInput,
+  target: episodeCentre,
+  run: async (tx, input): Promise<FeedbackQr> => {
+    const target = await followUpCheckTarget(tx, input.episodeId);
+    if (!target?.due) throw new PatientLinkError('No follow up is due for this episode now.');
+    const live = await liveFollowUpLink(tx, input.episodeId);
+    if (live) {
+      const path = patientLinkPath({
+        id: live.id,
+        purpose: 'follow_up',
+        expiresAt: live.expiresAt,
+      });
+      if (!path) throw new PatientLinkError('Patient links are not set up (PATIENT_LINK_SECRET).');
+      return { received: false, linkId: live.id, path, expiresAt: live.expiresAt };
+    }
+    const issued = await issuePatientLink(tx, {
+      patientId: target.patientId,
+      episodeId: input.episodeId,
+      purpose: 'follow_up',
+    });
+    return { received: false, ...issued };
+  },
+});
+
+/** What the desk shows about a discharged episode's follow ups (PAT-10); undefined otherwise. */
+export async function loadFollowUps(
+  actor: StaffMember,
+  episodeId: string,
+): Promise<{ due: string | null; nextOn: string | null } | undefined> {
+  const target = await asStaff(actor, (tx) => followUpCheckTarget(tx, episodeId));
+  return target ? { due: target.due, nextOn: target.nextOn } : undefined;
+}
+
+/** The patient's one answer to a follow up after discharge (PAT-10). */
+const followUpAnswer = patientService({
+  input: followUpAnswerSchema,
+  run: async (tx, input, link) => {
+    const subject = await feedbackSubject(tx);
+    if (subject?.surveyKey !== 'follow_up' || !subject.followUp) {
+      throw new FeedbackClosedError('This follow up is no longer open.');
+    }
+    await insertFeedback(tx, {
+      linkId: link.id,
+      subject,
+      surveyVersion: followUpCheck.version,
+      answers: { [FOLLOW_UP_ANSWER_KEY]: input.answer, [FOLLOW_UP_INTERVAL_KEY]: subject.followUp },
+      comment: null,
+      score: null,
+    });
+    await completePatientLink(tx, link);
+  },
+});
+
+/**
+ * Sends the patient's tap (Doing well, Some pain or Injured again) for the follow up link behind
+ * `token`; a used link is already sent, and anything else is the link's own page again.
+ */
+export async function submitFollowUpCheck(
+  token: string,
+  form: FormData,
+  ip?: string,
+): Promise<'sent' | 'link'> {
+  const opened = await verifyPatientLink(token);
+  if (opened.status === 'used' && opened.purpose === 'follow_up') return 'sent';
+  if (opened.status !== 'valid' || opened.link.purpose !== 'follow_up') return 'link';
+  const parsed = followUpAnswerSchema.safeParse({ answer: form.get('answer') });
+  if (!parsed.success) return 'link';
+  try {
+    await followUpAnswer(opened.link, parsed.data, ip);
+  } catch (error) {
+    if (error instanceof FeedbackClosedError || error instanceof PatientLinkError) return 'link';
+    // Tapped twice at once: the other tap's answer stands (unique, 23505) or closed the link
+    // first (42501); the page then thanks the patient.
+    const code =
+      (error as { cause?: { code?: string } }).cause?.code ?? (error as { code?: string }).code;
+    if (code === '23505' || code === '42501') return 'link';
+    throw error;
+  }
+  return 'sent';
 }

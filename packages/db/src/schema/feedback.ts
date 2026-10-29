@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   check,
+  date,
   index,
   integer,
   jsonb,
@@ -31,6 +32,7 @@ export const feedbackSurveyKey = pgEnum('feedback_survey_key', [
   'post_consultation',
   'discharge',
   'first_treatment',
+  'follow_up',
 ]);
 
 export const feedback = pgTable(
@@ -68,6 +70,10 @@ export const feedback = pgTable(
     uniqueIndex('feedback_one_discharge_per_episode')
       .on(table.episodeId)
       .where(sql`${table.surveyKey} = 'discharge'`),
+    // PAT-10: each follow up after discharge answered once per episode.
+    uniqueIndex('feedback_one_follow_up_per_interval')
+      .on(table.episodeId, sql`(${table.answers} ->> 'follow_up')`)
+      .where(sql`${table.surveyKey} = 'follow_up'`),
     // PAT-05: the day after first treatment check, once per episode.
     uniqueIndex('feedback_one_first_treatment_per_episode')
       .on(table.episodeId)
@@ -92,6 +98,16 @@ export const feedback = pgTable(
       'feedback_post_consultation',
       sql`${table.surveyKey} <> 'post_consultation' or (${table.appointmentId} is not null and ${table.consultationId} is not null and ${table.physioId} is not null)`,
     ),
+    // PAT-10: the discharged episode's centre and consultant; one answer of the three for one
+    // interval ("2_week"), nothing more.
+    check(
+      'feedback_follow_up',
+      sql`${table.surveyKey} <> 'follow_up' or (${table.appointmentId} is null
+        and ${table.consultationId} is null and ${table.score} is null and ${table.comment} is null
+        and ${table.answers} ->> 'since_discharge' in ('doing_well', 'some_pain', 'injured_again')
+        and ${table.answers} ->> 'follow_up' ~ '^[0-9]+_(week|month)$'
+        and ${table.answers} - 'since_discharge' - 'follow_up' = '{}'::jsonb)`,
+    ),
     // PAT-05: the first treatment's visit and physio, and one answer of the three, nothing more.
     check(
       'feedback_first_treatment',
@@ -105,3 +121,26 @@ export const feedback = pgTable(
 ).enableRLS();
 
 export type Feedback = typeof feedback.$inferSelect;
+
+/**
+ * The follow ups after discharge (PAT-10), fixed at discharge: one row per interval of
+ * `engagement.follow_ups_after_discharge` as it stood then ("2_week"), with the IST day it is due.
+ * Written by the discharge trigger; what a follow up link answers is read from here, so a later
+ * change of the setting moves nothing already scheduled.
+ */
+export const followUpSchedule = pgTable(
+  'follow_up_schedule',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    episodeId: uuid('episode_id')
+      .notNull()
+      .references(() => episode.id),
+    followUp: text('follow_up').notNull(),
+    dueOn: date('due_on').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('follow_up_schedule_episode_interval').on(table.episodeId, table.followUp),
+    check('follow_up_schedule_interval', sql`${table.followUp} ~ '^[0-9]+_(week|month)$'`),
+  ],
+).enableRLS();
