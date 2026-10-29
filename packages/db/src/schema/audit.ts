@@ -8,6 +8,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uuid,
 } from 'drizzle-orm/pg-core';
 
 /**
@@ -52,10 +53,18 @@ export const auditEvent = pgTable(
     after: jsonb('after'),
     at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
     ip: text('ip'),
+    /**
+     * Which part of the trail it belongs to and the centre it is about, set when it is written
+     * (ADM-01, `internal.audit_place`): who may read it in the audit log.
+     */
+    category: text('category'),
+    centreId: uuid('centre_id'),
   },
   (table) => [
     index('audit_event_entity_idx').on(table.entity, table.entityId, table.at),
     index('audit_event_actor_idx').on(table.actor, table.at),
+    index('audit_event_category_idx').on(table.category, table.id),
+    index('audit_event_centre_idx').on(table.centreId, table.id),
     check(
       'audit_event_actor_format',
       sql`${table.actor} ~ '^(staff|patient):[0-9a-f-]{36}$|^system:[a-z0-9._-]+$'`,

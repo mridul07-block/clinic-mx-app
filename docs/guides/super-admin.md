@@ -14,6 +14,7 @@ On a phone, the bar at the bottom holds **Overview**, **Alerts** and **More**. *
 - **Staff**, **Centres**, **Team**, **Prices**, **Packages** and **Appointment types**.
 - **Knowledge base**, **Red flags** and **AI preparation sheet**.
 - **WhatsApp templates**, **Support access**, **Opening entries**, **Kiosk tablets** and **Account**.
+- **Audit log**: every change and every opened record, newest first.
 - With the Treats patients tick, also **My patients today** and **My leave**.
 
 ## Everyday tasks
