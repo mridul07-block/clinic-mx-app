@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   auditActorLabel,
   auditCategory,
+  auditCsv,
+  auditDownloadRefusalText,
+  auditDownloadSpan,
   auditEntityLabel,
   auditLogQuery,
   auditPlacedTables,
@@ -76,5 +79,72 @@ describe('the audit log', () => {
   it('places each table once', () => {
     expect(new Set(auditPlacedTables).size).toBe(auditPlacedTables.length);
     for (const table of auditSetupTables) expect(auditCategory(table)).toBe('admin');
+  });
+
+  it('downloads a chosen span of days, no longer than the setting', () => {
+    expect(auditDownloadSpan({ from: '2026-10-01' }, 31)).toEqual({
+      ok: false,
+      refusal: 'no_span',
+    });
+    expect(auditDownloadSpan({ from: '2026-10-02', to: '2026-10-01' }, 31)).toEqual({
+      ok: false,
+      refusal: 'reversed',
+    });
+    expect(auditDownloadSpan({ from: '2026-10-01', to: '2026-10-31' }, 31)).toEqual({
+      ok: true,
+      from: '2026-10-01',
+      to: '2026-10-31',
+    });
+    expect(auditDownloadSpan({ from: '2026-10-01', to: '2026-11-01' }, 31)).toEqual({
+      ok: false,
+      refusal: 'too_long',
+    });
+    expect(auditDownloadRefusalText('too_long', 31, 5000)).toBe(
+      'Choose at most 31 days to download.',
+    );
+    expect(auditDownloadRefusalText('too_many', 31, 5000)).toContain('More than 5,000 events');
+  });
+
+  it('writes the events as CSV, withheld values marked hidden, formulas never run', () => {
+    const csv = auditCsv([
+      {
+        id: 2,
+        at: new Date('2026-10-29T05:00:00Z'),
+        actor: 'staff:00000000-0000-4000-8000-000000000201',
+        actorName: '=Test Name',
+        action: 'update',
+        entity: 'measure',
+        entityId: '00000000-0000-4000-8000-000000000301',
+        category: 'clinical_record',
+        before: null,
+        after: null,
+        changed: ['value'],
+        redacted: true,
+        hiddenFields: [],
+      },
+      {
+        id: 1,
+        at: new Date('2026-10-29T04:00:00Z'),
+        actor: 'system:jobs',
+        actorName: null,
+        action: 'update',
+        entity: 'setting',
+        entityId: null,
+        category: 'admin',
+        before: { value: '=1+1' },
+        after: { value: 2 },
+        changed: ['value'],
+        redacted: false,
+        hiddenFields: [],
+      },
+    ]);
+    const lines = csv.trimEnd().split('\r\n');
+    expect(lines[0]).toBe('Event,When (IST),Who,What,Record type,Part,Record,Fields,Before,After');
+    // A name that starts like a formula is quoted so it never runs.
+    expect(lines[1]).toBe(
+      '2,"29 Oct 2026, 10:30 IST",\'=Test Name,Changed,Measure,Clinical record,00000000-0000-4000-8000-000000000301,value,hidden,hidden',
+    );
+    expect(lines[2]).toContain('System (jobs),Changed,Setting,Setup,,value,');
+    expect(lines[2]).toContain('"{""value"":""=1+1""}"');
   });
 });

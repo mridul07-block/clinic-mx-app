@@ -716,7 +716,7 @@ export {
   type PatientContentEntry,
   type PatientContentListEntry,
 } from './patient-content';
-export { auditLog, type AuditLogFilters } from './audit-log';
+export { auditLog, logAuditDownload, type AuditLogFilters } from './audit-log';
 export {
   closeDataRequest,
   dataRequestList,

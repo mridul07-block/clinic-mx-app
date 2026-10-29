@@ -58,3 +58,14 @@ export async function auditLog(
     hiddenFields: row.hidden_fields ?? [],
   }));
 }
+
+/** Records a download of the audit log by the transaction's staff member (ADM-04). */
+export async function logAuditDownload(
+  tx: DbOrTransaction,
+  filters: Record<string, unknown>,
+  events: number,
+): Promise<void> {
+  await tx.execute(
+    sql`select internal.log_audit_download(${JSON.stringify(filters)}::jsonb, ${events}::integer)`,
+  );
+}

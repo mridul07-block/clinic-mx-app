@@ -67,6 +67,8 @@ export const auditEvent = pgTable(
     index('audit_event_actor_idx').on(table.actor, table.at),
     index('audit_event_category_idx').on(table.category, table.id),
     index('audit_event_centre_idx').on(table.centreId, table.id),
+    // Downloads and day filters choose events by time (ADM-04).
+    index('audit_event_at_idx').on(table.at, table.id),
     check(
       'audit_event_actor_format',
       sql`${table.actor} ~ '^(staff|patient):[0-9a-f-]{36}$|^system:[a-z0-9._-]+$'`,

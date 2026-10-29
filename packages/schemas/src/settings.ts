@@ -669,6 +669,19 @@ export const settingDefinitions = {
       'TAD section 5 (DPDP Act 2023: data export and deletion requests handled by the Super Admin); ADM-03, placeholder until the client’s lawyer confirms, 29 October 2026',
     description: 'Days after a data request is received by which the clinic answers it.',
   },
+  // DECISION ADM-04: how much one audit log download may hold; more is refused, never cut short.
+  'audit.download_max_days': {
+    schema: z.int().positive().max(366),
+    source:
+      'PRD section 2 (Audit log and data export); ADM-04, recommended default, 29 October 2026',
+    description: 'The most days one audit log download covers.',
+  },
+  'audit.download_max_events': {
+    schema: z.int().positive().max(50_000),
+    source:
+      'PRD section 2 (Audit log and data export); ADM-04, recommended default, 29 October 2026',
+    description: 'The most events one audit log download holds; a larger one is refused.',
+  },
 } as const satisfies Record<string, SettingDefinition>;
 
 export type SettingKey = keyof typeof settingDefinitions;
