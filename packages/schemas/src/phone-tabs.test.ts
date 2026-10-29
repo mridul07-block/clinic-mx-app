@@ -28,6 +28,7 @@ describe('the phone tab bar', () => {
     expect(labels(person('super_admin', { centreIds: [] }))).toEqual([
       'Overview',
       'Alerts',
+      'Settings',
       'More',
     ]);
   });

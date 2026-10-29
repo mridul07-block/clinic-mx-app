@@ -6,7 +6,7 @@ After you sign in you land on the **Overview**: every centre today, the last 7 d
 
 ## Your tabs
 
-On a phone, the bar at the bottom holds **Overview**, **Alerts** and **More**. **More** opens
+On a phone, the bar at the bottom holds **Overview**, **Alerts**, **Settings** and **More**. **More** opens
 **Home**, which reaches everything:
 
 - **Overview**, **Dashboard**, **Finance** and **Figures**: the numbers for every centre.
@@ -15,6 +15,8 @@ On a phone, the bar at the bottom holds **Overview**, **Alerts** and **More**. *
 - **Knowledge base**, **Red flags** and **AI preparation sheet**.
 - **WhatsApp templates**, **Support access**, **Opening entries**, **Kiosk tablets** and **Account**.
 - **Audit log**: every change and every opened record, newest first.
+- **Settings**: the clinic's rules, such as minutes until running late. Open **Change**, enter
+  the new value and tap **Save**.
 - With the Treats patients tick, also **My patients today** and **My leave**.
 
 ## Everyday tasks

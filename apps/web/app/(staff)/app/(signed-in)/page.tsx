@@ -109,6 +109,11 @@ export default async function StaffHome() {
             Support access
           </Link>
         ) : null}
+        {accessScope(staff, 'settings.manage') ? (
+          <Link href="/app/settings" className={linkClass}>
+            Settings
+          </Link>
+        ) : null}
         {auditPartsFor(staff).length ? (
           <Link href="/app/audit" className={linkClass}>
             Audit log

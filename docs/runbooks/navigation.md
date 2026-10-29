@@ -24,7 +24,7 @@ Every choice below is a recommended default chosen under the user's standing app
 | | Packages | `/app/finance/packages` | `dashboard.finance` |
 | Super Admin | Overview | `/app/overview` | `dashboard.overview` |
 | | Alerts | `/app/alerts` | `red_flags.view` |
-| | Settings | joins with ADM-02 | |
+| | Settings | `/app/settings` (ADM-02) | `settings.manage` |
 | Everyone | More | `/app` (Home) | |
 
 - **Who sees a tab:** a tab shows only when the person may open its screen, the same check the page makes (`accessScope`, own records included). A physio without the Treats patients tick has no My patients; Velyx support has no Alerts.

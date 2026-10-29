@@ -7,7 +7,7 @@ import { accessScope, type Action, type StaffAccess } from './permissions';
  * defaults chosen under the user's approval, 29 October 2026 (DECISION UI-01;
  * docs/runbooks/navigation.md): the physiotherapist's Today is their calendar day and Notes their
  * Tasks inbox (no screen lists a physio's own unsigned notes; the nightly flag goes to the Centre
- * Manager, CLN-10); Finance's Bills is Collections; the Super Admin's Settings joins with ADM-02.
+ * Manager, CLN-10); Finance's Bills is Collections; the Super Admin's Settings came with ADM-02.
  */
 
 export const phoneTabIcons = [
@@ -91,6 +91,7 @@ const tabsByRole: Record<StaffAccess['role'], readonly TabRule[]> = {
   super_admin: [
     { label: 'Overview', href: '/app/overview', icon: 'overview', action: 'dashboard.overview' },
     { label: 'Alerts', href: '/app/alerts', icon: 'alerts', action: 'red_flags.view' },
+    { label: 'Settings', href: '/app/settings', icon: 'settings', action: 'settings.manage' },
   ],
 };
 
