@@ -15,6 +15,8 @@ import { asStaff } from '../access/staff-db';
 export interface SwitchableCentre {
   id: string;
   name: string;
+  /** Short, for the tablet rail: "HSR". */
+  code: string;
 }
 
 /** The active centres the person works in (the Super Admin and Finance: all). */
@@ -22,7 +24,7 @@ export async function switchableCentres(staff: StaffMember): Promise<SwitchableC
   const rows = await asStaff(staff, (tx) => centreList(tx));
   return rows
     .filter((c) => c.active && (seesAllCentres(staff.role) || staff.centreIds.includes(c.id)))
-    .map(({ id, name }) => ({ id, name }));
+    .map(({ id, name, code }) => ({ id, name, code }));
 }
 
 /**

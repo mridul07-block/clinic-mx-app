@@ -81,6 +81,7 @@ export function SideNav({
   items,
   counts,
   centreSwitcher,
+  railCentreSwitcher,
   personMenu,
   onSearch,
 }: {
@@ -88,6 +89,8 @@ export function SideNav({
   /** Things needing action, by screen: shown beside its name, or as a badge on the rail. */
   counts: Record<string, number>;
   centreSwitcher: ReactNode;
+  /** The centre switcher's rail form, 768 to 1279 px (UI-03). */
+  railCentreSwitcher: ReactNode;
   personMenu: ReactNode;
   onSearch: () => void;
 }) {
@@ -113,6 +116,7 @@ export function SideNav({
         />
       </Link>
       <div className="hidden xl:block">{centreSwitcher}</div>
+      {railCentreSwitcher ? <div className="xl:hidden">{railCentreSwitcher}</div> : null}
       <button
         type="button"
         onClick={onSearch}
