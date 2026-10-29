@@ -49,10 +49,14 @@ export {
 export {
   SETTINGS_CACHE_SECONDS,
   SettingsError,
+  changeSettingValue,
   createSettingsReader,
+  lockSettings,
   parseSettings,
   readSettingRows,
+  settingEntries,
   updateSetting,
+  type SettingEntry,
   type SettingsReader,
   type SettingsReaderOptions,
 } from './settings';

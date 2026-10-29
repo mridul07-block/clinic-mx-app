@@ -1247,3 +1247,20 @@ export {
   type AuditLogQuery,
   type AuditPart,
 } from './audit-log';
+export {
+  parseSettingField,
+  settingArea,
+  settingAreaLabels,
+  settingChangeSchema,
+  settingChangedElsewhere,
+  settingChoices,
+  settingDisplay,
+  settingFieldText,
+  settingInputKind,
+  settingOrderPairs,
+  settingTakesNegative,
+  settingsByArea,
+  SETTING_TEXT_MAX,
+  type SettingChange,
+  type SettingInputKind,
+} from './settings-screen';

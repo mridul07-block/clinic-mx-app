@@ -122,10 +122,10 @@ test('Finance has Bills, Unpaid and Packages; Revenue counts as Bills', async ({
   await moreGoesHome(page);
 });
 
-test('the Super Admin has Overview and Alerts', async ({ page }) => {
+test('the Super Admin has Overview, Alerts and Settings', async ({ page }) => {
   const admin = await temporaryWithCode('super_admin');
   await signInWithCode(page, admin.email, admin.secret);
   await expect(page).toHaveURL(/\/app\/overview/);
-  await expectTabs(page, ['Overview', 'Alerts', 'More'], 'Overview');
+  await expectTabs(page, ['Overview', 'Alerts', 'Settings', 'More'], 'Overview');
   await moreGoesHome(page);
 });

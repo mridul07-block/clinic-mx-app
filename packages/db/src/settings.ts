@@ -7,10 +7,10 @@ import {
   type SettingValue,
   type Settings,
 } from '@clinic-mx/schemas';
-import { eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { withActor, type Actor, type AuditContext } from './audit';
 import type { Db } from './client';
-import { setting } from './schema';
+import { setting, staffUser } from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /**
@@ -128,4 +128,64 @@ export async function updateSetting<K extends SettingKey>(
   );
   if (updated.length === 0) throw new SettingsError(`${key} is missing`);
   return parsed;
+}
+
+/** A setting as the settings screen shows it (ADM-02): its value and who changed it last. */
+export interface SettingEntry {
+  key: string;
+  value: unknown;
+  updatedAt: Date;
+  /** The staff member's name, or null for the system (migrations, jobs). */
+  updatedByName: string | null;
+  updatedBy: string;
+}
+
+/** Every setting, as the Super Admin reads it under row level security. */
+export async function settingEntries(tx: DbOrTransaction): Promise<SettingEntry[]> {
+  return tx
+    .select({
+      key: setting.key,
+      value: setting.value,
+      updatedAt: setting.updatedAt,
+      updatedBy: setting.updatedBy,
+      updatedByName: staffUser.name,
+    })
+    .from(setting)
+    .leftJoin(staffUser, sql`${setting.updatedBy} = 'staff:' || ${staffUser.id}::text`)
+    .orderBy(asc(setting.key));
+}
+
+/**
+ * Holds every setting row until the transaction ends (ADM-02), so two changes checked against
+ * each other (a minimum and its maximum) never both pass at once. Read the values after it.
+ */
+export async function lockSettings(tx: DbOrTransaction): Promise<void> {
+  await tx.execute(sql`select key from public.setting order by key for update`);
+}
+
+/**
+ * Changes one setting on the value read (ADM-02): only while it still has the change time the
+ * person saw, so a change made in between is never overwritten unread (`stale`). A value equal to
+ * the stored one writes nothing (`unchanged`). Validated against the registry first; audited by
+ * the table's trigger. A row the person may not change counts as `stale`.
+ */
+export async function changeSettingValue(
+  tx: DbOrTransaction,
+  { key, value, actor, seenAt }: { key: SettingKey; value: unknown; actor: Actor; seenAt: Date },
+): Promise<'saved' | 'unchanged' | 'stale'> {
+  const parsed = parseSetting(key, value);
+  // Dates read in JavaScript hold milliseconds; the column holds microseconds.
+  const seen = sql`date_trunc('milliseconds', ${setting.updatedAt}) = ${seenAt.toISOString()}::timestamptz`;
+  const [stored] = await tx
+    .select({ same: sql<boolean>`${setting.value} = ${JSON.stringify(parsed)}::jsonb` })
+    .from(setting)
+    .where(and(eq(setting.key, key), seen));
+  if (!stored) return 'stale';
+  if (stored.same) return 'unchanged';
+  const updated = await tx
+    .update(setting)
+    .set({ value: parsed, updatedBy: actor, updatedAt: new Date() })
+    .where(and(eq(setting.key, key), seen))
+    .returning({ key: setting.key });
+  return updated.length === 1 ? 'saved' : 'stale';
 }
