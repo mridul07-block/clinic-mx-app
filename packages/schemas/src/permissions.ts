@@ -139,6 +139,10 @@ export const deniedToSupport: readonly Action[] = [
   'visits.start',
   'red_flags.view',
   'red_flags.act',
+  // ADM-01: the audit trail holds clinical rows; support sees only its own requests (IAM-08).
+  'audit.view_all',
+  'audit.view_clinical',
+  'audit.view_finance',
 ];
 
 /** What the guard needs to know about a staff member. */

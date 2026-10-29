@@ -1228,3 +1228,22 @@ export {
   type PhoneTab,
   type PhoneTabIcon,
 } from './phone-tabs';
+export {
+  auditActionLabels,
+  auditActorLabel,
+  auditCategory,
+  auditEntityLabel,
+  auditLogQuery,
+  auditLogQuerySchema,
+  auditPartLabels,
+  auditPlacedTables,
+  auditSetupTables,
+  auditParts,
+  auditPartsFor,
+  auditTablesOf,
+  auditValue,
+  type AuditCategory,
+  type AuditLogEntry,
+  type AuditLogQuery,
+  type AuditPart,
+} from './audit-log';

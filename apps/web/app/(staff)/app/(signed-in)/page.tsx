@@ -1,4 +1,4 @@
-import { accessScope, staffRoleLabels } from '@clinic-mx/schemas';
+import { accessScope, auditPartsFor, staffRoleLabels } from '@clinic-mx/schemas';
 import Link from 'next/link';
 import { requireStaff } from '../../../../modules/auth/session';
 import { openTasksOf } from '../../../../modules/tasks/services';
@@ -107,6 +107,11 @@ export default async function StaffHome() {
         {accessScope(staff, 'support_access.grant') ? (
           <Link href="/app/support-access" className={linkClass}>
             Support access
+          </Link>
+        ) : null}
+        {auditPartsFor(staff).length ? (
+          <Link href="/app/audit" className={linkClass}>
+            Audit log
           </Link>
         ) : null}
         {accessScope(staff, 'opening_entries.manage') ? (

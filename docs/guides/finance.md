@@ -14,6 +14,7 @@ On a phone, the bar at the bottom holds **Bills** (Collections), **Unpaid**, **P
 - **Prices**: the price list, package types and preset discounts.
 - **Patients**: patient records.
 - **Tasks**: your tasks and your role's.
+- **Audit log**: every change to bills, payments, refunds, packages and prices.
 - **Account**: your own sign in details.
 
 ## Everyday tasks

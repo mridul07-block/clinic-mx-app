@@ -45,8 +45,62 @@ A CI database test fails for any table without it, unless it is on the exemption
 ## Rules for the trail
 
 - `audit_event` refuses update, delete and truncate for every role, the database owner included.
-- No Supabase API role can read it; screens read it through the server (the audit log screen is
-  M16, by role: full for Super Admin, clinical for Centre Managers, finance for Finance).
+- Read directly only by the Super Admin; Velyx support only the `support_request` rows logged
+  under grants (Support access lists them). Everyone else reads it through `internal.audit_log`
+  (below).
+- Each event is placed when it is written (`audit_place`, before insert): its part of the trail
+  (`category`) and the centre it is about (`centre_id`). The migration that added them placed the
+  events already written once, touching nothing else. When a table moves to another part, its
+  migration re-places that table's events the same way.
 - `before` and `after` hold whole rows, so the trail is as sensitive as the tables it covers.
   Deletion requests under the DPDP Act may require anonymising rows here; that procedure arrives
   with the data export and deletion ticket.
+
+## The audit log screen
+
+ADM-01, `/app/audit` (PRD M16; section 2: "Audit log | Full | Clinical audit, own centres | No |
+No | Finance audit"). Every choice below is a recommended default chosen under the user's standing
+approval, 29 October 2026 (DECISION ADM-01), for the client to confirm.
+
+**Parts of the trail.** Each table belongs to one part (`internal.audit_category` in the database,
+`auditCategory` in `packages/schemas/src/audit-log.ts`). A database test fails for any audited
+table not placed on purpose in one of the app's lists, or placed differently in the database:
+- **Clinical record:** the record itself: consultations, sessions, measures, tests, diagnoses,
+  plans, clearances, phases, readiness, addenda, the health form answers, reports and documents,
+  questionnaires, exercise ticks, the AI sheet.
+- **Clinical:** the care around it: patients, guardians, episodes, appointments, plan bookings,
+  booking counters, consent, red flag alerts, tasks, patient links, feedback, follow ups.
+- **Finance:** anything holding money: bills and their lines, payments, refunds and credits,
+  packages, opening entries, prices, package types, discounts, plan choices.
+- **Setup:** everything else: staff, centres, sign ins, two step verification, settings, the
+  knowledge base, rosters, leave, kiosk tablets, notifications, support access.
+
+**Who reads what.**
+
+| Who | Reads |
+| --- | --- |
+| Super Admin | Every event, with values |
+| Centre Manager | Clinical and clinical record events at their own centres, and of tasks only those their inbox shows; a clinical record's values and an episode's discharge words only with the Treats patients tick (otherwise which fields changed); never AI spend |
+| Finance | Finance events, with values |
+| Velyx support, Front Desk, physiotherapists | Nothing (`audit.view_*` denied to support) |
+
+**An event's centre.** The row's own centre; else its episode's, appointment's, consultation's,
+plan's or AI sheet's; else the patient's registering centre. A record view has no row, so the
+record opened (a consultation, patient, document or patient link) is read for it. An event with no
+centre is the Super Admin's only (`internal.audit_centre`).
+
+**The screen.** Newest first, 50 at a time with **Older**. Filters: **Part** (for the Super
+Admin), **Record type**, **From** and **To** (IST days); a malformed filter is dropped, a part or
+record type the person may not read is refused. Each event: what was done to which record
+type, its part, when (IST), who (staff name, "Patient, through a link" or "System"), the record's
+id, and for a change each field from its old value to its new one; an added or removed row lists
+its fields. Values over 80 characters are cut; a field withheld from the reader says "hidden". A Home link, **Audit log**, for those who read it.
+
+**Enforced twice.** The page and the service check `audit.view_*`; the database function
+`internal.audit_log` (SECURITY DEFINER, run as the person) applies the same parts, centres and
+hidden values. It picks the page on the placed columns, newest first, then names the people. Tests: `packages/db/src/integration/audit-log.integration.test.ts`,
+`packages/schemas/src/audit-log.test.ts`, `apps/web/e2e/audit-log.spec.ts`.
+
+**Not built.** A filter by person, and export of the trail (`data.export`, with the data requests
+ticket).
+
