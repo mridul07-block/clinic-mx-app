@@ -226,6 +226,8 @@ export {
   knowledgeVersionDetail,
   knowledgeVersionSignOff,
   knowledgeVersionUsage,
+  questionnaireLibrary,
+  type QuestionnaireLibraryEntry,
   knowledgeVersions,
   knowledgeAssessment,
   knowledgeObjective,

@@ -11,8 +11,10 @@ import {
   knowledgeListings,
   knowledgeObjective,
   knowledgePlan,
+  knowledgeVersionSignOff,
   knowledgeVersionUsage,
   latestKnowledgeVersion,
+  questionnaireLibrary,
   redFlagPresentations,
   redFlagRules,
 } from '../knowledge';
@@ -39,6 +41,7 @@ import {
   kbDiagnosisCategory,
   kbMeasure,
   kbModality,
+  kbQuestionnaire,
   kbVersion,
 } from '../schema';
 import { seedStaff, seedStaffCentres } from '../seed/data';
@@ -132,6 +135,100 @@ beforeAll(async () => {
     rulesFile: { ...redFlags.rulesFile, sha256: `${redFlags.rulesFile.sha256}0` },
   };
 }, 60_000);
+
+// SET-08: the questionnaire library. Each instrument is imported with its definition, licence and
+// sign-off; none is signed off without items and a confirmed licence. A generated test instrument
+// only (no invented clinical content).
+describe('the questionnaire library', () => {
+  const definition = {
+    version: 'test-1',
+    items: ['a', 'b'].map((key) => ({
+      kind: 'scale' as const,
+      key,
+      text: `Test item ${key}`,
+      min: 0,
+      max: 10,
+      minLabel: 'Low',
+      maxLabel: 'High',
+    })),
+    scoring: { method: 'mean' as const, maxMissing: 0, invert: false },
+    range: { min: 0, max: 10 },
+    better: 'higher' as const,
+    meaningfulChange: 2,
+    source: 'Generated test instrument',
+  };
+
+  it('imports each instrument awaiting its items, licence and sign-off, unless the file gives them', async () => {
+    await rolledBack(async (tx) => {
+      const [first, ...rest] = planCatalog.questionnaires;
+      if (!first) throw new Error('no questionnaires');
+      const version = await applyKnowledge(tx, built, report, redFlags, objective, categories, {
+        ...planCatalog,
+        questionnaires: [{ ...first, definition, licence: 'free', signedOff: true }, ...rest],
+      });
+      const library = await questionnaireLibrary(tx, version.id);
+      expect(library).toHaveLength(19);
+      expect(library[0]).toEqual({
+        key: first.key,
+        name: first.name,
+        definition,
+        licence: 'free',
+        signedOff: true,
+      });
+      expect(
+        library.slice(1).every((entry) => {
+          const { definition: none, licence, signedOff } = entry;
+          return none === null && licence === 'unconfirmed' && !signedOff;
+        }),
+      ).toBe(true);
+      expect(await knowledgeVersionSignOff(tx, version.id)).toMatchObject({ questionnaires: 18 });
+    });
+  });
+
+  it('refuses an instrument signed off without its items or a confirmed licence', async () => {
+    await rolledBack(async (tx) => {
+      const version = await applyKnowledge(
+        tx,
+        built,
+        report,
+        redFlags,
+        objective,
+        categories,
+        planCatalog,
+      );
+      const add = (values: Partial<typeof kbQuestionnaire.$inferInsert>) =>
+        failure(tx, (sp) =>
+          sp.insert(kbQuestionnaire).values({
+            kbVersionId: version.id,
+            key: 'test_instrument',
+            name: 'Test instrument',
+            useFor: 'Tests',
+            sort: 99,
+            ...values,
+          }),
+        );
+      expect(await add({ signedOff: true }), 'no items').toBe('23514');
+      expect(await add({ signedOff: true, definition }), 'no licence').toBe('23514');
+      expect(
+        await failure(tx, (sp) =>
+          sp.execute(sql`insert into kb_questionnaire
+            (kb_version_id, key, name, use_for, sort, definition, licence, signed_off)
+            values (${version.id}, 'test_instrument', 'Test', 'Tests', 99, 'null'::jsonb, 'free', true)`),
+        ),
+        'a JSON null for items',
+      ).toBe('23514');
+      expect(await add({ signedOff: true, definition, licence: 'licensed' })).toBeUndefined();
+    });
+    // The committed file is held to the same rule when it is read.
+    const file = JSON.parse(await readPlanCatalogFile()) as { questionnaires: object[] };
+    file.questionnaires = [
+      { key: 'test_instrument', name: 'Test', regions: [], useFor: 'Tests', signedOff: true },
+    ];
+    expect(() => buildPlanCatalog(JSON.stringify(file))).toThrow(
+      /Sign an instrument off only with its items and a confirmed licence/,
+    );
+  });
+});
 
 describe('the knowledge base import', () => {
   it('records the next version as a draft, audited as the import', async () => {

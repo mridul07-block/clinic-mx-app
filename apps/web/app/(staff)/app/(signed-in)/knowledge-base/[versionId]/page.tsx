@@ -3,6 +3,7 @@ import {
   knowledgeVersionSignOff,
   knowledgeVersionUsage,
   knowledgeVersions,
+  questionnaireLibrary,
 } from '@clinic-mx/db';
 import {
   accessScope,
@@ -11,6 +12,9 @@ import {
   knowledgeSourceSummarySchema,
   knowledgeVersionApprovable,
   knowledgeVersionStandingsOf,
+  questionnaireState,
+  questionnaireStateLabels,
+  questionnaireSummary,
 } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -18,6 +22,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { z } from 'zod';
 import { FormMessage } from '../../../../../../components/forms';
+import { Tag } from '../../../../../../components/tag';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../../modules/access/staff-db';
 import { StandingTag } from '../standing-tag';
@@ -72,10 +77,11 @@ export default async function KnowledgeVersionPage({
       // Counts across every record: the Super Admin only, not a support login.
       usage: approver && !staff.support ? await knowledgeVersionUsage(tx, versionId) : null,
       signOff: approver ? await knowledgeVersionSignOff(tx, versionId) : null,
+      questionnaires: await questionnaireLibrary(tx, versionId),
     };
   });
   if (!data) notFound();
-  const { version, versions, usage, signOff } = data;
+  const { version, versions, usage, signOff, questionnaires } = data;
   const standing = knowledgeVersionStandingsOf(versions).get(version.number) ?? 'awaiting';
   const approvable = knowledgeVersionApprovable(version, versions);
   const live = versions.find((v) => knowledgeVersionStandingsOf(versions).get(v.number) === 'live');
@@ -135,11 +141,12 @@ export default async function KnowledgeVersionPage({
           </h2>
           {approvable && signOff ? (
             <>
-              {signOff.rules + signOff.modalities > 0 ? (
+              {signOff.rules + signOff.modalities + signOff.questionnaires > 0 ? (
                 <p className="text-sm text-ink-secondary" data-testid="kb-sign-off">
-                  {plural(signOff.rules, 'red flag rule', 'red flag rules')} and{' '}
-                  {plural(signOff.modalities, 'modality link', 'modality links')} in this version
-                  await clinical sign-off. Approving does not sign them off.
+                  {plural(signOff.rules, 'red flag rule', 'red flag rules')},{' '}
+                  {plural(signOff.modalities, 'modality link', 'modality links')} and{' '}
+                  {plural(signOff.questionnaires, 'questionnaire', 'questionnaires')} in this
+                  version await clinical sign-off. Approving does not sign them off.
                 </p>
               ) : null}
               {staff.support ? (
@@ -157,6 +164,46 @@ export default async function KnowledgeVersionPage({
           )}
         </section>
       ) : null}
+
+      {/* SET-08: each instrument and what it still waits for before patients can fill it. */}
+      <section className="flex flex-col gap-3" aria-labelledby="questionnaires-heading">
+        <h2 id="questionnaires-heading" className="text-lg font-semibold">
+          Questionnaires
+        </h2>
+        <p className="text-sm text-ink-secondary" data-testid="questionnaires-summary">
+          {questionnaireSummary(questionnaires)}
+        </p>
+        <ul className="flex flex-col divide-y divide-line rounded-panel border border-line bg-surface">
+          {questionnaires.map((entry) => {
+            const state = questionnaireState(entry);
+            return (
+              <li
+                key={entry.key}
+                className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5"
+                data-testid="questionnaire-entry"
+              >
+                <span className="flex flex-col">
+                  <span className="text-ink">{entry.name}</span>
+                  {entry.definition ? (
+                    <span className="text-sm text-ink-muted">
+                      {[
+                        `Version ${entry.definition.version}`,
+                        plural(entry.definition.items.length, 'item', 'items'),
+                        entry.definition.meaningfulChange === null
+                          ? 'no meaningful change value yet'
+                          : `meaningful change ${String(entry.definition.meaningfulChange)}`,
+                      ].join(' · ')}
+                    </span>
+                  ) : null}
+                </span>
+                <Tag tone={state === 'ready' ? 'done' : 'waiting'}>
+                  {questionnaireStateLabels[state]}
+                </Tag>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
       <section className="flex flex-col gap-3" aria-labelledby="source-heading">
         <h2 id="source-heading" className="text-lg font-semibold">

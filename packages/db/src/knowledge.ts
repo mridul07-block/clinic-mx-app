@@ -4,6 +4,7 @@ import type {
   KnowledgeMeasure,
   KnowledgeSpecialTest,
   PlanCatalog,
+  QuestionnaireEntry,
 } from '@clinic-mx/schemas';
 import { and, asc, count, desc, eq, sql } from 'drizzle-orm';
 import {
@@ -111,11 +112,14 @@ export async function knowledgeVersionDetail(
   return row;
 }
 
-/** What a version holds still awaiting clinical sign off: red flag rules and modality links. */
+/**
+ * What a version holds still awaiting clinical sign off: red flag rules, modality links and
+ * questionnaires (SET-08).
+ */
 export async function knowledgeVersionSignOff(
   db: DbOrTransaction,
   versionId: string,
-): Promise<{ rules: number; modalities: number }> {
+): Promise<{ rules: number; modalities: number; questionnaires: number }> {
   const [rules] = await db
     .select({ n: count() })
     .from(kbRedFlagRule)
@@ -124,7 +128,39 @@ export async function knowledgeVersionSignOff(
     .select({ n: count() })
     .from(kbModality)
     .where(and(eq(kbModality.kbVersionId, versionId), eq(kbModality.signedOff, false)));
-  return { rules: rules?.n ?? 0, modalities: modalities?.n ?? 0 };
+  const [questionnaires] = await db
+    .select({ n: count() })
+    .from(kbQuestionnaire)
+    .where(and(eq(kbQuestionnaire.kbVersionId, versionId), eq(kbQuestionnaire.signedOff, false)));
+  return {
+    rules: rules?.n ?? 0,
+    modalities: modalities?.n ?? 0,
+    questionnaires: questionnaires?.n ?? 0,
+  };
+}
+
+/** An instrument in a version's questionnaire library (SET-08). */
+export interface QuestionnaireLibraryEntry extends QuestionnaireEntry {
+  key: string;
+  name: string;
+}
+
+/** A version's questionnaire library, in the catalog's order. */
+export function questionnaireLibrary(
+  db: DbOrTransaction,
+  versionId: string,
+): Promise<QuestionnaireLibraryEntry[]> {
+  return db
+    .select({
+      key: kbQuestionnaire.key,
+      name: kbQuestionnaire.name,
+      definition: kbQuestionnaire.definition,
+      licence: kbQuestionnaire.licence,
+      signedOff: kbQuestionnaire.signedOff,
+    })
+    .from(kbQuestionnaire)
+    .where(eq(kbQuestionnaire.kbVersionId, versionId))
+    .orderBy(asc(kbQuestionnaire.sort));
 }
 
 /**

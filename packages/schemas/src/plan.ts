@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { questionnaireDefinitionSchema, questionnaireLicences } from './questionnaires';
 import type { HealthFormAnswers } from './health-form';
 import { addDays } from './ist';
 import type { KnowledgeRegion } from './knowledge';
@@ -42,7 +43,10 @@ export interface PlanModality {
   signedOff: boolean;
 }
 
-/** An outcome questionnaire (Blueprint Module 8); its items and scoring arrive with SET-08. */
+/**
+ * An outcome questionnaire (Blueprint Module 8); its items, scoring and licence are in the library
+ * (SET-08, `questionnaires.ts`).
+ */
 export interface PlanQuestionnaire {
   key: string;
   name: string;
@@ -96,12 +100,20 @@ export const planCatalogFileSchema = z.strictObject({
     .min(1),
   questionnaires: z
     .array(
-      z.strictObject({
-        key: catalogKey,
-        name: z.string().trim().min(1),
-        regions: z.array(z.enum(knowledgeRegionKeys)),
-        useFor: z.string().trim().min(1),
-      }),
+      z
+        .strictObject({
+          key: catalogKey,
+          name: z.string().trim().min(1),
+          regions: z.array(z.enum(knowledgeRegionKeys)),
+          useFor: z.string().trim().min(1),
+          // SET-08: the items and rules the clinic supplies, its licence and its sign-off.
+          licence: z.enum(questionnaireLicences).default('unconfirmed'),
+          signedOff: z.boolean().default(false),
+          definition: questionnaireDefinitionSchema.nullable().default(null),
+        })
+        .refine((q) => !q.signedOff || (q.definition !== null && q.licence !== 'unconfirmed'), {
+          error: 'Sign an instrument off only with its items and a confirmed licence.',
+        }),
     )
     .min(1),
 });

@@ -2,7 +2,9 @@ import {
   knowledgeRegionKeys,
   knowledgeVersionStatuses,
   measureKinds,
+  questionnaireLicences,
   type ModalityParameter,
+  type QuestionnaireDefinition,
   type MeasureRule,
   readinessCriterionKinds,
   type ReadinessRule,
@@ -435,10 +437,13 @@ export const kbModality = pgTable(
   ],
 ).enableRLS();
 
+export const questionnaireLicence = pgEnum('questionnaire_licence', questionnaireLicences);
+
 /**
  * An outcome questionnaire (CLN-07, Blueprint Module 8): the instrument, the workbooks it is for
- * (none for any region) and what it is used for, word for word. Items and scoring arrive with
- * SET-08.
+ * (none for any region) and what it is used for, word for word. SET-08: its definition (items,
+ * scoring, range, better direction, meaningful change) as the clinic supplies it, its licence and
+ * its clinical sign-off; patients fill it only once all three are in place.
  */
 export const kbQuestionnaire = pgTable(
   'kb_questionnaire',
@@ -455,9 +460,17 @@ export const kbQuestionnaire = pgTable(
       .default(sql`'{}'::kb_region[]`),
     useFor: text('use_for').notNull(),
     sort: integer('sort').notNull(),
+    /** Validated by `questionnaireDefinitionSchema` when imported; none until supplied. */
+    definition: jsonb('definition').$type<QuestionnaireDefinition>(),
+    licence: questionnaireLicence('licence').notNull().default('unconfirmed'),
+    signedOff: boolean('signed_off').notNull().default(false),
   },
   (table) => [
     unique('kb_questionnaire_version_key').on(table.kbVersionId, table.key),
     check('kb_questionnaire_key', sql`${table.key} ~ '^[a-z][a-z0-9_]*$'`),
+    check(
+      'kb_questionnaire_sign_off',
+      sql`not ${table.signedOff} or (jsonb_typeof(${table.definition}) = 'object' and ${table.licence} <> 'unconfirmed')`,
+    ),
   ],
 ).enableRLS();
