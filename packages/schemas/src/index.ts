@@ -1158,3 +1158,13 @@ export {
   type DispositionCount,
   type KbReportBody,
 } from './kb-report';
+export {
+  paperConditionText,
+  paperForm,
+  type PaperAnswer,
+  type PaperConsentStatement,
+  type PaperForm,
+  type PaperOption,
+  type PaperQuestion,
+  type PaperSection,
+} from './paper-forms';

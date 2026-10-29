@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { currentStaff } from '../../../../../../../modules/auth/session';
 import { letterheadPreview } from '../../../../../../../modules/documents/preview';
 
@@ -15,7 +16,7 @@ export async function GET(
   const staff = await currentStaff();
   if (!staff) return new Response('Sign in again.', { status: 401 });
   const { centreId } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(centreId)) return notFound();
+  if (!z.guid().safeParse(centreId).success) return notFound();
   const bytes = await letterheadPreview(staff, centreId);
   if (!bytes) return notFound();
   return new Response(Buffer.from(bytes), {

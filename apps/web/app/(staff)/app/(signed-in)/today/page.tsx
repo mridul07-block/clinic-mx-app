@@ -95,6 +95,16 @@ export default async function TodayPage({
             <p className="text-sm text-ink-muted">
               {centre.name} · {signedInAs}
             </p>
+            {/* OPS-05: the paper health form and consent, for launch week and outages. */}
+            <a
+              href={['/app/centres', centre.id, 'paper-forms'].join('/')}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-11 items-center self-start text-sm text-ink-secondary underline underline-offset-2"
+              data-testid="paper-forms"
+            >
+              Paper health form and consent (PDF)
+            </a>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             {/* A walk in (INT-12): today's free starts, then book and check in in one action. */}
