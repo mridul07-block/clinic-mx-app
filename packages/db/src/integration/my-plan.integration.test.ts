@@ -17,8 +17,11 @@ import { myPlanView } from '../my-plan';
 import { insertPatientLink, revokeMyPlanLinks } from '../patient-links';
 import {
   appointment,
+  confirmedDiagnosis,
+  diagnosis,
   episode,
   exerciseTick,
+  kbPatientContent,
   patientLink,
   patientPackage,
   planOfCare,
@@ -412,6 +415,105 @@ describe('My plan', () => {
         .returning({ id: patientLink.id });
       await asLink(tx, { id: ended?.id ?? '', patientId: mine.patientId, purpose: 'my_plan' });
       expect(await myPlanView(tx)).toBeNull();
+    });
+  });
+});
+
+// CLN-08: the diagnosis in plain words, only as approved (AI-07), for the episode's confirmed
+// diagnosis or else its newest signed one. Generated text only.
+describe('About your condition', () => {
+  /**
+   * Two conditions of the newest version that has any (the fixture's own empty version may be the
+   * live one here): content is kept by condition, whatever the version.
+   */
+  async function conditions(tx: Tx): Promise<{ live: string; first: string; second: string }> {
+    const rows = await tx.execute<{ kb_version_id: string; condition_id: string }>(sql`
+      select c.kb_version_id, c.condition_id from kb_condition c
+      where c.kb_version_id = (select k.kb_version_id from kb_condition k
+        join kb_version v on v.id = k.kb_version_id order by v.number desc limit 1)
+      group by c.kb_version_id, c.condition_id order by c.condition_id limit 2`);
+    const [first, second] = rows;
+    if (!first || !second) throw new Error('No knowledge base version has conditions.');
+    return { live: first.kb_version_id, first: first.condition_id, second: second.condition_id };
+  }
+  const content = async (
+    tx: Tx,
+    kbVersionId: string,
+    conditionId: string,
+    explanation: string,
+    approved: boolean,
+  ) => {
+    const [row] = await tx
+      .insert(kbPatientContent)
+      .values({
+        conditionId,
+        kbVersionId,
+        source: 'clinician',
+        explanation,
+        roadmap: 'Test roadmap',
+        homeAdvice: 'Test home advice',
+        warningSigns: 'Test warning signs',
+      })
+      .returning({ id: kbPatientContent.id });
+    if (approved) {
+      await tx
+        .update(kbPatientContent)
+        .set({ status: 'approved', approvedBy: superAdmin.id, approvedAt: new Date() })
+        .where(eq(kbPatientContent.id, row?.id ?? ''));
+    }
+  };
+
+  it('shows the approved explanation of the episode’s diagnosis, never a draft, the confirmed one first', async () => {
+    await rolledBack(async (tx) => {
+      const mine = await planned(tx);
+      await asSystem(tx);
+      const { live, first, second } = await conditions(tx);
+      const [consultationRow] = await tx.execute<{ id: string }>(
+        sql`select id from consultation where episode_id = ${mine.id} limit 1`,
+      );
+      await tx.execute(sql`set local session_replication_role = replica`);
+      const [working] = await tx
+        .insert(diagnosis)
+        .values({
+          consultationId: consultationRow?.id ?? '',
+          episodeId: mine.id,
+          kbVersionId: live,
+          conditionId: first,
+          movementDx: 'Test movement diagnosis',
+          irritability: 'moderate',
+          stage: 'subacute',
+          provisional: false,
+        })
+        .returning({ id: diagnosis.id });
+      await tx.execute(sql`set local session_replication_role = origin`);
+      const about = async () => {
+        await asSystem(tx);
+        await asLink(tx, mine.link);
+        const page = (await myPlanView(tx)) as { aboutCondition: string | null };
+        await asSystem(tx);
+        return page.aboutCondition;
+      };
+      expect(await about(), 'nothing approved').toBeNull();
+      await content(tx, live, first, 'Test draft words', false);
+      expect(await about(), 'a draft').toBeNull();
+      await content(tx, live, second, 'Test second condition words', true);
+      expect(await about(), 'another condition').toBeNull();
+      // The draft goes (the guard allows a draft); the approved text is written in its place.
+      await tx.delete(kbPatientContent).where(eq(kbPatientContent.conditionId, first));
+      await content(tx, live, first, 'Test approved words', true);
+      expect(await about()).toBe('Test approved words');
+      // Confirmed at review as the second condition (AI-05): its explanation instead.
+      await tx.execute(sql`set local session_replication_role = replica`);
+      await tx.insert(confirmedDiagnosis).values({
+        episodeId: mine.id,
+        sourceDiagnosisId: working?.id ?? '',
+        kbVersionId: live,
+        conditionId: second,
+        stage: 'review',
+        confirmedBy: mine.physio.id,
+      });
+      await tx.execute(sql`set local session_replication_role = origin`);
+      expect(await about()).toBe('Test second condition words');
     });
   });
 });

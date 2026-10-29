@@ -63,6 +63,14 @@ export default async function ConsultationPage({
           · {consultation.opNumber} · {formatIstDateTime(consultation.startsAt)} ·{' '}
           {consultation.centreName}
         </p>
+        {/* CLN-08: the approved patient content for the chosen condition, to show the patient. */}
+        <Link
+          href={['/app/consultations', consultation.id, 'explain'].join('/')}
+          className="inline-flex min-h-11 items-center self-start font-medium text-ink underline underline-offset-2"
+          data-testid="explain-link"
+        >
+          Explain to patient
+        </Link>
       </div>
       {consultation.detailsReview ? (
         <p className="text-sm text-ink-secondary" data-testid="details-review">

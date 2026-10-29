@@ -3,8 +3,8 @@
 PAT-01: "My plan" page. Done when: the next session with Reschedule and Map, the exercises with
 videos, a gold package meter, and the pain line with a sentence. Sources: PRD J5.7 and M10, Frontend
 Specification (patient pages), TAD section 5 (the My plan link). Built in part: Reschedule waits for
-WhatsApp (WA-05), the exercise videos for the video library (SET-07), and the plain words diagnosis
-for AI-07. Recommended defaults chosen under the user's standing approval, 28 October 2026
+WhatsApp (WA-05) and the exercise videos for the video library (SET-07); the plain words diagnosis
+came with CLN-08. Recommended defaults chosen under the user's standing approval, 28 October 2026
 (DECISION PAT-01).
 
 ## What the patient sees
@@ -14,6 +14,8 @@ phone and signed out:
 
 - **Hello and the week:** "Week 3 of 6", counted in IST from the day the newest plan of care was
   made, never past its length ("Week 3" when the plan has no length).
+- **About your condition (CLN-08):** the approved explanation of the diagnosis, when there is one
+  (see below).
 - **Your next visit:** the next booked, confirmed or checked in visit of the episode still ahead,
   with the type, the physio and the centre, the centre's Map link, and "To change it, call the
   clinic" (a `tel:` link when the centre has a phone). No visit: "No visit is booked yet", and "Call
@@ -87,7 +89,10 @@ up visit, so these are recommended defaults chosen under the user's standing app
 - **Hidden after discharge:** the week of the plan, the next visit (discharge cancels the visits
   ahead) and the package.
 - **Nothing made up:** an empty box shows no section; the system writes no return or flare plan.
-- **Waiting:** per condition wording (AI-07, `kb_patient_content`), library exercises with videos
+- **About your condition (CLN-08):** the explanation a consultant who treats patients approved for
+  the episode's diagnosis (AI-07; the confirmed diagnosis, else the newest signed one), as written;
+  nothing while none is approved, never a draft (`aboutCondition` in `internal.my_plan()`).
+- **Waiting:** library exercises with videos
   (SET-07), self booking (WA-04), a check up visit type and price (the client), a link lasting
   beyond `links.my_plan_days` (the client).
 
@@ -114,6 +119,8 @@ up visit, so these are recommended defaults chosen under the user's standing app
 | `packages/schemas/src/my-plan.test.ts` | The week in IST and its cap; the package line active, used up and expired; the shape, pain outside 0 to 10 refused |
 | `apps/web/modules/patient-links/my-plan.test.ts` | Shows the working link again; issues one, also for a discharged episode (maintenance); refuses a new link for an older episode while a newer one has a plan (its working link still shown), no plan, another centre, a physio; ticking (PAT-02) |
 | `packages/db/src/integration/my-plan.integration.test.ts` | Own episode only, no price, no table rows; nothing for a health form link, a revoked or expired link or one naming no episode; staff cannot call it; the HSR desk reads, issues and learns whether there is a plan, never reading the plan; the Koramangala desk and a physio refused; the desk's new link stops the older one, never for another centre, a physio or another patient; the package signing uses, then the next once used up; signed pain only |
+| `packages/db/src/integration/my-plan.integration.test.ts` (About your condition) | Nothing while none is approved, never a draft or another condition's; the signed diagnosis's explanation, then the confirmed one's |
+| `apps/web/e2e/explain.spec.ts` (360 px and desktop) | About your condition on the patient's page: the approved explanation alone |
 | `apps/web/e2e/my-plan.spec.ts` (360 px and desktop) | The desk shows the QR, again the same link; the patient's page with the week, the next visit, the exercises, no price, no Reschedule; another centre's desk sees no QR. PAT-02: the patient ticks, undoes and ticks again with the week strip; the physio sees today on Progress and the line on the session note |
 | `packages/schemas/src/adherence.test.ts` | The line's wording, including no days and not tracked; the week strip's states; the plan week in IST |
 | `apps/web/modules/sessions/services.test.ts` | The draft shows the adherence now; a save never keeps one; Close session keeps it, then signs at the new version |

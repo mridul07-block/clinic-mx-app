@@ -7,9 +7,9 @@ import { packageState } from './packages';
  * defaults chosen under the user's standing approval, 28 October 2026 (docs/runbooks/my-plan.md):
  * the patient's own page for their episode, read through `internal.my_plan()`: the week of the
  * plan, the next visit with its map, the home exercises as the plan lists them, the package's
- * sessions (never a price) and their pain readings as numbers. Exercise videos wait for SET-07,
- * Reschedule for the WhatsApp Flow (WA-05), and the diagnosis in plain words for clinician-approved
- * patient content (AI-07); no clinical wording is made up here.
+ * sessions (never a price) and their pain readings as numbers, and the diagnosis in plain words
+ * once a clinician approves its patient content (AI-07, CLN-08). Exercise videos wait for SET-07,
+ * Reschedule for the WhatsApp Flow (WA-05); no clinical wording is made up here.
  */
 
 const painValue = z.number().int().min(0).max(10).nullable();
@@ -75,6 +75,11 @@ export const myPlanSchema = z.object({
       recommendations: z.string().nullable(),
     })
     .nullable(),
+  /**
+   * The diagnosis in plain words (CLN-08, PRD M13): the explanation a consultant who treats patients
+   * approved for the episode's diagnosis (AI-07); null while none is approved.
+   */
+  aboutCondition: z.string().nullable().default(null),
 });
 
 /** A tick or an untick of a home programme row, as the My plan page posts it (PAT-02). */
