@@ -1,5 +1,7 @@
-import { auditEvent, createDb } from '@clinic-mx/db';
+import { auditEvent, centre, createDb, episode, systemActor, withActor } from '@clinic-mx/db';
+import { addDays, istDate } from '@clinic-mx/schemas';
 import { expect, test, type Page } from '@playwright/test';
+import { eq } from 'drizzle-orm';
 import { testEpisode, testPatient } from './patients';
 import { signInWithCode, temporaryWithCode } from './staff';
 
@@ -23,6 +25,19 @@ const entry = (page: Page, record: string) =>
   page.locator(`[data-testid="audit-entry"][data-record="${record}"]`);
 const fits = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+
+/** An episode at another centre than the helpers' (HSR Layout), for a patient registered there. */
+async function episodeAt(patientId: string, code: string): Promise<string> {
+  return withActor(db(), systemActor('tests'), async (tx) => {
+    const [at] = await tx.select({ id: centre.id }).from(centre).where(eq(centre.code, code));
+    const [row] = await tx
+      .insert(episode)
+      .values({ patientId, centreId: at?.id ?? '', bodyRegion: 'knee' })
+      .returning({ id: episode.id });
+    if (!row) throw new Error('episode not added');
+    return row.id;
+  });
+}
 
 /** A measure changed on the episode, as the audit trigger writes it. */
 async function measureChange(episodeId: string, by: string): Promise<string> {
@@ -117,4 +132,52 @@ test('Finance reads money events only; a physio has no audit log', async ({ page
   await signInWithCode(page, physio.email, physio.secret);
   await page.goto('/app/audit');
   await expect(page).toHaveURL(/\/app\/not-allowed/);
+});
+
+// ADM-04: the audit log's readers download what they read, for chosen days, audited.
+test('a Centre Manager downloads the clinical events at their centres, for chosen days', async ({
+  page,
+}) => {
+  const manager = await temporaryWithCode('centre_manager', ['HSR Layout']);
+  const own = await testPatient();
+  const elsewhere = await testPatient({ centreCode: 'WFD' });
+  const measureId = await measureChange(await testEpisode(own.id, 'active'), manager.id);
+  const otherMeasure = await measureChange(await episodeAt(elsewhere.id, 'WFD'), manager.id);
+  await signInWithCode(page, manager.email, manager.secret);
+  const today = istDate(new Date());
+
+  // Without From and To there is nothing to download, and the screen says so.
+  await page.goto('/app/audit');
+  await page.getByTestId('audit-download').click();
+  await expect(page).toHaveURL(/download=no_span/);
+  await expect(page.getByRole('main')).toContainText('Choose From and To to download.');
+  // The days as typed, without pressing Show: a longer span than the setting goes back.
+  await page.getByLabel('From', { exact: true }).fill(addDays(today, -40));
+  await page.getByLabel('To', { exact: true }).fill(today);
+  await page.getByTestId('audit-download').click();
+  await expect(page).toHaveURL(/download=too_long/);
+  await expect(page.getByRole('main')).toContainText('at most 31 days');
+
+  // Measures only: a whole day of clinical events can pass the most one download holds.
+  await page.goto('/app/audit');
+  await page.getByLabel('Record type').selectOption('measure');
+  await page.getByLabel('From', { exact: true }).fill(today);
+  await page.getByLabel('To', { exact: true }).fill(today);
+  const download = page.waitForEvent('download');
+  await page.getByTestId('audit-download').click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe(['clinic-mx-audit', today, 'to', today].join('-') + '.csv');
+  const { readFile } = await import('node:fs/promises');
+  const csv = await readFile(await file.path(), 'utf8');
+  // A byte order mark first, for spreadsheets, then the columns.
+  expect(csv.charCodeAt(0)).toBe(0xfeff);
+  expect(csv.slice(1).startsWith('Event,When (IST),Who,What,Record type,Part,Record,Fields')).toBe(
+    true,
+  );
+  // Their centre's events, the clinical record's values hidden; never another centre's.
+  expect(csv).toContain(measureId);
+  expect(csv).not.toContain('Test 7');
+  expect(csv).toContain('hidden');
+  expect(csv).not.toContain(otherMeasure);
+  expect(await fits(page)).toBe(true);
 });

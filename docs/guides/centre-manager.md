@@ -15,7 +15,7 @@ On a phone, the bar at the bottom holds **Alerts**, **Centres**, **Outcomes** (t
 - **Team**: rosters and leave.
 - **Today**, **Calendar** and **Patients**.
 - **Red flags**, **Knowledge base**, **Prices**, **Kiosk tablets** and **Account**.
-- **Audit log**: clinical changes and opened records at your centres. Without the Treats patients
+- **Audit log** (with **Download (CSV)** for chosen days): clinical changes and opened records at your centres. Without the Treats patients
   tick you see which fields of a clinical record changed, not the values.
 - With the Treats patients tick, also **My patients today** and **My leave**.
 

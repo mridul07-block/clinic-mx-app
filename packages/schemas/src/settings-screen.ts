@@ -34,6 +34,7 @@ export const settingAreaLabels: Record<string, string> = {
   security: 'Security',
   limits: 'Rate limits',
   privacy: 'Privacy',
+  audit: 'Audit log',
   launch: 'Launch',
 };
 

@@ -1,6 +1,7 @@
 import {
   auditActionLabels,
   auditActorLabel,
+  auditDownloadRefusalText,
   auditEntityLabel,
   auditPartLabels,
   auditPartsFor,
@@ -8,19 +9,28 @@ import {
   auditValue,
   formatIstDateTime,
   type AuditCategory,
+  type AuditDownloadRefusal,
   type AuditLogEntry,
 } from '@clinic-mx/schemas';
 import type { Tone } from '@clinic-mx/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { secondaryButtonClass } from '../../../../../components/forms';
+import { FormMessage, secondaryButtonClass } from '../../../../../components/forms';
 import { Tag } from '../../../../../components/tag';
 import { NotAllowedError } from '../../../../../modules/access/guard';
 import { readAuditLog, type AuditLogPage } from '../../../../../modules/audit/services';
 import { requireStaff } from '../../../../../modules/auth/session';
+import { getSetting } from '../../../../../modules/settings/settings';
 
 export const metadata: Metadata = { title: 'Audit log · Clinic Mx' };
+
+const downloadRefusals: readonly AuditDownloadRefusal[] = [
+  'no_span',
+  'reversed',
+  'too_long',
+  'too_many',
+];
 
 const controlClass =
   'h-row w-full rounded-control border border-line-control bg-surface px-3 text-ink shadow-xs hover:border-ink-muted pointer-coarse:h-row-touch';
@@ -55,6 +65,13 @@ export default async function AuditLogPageView({
     throw error;
   }
   const { parts, query, entries, older } = page;
+  const [maxDays, maxEvents] = await Promise.all([
+    getSetting('audit.download_max_days'),
+    getSetting('audit.download_max_events'),
+  ]);
+  // Why a download went back to the screen (ADM-04): a code, never text from the address.
+  const refusal = downloadRefusals.find((each) => each === params.download);
+  const refused = refusal ? auditDownloadRefusalText(refusal, maxDays, maxEvents) : null;
   const tables = [...new Set(parts.flatMap((part) => auditTablesOf(part)))].sort();
   const olderHref = older
     ? `/app/audit?${new URLSearchParams({
@@ -108,15 +125,34 @@ export default async function AuditLogPageView({
           <span className="font-medium text-ink">To</span>
           <input name="to" type="date" defaultValue={query.to ?? ''} className={controlClass} />
         </label>
-        <div className="flex items-center gap-4 sm:col-span-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:col-span-2">
           <button type="submit" className={`${secondaryButtonClass} sm:w-auto`}>
             Show
+          </button>
+          {/* ADM-04: the filters as typed, whether or not Show was pressed. */}
+          <button
+            type="submit"
+            formMethod="post"
+            formAction="/app/audit/download"
+            className={`${secondaryButtonClass} sm:w-auto`}
+            data-testid="audit-download"
+          >
+            Download (CSV)
           </button>
           <Link href="/app/audit" className="text-accent underline underline-offset-2">
             Clear
           </Link>
         </div>
       </form>
+
+      {refused ? (
+        <FormMessage tone="danger">{refused}</FormMessage>
+      ) : (
+        <p className="text-sm text-ink-secondary">
+          Download (CSV) gives the events for From to To (at most {maxDays} days) as a file for a
+          spreadsheet. Each download is kept in the audit log.
+        </p>
+      )}
 
       {entries.length ? (
         <ol className="flex flex-col gap-3" data-testid="audit-entries">

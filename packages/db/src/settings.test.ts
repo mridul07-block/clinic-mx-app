@@ -122,6 +122,8 @@ const stored: Settings = {
   'limits.webhook_failures_per_network': { count: 10, minutes: 1 },
   'reminders.day_before_time': '18:00',
   'privacy.request_response_days': 30,
+  'audit.download_max_days': 31,
+  'audit.download_max_events': 5000,
 };
 
 const rows = (overrides: Record<string, unknown> = {}) =>

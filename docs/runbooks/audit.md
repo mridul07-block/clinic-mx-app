@@ -103,7 +103,25 @@ its fields. Values over 80 characters are cut; a field withheld from the reader 
 hidden values. It picks the page on the placed columns, newest first, then names the people. Tests: `packages/db/src/integration/audit-log.integration.test.ts`,
 `packages/schemas/src/audit-log.test.ts`, `apps/web/e2e/audit-log.spec.ts`.
 
-**Not built.** A filter by person, and a download of the trail itself (PRD section 2 pairs "audit
-log and data export"); no ticket covers it yet, so it is added when the clinic asks. A patient's own
-data is exported from their data request (ADM-03).
+**Download.** ADM-04 (PRD section 2: "Audit log and data export"). **Download (CSV)**, beside **Show**,
+gives the events the person reads for the part, record type and From to To as typed (Show need not
+be pressed first), as a CSV file, `clinic-mx-audit-<from>-to-<to>.csv`; recommended defaults chosen
+under the user's standing approval, 29 October 2026 (DECISION ADM-04), for the client to confirm.
+- **The same events as the screen:** `internal.audit_log` decides them, page by page until an empty
+  one; values withheld from the reader say "hidden" (the fields that changed are listed). Columns:
+  the event's number (its order), when (IST), who, what, record type, part, record, fields, before
+  and after (JSON). A byte order mark first, so spreadsheets read names right; a cell that starts
+  like a formula is quoted, so opening it never runs one. Events are chosen by time through
+  `audit_event_at_idx`.
+- **How much:** From and To are needed, at most `audit.download_max_days` days (31; the setting at
+  most 366); more than `audit.download_max_events` events (5,000; at most 50,000) is refused, with
+  the advice to narrow it, never cut short. The screen says why (`download=no_span`, `reversed`,
+  `too_long` or `too_many`: a code, never text from the address).
+- **Audited:** each download is an `export` event on `audit_event` with its filters and count
+  (`internal.log_audit_download`), in the Super Admin's part. A POST, so no link from elsewhere starts
+  one. The pages are read one after another, not as one snapshot: an event written meanwhile may
+  appear.
+
+**Not built.** A filter by person. A patient's own data is exported from their data request
+(ADM-03).
 

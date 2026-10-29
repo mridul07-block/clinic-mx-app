@@ -2,7 +2,7 @@ import { auditCategory, auditPlacedTables } from '@clinic-mx/schemas';
 import { sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
-import { auditLog } from '../audit-log';
+import { auditLog, logAuditDownload } from '../audit-log';
 import { createDb } from '../client';
 import type { StaffMember } from '../identity';
 import { insertPatient } from '../patients';
@@ -150,6 +150,11 @@ async function setUp(tx: Tx) {
   };
 }
 
+/** The newest events a person reads. */
+async function latest(tx: Tx, who: StaffMember) {
+  return read(tx, who, { limit: 50 });
+}
+
 async function read(tx: Tx, who: StaffMember, filters: Parameters<typeof auditLog>[1]) {
   await becomeStaff(tx, who);
   const rows = await auditLog(tx, filters);
@@ -269,5 +274,40 @@ describe('the audit log', () => {
     expect(tables.length).toBeGreaterThan(40);
     for (const { table, category } of tables) expect(category, table).toBe(auditCategory(table));
     for (const { table } of tables) expect(auditPlacedTables, table).toContain(table);
+  });
+
+  it('records each download by its readers, in the Super Admin’s part', async () => {
+    await rolledBack(async (tx) => {
+      const filters = { from: '2026-10-01', to: '2026-10-29' };
+      for (const reader of [superAdmin, manager, finance]) {
+        await becomeStaff(tx, reader);
+        await logAuditDownload(tx, filters, 3);
+        await asOwner(tx);
+      }
+      for (const nobody of [deskHsr, support]) {
+        await becomeStaff(tx, nobody);
+        expect(
+          await tx
+            .transaction((sp) => logAuditDownload(sp, filters, 3))
+            .then(() => 'ok')
+            .catch((error: unknown) => (error as { cause?: { code?: string } }).cause?.code),
+        ).toBe('42501');
+        await asOwner(tx);
+      }
+      const downloads = await tx.execute<{ actor: string; category: string; after: unknown }>(sql`
+        select actor, category, after from audit_event
+        where action = 'export' and entity = 'audit_event' order by id desc limit 3`);
+      expect(downloads.map((row) => row.actor).sort()).toEqual(
+        [superAdmin, manager, finance].map((who) => `staff:${who.id}`).sort(),
+      );
+      expect(downloads.every((row) => row.category === 'admin')).toBe(true);
+      expect(downloads[0]?.after).toEqual({ filters, events: 3 });
+      // Only the Super Admin reads who downloaded what.
+      const read = async (who: StaffMember) =>
+        (await latest(tx, who)).filter((row) => row.entity === 'audit_event');
+      expect((await read(superAdmin)).length).toBeGreaterThanOrEqual(3);
+      expect(await read(manager)).toEqual([]);
+      expect(await read(finance)).toEqual([]);
+    });
   });
 });

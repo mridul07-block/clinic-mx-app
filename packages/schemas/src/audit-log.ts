@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { toCsv } from './finance';
+import { addDays, formatIstDateTime } from './ist';
 import { accessScope, type StaffAccess } from './permissions';
 
 /**
@@ -226,4 +228,83 @@ export function auditValue(value: unknown): string {
   if (value === null || value === undefined) return 'empty';
   const text = typeof value === 'string' ? value : JSON.stringify(value);
   return text.length > 80 ? `${text.slice(0, 79)}…` : text;
+}
+
+/** Why a download cannot be made as asked (ADM-04). */
+export type AuditDownloadRefusal = 'no_span' | 'reversed' | 'too_long' | 'too_many';
+
+/** Each refusal in words; `maxDays` and `maxEvents` are the settings. */
+export function auditDownloadRefusalText(
+  refusal: AuditDownloadRefusal,
+  maxDays: number,
+  maxEvents: number,
+): string {
+  switch (refusal) {
+    case 'no_span':
+      return 'Choose From and To to download.';
+    case 'reversed':
+      return 'To is before From.';
+    case 'too_long':
+      return `Choose at most ${String(maxDays)} days to download.`;
+    case 'too_many':
+      return `More than ${maxEvents.toLocaleString('en-IN')} events in those days. Choose fewer days, a part or a record type.`;
+  }
+}
+
+/**
+ * The days a download covers (ADM-04): From and To both chosen, To not before From, at most
+ * `maxDays` days counting both; or why not.
+ */
+export function auditDownloadSpan(
+  query: AuditLogQuery,
+  maxDays: number,
+): { ok: true; from: string; to: string } | { ok: false; refusal: AuditDownloadRefusal } {
+  if (!query.from || !query.to) return { ok: false, refusal: 'no_span' };
+  if (query.to < query.from) return { ok: false, refusal: 'reversed' };
+  if (addDays(query.from, maxDays - 1) < query.to) return { ok: false, refusal: 'too_long' };
+  return { ok: true, from: query.from, to: query.to };
+}
+
+/** The downloaded file's columns, in order. */
+export const auditCsvHeader = [
+  'Event',
+  'When (IST)',
+  'Who',
+  'What',
+  'Record type',
+  'Part',
+  'Record',
+  'Fields',
+  'Before',
+  'After',
+] as const;
+
+const partLabels: Record<AuditCategory, string> = {
+  clinical_record: 'Clinical record',
+  clinical: 'Clinical',
+  finance: 'Finance',
+  admin: 'Setup',
+};
+
+/**
+ * The events as a CSV file (ADM-04): what the screen shows, a row each with the event's number
+ * (its order), the values as JSON; a clinical record's values withheld from the reader say
+ * "hidden", with the fields that changed. Formulas never run when it is opened (`toCsv`).
+ */
+export function auditCsv(entries: readonly AuditLogEntry[]): string {
+  return toCsv(
+    auditCsvHeader,
+    entries.map((entry) => [
+      entry.id,
+      formatIstDateTime(entry.at),
+      auditActorLabel(entry.actor, entry.actorName),
+      auditActionLabels[entry.action] ?? entry.action,
+      auditEntityLabel(entry.entity),
+      partLabels[entry.category],
+      entry.entityId ?? '',
+      (entry.changed ?? []).join(' '),
+      entry.redacted ? 'hidden' : entry.before ? JSON.stringify(entry.before) : '',
+      entry.redacted ? 'hidden' : entry.after ? JSON.stringify(entry.after) : '',
+    ]),
+  );
 }
