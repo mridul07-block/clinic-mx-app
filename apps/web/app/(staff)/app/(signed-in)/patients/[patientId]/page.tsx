@@ -140,6 +140,14 @@ export default async function PatientPage({
           </span>
           {patient.registeredCentreName ? `, registered at ${patient.registeredCentreName}` : null}
         </p>
+        {accessScope(staff, 'data_requests.manage') ? (
+          <Link
+            href={`/app/data-requests/new?${new URLSearchParams({ patient: patient.id }).toString()}`}
+            className="self-start text-sm text-accent underline underline-offset-2"
+          >
+            Record a data request
+          </Link>
+        ) : null}
         {minor ? (
           <span className="flex flex-wrap gap-2" data-testid="guardian-tags">
             <Tag tone="neutral">Under {adultAge}</Tag>

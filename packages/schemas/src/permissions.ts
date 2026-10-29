@@ -143,6 +143,9 @@ export const deniedToSupport: readonly Action[] = [
   'audit.view_all',
   'audit.view_clinical',
   'audit.view_finance',
+  // ADM-03: data requests and exports hold every record of a patient.
+  'data.export',
+  'data_requests.manage',
 ];
 
 /** What the guard needs to know about a staff member. */

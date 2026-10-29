@@ -53,8 +53,10 @@ A CI database test fails for any table without it, unless it is on the exemption
   events already written once, touching nothing else. When a table moves to another part, its
   migration re-places that table's events the same way.
 - `before` and `after` hold whole rows, so the trail is as sensitive as the tables it covers.
-  Deletion requests under the DPDP Act may require anonymising rows here; that procedure arrives
-  with the data export and deletion ticket.
+  Deletion requests under the DPDP Act may require anonymising rows here; that procedure waits for
+  the clinic's retention period (DECISION #20), as deletion itself does (ADM-03,
+  `docs/runbooks/data-requests.md`). A patient's copy leaves the trail out: it is the clinic's
+  record of who did what.
 
 ## The audit log screen
 
@@ -101,6 +103,7 @@ its fields. Values over 80 characters are cut; a field withheld from the reader 
 hidden values. It picks the page on the placed columns, newest first, then names the people. Tests: `packages/db/src/integration/audit-log.integration.test.ts`,
 `packages/schemas/src/audit-log.test.ts`, `apps/web/e2e/audit-log.spec.ts`.
 
-**Not built.** A filter by person, and export of the trail (`data.export`, with the data requests
-ticket).
+**Not built.** A filter by person, and a download of the trail itself (PRD section 2 pairs "audit
+log and data export"); no ticket covers it yet, so it is added when the clinic asks. A patient's own
+data is exported from their data request (ADM-03).
 

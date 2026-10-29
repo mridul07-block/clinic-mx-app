@@ -121,6 +121,7 @@ const stored: Settings = {
   'limits.link_opens_per_network': { count: 120, minutes: 1 },
   'limits.webhook_failures_per_network': { count: 10, minutes: 1 },
   'reminders.day_before_time': '18:00',
+  'privacy.request_response_days': 30,
 };
 
 const rows = (overrides: Record<string, unknown> = {}) =>

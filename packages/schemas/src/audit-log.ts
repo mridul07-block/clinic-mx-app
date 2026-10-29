@@ -74,6 +74,7 @@ const financeTables = [
 export const auditSetupTables = [
   'appointment_type',
   'centre',
+  'data_request',
   'kb_condition',
   'kb_condition_listing',
   'kb_diagnosis_category',
@@ -163,6 +164,7 @@ export const auditActionLabels: Record<string, string> = {
   staff_invited: 'Invited',
   invite_link_created: 'Made an invite link',
   support_request: 'Support request',
+  export: 'Exported',
 };
 
 /** Who did it, as the log shows it: the staff member's name, a patient's link, or the system. */

@@ -15,6 +15,8 @@ On a phone, the bar at the bottom holds **Overview**, **Alerts**, **Settings** a
 - **Knowledge base**, **Red flags** and **AI preparation sheet**.
 - **WhatsApp templates**, **Support access**, **Opening entries**, **Kiosk tablets** and **Account**.
 - **Audit log**: every change and every opened record, newest first.
+- **Data requests**: patients' requests for a copy of their data, a correction or deletion. Record
+  one from the patient's record with **Record a data request**.
 - **Settings**: the clinic's rules, such as minutes until running late. Open **Change**, enter
   the new value and tap **Save**.
 - With the Treats patients tick, also **My patients today** and **My leave**.

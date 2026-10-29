@@ -662,6 +662,13 @@ export const settingDefinitions = {
     source: 'TAD section 8: Day before reminder',
     description: 'Time of day (IST) the day before reminder is sent.',
   },
+  // DECISION ADM-03: the days to answer a data request are the client's lawyer's to confirm.
+  'privacy.request_response_days': {
+    schema: days,
+    source:
+      'TAD section 5 (DPDP Act 2023: data export and deletion requests handled by the Super Admin); ADM-03, placeholder until the client’s lawyer confirms, 29 October 2026',
+    description: 'Days after a data request is received by which the clinic answers it.',
+  },
 } as const satisfies Record<string, SettingDefinition>;
 
 export type SettingKey = keyof typeof settingDefinitions;

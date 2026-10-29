@@ -21,7 +21,8 @@ import {
 // two_step_reset record two step verification turned on or reset by the Super Admin (IAM-02);
 // staff_invited and invite_link_created record invites sent and links made (IAM-06);
 // support_request records each page or action a Velyx support login asks for under a grant
-// (IAM-08). None of them changes a table row.
+// (IAM-08); export records a patient's data exported for their request (ADM-03). None of them
+// changes a table row.
 export const auditActions = [
   'insert',
   'update',
@@ -35,6 +36,7 @@ export const auditActions = [
   'staff_invited',
   'invite_link_created',
   'support_request',
+  'export',
 ] as const;
 export const auditAction = pgEnum('audit_action', auditActions);
 

@@ -33,6 +33,7 @@ export const settingAreaLabels: Record<string, string> = {
   ai: 'AI',
   security: 'Security',
   limits: 'Rate limits',
+  privacy: 'Privacy',
   launch: 'Launch',
 };
 
