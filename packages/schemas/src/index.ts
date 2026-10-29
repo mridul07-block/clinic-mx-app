@@ -1199,3 +1199,22 @@ export {
   type QuestionnaireState,
   type QuestionnaireSubmission,
 } from './questionnaires';
+export {
+  PATIENT_CONTENT_MAX,
+  conditionIdSchema,
+  patientContentDecisionSchema,
+  patientContentDraftSchema,
+  patientContentPartHints,
+  patientContentPartLabels,
+  patientContentParts,
+  patientContentSaveSchema,
+  patientContentSources,
+  patientContentState,
+  patientContentStateLabels,
+  patientContentStatuses,
+  type PatientContentDraft,
+  type PatientContentPart,
+  type PatientContentSource,
+  type PatientContentState,
+  type PatientContentStatus,
+} from './patient-content';

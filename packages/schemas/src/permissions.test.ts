@@ -48,6 +48,14 @@ const expected: Record<Action, Expected> = {
     '-',
   ],
   'session_notes.write': ['treats', 'treats', '-', 'treats', '-'],
+  // AI-07, not a PRD row: patient content is approved by a consultant who treats patients.
+  'patient_content.approve': [
+    'consultant+treats',
+    'consultant+treats',
+    '-',
+    'consultant+treats',
+    '-',
+  ],
   'red_flags.view': ['yes', 'yes', '-', 'yes', '-'],
   'red_flags.view_banner': ['yes', 'yes', 'yes', 'yes', '-'],
   // User decision 23 October 2026 (ALT-01), not a PRD row: only clinicians act on alerts.
@@ -147,6 +155,7 @@ describe('the permission map', () => {
       'ai_prep.use',
       'consultant_records.write',
       'consultant_records.sign',
+      'patient_content.approve',
       'session_notes.write',
       'red_flags.view',
       'red_flags.act',

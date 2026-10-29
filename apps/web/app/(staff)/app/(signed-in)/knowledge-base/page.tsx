@@ -37,6 +37,14 @@ export default async function KnowledgeBasePage() {
           Each version is one import of the workbooks. New consultations and session notes use the
           live version; a record keeps the version it started with.
         </p>
+        {/* AI-07: patient content per condition, approved by a consultant who treats patients. */}
+        <Link
+          href="/app/knowledge-base/patient-content"
+          className="inline-flex min-h-11 items-center self-start font-medium text-ink underline underline-offset-2"
+          data-testid="patient-content-link"
+        >
+          Patient content
+        </Link>
       </div>
       {versions.length > 0 && !anyApproved ? (
         <p
