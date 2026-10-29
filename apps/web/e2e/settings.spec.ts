@@ -35,7 +35,7 @@ test('the Super Admin changes a setting, checked and on the value read', async (
   const admin = await temporaryWithCode('super_admin');
   await signInWithCode(page, admin.email, admin.secret);
   await page.goto('/app');
-  await page.getByRole('link', { name: 'Settings', exact: true }).first().click();
+  await page.getByRole('main').getByRole('link', { name: 'Settings', exact: true }).first().click();
   await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
   const fits = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
   expect(await fits()).toBe(true);

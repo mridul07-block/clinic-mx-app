@@ -238,7 +238,7 @@ test.describe('Front Desk account changes', () => {
     // The Front Desk lands on Today (INT-01); Account is on Home.
     await expect(page).toHaveURL(/\/app\/today$/);
     await page.getByRole('link', { name: 'Home' }).click();
-    await page.getByRole('link', { name: 'Account' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Account' }).click();
     await page.getByRole('link', { name: 'Turn on two step verification' }).click();
     await expect(page.getByText('Each time you sign in you will also enter a code')).toBeVisible();
     const secret = (await page.getByTestId('two-step-key').innerText()).replace(/\s/g, '');

@@ -19,7 +19,7 @@ test('a physiotherapist reads the red flag rules and presentations', async ({ pa
   const physio = await temporaryWithCode('physiotherapist', ['HSR Layout']);
   await signInWithCode(page, physio.email, physio.secret);
   await physioLanded(page);
-  await page.getByRole('link', { name: 'Red flags' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Red flags' }).click();
   await expect(page.getByRole('heading', { name: 'Red flags', level: 1 })).toBeVisible();
   await expect(page.getByTestId('red-flag-version')).toContainText('Knowledge base version');
 

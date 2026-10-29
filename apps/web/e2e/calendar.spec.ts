@@ -166,7 +166,7 @@ test('Finance has no calendar', async ({ page }) => {
   await signInWithCode(page, finance.email, finance.secret);
   // Finance lands on Collections (DSH-04); the home links are on home.
   await page.goto('/app');
-  await expect(page.getByRole('link', { name: 'Finance' })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('link', { name: 'Finance' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Calendar' })).toHaveCount(0);
   await page.goto('/app/calendar');
   await expect(page).toHaveURL(/\/app\/not-allowed/);

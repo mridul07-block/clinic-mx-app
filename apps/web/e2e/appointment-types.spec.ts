@@ -38,7 +38,7 @@ test('the Super Admin sets the length of each appointment type', async ({ page }
   await signInAdmin(page);
   await changingTypes(async () => {
     await page.goto('/app');
-    await page.getByRole('link', { name: 'Appointment types' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Appointment types' }).click();
     await expect(page.getByRole('heading', { name: 'Appointment types' })).toBeVisible();
     await expect(typeRow(page, 'Consultation')).toContainText('45 minutes');
     await expect(typeRow(page, 'Session')).toContainText('45 minutes');
@@ -52,7 +52,7 @@ test('the Super Admin sets the length of each appointment type', async ({ page }
     await page.getByLabel('Length in minutes').fill('30');
     await page.getByRole('button', { name: 'Save appointment type' }).click();
     await expect(page.getByRole('status')).toHaveText('Appointment type saved.');
-    await page.getByRole('link', { name: 'Appointment types' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Appointment types' }).click();
     await expect(typeRow(page, 'Review')).toContainText('30 minutes');
 
     await page.getByRole('link', { name: 'Add an appointment type' }).click();
@@ -63,7 +63,7 @@ test('the Super Admin sets the length of each appointment type', async ({ page }
     await page.getByRole('button', { name: 'Deactivate appointment type' }).click();
     await page.getByRole('button', { name: 'Deactivate appointment type' }).click();
     await expect(page.getByRole('status')).toContainText('Appointment type deactivated.');
-    await page.getByRole('link', { name: 'Appointment types' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Appointment types' }).click();
     await expect(typeRow(page, added)).toContainText('1 hour 30 minutes');
     await expect(typeRow(page, added)).toContainText('Inactive');
   });
@@ -101,7 +101,9 @@ test('the Super Admin gives a physio their own length, and clears it', async ({ 
 test('nobody but the Super Admin opens appointment types', async ({ page }) => {
   const desk = await temporaryDesk();
   await signIn(page, desk.email);
-  await expect(page.getByRole('link', { name: 'Appointment types' })).toHaveCount(0);
+  await expect(page.getByRole('main').getByRole('link', { name: 'Appointment types' })).toHaveCount(
+    0,
+  );
   await page.goto('/app/appointment-types');
   await expect(page).toHaveURL(/\/app\/not-allowed/);
 });

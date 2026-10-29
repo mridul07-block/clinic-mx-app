@@ -1,5 +1,6 @@
 import 'server-only';
 import { logAccessEvent, staffActor, type AccessAction, type StaffMember } from '@clinic-mx/db';
+import { CENTRE_COOKIE } from '@clinic-mx/schemas';
 import type { AuthError } from '@supabase/supabase-js';
 import type { z } from 'zod';
 import { appDb } from '../../lib/db';
@@ -99,4 +100,6 @@ export async function endSession(): Promise<void> {
   const jar = await cookies();
   jar.delete({ name: LAST_SEEN_COOKIE, path: '/' });
   jar.delete({ name: DEVICE_COOKIE, path: '/' });
+  // The centre switcher's choice is the person's, not the device's (UI-02).
+  jar.delete({ name: CENTRE_COOKIE, path: '/app' });
 }

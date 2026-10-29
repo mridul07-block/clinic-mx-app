@@ -25,7 +25,7 @@ async function setUpTablet(page: Page): Promise<{ kioskId: string; name: string 
   const name = `Tablet ${crypto.randomUUID().slice(0, 8)}`;
   await signIn(page, desk.email);
   await page.goto('/app');
-  await page.getByRole('link', { name: 'Kiosk tablets' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Kiosk tablets' }).click();
   await expect(page.getByRole('heading', { name: 'Kiosk tablets' })).toBeVisible();
   await expect(page.getByText('Centre: HSR Layout')).toBeVisible();
   await page.getByLabel('Tablet name').fill(name);

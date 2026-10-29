@@ -31,7 +31,7 @@ test('a Centre Manager reads the versions and the import report, without approvi
   const manager = await temporaryWithCode('centre_manager', ['HSR Layout']);
   await signInWithCode(page, manager.email, manager.secret);
   await page.goto('/app');
-  await page.getByRole('link', { name: 'Knowledge base' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Knowledge base' }).click();
   await expect(page.getByRole('heading', { name: 'Knowledge base', level: 1 })).toBeVisible();
   const listed = page.getByTestId('kb-version').filter({ hasText: `Version ${version.number}` });
   await expect(listed.getByText('Live', { exact: true })).toBeVisible();

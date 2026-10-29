@@ -58,7 +58,11 @@ test('an emergency: the desk’s banner, the physio reviews, refers and closes, 
   );
   await expect(deskBanner).not.toContainText('cauda');
   await expect(deskBanner).toHaveClass(/bg-danger-strong/);
-  expect((await deskBanner.boundingBox())?.width).toBe(deskPage.viewportSize()?.width);
+  expect((await deskBanner.boundingBox())?.width).toBe(
+    await deskBanner.evaluate(
+      (el) => el.closest('[data-testid="page-sheet"]')?.clientWidth ?? window.innerWidth,
+    ),
+  );
 
   // The physio: the rule on every page, and one action.
   await signInWithCode(page, physio.email, physio.secret);

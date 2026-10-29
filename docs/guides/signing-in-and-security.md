@@ -7,6 +7,16 @@ For every staff member.
 You start on **Sign in**. Then you land on your role's own screen, or on the page a link sent
 you to.
 
+## Finding your way
+
+- **On a phone:** the bar at the bottom holds your role's main screens and **More** (Home).
+- **On a tablet or computer:** the bar on the left holds every screen you may open. On a computer it
+  also holds the **Centre** Today and the Calendar open on (if you work at more than one; signing
+  out forgets it), **Search or jump to**,
+  and your name at the foot, for **Account** and **Sign out**.
+- **Search or jump to:** press **Ctrl K** (or **/**), type part of a screen's name or a patient's
+  name or mobile, then press Enter.
+
 ## Your role
 
 - Front Desk: **Today**.

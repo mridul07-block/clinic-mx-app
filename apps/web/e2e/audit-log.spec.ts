@@ -46,7 +46,7 @@ test('the Super Admin reads every part, with the values that changed', async ({ 
   const measureId = await measureChange(await testEpisode(patient.id, 'active'), admin.id);
   await signInWithCode(page, admin.email, admin.secret);
   await page.goto('/app');
-  await page.getByRole('link', { name: 'Audit log' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Audit log' }).click();
   await expect(page.getByRole('heading', { name: 'Audit log', level: 1 })).toBeVisible();
 
   await page.goto('/app/audit?entity=measure');

@@ -17,6 +17,7 @@ import { calendarHref } from '../../../../../modules/scheduling/links';
 import { getSetting } from '../../../../../modules/settings/settings';
 import { CheckInDrawer } from './check-in-drawer';
 import { TodayBoard } from './today-board';
+import { chosenCentreId } from '../../../../../modules/navigation/centres';
 
 export const metadata: Metadata = { title: 'Today · Clinic Mx' };
 
@@ -43,7 +44,12 @@ export default async function TodayPage({
   const centres = (await asStaff(staff, (tx) => centreList(tx))).filter(
     (c) => c.active && (staff.role === 'super_admin' || staff.centreIds.includes(c.id)),
   );
-  const centre = centres.find((c) => c.id === params.centre) ?? centres[0];
+  // The address's centre, else the one chosen in the sidebar (UI-02), else the first.
+  const chosen = await chosenCentreId(staff);
+  const centre =
+    centres.find((c) => c.id === params.centre) ??
+    centres.find((c) => c.id === chosen) ??
+    centres[0];
   const signedInAs = `Signed in as ${staff.name}, ${staffRoleLabels[staff.role]}`;
   if (!centre) {
     return (
