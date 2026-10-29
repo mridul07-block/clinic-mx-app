@@ -1,0 +1,2 @@
+ALTER TABLE "kb_questionnaire" DROP CONSTRAINT "kb_questionnaire_sign_off";--> statement-breakpoint
+ALTER TABLE "kb_questionnaire" ADD CONSTRAINT "kb_questionnaire_sign_off" CHECK (not "kb_questionnaire"."signed_off" or (jsonb_typeof("kb_questionnaire"."definition") = 'object' and "kb_questionnaire"."licence" <> 'unconfirmed'));

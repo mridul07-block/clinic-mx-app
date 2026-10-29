@@ -47,6 +47,17 @@ test('a Centre Manager reads the versions and the import report, without approvi
   await expect(page.getByRole('heading', { name: 'Approval' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Approve version/ })).toHaveCount(0);
   await expect(page.getByTestId('kb-usage')).toHaveCount(0);
+  // SET-08: the questionnaire library, each instrument waiting for its items from the clinic.
+  await expect(page.getByTestId('questionnaire-entry')).toHaveCount(19);
+  await expect(page.getByTestId('questionnaires-summary')).toHaveText(
+    'None of the 19 questionnaires can be filled yet: each needs its items and scoring, a confirmed licence and clinical sign-off.',
+  );
+  await expect(
+    page.getByTestId('questionnaire-entry').filter({ hasText: 'KOOS' }).first(),
+  ).toContainText('Awaiting items and scoring');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
   await page.screenshot({ path: test.info().outputPath('kb-version-manager.png'), fullPage: true });
   expect(supabaseRequests).toEqual([]);
 });
