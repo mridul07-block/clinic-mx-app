@@ -23,7 +23,7 @@ test('the Super Admin reads every figure, overall and by centre, counted from th
 
   await signInWithCode(page, admin.email, admin.secret);
   await page.goto('/app');
-  await page.getByRole('link', { name: 'Figures' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Figures' }).click();
   await expect(page.getByRole('heading', { name: 'Figures', level: 1 })).toBeVisible();
   // The ten measured, and the eight PRD section 9 figures waiting for their data.
   await expect(page.getByTestId('figures-measured').locator(':scope > li')).toHaveCount(10);

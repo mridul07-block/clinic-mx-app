@@ -30,7 +30,7 @@ test('Finance changes a price, and the list shows the new one', async ({ page })
   await signInFinance(page);
   await changingPrices(async () => {
     await page.goto('/app');
-    await page.getByRole('link', { name: 'Prices' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Prices' }).click();
     await expect(page.getByRole('heading', { name: 'Prices', exact: true })).toBeVisible();
     await expect(row(page, 'price-item', 'Consultation')).toContainText('₹750');
     await expect(row(page, 'price-item', 'Zero Gravity Treadmill')).toContainText('₹2,000');
@@ -47,7 +47,7 @@ test('Finance changes a price, and the list shows the new one', async ({ page })
     await expect(page.getByRole('status')).toHaveText('Price saved.');
     await expect(page.getByLabel('Price')).toHaveValue('2,500');
 
-    await page.getByRole('link', { name: 'Prices' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Prices' }).click();
     await expect(row(page, 'price-item', 'Zero Gravity Treadmill')).toContainText('₹2,500');
   });
 });
@@ -70,7 +70,7 @@ test('Finance adds a package type and preset discounts, and deactivates one', as
     await page.getByRole('checkbox', { name: /^PEMF/ }).check();
     await page.getByRole('button', { name: 'Add package type' }).click();
     await expect(page.getByRole('status')).toHaveText('Package type added.');
-    await page.getByRole('link', { name: 'Prices' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Prices' }).click();
     await expect(row(page, 'package-type', packageName)).toContainText('₹9,000');
     await expect(row(page, 'package-type', packageName)).toContainText(
       '10 sessions · PEMF, Rehabilitation session',
@@ -81,14 +81,14 @@ test('Finance adds a package type and preset discounts, and deactivates one', as
     await page.getByLabel('Percent off', { exact: true }).fill('10');
     await page.getByRole('button', { name: 'Add discount' }).click();
     await expect(page.getByRole('status')).toHaveText('Discount added.');
-    await page.getByRole('link', { name: 'Prices' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Prices' }).click();
     await page.getByRole('link', { name: 'Add a discount' }).click();
     await page.getByLabel('Name').fill(flatName);
     await page.getByLabel('A flat amount off').check();
     await page.getByLabel('Amount off', { exact: true }).fill('500');
     await page.getByRole('button', { name: 'Add discount' }).click();
     await expect(page.getByRole('status')).toHaveText('Discount added.');
-    await page.getByRole('link', { name: 'Prices' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Prices' }).click();
     await expect(row(page, 'discount-preset', percentName)).toContainText('10% off');
     await expect(row(page, 'discount-preset', flatName)).toContainText('₹500 off');
 
@@ -99,7 +99,7 @@ test('Finance adds a package type and preset discounts, and deactivates one', as
     await expect(page.getByRole('status')).toHaveText(
       'Discount deactivated. Bills already made and its history are kept.',
     );
-    await page.getByRole('link', { name: 'Prices' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Prices' }).click();
     await expect(row(page, 'discount-preset', percentName)).toContainText('Inactive');
     await expect(row(page, 'discount-preset', flatName)).not.toContainText('Inactive');
   });
@@ -110,7 +110,7 @@ test('the front desk reads prices but cannot change them', async ({ page }) => {
   await signIn(page, desk.email);
   // The Front Desk lands on Today (INT-01); Prices is on Home.
   await page.getByRole('link', { name: 'Home' }).click();
-  await page.getByRole('link', { name: 'Prices' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Prices' }).click();
   await expect(row(page, 'price-item', 'Consultation')).toContainText('₹750');
   await expect(page.getByRole('link', { name: 'Add a price' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /Consultation/ })).toHaveCount(0);

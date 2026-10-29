@@ -32,7 +32,7 @@ test('the Super Admin enters a patient in treatment, who is then booked and star
 
   await signInWithCode(page, admin.email, admin.secret);
   await page.goto('/app');
-  await page.getByRole('link', { name: 'Opening entries' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Opening entries' }).click();
   await expect(page.getByTestId('opening-status')).toHaveText('Opening entries are open');
   const form = page.getByTestId('opening-entry-form');
   await form.getByLabel('Name').fill(name);

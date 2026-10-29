@@ -33,7 +33,7 @@ test('the Super Admin keeps each centre’s address, phone, map link and colour'
   await signInAdmin(page);
   await changingCentres(async () => {
     await page.goto('/app');
-    await page.getByRole('link', { name: 'Centres' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Centres' }).click();
     await expect(page.getByRole('heading', { name: 'Centres' })).toBeVisible();
     // Three active; centres earlier tests added stay listed, inactive (never deleted).
     await expect(
@@ -71,7 +71,7 @@ test('the Super Admin keeps each centre’s address, phone, map link and colour'
     await expect(page.getByLabel('Phone')).toHaveValue('+91 80 4123 4567');
     await expect(page.getByLabel('Zero Gravity Treadmills')).toHaveValue('2');
 
-    await page.getByRole('link', { name: 'Centres' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Centres' }).click();
     await expect(centreCard(page, 'HSR Layout')).toContainText('+91 80 4123 4567 · Map link set');
   });
 });

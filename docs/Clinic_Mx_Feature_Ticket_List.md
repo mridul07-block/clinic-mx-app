@@ -291,4 +291,5 @@ quick guides (OPS-04).
 | UI-01 | Phone bottom tab bar per role (Frontend Specification section 4) | Each role's tabs on phones, current tab marked; More reaches every other screen | 4 | P1 | S |
 | ADM-01 | Audit log viewer (PRD M16 and section 2) | The Super Admin reads every change, Centre Managers the clinical changes at their centres, Finance the money changes | 4 | P1 | M |
 | ADM-02 | Settings screen (PRD M16, section 7) | The Super Admin reads and changes each business rule setting, validated and audited | 4 | P1 | M |
-
+| UI-02 | Tablet and desktop navigation: icon rail, sidebar, search or jump to (Frontend Specification section 4, design system v2 section 7) | From 768 px each role's screens in a 64 px rail, from 1280 px a 240 px sidebar with the centre switcher, Ctrl K and the person's menu; the current screen marked | 4 | P1 | M |
+| ADM-03 | Data requests register and patient data export (PRD M16, TAD DPDP) | The Super Admin records a patient's export or deletion request with its due date and exports their data; deletion waits for the clinic's retention decision | 4 | P2 | M |

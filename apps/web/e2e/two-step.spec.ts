@@ -115,7 +115,7 @@ test('Front Desk signs in with the password alone', async ({ page }) => {
   await expect(page).toHaveURL(/\/app\/today$/);
   await expect(page.getByText(`Signed in as ${testStaff.desk.name}, Front Desk`)).toBeVisible();
   await page.getByRole('link', { name: 'Home' }).click();
-  await page.getByRole('link', { name: 'Account' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Account' }).click();
   await expect(page.getByText('Off. Turn it on')).toBeVisible();
 });
 

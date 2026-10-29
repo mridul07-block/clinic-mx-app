@@ -22,7 +22,7 @@ test('the Super Admin switches the AI preparation sheet on only with both record
     try {
       await signInWithCode(page, admin.email, admin.secret);
       await page.goto('/app');
-      await page.getByRole('link', { name: 'AI preparation sheet' }).click();
+      await page.getByRole('main').getByRole('link', { name: 'AI preparation sheet' }).click();
       await expect(
         page.getByRole('heading', { name: 'AI preparation sheet', level: 1 }),
       ).toBeVisible();

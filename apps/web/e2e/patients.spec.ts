@@ -56,10 +56,10 @@ test('the front desk adds two people on one mobile, each with their own OP numbe
   // Found by mobile (both) and by name (one).
   await page.goto('/app/patients');
   await page.getByLabel('Mobile or name').fill(`+91 ${typedMobile}`);
-  await page.getByRole('button', { name: 'Search' }).click();
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByTestId('patient')).toHaveCount(2);
   await page.getByLabel('Mobile or name').fill(child.toLowerCase());
-  await page.getByRole('button', { name: 'Search' }).click();
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByTestId('patient')).toHaveCount(1);
   await expect(page.getByTestId('patient')).toContainText(childNumber);
 
@@ -79,11 +79,11 @@ test('a physiotherapist finds and reads a patient but cannot add or edit', async
   const physio = await temporaryWithCode('physiotherapist', ['HSR Layout']);
   await signInWithCode(page, physio.email, physio.secret);
   await physioLanded(page);
-  await page.getByRole('link', { name: 'Patients', exact: true }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Patients', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Add patient' })).toHaveCount(0);
   // Records are shared across centres: a Koramangala patient is found from HSR Layout.
   await page.getByLabel('Mobile or name').fill(patient.name);
-  await page.getByRole('button', { name: 'Search' }).click();
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
   await page.getByTestId('patient').click();
   await expect(page.getByTestId('op-number')).toHaveText(patient.opNumber);
   expect(patient.opNumber).toMatch(/^KOR-\d{5}$/);

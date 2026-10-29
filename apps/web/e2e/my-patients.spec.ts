@@ -62,7 +62,7 @@ test('the physio lands on their visits in time order, starts one, and sees a che
     .click();
   // Start consultation opens the consultation (CLN-02); back on the list it is with them.
   await expect(page).toHaveURL(/\/app\/consultations\/[0-9a-f-]+$/);
-  await page.getByRole('link', { name: 'My patients today' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'My patients today' }).click();
   await expect(row(here.name)).toContainText(/With you since \d\d:\d\d/);
   await expect(row(here.name).getByRole('button')).toHaveCount(0);
   await expect(row(here.name).getByTestId('open-consultation')).toHaveText('Open consultation');

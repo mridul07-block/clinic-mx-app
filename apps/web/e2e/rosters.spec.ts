@@ -23,7 +23,7 @@ test('a manager sets a physio’s hours and decides their leave requests', async
     await signInWithCode(page, manager.email, manager.secret);
     // Managers land on their dashboard (DSH-03); the rosters are a home link.
     await page.goto('/app');
-    await page.getByRole('link', { name: 'Team' }).click();
+    await page.getByRole('main').getByRole('link', { name: 'Team' }).click();
     await page.getByTestId('team-member').filter({ hasText: physio.name }).click();
     await expect(page.getByRole('heading', { name: physio.name })).toBeVisible();
     await expect(page.getByText('No working hours yet.')).toBeVisible();
@@ -44,7 +44,7 @@ test('a manager sets a physio’s hours and decides their leave requests', async
     const later = addDays(today, 2);
     await signInWithCode(physioPage, physio.email, physio.secret);
     await physioLanded(physioPage);
-    await physioPage.getByRole('link', { name: 'My leave' }).click();
+    await physioPage.getByRole('main').getByRole('link', { name: 'My leave' }).click();
     await physioPage.getByLabel('Part of a day').check();
     await physioPage.getByLabel('Day', { exact: true }).fill(tomorrow);
     await physioPage.getByLabel('From', { exact: true }).fill('14:00');

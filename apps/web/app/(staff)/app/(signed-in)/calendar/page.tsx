@@ -32,6 +32,7 @@ import { BookingSheet, NewBookingSheet } from './booking-sheet';
 import { CancelSheet, NoShowSheet, RescheduleConfirm, ReschedulePicker } from './change-sheets';
 import { AppointmentDrawer, SlotDrawer } from './drawer';
 import { calendarHref, readSlot } from './links';
+import { chosenCentreId } from '../../../../../modules/navigation/centres';
 
 export const metadata: Metadata = { title: 'Calendar · Clinic Mx' };
 
@@ -78,8 +79,11 @@ export default async function CalendarPage({
   const centres = (await asStaff(staff, (tx) => centreList(tx))).filter((c) => c.active);
   const today = istDate(new Date());
   const date = calendarDateSchema.safeParse(params.date).success ? (params.date ?? today) : today;
+  // The address's centre, else the one chosen in the sidebar (UI-02), else their own.
+  const chosen = await chosenCentreId(staff);
   const centre =
     centres.find((c) => c.id === params.centre) ??
+    centres.find((c) => c.id === chosen) ??
     centres.find((c) => staff.centreIds.includes(c.id)) ??
     centres[0];
   if (!centre) {

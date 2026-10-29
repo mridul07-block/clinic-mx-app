@@ -12,7 +12,7 @@ const newPerson = () => {
 
 async function invite(page: Page, person: { email: string; name: string }) {
   await page.goto('/app');
-  await page.getByRole('link', { name: 'Staff' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Staff' }).click();
   await expect(page.getByRole('heading', { name: 'Staff', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Invite staff' }).click();
   await expect(page.getByRole('heading', { name: 'Invite staff' })).toBeVisible();

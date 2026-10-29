@@ -176,8 +176,13 @@ test('the emergency banner is full width and red', async ({ page }) => {
   const banner = page.getByTestId('emergency-banner');
   await expect(banner).toContainText('Clinician review needed before Test Patient Harness leaves.');
   await expect(banner.getByRole('link', { name: 'Open patient' })).toBeVisible();
+  // Across the page's sheet: the window on phones, the white sheet beside the sidebar from 768 px.
   const box = await banner.boundingBox();
-  expect(box?.width).toBe(page.viewportSize()?.width);
+  expect(box?.width).toBe(
+    await banner.evaluate(
+      (el) => el.closest('[data-testid="page-sheet"]')?.clientWidth ?? window.innerWidth,
+    ),
+  );
   // Solid red, the one place it is used (Frontend Specification, status colours).
   await expect(banner).toHaveClass(/bg-danger-strong/);
 });
