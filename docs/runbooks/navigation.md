@@ -70,7 +70,7 @@ Sections, for the sidebar: **Day to day** (Tasks, My patients today, Today, Cale
 `apps/web/components/nav-shell.tsx` and `side-nav.tsx`, rendered by the signed-in staff layout.
 
 - **Below 768 px:** no rail; the bottom tabs (above).
-- **768 to 1279 px:** a 64 px rail of 18 px icons. With a mouse, names show as tooltips; on touch, small words under the icons. Every target, Search included, at least 44 px. No centre switcher at this width: Today and the Calendar keep their own centre buttons.
+- **768 to 1279 px:** a 64 px rail of 18 px icons. With a mouse, names show as tooltips; on touch, small words under the icons. Every target, Search included, at least 44 px. The centre switcher is the centre's code (HSR) in a 44 px button, opening the centres beside it, the one on screen marked current; after a choice, focus returns to the button (UI-03).
 - **From 1280 px:** the 240 px sidebar on the canvas: the logo, the centre switcher, **Search or jump to** (`Ctrl K`), the screens by section, the person at the foot.
 - **The page:** from 768 px it sits on a white sheet (1 px line, 14 px corners, `shadow-xs`) 8 px from the window's edges; on phones it fills the screen as before.
 - **Skip to page:** the first link on every page, shown when focused, jumps past the rail or sidebar.
@@ -83,7 +83,7 @@ Sections, for the sidebar: **Day to day** (Tasks, My patients today, Today, Cale
 
 ## The centre switcher
 
-For people who open Today or the Calendar and work at more than one centre (the Super Admin: all), in the sidebar from 1280 px. The chosen centre is the one Today and the Calendar open on when their address names none. On either screen the switcher shows the centre on screen, and choosing one opens it there at once, keeping the date and the rest of the address. It is kept in a cookie on the device (`cmx_centre`, a year), honoured only for a centre the person works at, and deleted when they sign out, so the next person on a shared device starts afresh.
+For people who open Today or the Calendar and work at more than one centre (the Super Admin: all): a choice in the sidebar from 1280 px, and on the rail from 768 px the centre's code, opening the centres (UI-03). The chosen centre is the one Today and the Calendar open on when their address names none. On either screen the switcher shows the centre on screen, and choosing one opens it there at once, keeping the date and the rest of the address. It is kept in a cookie on the device (`cmx_centre`, a year), honoured only for a centre the person works at, and deleted when they sign out, so the next person on a shared device starts afresh.
 
 ## The person's menu
 

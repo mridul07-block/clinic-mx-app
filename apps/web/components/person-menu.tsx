@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect, useRef, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { useDetailsClose } from './use-details-close';
 
 // The person at the foot of the rail or sidebar (UI-02; design system v2 section 7): their
 // initials on a sunken circle, and from 1280 px their name and role; it opens their menu, Account
@@ -27,32 +27,7 @@ export function PersonMenu({
   role: string;
   signOut: ReactNode;
 }) {
-  const menu = useRef<HTMLDetailsElement>(null);
-  const pathname = usePathname();
-
-  useEffect(() => {
-    if (menu.current) menu.current.open = false;
-  }, [pathname]);
-
-  useEffect(() => {
-    const close = (event: Event) => {
-      const details = menu.current;
-      if (!details?.open) return;
-      if (event instanceof KeyboardEvent) {
-        if (event.key !== 'Escape') return;
-        details.open = false;
-        details.querySelector('summary')?.focus();
-        return;
-      }
-      if (!details.contains(event.target as Node)) details.open = false;
-    };
-    document.addEventListener('keydown', close);
-    document.addEventListener('pointerdown', close);
-    return () => {
-      document.removeEventListener('keydown', close);
-      document.removeEventListener('pointerdown', close);
-    };
-  }, []);
+  const menu = useDetailsClose();
 
   return (
     <details ref={menu} data-testid="person-menu">

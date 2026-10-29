@@ -180,14 +180,16 @@ test('from 1280 px the Super Admin jumps with Ctrl K and switches the centre Tod
 
   // The centre switcher: Today opens on the centre chosen.
   await page.goto('/app/today');
-  await side(page).getByLabel('Centre').selectOption({ label: 'Koramangala' });
+  await side(page).getByTestId('centre-switcher').selectOption({ label: 'Koramangala' });
   const opened = (name: string) =>
     page.getByRole('navigation', { name: 'Centre' }).getByRole('link', { name, exact: true });
   await expect(opened('Koramangala')).toHaveAttribute('aria-current', 'page');
   // Kept on this device: Today opens on it again, until an address names another centre.
   await page.goto('/app/today');
   await expect(opened('Koramangala')).toHaveAttribute('aria-current', 'page');
-  await expect(side(page).getByLabel('Centre').locator('option:checked')).toHaveText('Koramangala');
+  await expect(side(page).getByTestId('centre-switcher').locator('option:checked')).toHaveText(
+    'Koramangala',
+  );
   await page.screenshot({ path: test.info().outputPath('sidebar.png') });
 
   // The person's menu: Account and Sign out.
@@ -245,4 +247,30 @@ test('from 768 px a rail of icons, each named, the current one marked', async ({
   const fits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
   expect(fits).toBe(true);
   await page.screenshot({ path: test.info().outputPath('rail.png') });
+});
+
+test('from 768 px the rail switches the centre Today opens on (UI-03)', async ({ page }) => {
+  test.skip(onPhone(), 'The rail is for tablets.');
+  const admin = await temporaryWithCode('super_admin');
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await signInWithCode(page, admin.email, admin.secret);
+  await page.goto('/app/today');
+  const switcher = side(page).getByTestId('rail-centre-switcher');
+  await expect(switcher.locator('summary')).toHaveText('HSR');
+  await switcher.locator('summary').click();
+  await switcher.getByRole('button', { name: 'Koramangala' }).click();
+  const opened = page
+    .getByRole('navigation', { name: 'Centre' })
+    .getByRole('link', { name: 'Koramangala', exact: true });
+  await expect(opened).toHaveAttribute('aria-current', 'page');
+  await expect(switcher.locator('summary')).toHaveText('KOR');
+  await expect(switcher.getByRole('button', { name: 'Koramangala' })).toBeHidden();
+  // Focus is back on the switcher, not lost.
+  await expect(switcher.locator('summary')).toBeFocused();
+  await expect(switcher.locator('summary')).toHaveAccessibleName(
+    'Centre: KOR, Koramangala. Change',
+  );
+  const fits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+  expect(fits).toBe(true);
+  await page.screenshot({ path: test.info().outputPath('rail-centre.png') });
 });

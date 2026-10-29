@@ -8,7 +8,7 @@ import {
 } from '@clinic-mx/schemas';
 import { cookies } from 'next/headers';
 import { Suspense, type ReactNode } from 'react';
-import { CentreSwitcher } from '../../../../components/centre-switcher';
+import { CentreSwitcher, RailCentreSwitcher } from '../../../../components/centre-switcher';
 import { EmergencyBanner } from '../../../../components/emergency-banner';
 import { NavShell } from '../../../../components/nav-shell';
 import { PersonMenu } from '../../../../components/person-menu';
@@ -73,6 +73,13 @@ export default async function SignedInLayout({ children }: { children: ReactNode
             centres.length > 1 ? (
               <Suspense>
                 <CentreSwitcher centres={centres} chosen={chosen} />
+              </Suspense>
+            ) : null
+          }
+          railCentreSwitcher={
+            centres.length > 1 ? (
+              <Suspense>
+                <RailCentreSwitcher centres={centres} chosen={chosen} />
               </Suspense>
             ) : null
           }

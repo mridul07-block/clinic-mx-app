@@ -21,12 +21,14 @@ export function NavShell({
   counts,
   findsPatients,
   centreSwitcher,
+  railCentreSwitcher,
   personMenu,
 }: {
   items: readonly NavItem[];
   counts: Record<string, number>;
   findsPatients: boolean;
   centreSwitcher: ReactNode;
+  railCentreSwitcher: ReactNode;
   personMenu: ReactNode;
 }) {
   const router = useRouter();
@@ -97,6 +99,7 @@ export function NavShell({
         items={items}
         counts={counts}
         centreSwitcher={centreSwitcher}
+        railCentreSwitcher={railCentreSwitcher}
         personMenu={personMenu}
         onSearch={open}
       />
