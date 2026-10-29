@@ -143,8 +143,12 @@ are recorded in the DECISION register as "SCH-14".
     must work at the episode's centre, or have written a consultation in the episode.
   - A discharged episode never changes (`episode_transition_guard`).
   - The audit trail records every change.
-- **Not in this ticket.** The "Injured again" follow up that records a recurrence comes with PAT-10.
-  The reinjury figure (DSH-01) waits for it.
+- **Injured again (PAT-10).** A follow up after discharge answered "Injured again" is the record of
+  the recurrence: a `feedback` row (survey `follow_up`) against the discharged episode, which never
+  changes, and a high task for the consultant who discharged it (`docs/runbooks/feedback.md`). It
+  opens no episode by itself: the patient books, the health form opens the new episode, and the
+  consultant links it here. The reinjury figure (DSH-01) is still to count these answers
+  (`docs/runbooks/kpis.md`).
 
 | Piece | Where |
 | --- | --- |

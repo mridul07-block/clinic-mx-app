@@ -79,7 +79,7 @@ These figures are not measured yet:
 | --- | --- | --- |
 | Meaningful change by 6 week review | OUT-02 and SET-08 | `kpi.target_meaningful_change_percent` (over 85) |
 | Return to sport by 12 months | PAT-10, plus a decision on how the level is recorded | `kpi.target_return_to_sport_percent` (over 85) |
-| Reinjury within 12 months | PAT-10 and SCH-14 | `kpi.target_reinjury_percent` (under 15) |
+| Reinjury within 12 months | Counting the follow up answers (Injured again within 12 months of discharge), recorded since PAT-10 | `kpi.target_reinjury_percent` (under 15) |
 | Patient satisfaction | A question out of 5 the client has not given (DECISION PAT-04) | `kpi.target_satisfaction_score` (over 4.5) |
 | Net Promoter Score | Daily figures; the Feedback screen shows it from discharge feedback (PAT-07) | `kpi.target_nps` (over 60) |
 | Right diagnosis in AI top 3 | AI-03 | none: set after the first 3 months (DECISION DSH-01) |

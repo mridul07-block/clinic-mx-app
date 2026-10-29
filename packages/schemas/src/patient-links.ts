@@ -12,6 +12,7 @@ export const patientLinkPurposes = [
   'questionnaire',
   'feedback',
   'my_plan',
+  'follow_up',
 ] as const;
 
 export type PatientLinkPurpose = (typeof patientLinkPurposes)[number];
@@ -66,6 +67,14 @@ export const patientLinkDefinitions = {
     singleUse: false,
     lifetime: { setting: 'links.my_plan_days', unit: 'days' },
     reissuedFromWhatsApp: true,
+  },
+  // PAT-10: the follow up after discharge, one interval's answer per link.
+  follow_up: {
+    title: 'How are you doing?',
+    subject: 'episode',
+    singleUse: true,
+    lifetime: { setting: 'links.follow_up_days', unit: 'days' },
+    reissuedFromWhatsApp: false,
   },
 } as const satisfies Record<PatientLinkPurpose, PatientLinkPurposeDefinition>;
 

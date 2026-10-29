@@ -1,9 +1,11 @@
+import { followUpPeriod, formatIstDate } from '@clinic-mx/schemas';
 import QRCode from 'qrcode';
 import { PatientLinkQr } from '../../../../../../components/patient-link-qr';
 import {
   showDischargeFeedbackAction,
   showFeedbackAction,
   showFirstTreatmentCheckAction,
+  showFollowUpCheckAction,
 } from '../../../../../../modules/feedback/actions';
 import { showMyPlanAction } from '../../../../../../modules/patient-links/actions';
 
@@ -153,5 +155,53 @@ export async function LeaveReviewQr({ link }: { link: string | null }) {
         </p>
       )}
     </section>
+  );
+}
+
+/**
+ * Follow up (PAT-10): the follow up after discharge due now (Doing well, Some pain or Injured
+ * again), as the WhatsApp follow up will ask it (WA-06); before one is due, when the next is; once
+ * all are answered, so.
+ */
+export function FollowUpCheckQr({
+  episodeId,
+  origin,
+  due,
+  nextOn,
+}: {
+  episodeId: string;
+  origin: string;
+  due: string | null;
+  nextOn: string | null;
+}) {
+  if (!due) {
+    return (
+      <section
+        aria-labelledby="follow-up-heading"
+        className="flex flex-col gap-2"
+        data-testid="follow-up-qr"
+      >
+        <h2 id="follow-up-heading" className="font-semibold text-ink">
+          Follow up
+        </h2>
+        <p className="text-sm text-ink-muted" data-testid="follow-up-next">
+          {nextOn
+            ? `The next follow up is due on ${formatIstDate(nextOn)}.`
+            : 'Every follow up after discharge is answered or past.'}
+        </p>
+      </section>
+    );
+  }
+  return (
+    <PatientLinkQr
+      id="follow-up"
+      title="Follow up"
+      description={`The ${followUpPeriod(due) ?? ''} follow up after discharge: Doing well, Some pain or Injured again, answered on the patient's phone. Injured again alerts the consultant.`}
+      buttonLabel="Show follow up QR"
+      alt="QR code for the patient’s follow up"
+      action={showFollowUpCheckAction}
+      fields={{ episodeId }}
+      origin={origin}
+    />
   );
 }

@@ -60,6 +60,52 @@ export async function liveFeedbackLink(
 export const FIRST_TREATMENT_CHECK_JOB = 'whatsapp.first_treatment_check';
 
 /**
+ * The follow ups after discharge (PAT-10): discharging queues one WhatsApp message per interval
+ * (the job keeps the episode and the interval); WA-06 sends them.
+ */
+export const FOLLOW_UP_CHECK_JOB = 'whatsapp.follow_up_check';
+
+/**
+ * What a discharged episode's desk follow up QR is for: whom, the follow up due now (null when
+ * none), and when the next one is due; undefined unless the reader checks in at its centre.
+ */
+export async function followUpCheckTarget(
+  db: DbOrTransaction,
+  episodeId: string,
+): Promise<{ patientId: string; due: string | null; nextOn: string | null } | undefined> {
+  const [row] = await db.execute<{
+    patient_id: string;
+    due: string | null;
+    next_on: string | null;
+  }>(
+    sql`select patient_id, due, next_on::text as next_on from internal.follow_up_check_target(${episodeId}::uuid)`,
+  );
+  return row ? { patientId: row.patient_id, due: row.due, nextOn: row.next_on } : undefined;
+}
+
+/** The episode's working follow up link (not stopped, used or ended), the newest. */
+export async function liveFollowUpLink(
+  db: DbOrTransaction,
+  episodeId: string,
+): Promise<{ id: string; expiresAt: Date } | undefined> {
+  const [row] = await db
+    .select({ id: patientLink.id, expiresAt: patientLink.expiresAt })
+    .from(patientLink)
+    .where(
+      and(
+        eq(patientLink.episodeId, episodeId),
+        eq(patientLink.purpose, 'follow_up'),
+        isNull(patientLink.revokedAt),
+        isNull(patientLink.completedAt),
+        gt(patientLink.expiresAt, sql`now()`),
+      ),
+    )
+    .orderBy(desc(patientLink.createdAt))
+    .limit(1);
+  return row;
+}
+
+/**
  * The session 3 check (PAT-06): signing the episode's session 3 queues its WhatsApp message at once;
  * a message only, which WA-06 words with the client and sends.
  */
@@ -101,7 +147,7 @@ export async function firstTreatmentCheckTarget(
 
 /** What the patient's feedback link answers for, read as the patient; undefined once closed. */
 export interface FeedbackSubject {
-  surveyKey: 'post_consultation' | 'discharge' | 'first_treatment';
+  surveyKey: 'post_consultation' | 'discharge' | 'first_treatment' | 'follow_up';
   patientId: string;
   episodeId: string;
   /** The visit (the consultation's, or the first treatment's), and the consultation; none at discharge. */
@@ -110,6 +156,8 @@ export interface FeedbackSubject {
   centreId: string;
   /** Who held the consultation or the first treatment, or who discharged the episode. */
   physioId: string | null;
+  /** PAT-10: the follow up interval a follow up link answers ("2_week"); null otherwise. */
+  followUp: string | null;
 }
 
 export async function feedbackSubject(db: DbOrTransaction): Promise<FeedbackSubject | undefined> {
@@ -121,6 +169,7 @@ export async function feedbackSubject(db: DbOrTransaction): Promise<FeedbackSubj
     consultation_id: string | null;
     centre_id: string;
     physio_id: string | null;
+    follow_up: string | null;
   }>(sql`select * from internal.feedback_subject()`);
   if (!row) return undefined;
   return {
@@ -131,6 +180,7 @@ export async function feedbackSubject(db: DbOrTransaction): Promise<FeedbackSubj
     consultationId: row.consultation_id,
     centreId: row.centre_id,
     physioId: row.physio_id,
+    followUp: row.follow_up,
   };
 }
 

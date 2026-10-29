@@ -137,7 +137,10 @@ export const kpiCatalogue: readonly KpiDefinition[] = [
     audience: 'clinical',
     over: 'sum',
     target: target('kpi.target_reinjury_percent', 'below'),
-    measured: { needs: 'PAT-10 and SCH-14 (follow ups and recurrences)' },
+    measured: {
+      needs:
+        'counting the follow up answers (Injured again within 12 months), recorded since PAT-10',
+    },
     definition: 'Of the patients discharged, the share injured again within 12 months.',
     prd: true,
   },

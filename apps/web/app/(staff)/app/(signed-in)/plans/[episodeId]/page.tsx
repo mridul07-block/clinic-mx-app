@@ -29,10 +29,11 @@ import {
 } from '../../../../../../modules/scheduling/plan-sessions';
 import { DiscountForm, RemoveDiscountForm } from './discount-forms';
 import { MakeBillForm } from './make-bill-form';
-import { loadReviewLink } from '../../../../../../modules/feedback/services';
+import { loadFollowUps, loadReviewLink } from '../../../../../../modules/feedback/services';
 import {
   DischargeFeedbackQr,
   FirstTreatmentCheckQr,
+  FollowUpCheckQr,
   LeaveReviewQr,
   MyPlanQr,
   RateYourVisitQr,
@@ -353,10 +354,10 @@ export default async function PlanSheetPage({
   const query = planSheetQuerySchema.parse(await searchParams);
   const sheet = await planSheetOf(staff, episodeId, query.session);
   // PAT-09: a discharged episode's review link, for those who check in at its centre.
-  const review =
-    sheet?.canShowMyPlan && sheet.episodeStatus === 'discharged'
-      ? await loadReviewLink(staff, episodeId)
-      : undefined;
+  const discharged = sheet?.canShowMyPlan && sheet.episodeStatus === 'discharged';
+  const review = discharged ? await loadReviewLink(staff, episodeId) : undefined;
+  // PAT-10: the follow ups after discharge, for those who check in at its centre.
+  const followUps = discharged ? await loadFollowUps(staff, episodeId) : undefined;
   if (!sheet) notFound();
   const planSessions =
     sheet.plan && can(staff, 'bookings.manage')
@@ -574,6 +575,14 @@ export default async function PlanSheetPage({
             <DischargeFeedbackQr episodeId={sheet.episodeId} origin={origin} />
           ) : null}
           {review ? <LeaveReviewQr link={review.link} /> : null}
+          {followUps ? (
+            <FollowUpCheckQr
+              episodeId={sheet.episodeId}
+              origin={origin}
+              due={followUps.due}
+              nextOn={followUps.nextOn}
+            />
+          ) : null}
 
           <section aria-labelledby="choice" className="flex flex-col gap-2">
             <h2 id="choice" className="font-semibold text-ink">

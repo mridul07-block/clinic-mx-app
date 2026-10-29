@@ -13,7 +13,13 @@ const centreId = '00000000-0000-4000-8000-000000000101';
 // IAM-10: the clinic tablet shows only patient forms filled in at the clinic.
 describe('kiosk', () => {
   it('opens the single use forms and never My plan', () => {
-    expect(kioskPurposes).toEqual(['health_form', 'consent', 'questionnaire', 'feedback']);
+    expect(kioskPurposes).toEqual([
+      'health_form',
+      'consent',
+      'questionnaire',
+      'feedback',
+      'follow_up',
+    ]);
     expect(opensOnKiosk('health_form')).toBe(true);
     expect(opensOnKiosk('my_plan')).toBe(false);
   });

@@ -204,6 +204,49 @@ recommended default chosen under the user's standing approval, 29 October 2026 (
   desktop): the Super Admin sets the link (another site refused); the request queued at discharge;
   the desk's QR; the no-link notice.
 
+## Follow ups after discharge and recurrence (PAT-10)
+
+PRD J7.4: "Follow ups at 2 weeks, 6 weeks, 3 months and 12 months with Doing well, Some pain,
+Injured again"; J7.5: ""Injured again" records a recurrence and alerts the consultant; recurrence
+after discharge opens a new linked episode"; PRD section 7 and TAD jobs. Every other choice is a
+recommended default chosen under the user's standing approval, 29 October 2026 (DECISION PAT-10).
+
+- **When:** discharging any episode schedules (`follow_up_schedule`) and queues one
+  `whatsapp.follow_up_check` per interval in `engagement.follow_ups_after_discharge` (2 weeks, 6
+  weeks, 3 months, 12 months), each on that day after discharge (IST; a month at a month's end as
+  the calendar allows) at `engagement.follow_up_time` (10:00 IST), keyed per episode and interval.
+  Each follow up is open from its day until the next one's day (the last for `links.follow_up_days`,
+  7 days); a missed one lapses. They send nothing until
+  WA-06, whose sender checks the interval is still unanswered and skips a patient with a newer
+  episode not yet discharged. The schedule is fixed at discharge: changing the setting later moves
+  nothing already scheduled.
+- **How the patient answers:** a `follow_up` link for the episode (single use, `links.follow_up_days`,
+  7 days; it opens on the clinic tablet too, as feedback links do) opens the follow up open now and
+  unanswered, with the PRD's
+  three answers as 64 px buttons and its period ("2 weeks after your treatment ended"); one tap
+  sends it. The question is a placeholder for the client. Each interval is answered once, kept as
+  `feedback` (survey `follow_up`, its interval in the answers) with the episode's centre and the
+  consultant who discharged it. A feedback link for the episode still opens the discharge survey.
+- **Until WhatsApp:** the plan and payment sheet of a discharged episode shows "Follow up": the due
+  follow up as a QR, or when the next is due, or that all are past; for those who check in at its
+  centre (`internal.follow_up_check_target`).
+- **Injured again:** the answer is the recurrence record; the consultant who discharged the
+  episode (the centre's Centre Managers when they are no longer active) gets a high task,
+  "Injured again after discharge" (`review.injured_again`), counted with the open clinical reviews
+  on the Centre Manager's Alerts, naming no patient in its details. It opens no episode by itself
+  (SCH-14: the consultant links the new episode, `docs/runbooks/episodes.md`). Never service
+  recovery.
+- **Doing well and Some pain:** recorded only.
+- **Tests:** `packages/schemas/src/feedback.test.ts` (the answers word for word, the periods);
+  `apps/web/modules/feedback/services.test.ts` (the QR while one is due; the answer with its
+  interval once); `packages/db/src/integration/follow-up.integration.test.ts` (four jobs on their
+  days at 10:00 IST; not due, due and answered once; the discharge survey unchanged; Injured again's
+  task for the consultant, else the managers, counted, never service recovery; a missed follow up
+  lapsing; the desk at its centre, the link only while one is due; the schedule kept when the
+  setting changes; only the due interval accepted, each once). Disabling `feedback_injured_again` fails this test.
+  `apps/web/e2e/follow-up.spec.ts` (360 px and desktop): next due, the QR, the patient's tap, the
+  thanks, the consultant's task.
+
 ## How it works
 
 | Part | Where |

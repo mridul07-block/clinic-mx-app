@@ -100,6 +100,8 @@ const stored: Settings = {
   'kpi.min_outcome_episodes': 3,
   'billing.unpaid_sessions_flag_above': 3,
   'engagement.follow_ups_after_discharge': [{ count: 2, unit: 'week' }],
+  'engagement.follow_up_time': '10:00',
+  'links.follow_up_days': 7,
   'security.desktop_idle_logout_minutes': 15,
   'security.phone_session_days': 30,
   'security.support_grant_max_hours': 24,

@@ -6,6 +6,10 @@ import {
   firstTreatmentAnswerLabels,
   firstTreatmentAnswerSchema,
   firstTreatmentAnswers,
+  followUpAnswerLabels,
+  followUpAnswerSchema,
+  followUpAnswers,
+  followUpPeriod,
   netPromoter,
   postedFeedback,
   serviceRecoveryOf,
@@ -155,5 +159,27 @@ describe('the day after first treatment check', () => {
     for (const bad of [{ answer: 'worse' }, {}, { answer: 'same', comment: 'Free text' }]) {
       expect(firstTreatmentAnswerSchema.safeParse(bad).success).toBe(false);
     }
+  });
+});
+
+// PAT-10: the follow ups' answers are the PRD's, word for word, and their intervals read plainly.
+describe('the follow ups after discharge', () => {
+  it('take Doing well, Some pain or Injured again, nothing else', () => {
+    expect(followUpAnswers.map((a) => followUpAnswerLabels[a])).toEqual([
+      'Doing well',
+      'Some pain',
+      'Injured again',
+    ]);
+    expect(followUpAnswerSchema.safeParse({ answer: 'injured_again' }).success).toBe(true);
+    for (const bad of [{ answer: 'worse' }, {}, { answer: 'some_pain', comment: 'Free text' }]) {
+      expect(followUpAnswerSchema.safeParse(bad).success).toBe(false);
+    }
+  });
+
+  it('name each interval as people say it', () => {
+    expect(followUpPeriod('2_week')).toBe('2 weeks');
+    expect(followUpPeriod('1_month')).toBe('1 month');
+    expect(followUpPeriod('12_month')).toBe('12 months');
+    expect(followUpPeriod('2_day')).toBeNull();
   });
 });

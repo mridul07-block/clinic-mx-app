@@ -172,6 +172,7 @@ describe('Feedback after the consultation', () => {
         consultationId: held.consultationId,
         centreId: held.centreId,
         physioId: held.physio.id,
+        followUp: null,
       });
       expect(await completePatientLinkRow(tx, held.link.id)).toBe(true);
       // Nothing more on this link: closed, and the patient reads no answer back.
@@ -250,6 +251,7 @@ describe('Feedback after the consultation', () => {
               consultationId: held.consultationId,
               centreId: held.centreId,
               physioId: held.physio.id,
+              followUp: null,
             },
             surveyVersion: 1,
             answers: yes,
@@ -440,6 +442,7 @@ describe('Feedback at discharge', () => {
         consultationId: null,
         centreId: done.centreId,
         physioId: done.consultant.id,
+        followUp: null,
       });
       if (!subject) throw new Error('no subject');
       // A score is required at discharge, and the subject cannot be changed.
