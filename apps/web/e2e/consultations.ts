@@ -114,7 +114,7 @@ export async function signedConsultation(
   appointmentId: string,
   physioId: string,
   options: { sections?: Record<string, unknown> } = {},
-): Promise<{ consultationId: string; conditionName: string }> {
+): Promise<{ consultationId: string; conditionName: string; conditionId: string }> {
   return withActor(db(), systemActor('tests'), async (tx) => {
     const [visit] = await tx
       .select({ episodeId: appointment.episodeId })
@@ -186,7 +186,11 @@ export async function signedConsultation(
       source: 'health_form',
       formVersion: currentHealthFormVersion,
     });
-    return { consultationId: row.id, conditionName: condition.name };
+    return {
+      consultationId: row.id,
+      conditionName: condition.name,
+      conditionId: condition.conditionId,
+    };
   });
 }
 

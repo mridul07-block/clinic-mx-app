@@ -119,6 +119,16 @@ export function MyPlanPage({
         </section>
       ) : null}
 
+      {plan.aboutCondition ? (
+        // CLN-08: the diagnosis in plain words, as a consultant who treats patients approved it.
+        <section aria-labelledby="my-plan-about" className={panel} data-testid="my-plan-about">
+          <h2 id="my-plan-about" className="font-semibold text-ink">
+            About your condition
+          </h2>
+          <p className="whitespace-pre-line text-ink">{plan.aboutCondition}</p>
+        </section>
+      ) : null}
+
       {maintenance ? null : (
         <section aria-labelledby="my-plan-next" className={panel} data-testid="my-plan-next">
           <h2 id="my-plan-next" className="font-semibold text-ink">

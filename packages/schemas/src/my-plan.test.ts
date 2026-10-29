@@ -45,6 +45,8 @@ describe('My plan', () => {
       tickedDays: ['2026-10-02', '2026-10-04'],
       trackedFrom: '2026-10-01',
       maintenance: null,
+      // CLN-08: the approved explanation of the diagnosis, as written.
+      aboutCondition: 'Test explanation in plain words.',
     };
     expect(myPlanSchema.parse(page)).toEqual(page);
     expect(
