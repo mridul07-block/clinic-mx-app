@@ -177,8 +177,8 @@ function AuditEntry({ entry }: { entry: AuditLogEntry }) {
       ) : null}
       {entry.redacted && entry.changed?.length ? (
         <p className="text-sm text-ink-secondary" data-testid="audit-hidden">
-          {entry.action === 'update' ? 'Changed' : 'Fields'}: {entry.changed.join(', ')}.
-          The values are part of the clinical record, shown only with the Treats patients tick.
+          {entry.action === 'update' ? 'Changed' : 'Fields'}: {entry.changed.join(', ')}. The values
+          are part of the clinical record, shown only with the Treats patients tick.
         </p>
       ) : fields.length && entry.action === 'update' ? (
         <dl
