@@ -252,6 +252,63 @@ export function scoreQuestionnaire(
   return { status: 'scored', score: oneDecimal(score), answered, missing };
 }
 
+/** An item's answer as the patient gave it: the value (null when skipped) and an activity's name. */
+export interface QuestionnaireRawAnswer {
+  value: number | null;
+  activity?: string;
+}
+export type QuestionnaireRawAnswers = Record<string, QuestionnaireRawAnswer>;
+
+/**
+ * A filled questionnaire as the patient's phone sends it (OUT-02): the instrument and each item's
+ * answer. Checked against the instrument's own items when it is scored.
+ */
+export const questionnaireSubmissionSchema = z.strictObject({
+  key: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]*$/)
+    .max(80),
+  /** The knowledge base version and instrument version the patient was shown. */
+  kbVersionId: z.guid(),
+  version: z.string().min(1).max(40),
+  answers: z.record(
+    itemKey,
+    z.strictObject({
+      value: z.number().nullable(),
+      activity: z.string().trim().max(120).optional(),
+    }),
+  ),
+});
+export type QuestionnaireSubmission = z.infer<typeof questionnaireSubmissionSchema>;
+
+/**
+ * The answers to keep for an instrument: every item, its value when the item allows it (else null,
+ * so it counts as missing), and for an activity the name the patient gave; nothing else.
+ */
+export function keptAnswers(
+  definition: QuestionnaireDefinition,
+  answers: QuestionnaireSubmission['answers'],
+): QuestionnaireRawAnswers {
+  return Object.fromEntries(
+    definition.items.map((item) => {
+      const given = answers[item.key];
+      const value = given?.value ?? null;
+      // An activity is rated only once named; a rating without a name counts as missing.
+      const named = item.kind !== 'activity' || Boolean(given?.activity);
+      const kept: QuestionnaireRawAnswer = {
+        value: named && value !== null && validAnswer(item, value) ? value : null,
+      };
+      if (item.kind === 'activity' && given?.activity) kept.activity = given.activity;
+      return [item.key, kept];
+    }),
+  );
+}
+
+/** The values of kept answers, as `scoreQuestionnaire` takes them. */
+export function answerValues(answers: QuestionnaireRawAnswers): Record<string, number | null> {
+  return Object.fromEntries(Object.entries(answers).map(([key, answer]) => [key, answer.value]));
+}
+
 /**
  * The change from the baseline score to a later one, positive when it is better (by the
  * instrument's direction), and whether it reaches the meaningful change; `met` is null while the
@@ -267,4 +324,60 @@ export function changeFromBaseline(
     change,
     met: definition.meaningfulChange === null ? null : change >= definition.meaningfulChange,
   };
+}
+
+/** One filled questionnaire as the progress line plots it: its score (null when not scored). */
+export interface QuestionnairePoint {
+  label: string;
+  score: number | null;
+}
+
+/** An instrument's line on the Progress tab (OUT-02 with OUT-03, PRD J5.8). */
+export interface QuestionnaireLine {
+  points: QuestionnairePoint[];
+  /** From the baseline to the meaningful change, in the better direction, within the range. */
+  band: { from: number; to: number; label: string } | null;
+  /** "6 points better than the baseline; the meaningful change is 10, not reached yet." */
+  sentence: string | null;
+}
+
+const points = (value: number) => `${String(value)} ${Math.abs(value) === 1 ? 'point' : 'points'}`;
+
+/**
+ * An instrument's scores in order, its meaningful change band from the first scored one (the
+ * baseline), and how the latest compares; labels are the caller's (the dates).
+ */
+export function questionnaireLine(
+  definition: Pick<QuestionnaireDefinition, 'better' | 'meaningfulChange' | 'range'>,
+  filled: readonly QuestionnairePoint[],
+): QuestionnaireLine {
+  const scored = filled.flatMap((point) => (point.score === null ? [] : [point.score]));
+  const [baseline] = scored;
+  const latest = scored.at(-1);
+  const mcid = definition.meaningfulChange;
+  const band =
+    baseline === undefined || mcid === null
+      ? null
+      : {
+          from: baseline,
+          to:
+            definition.better === 'higher'
+              ? Math.min(definition.range.max, baseline + mcid)
+              : Math.max(definition.range.min, baseline - mcid),
+          label: 'Meaningful change',
+        };
+  let sentence: string | null = null;
+  if (baseline !== undefined && latest !== undefined && scored.length > 1) {
+    const { change, met } = changeFromBaseline(definition, baseline, latest);
+    const moved =
+      change === 0
+        ? 'The same as the baseline'
+        : `${points(Math.abs(change))} ${change > 0 ? 'better' : 'worse'} than the baseline`;
+    sentence =
+      met === null
+        ? `${moved}; no meaningful change value yet.`
+        : `${moved}; the meaningful change is ${points(mcid ?? 0)}, ${met ? 'reached' : 'not reached yet'}.`;
+  }
+  // A baseline already at the range's better end leaves no band to draw.
+  return { points: [...filled], band: band && band.to !== band.from ? band : null, sentence };
 }

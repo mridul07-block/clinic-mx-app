@@ -30,10 +30,12 @@ import {
 import { DiscountForm, RemoveDiscountForm } from './discount-forms';
 import { MakeBillForm } from './make-bill-form';
 import { loadFollowUps, loadReviewLink } from '../../../../../../modules/feedback/services';
+import { loadQuestionnaireTarget } from '../../../../../../modules/questionnaires/services';
 import {
   DischargeFeedbackQr,
   FirstTreatmentCheckQr,
   FollowUpCheckQr,
+  QuestionnairesQr,
   LeaveReviewQr,
   MyPlanQr,
   RateYourVisitQr,
@@ -358,6 +360,10 @@ export default async function PlanSheetPage({
   const review = discharged ? await loadReviewLink(staff, episodeId) : undefined;
   // PAT-10: the follow ups after discharge, for those who check in at its centre.
   const followUps = discharged ? await loadFollowUps(staff, episodeId) : undefined;
+  // OUT-02: how many of an open episode's plan questionnaires can be filled.
+  const questionnaires = sheet?.canShowMyPlan
+    ? await loadQuestionnaireTarget(staff, episodeId)
+    : undefined;
   if (!sheet) notFound();
   const planSessions =
     sheet.plan && can(staff, 'bookings.manage')
@@ -575,6 +581,13 @@ export default async function PlanSheetPage({
             <DischargeFeedbackQr episodeId={sheet.episodeId} origin={origin} />
           ) : null}
           {review ? <LeaveReviewQr link={review.link} /> : null}
+          {questionnaires?.assigned ? (
+            <QuestionnairesQr
+              episodeId={sheet.episodeId}
+              origin={origin}
+              fillable={questionnaires.fillable}
+            />
+          ) : null}
           {followUps ? (
             <FollowUpCheckQr
               episodeId={sheet.episodeId}

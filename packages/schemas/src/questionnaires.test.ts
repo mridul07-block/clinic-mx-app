@@ -4,6 +4,9 @@ import {
   questionnaireDefinitionSchema,
   questionnaireFillable,
   questionnaireState,
+  keptAnswers,
+  questionnaireLine,
+  questionnaireSubmissionSchema,
   questionnaireSummary,
   scoreQuestionnaire,
   type QuestionnaireDefinition,
@@ -254,5 +257,75 @@ describe('the library gate', () => {
       'The questionnaire cannot be filled yet: it needs its items and scoring, a confirmed licence and clinical sign-off.',
     );
     expect(questionnaireSummary([])).toBe('This version has no questionnaires.');
+  });
+});
+
+// OUT-02: what the patient's phone sends, what is kept, and the Progress tab's line.
+describe('a filled questionnaire', () => {
+  it('keeps every item’s allowed answer, null for a skipped or disallowed one, and an activity’s name', () => {
+    const named = questionnaireDefinitionSchema.parse({
+      ...fake(),
+      items: [choice('a'), choice('b'), { ...scale('c', 'activity'), max: 4 }],
+      scoring: { method: 'sum', maxMissing: 0 },
+      range: { min: 0, max: 12 },
+    });
+    const sent = questionnaireSubmissionSchema.parse({
+      key: 'test_instrument',
+      kbVersionId: '00000000-0000-4000-8000-0000000000b1',
+      version: 'test-1',
+      answers: {
+        a: { value: 3 },
+        b: { value: 7 },
+        c: { value: 2, activity: '  Climbing stairs  ' },
+        extra: { value: 1 },
+      },
+    });
+    expect(keptAnswers(named, sent.answers)).toEqual({
+      a: { value: 3 },
+      b: { value: null },
+      c: { value: 2, activity: 'Climbing stairs' },
+    });
+    // An activity rated but not named counts as missing.
+    expect(keptAnswers(named, { c: { value: 3 } })).toMatchObject({ c: { value: null } });
+    expect(questionnaireSubmissionSchema.safeParse({ key: 'Bad key', answers: {} }).success).toBe(
+      false,
+    );
+  });
+
+  it('draws its line with the meaningful change band from the baseline, the better way', () => {
+    const lower = { better: 'lower' as const, meaningfulChange: 10, range: { min: 0, max: 100 } };
+    const line = questionnaireLine(lower, [
+      { label: '1 Oct', score: 42 },
+      { label: '8 Oct', score: null },
+      { label: '29 Oct', score: 30 },
+    ]);
+    expect(line.band).toEqual({ from: 42, to: 32, label: 'Meaningful change' });
+    expect(line.sentence).toBe(
+      '12 points better than the baseline; the meaningful change is 10 points, reached.',
+    );
+    expect(
+      questionnaireLine({ ...lower, better: 'higher' }, [
+        { label: 'a', score: 95 },
+        { label: 'b', score: 94 },
+      ]),
+    ).toMatchObject({
+      band: { from: 95, to: 100 },
+      sentence:
+        '1 point worse than the baseline; the meaningful change is 10 points, not reached yet.',
+    });
+    expect(
+      questionnaireLine({ ...lower, meaningfulChange: null }, [
+        { label: 'a', score: 20 },
+        { label: 'b', score: 20 },
+      ]),
+    ).toEqual({
+      points: [
+        { label: 'a', score: 20 },
+        { label: 'b', score: 20 },
+      ],
+      band: null,
+      sentence: 'The same as the baseline; no meaningful change value yet.',
+    });
+    expect(questionnaireLine(lower, [{ label: 'a', score: 20 }]).sentence).toBeNull();
   });
 });

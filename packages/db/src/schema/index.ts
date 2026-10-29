@@ -29,3 +29,4 @@ export * from './sessions';
 export * from './feedback';
 export * from './exercise-ticks';
 export * from './ai';
+export * from './questionnaire-results';

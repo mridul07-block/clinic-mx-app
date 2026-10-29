@@ -4,7 +4,9 @@ import {
   episodeReadings,
   episodesOf,
   exerciseTickedDays,
+  filledInstruments,
   knowledgeObjective,
+  questionnaireResults,
   type EpisodeEntry,
   type ReadingSource,
   type StaffMember,
@@ -18,9 +20,11 @@ import {
   lsiBullets,
   painPoints,
   painSentence,
+  questionnaireLine,
   weekStripDays,
   type LsiBullet,
   type PainPoint,
+  type QuestionnaireLine,
   type WeekStripDay,
 } from '@clinic-mx/schemas';
 import { NotAllowedError } from '../access/guard';
@@ -43,6 +47,17 @@ export interface ProgressView {
   phases: PhasesView | null;
   /** The last seven IST days, ending today, with any exercise ticked on My plan (PAT-02). */
   exercises: WeekStripDay[];
+  /** Each questionnaire the patient filled in the episode, as a line (OUT-02). */
+  questionnaires: ProgressQuestionnaire[];
+}
+
+/** A questionnaire's line: its name, range and the dates, scores and items answered. */
+export interface ProgressQuestionnaire extends QuestionnaireLine {
+  key: string;
+  name: string;
+  range: { min: number; max: number };
+  better: 'higher' | 'lower';
+  rows: { date: string; score: number | null; answered: string }[];
 }
 
 const sourceWords: Record<ReadingSource, string> = {
@@ -61,7 +76,15 @@ export async function progressOf(
   return asStaffViewing(actor, async (tx) => {
     const episode = currentEpisode(await episodesOf(tx, patientId));
     if (!episode) {
-      return { episode, pain: [], painSentence: null, bullets: [], phases: null, exercises: [] };
+      return {
+        episode,
+        pain: [],
+        painSentence: null,
+        bullets: [],
+        phases: null,
+        exercises: [],
+        questionnaires: [],
+      };
     }
     const today = istDate(now);
     const first = addDays(today, -6);
@@ -98,6 +121,34 @@ export async function progressOf(
       exercises: await (async () => {
         const ticked = await exerciseTickedDays(tx, episode.id, first, today);
         return weekStripDays(first, ticked.days, today, ticked.trackedFrom);
+      })(),
+      questionnaires: await (async () => {
+        const results = await questionnaireResults(tx, episode.id);
+        // Each instrument as its newest result was filled on.
+        const newest = new Map(results.map((r) => [r.instrumentKey, r.kbVersionId]));
+        const instruments = await filledInstruments(
+          tx,
+          [...newest].map(([key, kbVersionId]) => ({ key, kbVersionId })),
+        );
+        return instruments.map((instrument) => {
+          const mine = results.filter((r) => r.instrumentKey === instrument.key);
+          const label = (at: Date) => formatIstDate(istDate(at));
+          return {
+            key: instrument.key,
+            name: instrument.name,
+            range: instrument.definition.range,
+            better: instrument.definition.better,
+            ...questionnaireLine(
+              instrument.definition,
+              mine.map((r) => ({ label: label(r.submittedAt), score: r.score })),
+            ),
+            rows: mine.map((r) => ({
+              date: label(r.submittedAt),
+              score: r.score,
+              answered: `${String(r.answered)} of ${String(r.answered + r.missing)}`,
+            })),
+          };
+        });
       })(),
     };
   });

@@ -4,7 +4,10 @@ import { ChartTable } from '../../../../../../components/charts/chart-table';
 import { LineChart } from '../../../../../../components/charts/line-chart';
 import { WeekStrip } from '../../../../../../components/charts/week-strip';
 import { Tag } from '../../../../../../components/tag';
-import type { ProgressView } from '../../../../../../modules/progress/progress';
+import type {
+  ProgressQuestionnaire,
+  ProgressView,
+} from '../../../../../../modules/progress/progress';
 import { EpisodeHeading } from './clinical-record';
 import { PhaseStepper } from './phase-stepper';
 
@@ -112,10 +115,56 @@ function LsiPanel({ bullets }: { bullets: LsiBullet[] }) {
 }
 
 /**
+ * OUT-02 (PRD J5.8, Frontend Specification: "Line with a shaded meaningful change band"): each
+ * questionnaire the patient filled in the episode, its scores as a line over its own range, the
+ * band from the baseline to the meaningful change the better way, and its table.
+ */
+function QuestionnairesPanel({ lines }: { lines: ProgressQuestionnaire[] }) {
+  if (lines.length === 0) return null;
+  return (
+    <section
+      aria-labelledby="progress-questionnaires"
+      className={panelClass}
+      data-testid="progress-questionnaires"
+    >
+      <h2 id="progress-questionnaires" className="font-semibold text-ink">
+        Questionnaires
+      </h2>
+      {lines.map((line) => (
+        <div key={line.key} className="flex flex-col gap-2" data-testid="progress-questionnaire">
+          <h3 className="font-medium text-ink">{line.name}</h3>
+          {line.sentence ? (
+            <p className="text-ink-secondary" data-testid="progress-questionnaire-sentence">
+              {line.sentence}
+            </p>
+          ) : null}
+          <LineChart
+            label={`${line.name}, ${String(line.range.min)} to ${String(line.range.max)}, ${line.better} is better. ${line.sentence ?? ''}`}
+            points={line.points.map((point) => ({ label: point.label, value: point.score }))}
+            min={line.range.min}
+            max={line.range.max}
+            band={line.band ?? undefined}
+          />
+          <ChartTable
+            caption={`${line.name} each time it was filled`}
+            columns={['Date', 'Score', 'Questions answered']}
+            rows={line.rows.map((row) => [
+              row.date,
+              row.score === null ? 'Not scored: too many unanswered' : String(row.score),
+              row.answered,
+            ])}
+          />
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/**
  * The Progress tab (OUT-03, Frontend Specification "Progress tab"): the phase stepper (OUT-04),
  * then the current episode's pain during activity as a line and each strength or hop LSI as a
- * bullet graph, each with its table, and the home exercise week strip (PAT-02). Questionnaire
- * lines join with OUT-02.
+ * bullet graph, each with its table, the home exercise week strip (PAT-02) and each questionnaire
+ * filled (OUT-02).
  */
 export function ProgressTab({ view, patientId }: { view: ProgressView; patientId: string }) {
   if (!view.episode) {
@@ -134,6 +183,7 @@ export function ProgressTab({ view, patientId }: { view: ProgressView; patientId
         <WeekStrip label="Home exercises ticked on My plan, last 7 days" days={view.exercises} />
       </section>
       <LsiPanel bullets={view.bullets} />
+      <QuestionnairesPanel lines={view.questionnaires} />
     </div>
   );
 }

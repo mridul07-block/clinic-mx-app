@@ -8,6 +8,7 @@ import {
   showFollowUpCheckAction,
 } from '../../../../../../modules/feedback/actions';
 import { showMyPlanAction } from '../../../../../../modules/patient-links/actions';
+import { showQuestionnairesAction } from '../../../../../../modules/questionnaires/actions';
 
 /**
  * Show My plan QR (PAT-01): the patient's page with their next visit, exercises, package and
@@ -200,6 +201,51 @@ export function FollowUpCheckQr({
       buttonLabel="Show follow up QR"
       alt="QR code for the patient’s follow up"
       action={showFollowUpCheckAction}
+      fields={{ episodeId }}
+      origin={origin}
+    />
+  );
+}
+
+/**
+ * OUT-02: the plan's questionnaires on the patient's phone, one question per screen, scored by
+ * our server; until WhatsApp (WA-06) as a QR at the desk. Only those that can be filled (SET-08:
+ * items, a confirmed licence and sign-off) are offered; until then the sheet says so.
+ */
+export function QuestionnairesQr({
+  episodeId,
+  origin,
+  fillable,
+}: {
+  episodeId: string;
+  origin: string;
+  fillable: number;
+}) {
+  if (fillable === 0) {
+    return (
+      <section
+        aria-labelledby="questionnaires-heading"
+        className="flex flex-col gap-2"
+        data-testid="questionnaires-qr"
+      >
+        <h2 id="questionnaires-heading" className="font-semibold text-ink">
+          Questionnaires
+        </h2>
+        <p className="text-sm text-ink-muted" data-testid="questionnaires-none">
+          None of the plan’s questionnaires can be filled yet: each needs its items, a confirmed
+          licence and clinical sign-off in the knowledge base.
+        </p>
+      </section>
+    );
+  }
+  return (
+    <PatientLinkQr
+      id="questionnaires"
+      title="Questionnaires"
+      description={`${fillable === 1 ? 'The plan’s questionnaire' : `The plan’s ${String(fillable)} questionnaires`}, one question per screen on the patient's phone and scored automatically: at the start of care, at reviews and before discharge.`}
+      buttonLabel="Show questionnaires QR"
+      alt="QR code for the patient’s questionnaires"
+      action={showQuestionnairesAction}
       fields={{ episodeId }}
       origin={origin}
     />

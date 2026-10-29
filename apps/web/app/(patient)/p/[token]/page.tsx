@@ -35,6 +35,10 @@ import {
 } from '../../../../modules/rate-limits/limits';
 import { loadFeedback } from '../../../../modules/feedback/services';
 import { loadMyPlan } from '../../../../modules/patient-links/my-plan';
+import {
+  loadQuestionnaireStep,
+  type QuestionnaireStep,
+} from '../../../../modules/questionnaires/services';
 import { getSetting } from '../../../../modules/settings/settings';
 import type { FeedbackSurvey, FeedbackSurveyKey, MyPlan } from '@clinic-mx/schemas';
 import { ChangesReview } from './changes-review';
@@ -43,6 +47,7 @@ import { ConsentScreenForm } from './consent-form';
 import { FeedbackForm } from './feedback-form';
 import { FirstTreatmentForm } from './first-treatment-form';
 import { FollowUpForm } from './follow-up-form';
+import { QuestionnaireForm } from './questionnaire-form';
 import { HealthFormScreenForm } from './health-form';
 import { KioskShell } from './kiosk-shell';
 import { MyPlanPage } from './my-plan';
@@ -115,7 +120,9 @@ function message(opened: Shown): { title: string; body: string } {
             ? 'Thank you. Your answers are with your physiotherapist.'
             : opened.purpose === 'feedback' || opened.purpose === 'follow_up'
               ? 'Thank you. Your feedback has reached the clinic.'
-              : 'You have already sent this. Thank you.',
+              : opened.purpose === 'questionnaire'
+                ? 'Thank you. Your answers are with your physiotherapist.'
+                : 'You have already sent this. Thank you.',
       };
     case 'expired':
     case 'revoked':
@@ -374,6 +381,14 @@ export default async function PatientPage({
     if (loaded.open && loaded.surveyKey === 'follow_up') followUp = loaded.followUp;
     else opened = { status: 'closed', purpose: 'follow_up' };
   }
+  // OUT-02: the plan's questionnaires, one after another, one question per screen.
+  let questionnaire: QuestionnaireStep | undefined;
+  if (link.status === 'valid' && link.link.purpose === 'questionnaire') {
+    const step = await loadQuestionnaireStep(link.link, ip);
+    if (step === 'done') opened = { status: 'used', purpose: 'questionnaire' };
+    else if (!step) opened = { status: 'closed', purpose: 'questionnaire' };
+    else questionnaire = step;
+  }
   const { title, body } = kiosk ? kioskMessage(opened) : message(opened);
   const formScreen = welcome?.open ? (
     healthFormScreen(
@@ -390,6 +405,17 @@ export default async function PatientPage({
     <FirstTreatmentForm token={token} />
   ) : followUp ? (
     <FollowUpForm token={token} followUp={followUp} />
+  ) : questionnaire ? (
+    <QuestionnaireForm
+      key={questionnaire.key}
+      token={token}
+      instrumentKey={questionnaire.key}
+      kbVersionId={questionnaire.kbVersionId}
+      name={questionnaire.name}
+      definition={questionnaire.definition}
+      number={questionnaire.number}
+      of={questionnaire.of}
+    />
   ) : null;
   const page = (
     <main data-voice="patient" className="min-h-dvh bg-surface px-4 py-6">
