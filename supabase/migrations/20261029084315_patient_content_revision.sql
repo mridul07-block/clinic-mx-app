@@ -1,0 +1,1 @@
+ALTER TABLE "kb_patient_content" ADD COLUMN "revision" integer DEFAULT 1 NOT NULL;

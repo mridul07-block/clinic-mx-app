@@ -107,6 +107,8 @@ export const permissionMap = {
   // Knowledge base.
   'knowledge_base.view': row(yes, yes, no, yes, no),
   'knowledge_base.edit': row(yes, no, no, no, no),
+  // AI-07, not a PRD row: "clinician approves" patient content; a consultant who treats patients.
+  'patient_content.approve': row(signsAsConsultant, signsAsConsultant, no, signsAsConsultant, no),
   // Not in the PRD summary: user decision 23 October 2026 (INT-10), everyone reads the
   // notifications sent to them; row level security keeps them to their own.
   'notifications.read': row(yes, yes, yes, yes, yes),
@@ -132,6 +134,7 @@ export const deniedToSupport: readonly Action[] = [
   'ai_prep.use',
   'consultant_records.write',
   'consultant_records.sign',
+  'patient_content.approve',
   'session_notes.write',
   'visits.start',
   'red_flags.view',

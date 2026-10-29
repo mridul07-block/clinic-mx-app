@@ -701,3 +701,14 @@ export {
   type DueQuestionnaire,
   type QuestionnaireResultEntry,
 } from './questionnaire-results';
+export {
+  approvePatientContent,
+  discardPatientContentDraft,
+  liveConditionName,
+  liveKbVersionId,
+  patientContentList,
+  patientContentOf,
+  savePatientContentDraft,
+  type PatientContentEntry,
+  type PatientContentListEntry,
+} from './patient-content';
