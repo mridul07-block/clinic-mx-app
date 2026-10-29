@@ -6,7 +6,8 @@ You land on **Today**: your centre's appointments today. The chips at the top co
 
 ## Your tabs
 
-There is no tab bar yet. From **Home** you reach:
+On a phone, the bar at the bottom holds **Today**, **Calendar**, **Patients** and **More**. **More**
+opens **Home**, which reaches everything:
 
 - **Tasks**: call tasks, most urgent first.
 - **Today**: check in, **Walk in**, **New booking**.

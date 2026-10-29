@@ -1218,3 +1218,13 @@ export {
   type PatientContentState,
   type PatientContentStatus,
 } from './patient-content';
+export {
+  MORE_TAB,
+  currentPhoneTab,
+  phoneTabIcons,
+  phoneTabsFor,
+  screensWithoutTabs,
+  showsPhoneTabs,
+  type PhoneTab,
+  type PhoneTabIcon,
+} from './phone-tabs';

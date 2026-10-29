@@ -6,7 +6,8 @@ After you sign in you land on **Alerts** in your **Dashboard**: what needs you n
 
 ## Your tabs
 
-There is no tab bar yet. From **Home** you reach:
+On a phone, the bar at the bottom holds **Alerts**, **Centres**, **Outcomes** (the Dashboard tabs) and
+**More**. **More** opens **Home**, which reaches everything:
 
 - **Dashboard**: tabs for **Alerts**, **Centres** (today's waiting and payment pending), **Outcomes**, **Team** and **Feedback**.
 - **Alerts**: red flag alerts at your centres.

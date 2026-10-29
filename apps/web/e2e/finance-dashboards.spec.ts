@@ -56,15 +56,15 @@ test('Finance lands on Collections and reads every tab, with CSV downloads', asy
   expect(csv).toContain('HSR Layout,UPI QR');
   expect(csv).not.toContain(patient.name);
 
-  await page.getByRole('link', { name: 'Unpaid', exact: true }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Unpaid', exact: true }).click();
   await expect(page.getByTestId('unpaid-summary')).toBeVisible();
   // BIL-10: pay as you go balances above the unpaid bills.
   await expect(page.getByTestId('balances-summary')).toBeVisible();
   expect(await fits()).toBe(true);
-  await page.getByRole('link', { name: 'Packages', exact: true }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Packages', exact: true }).click();
   await expect(page.getByTestId('packages-centre')).not.toHaveCount(0);
   expect(await fits()).toBe(true);
-  await page.getByRole('link', { name: 'Revenue', exact: true }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Revenue', exact: true }).click();
   await expect(
     page.getByRole('img', { name: 'Revenue by month against the year before' }),
   ).toBeVisible();

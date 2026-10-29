@@ -17,8 +17,8 @@ are recorded in the DECISION register as "DSH-03" for the client to confirm.
 - It is for the Super Admin and Centre Managers (`dashboard.clinical_operations`). The home link is
   "Dashboard".
 - Centre Managers land on Alerts after signing in (`homePath`).
-- The phone bottom tab bar (Frontend Specification section 4) is not built. No ticket covers it, so
-  it is a DECISION for a navigation shell ticket.
+- On phones the bottom tab bar holds Alerts, Centres and Outcomes, then More (UI-01,
+  `docs/runbooks/navigation.md`).
 
 **What a manager sees**
 

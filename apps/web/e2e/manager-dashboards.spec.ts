@@ -24,10 +24,9 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
 
   await signInWithCode(page, manager.email, manager.secret);
   await expect(page).toHaveURL(/\/app\/dashboard\/alerts/);
-  await expect(page.getByRole('link', { name: 'Alerts', exact: true })).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
+  await expect(
+    page.getByRole('main').getByRole('link', { name: 'Alerts', exact: true }),
+  ).toHaveAttribute('aria-current', 'page');
   // The episodes on hold at HSR Layout, as counted from the records.
   const held = page.locator('[data-testid="alert-count"][data-item="episodes_on_hold"]');
   await expect
@@ -46,7 +45,7 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
   await page.screenshot({ path: test.info().outputPath('dashboard-alerts.png'), fullPage: true });
 
   // Centres: HSR Layout today, the week's cells, no money anywhere.
-  await page.getByRole('link', { name: 'Centres', exact: true }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Centres', exact: true }).click();
   const hsr = page.locator('[data-testid="centre-today"][data-centre="HSR Layout"]');
   await expect(hsr).toBeVisible();
   await expect(page.getByTestId('centre-today')).toHaveCount(1);
@@ -59,7 +58,7 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
   await page.screenshot({ path: test.info().outputPath('dashboard-centres.png'), fullPage: true });
 
   // Outcomes over 12 months: the bullets, the funnel with ours in it.
-  await page.getByRole('link', { name: 'Outcomes', exact: true }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Outcomes', exact: true }).click();
   await page.getByRole('link', { name: 'Last 12 months' }).click();
   await expect(page).toHaveURL(/window=365/);
   await expect(page.getByTestId('outcome-bullet')).toHaveCount(4);
@@ -68,9 +67,9 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
   expect(await fits()).toBe(true);
   await page.screenshot({ path: test.info().outputPath('dashboard-outcomes.png'), fullPage: true });
 
-  await page.getByRole('link', { name: 'Team', exact: true }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Team', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Rosters and leave' })).toBeVisible();
-  await page.getByRole('link', { name: 'Feedback', exact: true }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Feedback', exact: true }).click();
   // Empty, or the HSR answers other tests left (PAT-04 has its own spec).
   await expect(page.getByRole('heading', { name: 'After the consultation' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'At discharge' })).toBeVisible();

@@ -280,3 +280,15 @@ Clinic Mx launch scope is 160 tickets in 15 epics; each ticket traces to the PRD
 | OPS-06 | Penetration test | Independent test done; high findings fixed before launch | 5 | P0 | M |
 | OPS-07 | Privacy and legal readiness (decisions 20, 21, 24) | Privacy notice, data processing agreements, final consent texts in place | 5 | P0 | S |
 | OPS-08 | Go live and close support | Runbook followed; all three centres live the same day; two weeks of daily fixes | 5 | P0 | M |
+
+### UI and ADM: Found while building (added 29 October 2026, with the user's approval)
+
+Specified in the PRD or the Frontend Specification but on no ticket above; found while writing the
+quick guides (OPS-04).
+
+| ID | Ticket | Done when | Phase | Pri | Size |
+| --- | --- | --- | --- | --- | --- |
+| UI-01 | Phone bottom tab bar per role (Frontend Specification section 4) | Each role's tabs on phones, current tab marked; More reaches every other screen | 4 | P1 | S |
+| ADM-01 | Audit log viewer (PRD M16 and section 2) | The Super Admin reads every change, Centre Managers the clinical changes at their centres, Finance the money changes | 4 | P1 | M |
+| ADM-02 | Settings screen (PRD M16, section 7) | The Super Admin reads and changes each business rule setting, validated and audited | 4 | P1 | M |
+
