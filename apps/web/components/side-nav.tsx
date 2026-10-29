@@ -16,6 +16,7 @@ import {
   ChartLine,
   ClipboardList,
   Clock,
+  FileLock,
   FileText,
   History,
   IndianRupee,
@@ -73,6 +74,7 @@ const icons: Record<NavIcon, LucideIcon> = {
   finance: IndianRupee,
   figures: ChartColumn,
   kiosk: Tablet,
+  'data-requests': FileLock,
 };
 
 export function SideNav({

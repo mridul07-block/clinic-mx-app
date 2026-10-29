@@ -63,7 +63,7 @@ Every choice below is a recommended default chosen under the user's standing app
 
 `navigationFor(staff)` in `packages/schemas/src/navigation.ts` lists every screen a person may open, in Home's order and words, each shown only when the page's own check lets them in (`accessScope`, or the audit log's parts). Home, the rail, the sidebar and Search or jump to all read it, so a new screen is added once. Account and signing out are in the person's menu (and on Home).
 
-Sections, for the sidebar: **Day to day** (Tasks, My patients today, Today, Calendar, Patients, My leave, Alerts, Packages), **Clinical** (Red flags, Knowledge base), **Figures** (Overview, Dashboard, Finance, Figures) and **Setup** (the rest).
+Sections, for the sidebar: **Day to day** (Tasks, My patients today, Today, Calendar, Patients, My leave, Alerts, Packages), **Clinical** (Red flags, Knowledge base), **Figures** (Overview, Dashboard, Finance, Figures) and **Setup** (the rest, Data requests included).
 
 ## The frame
 

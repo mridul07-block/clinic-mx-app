@@ -46,6 +46,7 @@ export const navIcons = [
   'finance',
   'figures',
   'kiosk',
+  'data-requests',
 ] as const;
 export type NavIcon = (typeof navIcons)[number];
 
@@ -201,6 +202,13 @@ const navRules: readonly NavRule[] = [
     icon: 'figures',
     section: 'figures',
     may: 'dashboard.overview',
+  },
+  {
+    label: 'Data requests',
+    href: '/app/data-requests',
+    icon: 'data-requests',
+    section: 'setup',
+    may: 'data_requests.manage',
   },
   {
     label: 'Kiosk tablets',

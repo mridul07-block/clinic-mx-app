@@ -717,3 +717,11 @@ export {
   type PatientContentListEntry,
 } from './patient-content';
 export { auditLog, type AuditLogFilters } from './audit-log';
+export {
+  closeDataRequest,
+  dataRequestList,
+  dataRequestRecord,
+  insertDataRequest,
+  patientExport,
+  type DataRequestEntry,
+} from './data-requests';
