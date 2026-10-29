@@ -74,6 +74,15 @@ export default async function CentrePage({
         >
           Preview letterhead (PDF)
         </a>
+        {/* OPS-05: the paper fallback, printed on this letterhead. */}
+        <a
+          href={['/app/centres', centre.id, 'paper-forms'].join('/')}
+          target="_blank"
+          rel="noopener"
+          className="min-h-11 self-start py-2.5 font-medium text-ink underline underline-offset-2"
+        >
+          Paper health form and consent (PDF)
+        </a>
       </section>
       {staff.support ? (
         <>

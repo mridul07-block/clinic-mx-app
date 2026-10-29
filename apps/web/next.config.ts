@@ -16,9 +16,11 @@ const nextConfig: NextConfig = {
     serverActions: { bodySizeLimit: '5mb' },
   },
   // The PDF fonts are read from disk when a document is rendered (ALT-05): ship them with the
-  // functions that render, the letterhead preview and the jobs that generate documents.
+  // functions that render, the letterhead preview, the paper forms (OPS-05) and the jobs that
+  // generate documents.
   outputFileTracingIncludes: {
     '/app/centres/[centreId]/letterhead': ['./modules/documents/fonts/*'],
+    '/app/centres/[centreId]/paper-forms': ['./modules/documents/fonts/*'],
     '/api/jobs/tick': ['./modules/documents/fonts/*'],
   },
   env: {
