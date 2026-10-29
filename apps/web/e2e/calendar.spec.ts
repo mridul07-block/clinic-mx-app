@@ -66,7 +66,7 @@ test('the front desk sees each physio’s fee, appointments and free slots', asy
   const desk = await temporaryDesk();
   await signIn(page, desk.email);
 
-  await page.getByRole('link', { name: 'Calendar' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Calendar' }).click();
   await expect(page.getByRole('heading', { name: 'Calendar', exact: true })).toBeVisible();
   await openCalendar(page);
   const block = appointmentAt(page, testInfo, patient.name);

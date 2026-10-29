@@ -6,7 +6,8 @@ After you sign in you land on the **Overview**: every centre today, the last 7 d
 
 ## Your tabs
 
-There is no tab bar yet. From **Home** you reach:
+On a phone, the bar at the bottom holds **Overview**, **Alerts** and **More**. **More** opens
+**Home**, which reaches everything:
 
 - **Overview**, **Dashboard**, **Finance** and **Figures**: the numbers for every centre.
 - **Alerts**, **Tasks**, **Today**, **Calendar** and **Patients**.

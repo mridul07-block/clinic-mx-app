@@ -1,8 +1,9 @@
 import { activeGrant } from '@clinic-mx/db';
-import { formatIstDateTime } from '@clinic-mx/schemas';
+import { formatIstDateTime, phoneTabsFor } from '@clinic-mx/schemas';
 import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
 import { EmergencyBanner } from '../../../../components/emergency-banner';
+import { PhoneTabBar } from '../../../../components/phone-tab-bar';
 import { DraftSync } from '../../../../lib/drafts/draft-sync';
 import { DEVICE_COOKIE, readDevice } from '../../../../lib/session-cookies';
 import { asStaff } from '../../../../modules/access/staff-db';
@@ -21,6 +22,7 @@ import { SessionGuard } from './session-guard';
 // A Velyx support login is told on every page that it is read only and logged (IAM-08). Every
 // page links to the staff member's notifications with the unread count (INT-10). Open emergency
 // red flag alerts at the person's centres show as banners on every page, kept current (ALT-01).
+// Phones get the role's bottom tab bar (UI-01).
 export default async function SignedInLayout({ children }: { children: ReactNode }) {
   const staff = await requireStaff();
   const device = readDevice((await cookies()).get(DEVICE_COOKIE)?.value);
@@ -56,6 +58,8 @@ export default async function SignedInLayout({ children }: { children: ReactNode
         <NotificationsLink unread={unread} />
       </div>
       {children}
+      {/* UI-01: the role's bottom tabs on phones. */}
+      <PhoneTabBar tabs={phoneTabsFor(staff)} />
       <DraftSync />
       {staff.support ? null : (
         <EmergencyWatch

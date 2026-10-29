@@ -6,7 +6,8 @@ After you sign in you land on **Collections** in **Finance**: the money taken to
 
 ## Your tabs
 
-There is no tab bar yet. From **Home** you reach:
+On a phone, the bar at the bottom holds **Bills** (Collections), **Unpaid**, **Packages** and
+**More**. **More** opens **Home**, which reaches everything:
 
 - **Finance**: tabs for **Collections**, **Unpaid**, **Packages**, **Revenue** and **Refunds**.
 - **Packages**: the list of patients' packages.

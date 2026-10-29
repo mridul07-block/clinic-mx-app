@@ -6,7 +6,9 @@ You land on **My patients today**: your visits today, in time order, kept up to 
 
 ## Your tabs
 
-There is no tab bar yet. Tap **Home** at the top of My patients today for:
+On a phone, the bar at the bottom holds **My patients**, **Today** (your Calendar), **Notes** (your
+Tasks) and **More**. It hides inside a visit, which has its own buttons. **More** opens **Home**,
+which reaches everything:
 
 - **Tasks**: your tasks, most urgent first.
 - **My patients today**: your day, and **Colleagues today**.
