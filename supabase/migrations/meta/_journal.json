@@ -1352,6 +1352,34 @@
       "when": 1793235043210,
       "tag": "20261029005043_follow_up_schedule_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 193,
+      "version": "7",
+      "when": 1793247773110,
+      "tag": "20261029042253_session_bill_kind",
+      "breakpoints": true
+    },
+    {
+      "idx": 194,
+      "version": "7",
+      "when": 1793247785899,
+      "tag": "20261029042305_session_bills",
+      "breakpoints": true
+    },
+    {
+      "idx": 195,
+      "version": "7",
+      "when": 1793247798880,
+      "tag": "20261029042318_session_bills_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 196,
+      "version": "7",
+      "when": 1793249637947,
+      "tag": "20261029045357_bill_unpaid_patient_index",
+      "breakpoints": true
     }
   ]
 }

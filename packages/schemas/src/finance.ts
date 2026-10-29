@@ -18,13 +18,12 @@ export const financeTabLabels: Record<FinanceTab, string> = {
 };
 
 /** The tables Finance can download as CSV. */
-export const financeExports = ['collections', 'unpaid', 'revenue'] as const;
+export const financeExports = ['collections', 'unpaid', 'balances', 'revenue'] as const;
 
 export type FinanceExport = (typeof financeExports)[number];
 
 /** Finance's screens whose data no ticket has built yet. */
 export const financeComing = {
-  unpaid: 'Pay as you go balances and the flag above 3 unpaid sessions come with BIL-10.',
   revenue: 'Revenue is less refunds, in the month each was given (BIL-11).',
   // DECISION 12: what happens to unused sessions at expiry or discharge is the client's.
   credits: 'Credits for unused sessions wait for the clinic’s decision (decision 12).',

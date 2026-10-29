@@ -150,6 +150,16 @@ describe('front desk today', () => {
       version: 'v1',
     });
     expect(db.todayBoard).toHaveBeenCalledWith(fakeTx, { centreId: hsr, date: '2026-11-02' });
+    // BIL-10: flagged only above the setting (1 in this test), with the setting's number.
+    db.todayBoard.mockResolvedValue([
+      { id: 'a1', unpaidSessions: 1 },
+      { id: 'a2', unpaidSessions: 2 },
+    ]);
+    const flagged = await loadToday(member(), { centreId: hsr, date: '2026-11-02' });
+    expect(flagged.appointments.map((row) => [row.id, row.unpaidFlagAbove])).toEqual([
+      ['a1', null],
+      ['a2', 1],
+    ]);
     for (const actor of refusedFor) {
       await expect(loadToday(actor, { centreId: hsr, date: '2026-11-02' })).rejects.toThrow(
         NotAllowedError,

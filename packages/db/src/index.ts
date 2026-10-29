@@ -621,12 +621,15 @@ export {
 } from './dashboards';
 export {
   packageCounts,
+  patientUnpaid,
   paymentsDaily,
   paymentsUndone,
   refundsDaily,
   revenueMonthly,
   unpaidBills,
+  ytpBalances,
   type UnpaidBillRow,
+  type YtpBalanceRow,
 } from './finance';
 export { myPlanView } from './my-plan';
 export {

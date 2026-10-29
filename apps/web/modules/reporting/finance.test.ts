@@ -13,10 +13,15 @@ const db = vi.hoisted(() => ({
   refundsDaily: vi.fn(),
   revenueMonthly: vi.fn(),
   unpaidBills: vi.fn(),
+  ytpBalances: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
 vi.mock('../../lib/db', () => ({ appDb: () => ({ kind: 'appDb' }) }));
-vi.mock('../settings/settings', () => ({ getSetting: () => Promise.resolve(14) }));
+// Every day count is 14; the unpaid sessions flag is the seeded 3 (BIL-10).
+vi.mock('../settings/settings', () => ({
+  getSetting: (key: string) =>
+    Promise.resolve(key === 'billing.unpaid_sessions_flag_above' ? 3 : 14),
+}));
 
 const hsr = '00000000-0000-4000-8000-000000000101';
 const kor = '00000000-0000-4000-8000-000000000102';
@@ -101,7 +106,7 @@ describe('Finance’s dashboards', () => {
     expect(csv.body).not.toContain(wfd);
   });
 
-  it('lists unpaid bills with their age, and says what YTP balances wait for', async () => {
+  it('lists unpaid bills with their age, and pay as you go balances flagged above 3 unpaid sessions', async () => {
     db.unpaidBills.mockResolvedValue([
       {
         id: 'b1',
@@ -112,6 +117,26 @@ describe('Finance’s dashboards', () => {
         createdAt: new Date('2026-10-25T06:00:00Z'),
         opNumber: 'HSR-00007',
         episodeId: 'e1',
+      },
+    ]);
+    db.ytpBalances.mockResolvedValue([
+      {
+        patientId: 'p1',
+        opNumber: 'HSR-00009',
+        centreName: 'HSR Layout',
+        unpaidPaise: 600_000,
+        unpaidBills: 4,
+        unpaidSessions: 4,
+        oldestAt: new Date('2026-10-20T06:00:00Z'),
+      },
+      {
+        patientId: 'p2',
+        opNumber: 'KOR-00003',
+        centreName: 'Koramangala',
+        unpaidPaise: 450_000,
+        unpaidBills: 3,
+        unpaidSessions: 3,
+        oldestAt: new Date('2026-10-28T03:00:00Z'),
       },
     ]);
     const view = await unpaidView(finance, now);
@@ -126,7 +151,28 @@ describe('Finance’s dashboards', () => {
       // BIL-07: Finance opens the bill's plan and payment sheet to apply a discount.
       href: '/app/plans/e1',
     });
-    expect(view.coming).toContain('BIL-10');
+    // BIL-10: more than 3 unpaid sessions is flagged; exactly 3 is not.
+    expect(view.flagAbove).toBe(3);
+    expect(view.balances).toEqual([
+      {
+        opNumber: 'HSR-00009',
+        centre: 'HSR Layout',
+        amount: '₹6,000',
+        bills: 4,
+        sessions: 4,
+        flagged: true,
+        days: 8,
+      },
+      {
+        opNumber: 'KOR-00003',
+        centre: 'Koramangala',
+        amount: '₹4,500',
+        bills: 3,
+        sessions: 3,
+        flagged: false,
+        days: 0,
+      },
+    ]);
   });
 
   it('counts packages per centre, a centre with none at zero', async () => {
@@ -183,6 +229,8 @@ describe('Finance’s dashboards', () => {
     expect(view.byService).toEqual([
       { label: 'Consultation fee', value: 70_000, text: '₹700' },
       { label: 'Package', value: 500_000, text: '₹5,000' },
+      // BIL-10: sessions paid per session are a service of their own.
+      { label: 'Session', value: 0, text: '₹0' },
     ]);
     const calls = db.revenueMonthly.mock.calls as [unknown, string, string][];
     expect(calls.map(([, from, to]) => [from, to])).toEqual([
@@ -214,6 +262,22 @@ describe('Finance’s dashboards', () => {
     ]);
     const collections = await financeCsv(finance, 'collections', now);
     expect(collections.body).toContain('2026-10-28,HSR Layout,UPI QR,2,3000.00');
+    db.ytpBalances.mockResolvedValue([
+      {
+        patientId: 'p1',
+        opNumber: 'HSR-00009',
+        centreName: 'HSR Layout',
+        unpaidPaise: 600_000,
+        unpaidBills: 5,
+        unpaidSessions: 4,
+        oldestAt: new Date('2026-10-20T06:00:00Z'),
+      },
+    ]);
+    const balances = await financeCsv(finance, 'balances', now);
+    expect(balances.filename).toBe('clinic-mx-balances-2026-10-28.csv');
+    expect(balances.body).toBe(
+      'OP number,Centres,Rupees,Unpaid bills,Unpaid sessions,Flagged,Oldest (IST)\r\nHSR-00009,HSR Layout,6000.00,5,4,Yes,2026-10-20\r\n',
+    );
   });
 
   it('is for the Super Admin and Finance only', async () => {
@@ -224,7 +288,9 @@ describe('Finance’s dashboards', () => {
       await expect(packagesView(someone, now)).rejects.toThrow(NotAllowedError);
       await expect(revenueView(someone, now)).rejects.toThrow(NotAllowedError);
       await expect(financeCsv(someone, 'unpaid', now)).rejects.toThrow(NotAllowedError);
+      await expect(financeCsv(someone, 'balances', now)).rejects.toThrow(NotAllowedError);
     }
     expect(db.unpaidBills).not.toHaveBeenCalled();
+    expect(db.ytpBalances).not.toHaveBeenCalled();
   });
 });

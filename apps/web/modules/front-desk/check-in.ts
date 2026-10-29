@@ -5,6 +5,7 @@ import {
   healthFormLink,
   kioskDevices,
   patientReports,
+  patientUnpaid,
   sessionProgress,
   type CheckInView,
   type GuardianEntry,
@@ -13,11 +14,14 @@ import {
 } from '@clinic-mx/db';
 import {
   ageOn,
+  can,
+  formatRupees,
   healthFormState,
   istDate,
   needsGuardian,
   needsHealthForm,
   sessionView,
+  ytpFlagged,
   type HealthFormState,
   type SessionView,
 } from '@clinic-mx/schemas';
@@ -44,6 +48,11 @@ export interface CheckInDrawerView {
   reports: PatientReportEntry[];
   /** For a treatment session: "Session n of N" once checked in, and the gate (SES-01). */
   session: SessionView | null;
+  /**
+   * The patient's unpaid bills (BIL-10), for those who take payment at the centre and only when
+   * there are some: a flag above the set number of unpaid sessions, never a block (DECISION #10).
+   */
+  unpaid: { sessions: number; amount: string; flagged: boolean; flagAbove: number } | null;
 }
 
 /**
@@ -56,6 +65,7 @@ export async function loadCheckIn(
 ): Promise<CheckInDrawerView | undefined> {
   assertMay(actor, 'check_in.manage');
   const adultAge = await getSetting('patients.adult_age_years');
+  const flagAbove = await getSetting('billing.unpaid_sessions_flag_above');
   return asStaff(actor, async (tx) => {
     const appointment = await checkInView(tx, appointmentId);
     if (!appointment) return undefined;
@@ -67,6 +77,9 @@ export async function loadCheckIn(
     const hasForm = needsHealthForm(appointment, latest);
     const link = hasForm ? latest : undefined;
     const state = healthFormState(link, now, appointment.consentDeclined);
+    const owed = can(actor, 'bills.create_and_collect', { centreId: appointment.centreId })
+      ? await patientUnpaid(tx, appointment.patientId)
+      : undefined;
     return {
       appointment,
       age,
@@ -87,6 +100,15 @@ export async function loadCheckIn(
         .map((k) => ({ id: k.id, name: k.name })),
       reports: await patientReports(tx, appointment.patientId),
       session: sessionView((await sessionProgress(tx, [appointment.id])).get(appointment.id)),
+      unpaid:
+        owed && owed.unpaidBills > 0
+          ? {
+              sessions: owed.unpaidSessions,
+              amount: formatRupees(owed.unpaidPaise),
+              flagged: ytpFlagged(owed.unpaidSessions, flagAbove),
+              flagAbove,
+            }
+          : null,
     };
   });
 }

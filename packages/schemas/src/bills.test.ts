@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { applyDiscountSchema, percentOff, removeDiscountSchema } from './bills';
+import {
+  applyDiscountSchema,
+  billKindLabels,
+  percentOff,
+  removeDiscountSchema,
+  unpaidSessionsLabel,
+  ytpFlagged,
+} from './bills';
 
 const lineId = '00000000-0000-4000-8000-000000000d01';
 const presetId = '00000000-0000-4000-8000-000000000d02';
@@ -46,5 +53,22 @@ describe('discounts', () => {
     expect(message({ kind: 'preset', lineId })).toBe('Choose a discount.');
     expect(message({ lineId })).toBe('Choose a discount.');
     expect(removeDiscountSchema.safeParse({ lineId: 'x' }).success).toBe(false);
+  });
+});
+
+// BIL-10: pay as you go balances, flagged above the set number of unpaid sessions (PRD section 7).
+describe('pay as you go balances', () => {
+  it('flags only more than the setting’s unpaid sessions, whatever the setting', () => {
+    expect(ytpFlagged(3, 3)).toBe(false);
+    expect(ytpFlagged(4, 3)).toBe(true);
+    expect(ytpFlagged(0, 0)).toBe(false);
+    expect(ytpFlagged(1, 0)).toBe(true);
+    expect(ytpFlagged(5, 5)).toBe(false);
+  });
+
+  it('names the unpaid sessions and the session bill', () => {
+    expect(unpaidSessionsLabel(1)).toBe('1 unpaid session');
+    expect(unpaidSessionsLabel(4)).toBe('4 unpaid sessions');
+    expect(billKindLabels.session).toBe('Session');
   });
 });

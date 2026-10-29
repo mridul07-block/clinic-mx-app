@@ -723,6 +723,8 @@ export {
   billStatuses,
   consultationFeeDue,
   makeConsultationBillSchema,
+  unpaidSessionsLabel,
+  ytpFlagged,
   packageValidUntil,
   paymentMethodLabels,
   paymentMethods,
