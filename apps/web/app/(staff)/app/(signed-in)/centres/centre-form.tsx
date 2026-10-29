@@ -29,6 +29,8 @@ export interface CentreFormValues {
   address: string;
   phone: string;
   mapLink: string;
+  /** PAT-09: the centre's Google review link. */
+  reviewLink: string;
   colour: string;
   /** Zero Gravity Treadmills, as typed. */
   treadmills: string;
@@ -124,6 +126,16 @@ export function CentreForm({
         defaultValue={value('mapLink')}
         helper="In Google Maps, open the centre, choose Share and copy the link."
         error={state.fieldErrors?.mapLink}
+      />
+      <TextField
+        label="Google review link (optional)"
+        name="reviewLink"
+        type="url"
+        inputMode="url"
+        autoComplete="off"
+        defaultValue={value('reviewLink')}
+        helper="Sent to every patient at discharge. In the centre's Google Business Profile, choose Ask for reviews and copy the link."
+        error={state.fieldErrors?.reviewLink}
       />
       <TextField
         label="Zero Gravity Treadmills"

@@ -10,7 +10,10 @@ import { CentreError, addCentre, editCentre, setCentreActiveService } from './se
 /** What a centre form shows after a post (SET-01). */
 export interface CentreFormState {
   error?: string;
-  /** Messages by field: name, code, appointmentPrefix, address, phone, mapLink, colour, treadmills. */
+  /**
+   * Messages by field: name, code, appointmentPrefix, address, phone, mapLink, reviewLink, colour,
+   * treadmills.
+   */
   fieldErrors?: Record<string, string>;
   /** What was typed, given back with an error so the form keeps it. */
   values?: Record<string, string>;
@@ -28,6 +31,7 @@ const detailsFrom = (form: FormData) => ({
   address: text(form, 'address'),
   phone: text(form, 'phone'),
   mapLink: text(form, 'mapLink'),
+  reviewLink: text(form, 'reviewLink'),
   colour: text(form, 'colour'),
   treadmills: text(form, 'treadmills'),
 });

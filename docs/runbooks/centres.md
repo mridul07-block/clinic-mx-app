@@ -10,6 +10,9 @@ SET-01, PRD M16, TAD section 3. Each centre has:
 - a count of Zero Gravity Treadmills (SCH-04);
 - an address;
 - a Google Maps link;
+- a Google review link (PAT-09), optional: https Google review addresses only (`g.page`,
+  `search.google.com`, `maps.app.goo.gl`, `google.com/maps` or `/search`), empty clears it; sent to
+  every discharged patient and shown as the desk's "Leave a review" QR (`docs/runbooks/feedback.md`);
 - a front desk phone;
 - a chart colour.
 

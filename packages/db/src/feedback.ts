@@ -65,6 +65,26 @@ export const FIRST_TREATMENT_CHECK_JOB = 'whatsapp.first_treatment_check';
  */
 export const SESSION_3_CHECK_JOB = 'whatsapp.session_3_check';
 
+/**
+ * The review request (PAT-09): discharging any episode queues its WhatsApp message for the next
+ * day; WA-06 sends it with the centre's Google review link.
+ */
+export const REVIEW_REQUEST_MESSAGE_JOB = 'whatsapp.review_request';
+
+/**
+ * The review link a discharged episode's desk QR shows: its centre's (null when none yet), for
+ * those who check in there; undefined otherwise.
+ */
+export async function reviewLinkTarget(
+  db: DbOrTransaction,
+  episodeId: string,
+): Promise<{ link: string | null } | undefined> {
+  const [row] = await db.execute<{ review_link: string | null }>(
+    sql`select * from internal.review_link_target(${episodeId}::uuid)`,
+  );
+  return row ? { link: row.review_link } : undefined;
+}
+
 /** What the desk's first treatment check QR is for: the episode's signed session 1's visit. */
 export async function firstTreatmentCheckTarget(
   db: DbOrTransaction,

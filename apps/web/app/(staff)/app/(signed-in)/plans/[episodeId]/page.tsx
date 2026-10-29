@@ -29,9 +29,11 @@ import {
 } from '../../../../../../modules/scheduling/plan-sessions';
 import { DiscountForm, RemoveDiscountForm } from './discount-forms';
 import { MakeBillForm } from './make-bill-form';
+import { loadReviewLink } from '../../../../../../modules/feedback/services';
 import {
   DischargeFeedbackQr,
   FirstTreatmentCheckQr,
+  LeaveReviewQr,
   MyPlanQr,
   RateYourVisitQr,
 } from './patient-qrs';
@@ -350,6 +352,11 @@ export default async function PlanSheetPage({
   if (!z.guid().safeParse(episodeId).success) notFound();
   const query = planSheetQuerySchema.parse(await searchParams);
   const sheet = await planSheetOf(staff, episodeId, query.session);
+  // PAT-09: a discharged episode's review link, for those who check in at its centre.
+  const review =
+    sheet?.canShowMyPlan && sheet.episodeStatus === 'discharged'
+      ? await loadReviewLink(staff, episodeId)
+      : undefined;
   if (!sheet) notFound();
   const planSessions =
     sheet.plan && can(staff, 'bookings.manage')
@@ -566,6 +573,7 @@ export default async function PlanSheetPage({
           {sheet.canShowMyPlan && sheet.episodeStatus === 'discharged' ? (
             <DischargeFeedbackQr episodeId={sheet.episodeId} origin={origin} />
           ) : null}
+          {review ? <LeaveReviewQr link={review.link} /> : null}
 
           <section aria-labelledby="choice" className="flex flex-col gap-2">
             <h2 id="choice" className="font-semibold text-ink">

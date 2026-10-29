@@ -177,6 +177,33 @@ the user's standing approval, 29 October 2026 (DECISION PAT-06).
   3 check"): queued at once on signing session 3, not sessions 1, 2 or 4, once per episode, never
   for an opening entry; the setting moves it. Disabling the trigger fails these tests.
 
+## Review requests (PAT-09)
+
+PRD J7.3: "Google review requests are sent to every discharged patient, never filtered by score";
+PRD section 7: Fixed; Blueprint section 14: not conditional on a positive rating; TAD jobs:
+"Discharge feedback and review request | Same day, then next day". Every other choice is a
+recommended default chosen under the user's standing approval, 29 October 2026 (DECISION PAT-09).
+
+- **Where the link lives:** each centre's Google review link, on its details
+  (`docs/runbooks/centres.md`); the client gives the real links.
+- **Who gets it:** every discharged episode, whatever its feedback, score, discharge reason or
+  consultation. Discharging queues `whatsapp.review_request` in the same transaction (in
+  `internal.episode_discharged_follow_up`), once per episode.
+- **When:** the day after discharge (`feedback.review_request_days`, 1; the discharge report and
+  its feedback go the same day) at 10:00 IST (`feedback.review_request_time`; the TAD gives no
+  time), or at once when later. It sends nothing until WA-06, which sends `review_request` with the
+  episode's centre's link and fails visibly when the centre has none.
+- **Until WhatsApp:** the plan and payment sheet of every discharged episode shows "Leave a review",
+  the centre's link as a QR (a public link, so no patient link), for those who check in at its
+  centre (`internal.review_link_target`); without a link it says so.
+- **Tests:** `packages/schemas/src/centres.test.ts` (the link rule, optional);
+  `packages/db/src/integration/review-request.integration.test.ts` (one request per discharged
+  episode, the next day at 10:00 IST, with no consultation and as Lost to follow-up; the settings;
+  the desk's link at its centre only, for a discharged episode). Moving the request inside the
+  signed consultation condition fails this test. `apps/web/e2e/review-request.spec.ts` (360 px and
+  desktop): the Super Admin sets the link (another site refused); the request queued at discharge;
+  the desk's QR; the no-link notice.
+
 ## How it works
 
 | Part | Where |

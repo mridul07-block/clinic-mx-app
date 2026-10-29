@@ -651,7 +651,9 @@ export {
   type FeedbackSubject,
   type FeedbackTarget,
   FIRST_TREATMENT_CHECK_JOB,
+  REVIEW_REQUEST_MESSAGE_JOB,
   SESSION_3_CHECK_JOB,
+  reviewLinkTarget,
   firstTreatmentCheckTarget,
 } from './feedback';
 export { aiSheetGate } from './ai-gate';
