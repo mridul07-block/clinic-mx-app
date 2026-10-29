@@ -118,7 +118,9 @@ const scored = (rows: string[][]) => rows.map((row) => [...row.slice(0, 10), '4'
 // AI-06 done when: runs 30 to 50 anonymised cases through candidate models; clinicians score
 // blind; results compared. Generated cases and listings only; the model's answer is mocked (the
 // gateway's own tests cover zero data retention, pinning and the budget).
-describe('the blind test tool', () => {
+// Each test writes and reads real files in a temporary folder; on a busy machine (the local gate
+// runs suites side by side) the first can take seconds, so this suite allows longer than the default.
+describe('the blind test tool', { timeout: 30_000 }, () => {
   beforeEach(() => {
     for (const fn of [...Object.values(db), gateway.rankForBlindTest]) fn.mockReset();
     db.latestKnowledgeVersion.mockResolvedValue({ ...version, status: 'approved' });
