@@ -20,6 +20,8 @@ export interface CentreEntry {
   treadmills: number;
   address: string | null;
   mapLink: string | null;
+  /** PAT-09: the centre's Google review link. */
+  reviewLink: string | null;
   phone: string | null;
   colour: string;
   active: boolean;
@@ -33,6 +35,7 @@ const columns = {
   treadmills: centre.treadmills,
   address: centre.address,
   mapLink: centre.mapLink,
+  reviewLink: centre.reviewLink,
   phone: centre.phone,
   colour: centre.colour,
   active: centre.active,

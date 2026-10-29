@@ -1,3 +1,4 @@
+import QRCode from 'qrcode';
 import { PatientLinkQr } from '../../../../../../components/patient-link-qr';
 import {
   showDischargeFeedbackAction,
@@ -102,5 +103,55 @@ export function DischargeFeedbackQr({ episodeId, origin }: { episodeId: string; 
       fields={{ episodeId }}
       origin={origin}
     />
+  );
+}
+
+/**
+ * Leave a review (PAT-09; PRD J7.3: to every discharged patient, never filtered by score): the
+ * centre's Google review link as a QR, as the WhatsApp review request will send it (WA-06); shown
+ * for every discharged episode, whatever its feedback. A public link, drawn here on the server.
+ */
+export async function LeaveReviewQr({ link }: { link: string | null }) {
+  const image = link
+    ? `data:image/svg+xml;utf8,${encodeURIComponent(
+        await QRCode.toString(link, { type: 'svg', margin: 2, errorCorrectionLevel: 'M' }),
+      )}`
+    : null;
+  return (
+    <section
+      aria-labelledby="leave-review-qr-heading"
+      className="flex flex-col gap-2"
+      data-testid="leave-review-qr"
+    >
+      <h2 id="leave-review-qr-heading" className="font-semibold text-ink">
+        Leave a review
+      </h2>
+      <p className="text-sm text-ink-secondary">
+        The centre’s Google review page, offered to every patient at discharge. They scan it with
+        their phone camera.
+      </p>
+      {link && image ? (
+        <figure className="flex flex-col items-center gap-2 rounded-panel border border-line bg-surface p-4">
+          {/* eslint-disable-next-line @next/next/no-img-element -- an SVG data URL drawn here; next/image cannot optimise it */}
+          <img
+            src={image}
+            alt="QR code for the centre’s Google review page"
+            width={240}
+            height={240}
+            className="size-60"
+          />
+          <figcaption
+            className="font-mono text-xs break-all text-ink-muted"
+            data-testid="leave-review-link"
+          >
+            {link}
+          </figcaption>
+        </figure>
+      ) : (
+        <p className="text-sm text-ink-muted" data-testid="leave-review-none">
+          This centre has no Google review link yet. The Super Admin adds it under Centres.
+        </p>
+      )}
+    </section>
   );
 }

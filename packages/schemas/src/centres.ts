@@ -85,6 +85,32 @@ export const mapLinkSchema = z
     { error: 'Paste the Google Maps link to the centre (it starts with https://).' },
   );
 
+const reviewHosts = new Set(['g.page', 'search.google.com', 'maps.app.goo.gl']);
+
+/**
+ * The centre's Google review link (PAT-09; PRD J7.3: "Google review requests"): sent to every
+ * discharged patient. Only https Google review addresses are accepted (DECISION PAT-09).
+ */
+export const reviewLinkSchema = z
+  .string()
+  .trim()
+  .refine(
+    (text) => {
+      let url: URL;
+      try {
+        url = new URL(text);
+      } catch {
+        return false;
+      }
+      if (url.protocol !== 'https:' || url.username || url.password) return false;
+      if (url.hostname === 'google.com' || url.hostname === 'www.google.com') {
+        return url.pathname.startsWith('/maps') || url.pathname.startsWith('/search');
+      }
+      return reviewHosts.has(url.hostname);
+    },
+    { error: 'Paste the centre’s Google review link (it starts with https://).' },
+  );
+
 /** A centre's details, as the Super Admin enters them. */
 export const centreDetailsSchema = z.object({
   name: z
@@ -99,6 +125,13 @@ export const centreDetailsSchema = z.object({
     .max(300, { error: 'Keep the address under 300 characters.' }),
   phone: indianPhoneSchema,
   mapLink: mapLinkSchema,
+  /** PAT-09: optional until the clinic has it; empty clears it. */
+  reviewLink: z
+    .string()
+    .trim()
+    .optional()
+    .transform((text) => (text === undefined ? undefined : text === '' ? null : text))
+    .pipe(reviewLinkSchema.nullable().optional()),
   colour: z.enum(colourValues, { error: 'Choose the centre’s chart colour.' }),
 });
 

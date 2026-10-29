@@ -36,7 +36,10 @@ patient's submit; INT-10); `ai.preparation_sheet` (queued by that pipeline; chec
 AI-09, `docs/runbooks/ai-gate.md`, then makes the preparation sheet if the submit's own run did
 not, AI-03, `docs/runbooks/ai-preparation-sheet.md`); `whatsapp.first_treatment_check` (queued by the database when an episode's session 1 is signed,
 for the next day at 10:00 IST, key `whatsapp.first_treatment_check:<episode id>`; does nothing
-until WA-06; PAT-05, see `docs/runbooks/feedback.md`); `whatsapp.session_3_check` (queued by the database when an episode's session 3 is signed, at once,
+until WA-06; PAT-05, see `docs/runbooks/feedback.md`); `whatsapp.review_request` (queued by the database when any episode is discharged, for the next day
+at 10:00 IST, key `whatsapp.review_request:<episode id>`; never filtered; does nothing until WA-06,
+which sends the centre's review link; PAT-09, see `docs/runbooks/feedback.md`);
+`whatsapp.session_3_check` (queued by the database when an episode's session 3 is signed, at once,
 key `whatsapp.session_3_check:<episode id>`; a message only, does nothing until WA-06; PAT-06, see
 `docs/runbooks/feedback.md`); `whatsapp.no_show` (queued by the database when an appointment becomes No show;
 ALT-04; does nothing until the WhatsApp tickets); `documents.consultation_summary` (queued by the

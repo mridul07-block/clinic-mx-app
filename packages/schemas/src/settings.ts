@@ -270,6 +270,18 @@ export const settingDefinitions = {
     source: 'TAD jobs: Day after first treatment check, next day, 10:00 AM (PAT-05)',
     description: 'The time of day, in IST, the day after first treatment check is sent.',
   },
+  'feedback.review_request_days': {
+    schema: z.int().min(0).max(14),
+    source:
+      'TAD jobs: Discharge feedback and review request, same day, then next day (PAT-09); recommended default',
+    description:
+      'Days after discharge that the review request is sent (1: the next day; the discharge report goes the same day).',
+  },
+  'feedback.review_request_time': {
+    schema: timeOfDay,
+    source: 'PAT-09: the TAD gives no time; 10:00 IST as the day after first treatment check',
+    description: 'The time of day, in IST, the review request is sent.',
+  },
   // DECISION PAT-06: which session's signing sends the session check; 3, as the TAD names it.
   'feedback.session_check_number': {
     schema: z.int().min(2).max(50),

@@ -8,7 +8,9 @@ import {
   insertFeedback,
   liveDischargeFeedbackLink,
   liveFeedbackLink,
+  reviewLinkTarget,
   type PatientLinkAccess,
+  type StaffMember,
 } from '@clinic-mx/db';
 import {
   FIRST_TREATMENT_ANSWER_KEY,
@@ -24,6 +26,7 @@ import {
 import { z } from 'zod';
 import { asPatient } from '../access/patient-db';
 import { patientService, staffService, type ServiceTransaction } from '../access/service';
+import { asStaff } from '../access/staff-db';
 import {
   PatientLinkError,
   completePatientLink,
@@ -274,4 +277,16 @@ export async function submitFirstTreatmentCheck(
     throw error;
   }
   return 'sent';
+}
+
+/**
+ * The review request's link for a discharged episode's desk QR (PAT-09): the episode's centre's
+ * Google review link, or null when it has none yet; undefined when the reader does not check in
+ * at that centre or the episode is not discharged. A public link, so no patient link is issued.
+ */
+export async function loadReviewLink(
+  actor: StaffMember,
+  episodeId: string,
+): Promise<{ link: string | null } | undefined> {
+  return asStaff(actor, (tx) => reviewLinkTarget(tx, episodeId));
 }

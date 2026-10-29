@@ -44,6 +44,8 @@ export const centre = pgTable(
     treadmills: integer('treadmills').notNull().default(1),
     address: text('address'),
     mapLink: text('map_link'),
+    /** PAT-09: the centre's Google review link, sent to every discharged patient. */
+    reviewLink: text('review_link'),
     phone: text('phone'),
     /** Chart colour only (Frontend Specification); never used to show status. */
     colour: text('colour').notNull(),

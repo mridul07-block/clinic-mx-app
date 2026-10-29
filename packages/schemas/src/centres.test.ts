@@ -7,6 +7,7 @@ import {
   formatIndianPhone,
   indianPhoneSchema,
   mapLinkSchema,
+  reviewLinkSchema,
 } from './centres';
 
 const details = {
@@ -86,5 +87,49 @@ describe('centre details', () => {
       expect(centreDetailsSchema.safeParse({ ...details, [field]: '' }).success, field).toBe(false);
     }
     expect(centreDetailsSchema.safeParse({ ...details, name: 'x'.repeat(61) }).success).toBe(false);
+  });
+});
+
+// PAT-09: the centre's Google review link, sent to every discharged patient.
+describe('the review link', () => {
+  it('takes an https Google review link, and nothing else', () => {
+    for (const link of [
+      'https://g.page/r/TestOnlyReview123/review',
+      'https://search.google.com/local/writereview?placeid=TestOnly',
+      'https://maps.app.goo.gl/TestOnly123',
+      'https://www.google.com/maps/place/TestOnly',
+    ]) {
+      expect(reviewLinkSchema.safeParse(link).success, link).toBe(true);
+    }
+    for (const link of [
+      'http://g.page/r/TestOnlyReview123/review',
+      'https://example.com/review',
+      'https://user:pass@g.page/r/x',
+      'g.page/r/TestOnlyReview123',
+      'https://www.google.com/mail',
+    ]) {
+      expect(reviewLinkSchema.safeParse(link).success, link).toBe(false);
+    }
+  });
+
+  it('is optional: empty clears it, left out keeps it', () => {
+    const details = {
+      name: 'HSR Layout',
+      address: 'Test address',
+      phone: '080 4123 4567',
+      mapLink: 'https://maps.app.goo.gl/TestOnly123',
+      colour: '#2F74BB',
+    };
+    const parsed = (reviewLink?: string) =>
+      centreDetailsSchema.safeParse({
+        ...details,
+        ...(reviewLink === undefined ? {} : { reviewLink }),
+      });
+    expect(parsed('').data?.reviewLink).toBeNull();
+    expect(parsed().data?.reviewLink).toBeUndefined();
+    expect(parsed(' https://g.page/r/TestOnlyReview123/review ').data?.reviewLink).toBe(
+      'https://g.page/r/TestOnlyReview123/review',
+    );
+    expect(parsed('https://example.com').success).toBe(false);
   });
 });

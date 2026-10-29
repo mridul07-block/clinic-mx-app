@@ -15,6 +15,7 @@ import {
   RED_FLAG_SAFETY_ADVICE_JOB,
   REVIEW_BOOK_JOB,
   REVIEW_OVERDUE_JOB,
+  REVIEW_REQUEST_MESSAGE_JOB,
   SESSION_3_CHECK_JOB,
   REFERRAL_LETTER_JOB,
   SERVICE_RECOVERY_ESCALATE_JOB,
@@ -88,6 +89,17 @@ export const jobHandlers: JobHandlers = {
    * go at once. A message only: WA-06 sends `session_3_check` with the patient's name, worded with
    * the client. Until then the job completes without sending.
    */
+  /**
+   * The review request (PAT-09), queued by the database when any episode is discharged, for the
+   * next day at 10:00 IST: to every discharged patient, never filtered by score. Nothing is sent
+   * yet: WA-06 sends `review_request` with the episode's centre's Google review link (and fails
+   * visibly, as a background job failure, when the centre has none). Until then the job completes
+   * without sending.
+   */
+  [REVIEW_REQUEST_MESSAGE_JOB]: defineJob({
+    payload: z.object({ episodeId: z.guid() }),
+    run: () => Promise.resolve(),
+  }),
   [SESSION_3_CHECK_JOB]: defineJob({
     payload: z.object({ sessionId: z.guid(), episodeId: z.guid(), appointmentId: z.guid() }),
     run: () => Promise.resolve(),

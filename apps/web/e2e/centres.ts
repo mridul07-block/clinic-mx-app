@@ -34,10 +34,10 @@ export async function restoreCentres(snapshot: CentreSnapshot): Promise<void> {
       await tx.update(centre).set({ active: false }).where(inArray(centre.id, added));
     await tx.update(centre).set({ active: false }).where(inArray(centre.id, known));
     for (const row of snapshot) {
-      const { name, address, mapLink, phone, colour, active, treadmills } = row;
+      const { name, address, mapLink, reviewLink, phone, colour, active, treadmills } = row;
       await tx
         .update(centre)
-        .set({ name, address, mapLink, phone, colour, active, treadmills })
+        .set({ name, address, mapLink, reviewLink, phone, colour, active, treadmills })
         .where(inArray(centre.id, [row.id]));
     }
   });

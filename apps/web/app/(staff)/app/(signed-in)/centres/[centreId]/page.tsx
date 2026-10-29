@@ -85,6 +85,8 @@ export default async function CentrePage({
             <dd>{centre.phone ? formatIndianPhone(centre.phone) : 'None yet'}</dd>
             <dt className="font-medium text-ink">Map link</dt>
             <dd className="break-all">{centre.mapLink ?? 'None yet'}</dd>
+            <dt className="font-medium text-ink">Google review link</dt>
+            <dd className="break-all">{centre.reviewLink ?? 'None yet'}</dd>
             <dt className="font-medium text-ink">Zero Gravity Treadmills</dt>
             <dd>{centre.treadmills}</dd>
           </dl>
@@ -98,6 +100,7 @@ export default async function CentrePage({
               address: centre.address ?? '',
               phone: centre.phone ?? '',
               mapLink: centre.mapLink ?? '',
+              reviewLink: centre.reviewLink ?? '',
               colour: centre.colour,
               treadmills: String(centre.treadmills),
             }}

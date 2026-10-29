@@ -123,6 +123,7 @@ export {
   formatIndianPhone,
   indianPhoneSchema,
   mapLinkSchema,
+  reviewLinkSchema,
   newCentreSchema,
   treadmillsSchema,
   type CentreColour,
