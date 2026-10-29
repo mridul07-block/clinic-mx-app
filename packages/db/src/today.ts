@@ -36,6 +36,11 @@ export interface TodayAppointment {
    * for everyone else (row level security hides bills) and when there is none.
    */
   unpaidFeePaise: number | null;
+  /**
+   * The patient's unpaid session bills at any centre the reader sees amounts for (BIL-10); zero for
+   * everyone else.
+   */
+  unpaidSessions: number;
 }
 
 const physio = alias(staffUser, 'today_physio');
@@ -72,6 +77,11 @@ export async function todayBoard(
         where b.appointment_id = ${appointment.id} and b.kind = 'consultation'
           and b.status = 'unpaid'
       )`,
+      unpaidSessions: sql<number>`(
+        select count(*)::int from bill b
+        where b.patient_id = ${appointment.patientId} and b.kind = 'session'
+          and b.status = 'unpaid'
+      )`.mapWith(Number),
     })
     .from(appointment)
     .innerJoin(patient, eq(patient.id, appointment.patientId))

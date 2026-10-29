@@ -6,6 +6,7 @@ import {
   reportAddedBy,
   reportKindLabels,
   reportSizeText,
+  unpaidSessionsLabel,
   type HealthFormState,
 } from '@clinic-mx/schemas';
 import type { Tone } from '@clinic-mx/ui';
@@ -153,6 +154,34 @@ export async function CheckInDrawer({
               <span className="text-ink-secondary">{view.session.gate.message}</span>
             </p>
           )}
+        </section>
+      ) : null}
+
+      {view.unpaid ? (
+        // BIL-10: what the patient owes; a flag above the set number of unpaid sessions, never a
+        // block on booking or check in (DECISION #10).
+        <section aria-labelledby="unpaid" className="flex flex-col gap-2">
+          <h3 id="unpaid" className="font-semibold text-ink">
+            Unpaid
+          </h3>
+          <p data-testid="unpaid-balance" className="flex flex-wrap items-center gap-2 text-ink">
+            {view.unpaid.flagged ? (
+              <Tag tone="danger">Over {view.unpaid.flagAbove} unpaid sessions</Tag>
+            ) : null}
+            <span>
+              {view.unpaid.amount}
+              {view.unpaid.sessions > 0 ? `, ${unpaidSessionsLabel(view.unpaid.sessions)}` : ''}
+            </span>
+            {appointment.episodeId ? (
+              <Link
+                href={['/app/plans', appointment.episodeId].join('/')}
+                prefetch={false}
+                className={linkClass}
+              >
+                This episode’s bills
+              </Link>
+            ) : null}
+          </p>
         </section>
       ) : null}
 

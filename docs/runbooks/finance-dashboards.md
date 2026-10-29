@@ -41,7 +41,10 @@ are recorded in the DECISION register as "DSH-04" for the client to confirm.
   - amount;
   - days since the bill was raised;
   - the patient's OP number. The patient's name is never shown.
-- Pay as you go balances and the flag above 3 unpaid sessions come with BIL-10.
+- Above them, Patient balances (BIL-10, pay as you go): per patient, largest first, with the
+  OP number, centres, amount, unpaid bills, unpaid sessions and days since the oldest; "Over 3
+  unpaid sessions" when more than `billing.unpaid_sessions_flag_above` are unpaid. A flag only
+  (DECISION #10). See `docs/runbooks/bills.md`.
 
 **Packages**
 
@@ -59,14 +62,15 @@ are recorded in the DECISION register as "DSH-04" for the client to confirm.
   - each of the last 12 months against the same month a year before (grey), with this month
     hatched "so far";
   - this month by centre, in the centre colours;
-  - the last 12 months by service (consultation fee or package).
+  - the last 12 months by service (consultation fee, package or session).
 - **Fetching:** the two years are fetched as two calls of one year each.
 - **Refunds** are on their own tab (BIL-11, `docs/runbooks/refunds.md`); Collections count them
   apart. Credits wait for decision 12.
 
 **CSV**
 
-- Collections, Unpaid and Revenue each download as a CSV through `/app/finance/export/[table]`.
+- Collections, Unpaid, Balances (BIL-10) and Revenue each download as a CSV through
+  `/app/finance/export/[table]`.
 - The route checks the person and `dashboard.finance` (401 or 403 otherwise) and sends
   `no-store`.
 - The files have:

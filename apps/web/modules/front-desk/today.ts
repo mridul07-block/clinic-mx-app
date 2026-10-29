@@ -6,12 +6,19 @@ import {
   type StaffMember,
   type TodayAppointment,
 } from '@clinic-mx/db';
-import { calendarQuerySchema, sessionView, type SessionView } from '@clinic-mx/schemas';
+import { calendarQuerySchema, sessionView, ytpFlagged, type SessionView } from '@clinic-mx/schemas';
 import { assertCan } from '../access/guard';
 import { asStaff } from '../access/staff-db';
+import { getSetting } from '../settings/settings';
 
-/** A Today row: the appointment and, for a treatment session, its number and gate (SES-01). */
-export type TodayRow = TodayAppointment & { session: SessionView | null };
+/**
+ * A Today row: the appointment and, for a treatment session, its number and gate (SES-01); with
+ * the setting's number when the patient is over it in unpaid sessions (BIL-10), a flag only.
+ */
+export type TodayRow = TodayAppointment & {
+  session: SessionView | null;
+  unpaidFlagAbove: number | null;
+};
 
 /** The Today board's appointments and their fingerprint, for the live check. */
 export interface TodayView {
@@ -26,13 +33,18 @@ export interface TodayView {
 export async function loadToday(actor: StaffMember, rawQuery: unknown): Promise<TodayView> {
   const query = calendarQuerySchema.parse(rawQuery);
   assertCan(actor, 'check_in.manage', { centreId: query.centreId });
+  const flagAbove = await getSetting('billing.unpaid_sessions_flag_above');
   const appointments = await asStaff(actor, async (tx) => {
     const rows = await todayBoard(tx, query);
     const progress = await sessionProgress(
       tx,
       rows.map((row) => row.id),
     );
-    return rows.map((row) => ({ ...row, session: sessionView(progress.get(row.id)) }));
+    return rows.map((row) => ({
+      ...row,
+      session: sessionView(progress.get(row.id)),
+      unpaidFlagAbove: ytpFlagged(row.unpaidSessions, flagAbove) ? flagAbove : null,
+    }));
   });
   return { appointments, version: contentVersion(appointments) };
 }

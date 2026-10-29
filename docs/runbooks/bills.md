@@ -2,7 +2,7 @@
 
 BIL-05: "Bills at fixed prices". Sources: PRD J4.6 ("Prices cannot be edited at the desk") and §7 (the consultation fee by the consulting physio's level; the fee timing setting), and TAD §4 and §9. Decisions made by the user on 25 October 2026.
 
-Payment is BIL-06, discounts BIL-07, package activation BIL-08 and the invoice PDF BIL-09 (below). Per-session and per-use modality bills come with the session tickets.
+Payment is BIL-06, discounts BIL-07, package activation BIL-08, the invoice PDF BIL-09 and session bills with pay as you go balances BIL-10 (below). Per-use modality lines wait for the client (decisions 8 and 16).
 
 ## Who makes a bill
 
@@ -12,6 +12,7 @@ Only the database makes bills, at the price master's amounts. Nobody types a pri
 | --- | --- | --- |
 | Consultation fee | A consultation visit reaches the moment set by `billing.consultation_fee_timing`: `after_consultation` (default) when it becomes Completed; `at_check_in` when it is Checked in, walk-ins included | The consultant's own fee price item (`staff_user.consultation_price_item_id`, set by the Super Admin on Staff from `billing.consultation_price_items`: Consultation ₹750, Senior consultation ₹1,000) |
 | Package | The patient chooses a package on the plan and payment sheet (BIL-02) | The package type's price |
+| Session (BIL-10) | A session is signed (Close session) in an episode whose newest plan choice is pay per session, and no package was used for it | The chosen session price item's amount when signed, one line "<label>, session <n>" |
 
 **Further rules:**
 - **One per visit:** each visit gets one consultation fee bill. Making it again returns the same bill.
@@ -32,6 +33,16 @@ Only the database makes bills, at the price master's amounts. Nobody types a pri
 - its lines and total
 
 **Today:** a row with an unpaid consultation fee shows "Unpaid ₹750" to those who see amounts.
+
+## Pay as you go balances (BIL-10)
+
+Ticket: "YTP balances (decision 10): partial payments create a balance; flag above 3 unpaid sessions"; PRD M8 and section 7 ("Unpaid balance flag: above 3 unpaid sessions"), Frontend Specification section 8 (Finance, Unpaid). Payments stay whole (user decision, 25 October 2026), so a patient's balance is their unpaid bills. Every other choice is a recommended default chosen under the user's standing approval, 29 October 2026 (DECISION BIL-10).
+
+- **Session bills:** signing a session bills it when the episode's newest plan choice is pay per session and no package was used for it (`internal.make_session_bill`, from the `session_bill` trigger), at the chosen session price item's amount at that moment, created by the physio who signed. One live bill per session visit (`bill_live_session_key`); it names the visit, never the plan choice (`bill_source`). Paid, discounted, invoiced and refunded like any bill, one at a time.
+- **Not billed:** a session that used a package; a package episode whose package is used up, expired or not yet paid (DECISION BIL-10, for the client); per-use modality lines (decisions 8 and 16).
+- **Also decided (DECISION BIL-10):** a treadmill visit counts as a session (as it uses a package session) and is billed at the chosen session price; the chosen price item is billed even once retired; a later choice never cancels session bills (sessions taken are owed), so a bill made in error stays until a cancel action is decided.
+- **The balance:** a patient's unpaid bills across the centres the reader sees amounts at (`ytpBalances`, `patientUnpaid` in `packages/db/src/finance.ts`; the Today board counts the same way): the amount, the bills, how many are sessions, and their centres, read under the reader's row level security (the desk at its centres, Finance and the Super Admin everywhere; nobody else sees any). `bill_unpaid_patient_idx` keeps the board's count quick.
+- **The flag:** more than `billing.unpaid_sessions_flag_above` (3) unpaid sessions (`ytpFlagged`). Shown as "Over 3 unpaid sessions" on the Today row, in the check in drawer's Unpaid section (with the amount, the unpaid sessions and a link to this episode's bills) and on Finance's Unpaid, Patient balances. It never blocks booking or check in (DECISION #10: whether it should is the client's).
 
 ## Where it is enforced
 
@@ -173,6 +184,10 @@ Screen: `plans/[episodeId]/discount-forms.tsx`. A discount is never typed as a n
 | `packages/db/src/integration/clinical-record.integration.test.ts` (counter payments) | packages: activated by the package bill only, with sessions, reschedules, valid to the month's end and the reminder at 10:00 AM IST; a session used only while active and only by the system; the undo cancels it, refused once a session is used; read by the desk, Finance, the Super Admin and its physio, not another centre or the manager; nobody writes one |
 | `packages/schemas/src/packages.test.ts` | the state on its last day and the day after, used up, cancelled; reschedules rounded down |
 | `apps/web/e2e/packages.spec.ts` | 360 px and desktop: paid by UPI, the sheet's meter "0 of 12 used · Valid until … · 1 reschedule left"; the patient record lists it; Finance's Active, Expiring in 14 days and Expired with sessions left; nothing for the desk at another centre; the physio sees the sessions and no price; the undo cancels it |
+| `packages/db/src/integration/session-bills.integration.test.ts` | a session paid per session billed once when signed at the chosen price, the line and number, made again returns the same bill, a later price for a later session, audited; nothing for no choice, a package choice or a package used; one live bill per visit, the visit required, no plan choice, nobody signed in makes one; balances summed and counted, lowered by a payment; read by the desk at the centre, Finance and the Super Admin, not another centre, the manager or physios; a patient owing at two centres counted once, the same on Finance and Today, the desk counting its own centre only and the manager nothing. Without the `session_bill` trigger it fails |
+| `apps/web/modules/front-desk/services.test.ts` (board) | a row flagged only above the setting, with its number |
+| `packages/schemas/src/bills.test.ts` (balances) | the flag above the setting only, whatever the setting; the labels |
+| `apps/web/e2e/session-bills.spec.ts` | 360 px and desktop: pay per session recorded; three signed sessions not flagged; a fourth flags Today and the drawer ("₹4,750, 4 unpaid sessions") and check in still works; four session bills on the sheet; Finance's balance flagged by OP number, no name, and its CSV |
 | `apps/web/e2e/bills.spec.ts` | 360 px and desktop: "Unpaid ₹750" on Today; the fee bill on the sheet; a package billed then cancelled; a physio refused; no bills for the desk at another centre; no fee set, then made after the fee is set (Senior, ₹1,000) |
 | `packages/db/src/integration/clinical-record.integration.test.ts` (counter payments, discounts) | a preset at the desk, net total and payment, the preset copied, audited as the desk, on the invoice; another discount refused to the desk, another centre, the manager, a physio and support, refused to Finance without a reason, applied by Finance, kept from the desk, removed by the Super Admin; the desk removes its own preset, not at another centre, and reads Finance's name; a payment for a total not shown refused, and an invoice keeping its charged lines after an undo and a new discount; a 100% preset, a discount as large as the bill and a preset not in use refused; no direct write; a paid bill's discount kept, whoever writes |
 | `packages/schemas/src/bills.test.ts` | rounding half up to the paisa; a preset, a percent or an amount with its reason; no reason, a percent outside 1 to 99, no choice refused |

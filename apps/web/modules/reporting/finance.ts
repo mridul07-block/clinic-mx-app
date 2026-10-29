@@ -7,6 +7,7 @@ import {
   refundsDaily,
   revenueMonthly,
   unpaidBills,
+  ytpBalances,
   type StaffMember,
 } from '@clinic-mx/db';
 import {
@@ -28,6 +29,7 @@ import {
   paymentMethods,
   startOfIstDay,
   toCsv,
+  ytpFlagged,
   type FinanceExport,
 } from '@clinic-mx/schemas';
 import { NotAllowedError } from '../access/guard';
@@ -175,14 +177,33 @@ export interface UnpaidView {
     /** The bill's plan and payment sheet, where Finance applies a discount (BIL-07). */
     href: string | null;
   }[];
-  coming: string;
+  /** Flagged above this many unpaid sessions (`billing.unpaid_sessions_flag_above`). */
+  flagAbove: number;
+  /** Pay as you go balances (BIL-10): per patient, the largest first. */
+  balances: {
+    opNumber: string;
+    centre: string;
+    amount: string;
+    bills: number;
+    sessions: number;
+    flagged: boolean;
+    /** Days since the oldest unpaid bill was raised (IST). */
+    days: number;
+  }[];
+}
+
+/** Whole IST days from `then` to `now`. */
+function daysSince(then: Date, now: Date): number {
+  const start = startOfIstDay(istDate(now)).getTime();
+  return Math.max(0, Math.floor((start - startOfIstDay(istDate(then)).getTime()) / 86_400_000));
 }
 
 export async function unpaidView(actor: StaffMember, now = new Date()): Promise<UnpaidView> {
   assertReads(actor);
-  const start = startOfIstDay(istDate(now)).getTime();
+  const flagAbove = await getSetting('billing.unpaid_sessions_flag_above');
   return asStaff(actor, async (tx) => {
     const rows = await unpaidBills(tx);
+    const balances = await ytpBalances(tx);
     return {
       count: rows.length,
       total: formatRupees(rows.reduce((sum, row) => sum + row.totalPaise, 0)),
@@ -191,14 +212,20 @@ export async function unpaidView(actor: StaffMember, now = new Date()): Promise<
         centre: row.centreName,
         kind: billKindLabels[row.kind],
         amount: formatRupees(row.totalPaise),
-        days: Math.max(
-          0,
-          Math.floor((start - startOfIstDay(istDate(row.createdAt)).getTime()) / 86_400_000),
-        ),
+        days: daysSince(row.createdAt, now),
         opNumber: row.opNumber,
         href: row.episodeId ? ['/app/plans', row.episodeId].join('/') : null,
       })),
-      coming: financeComing.unpaid,
+      flagAbove,
+      balances: balances.map((row) => ({
+        opNumber: row.opNumber,
+        centre: row.centreName,
+        amount: formatRupees(row.unpaidPaise),
+        bills: row.unpaidBills,
+        sessions: row.unpaidSessions,
+        flagged: ytpFlagged(row.unpaidSessions, flagAbove),
+        days: daysSince(row.oldestAt, now),
+      })),
     };
   });
 }
@@ -325,6 +352,33 @@ export async function financeCsv(
           csvRupees(row.totalPaise),
           istDate(row.createdAt),
           row.opNumber,
+        ]),
+      ),
+    };
+  }
+  if (table === 'balances') {
+    const flagAbove = await getSetting('billing.unpaid_sessions_flag_above');
+    const rows = await asStaff(actor, ytpBalances);
+    return {
+      filename: `${['clinic-mx-balances', today].join('-')}.csv`,
+      body: toCsv(
+        [
+          'OP number',
+          'Centres',
+          'Rupees',
+          'Unpaid bills',
+          'Unpaid sessions',
+          'Flagged',
+          'Oldest (IST)',
+        ],
+        rows.map((row) => [
+          row.opNumber,
+          row.centreName,
+          csvRupees(row.unpaidPaise),
+          row.unpaidBills,
+          row.unpaidSessions,
+          ytpFlagged(row.unpaidSessions, flagAbove) ? 'Yes' : 'No',
+          istDate(row.oldestAt),
         ]),
       ),
     };

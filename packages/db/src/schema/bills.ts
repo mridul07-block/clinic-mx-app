@@ -34,7 +34,7 @@ export const billStatus = pgEnum('bill_status', billStatuses);
 /**
  * A bill (BIL-05, TAD section 4): made by the database at the price master's amounts, never by a
  * person typing a price. The consultation fee's names its appointment, a package's the patient's
- * choice. Staff read bills at their centre if they see amounts; nobody signed in adds, changes or
+ * choice, a session's (BIL-10) the session's visit. Staff read bills at their centre if they see amounts; nobody signed in adds, changes or
  * deletes one. A bill no longer wanted is cancelled with its reason, never removed.
  */
 export const bill = pgTable(
@@ -63,15 +63,22 @@ export const bill = pgTable(
   },
   (table) => [
     index('bill_episode_idx').on(table.episodeId, table.createdAt),
+    // BIL-10: a patient's unpaid bills, counted on every Today refresh and in the drawer.
+    index('bill_unpaid_patient_idx')
+      .on(table.patientId)
+      .where(sql`${table.status} = 'unpaid'`),
     uniqueIndex('bill_live_consultation_key')
       .on(table.appointmentId)
       .where(sql`${table.kind} = 'consultation' and ${table.status} <> 'cancelled'`),
     uniqueIndex('bill_choice_key').on(table.planChoiceId),
+    uniqueIndex('bill_live_session_key')
+      .on(table.appointmentId)
+      .where(sql`${table.kind} = 'session' and ${table.status} <> 'cancelled'`),
     check(
       'bill_source',
       sql`case ${table.kind}
-        when 'consultation' then ${table.appointmentId} is not null and ${table.planChoiceId} is null
-        else ${table.planChoiceId} is not null and ${table.appointmentId} is null
+        when 'package' then ${table.planChoiceId} is not null and ${table.appointmentId} is null
+        else ${table.appointmentId} is not null and ${table.planChoiceId} is null
       end`,
     ),
     check('bill_total', sql`${table.totalPaise} >= 0`),

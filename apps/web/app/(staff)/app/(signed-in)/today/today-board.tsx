@@ -20,7 +20,10 @@ import { calendarHref } from '../../../../../modules/scheduling/links';
 import { shownStatus, shownStatusLabels, stripClass, timeOf } from '../calendar/calendar-block';
 
 /** A Today row with its session (SES-01). */
-type TodayRow = TodayAppointment & { session: SessionView | null };
+type TodayRow = TodayAppointment & {
+  session: SessionView | null;
+  unpaidFlagAbove: number | null;
+};
 
 const matches = (appointment: TodayRow, filter: TodayFilter | undefined) =>
   inTodayFilter(appointment.status, filter);
@@ -247,6 +250,12 @@ export function TodayBoard({
                   {pricesPlans && appointment.unpaidFeePaise !== null ? (
                     // BIL-05: the consultation fee is billed and waiting at the counter.
                     <Tag tone="waiting">Unpaid {formatRupees(appointment.unpaidFeePaise)}</Tag>
+                  ) : null}
+                  {pricesPlans && appointment.unpaidFlagAbove !== null ? (
+                    // BIL-10: over the set number of unpaid sessions; a flag, never a block.
+                    <span data-testid="unpaid-flag">
+                      <Tag tone="danger">Over {appointment.unpaidFlagAbove} unpaid sessions</Tag>
+                    </span>
                   ) : null}
                 </span>
                 <span className="col-start-3 row-span-2 row-start-1 justify-self-end md:col-start-4 md:row-span-1">

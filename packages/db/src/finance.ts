@@ -160,6 +160,65 @@ export function unpaidBills(db: DbOrTransaction): Promise<UnpaidBillRow[]> {
     .orderBy(desc(bill.totalPaise), bill.createdAt);
 }
 
+/** A patient's pay as you go balance (BIL-10): their unpaid bills the reader sees. */
+export interface YtpBalanceRow {
+  patientId: string;
+  opNumber: string;
+  /** The centres of those bills, by name, joined with commas. */
+  centreName: string;
+  unpaidPaise: number;
+  unpaidBills: number;
+  /** How many of those bills are for sessions paid per session. */
+  unpaidSessions: number;
+  /** When the oldest of them was raised. */
+  oldestAt: Date;
+}
+
+const unpaidSessionCount = sql<number>`(count(*) filter (where ${bill.kind} = 'session'))::int`;
+
+/**
+ * Pay as you go balances (BIL-10; payments are whole, so a balance is the unpaid bills): per
+ * patient across the centres the reader sees amounts at, as the Today board and the check in
+ * drawer count them, the largest first, by OP number, never the patient's name.
+ */
+export function ytpBalances(db: DbOrTransaction): Promise<YtpBalanceRow[]> {
+  const unpaidPaise = sql<number>`sum(${bill.totalPaise})::bigint`.mapWith(Number);
+  return db
+    .select({
+      patientId: bill.patientId,
+      opNumber: patient.opNumber,
+      centreName: sql<string>`string_agg(distinct ${centre.name}, ', ' order by ${centre.name})`,
+      unpaidPaise,
+      unpaidBills: sql<number>`count(*)::int`.mapWith(Number),
+      unpaidSessions: unpaidSessionCount.mapWith(Number),
+      oldestAt: sql<Date>`min(${bill.createdAt})`.mapWith(
+        (value: string | Date) => new Date(value),
+      ),
+    })
+    .from(bill)
+    .innerJoin(centre, eq(centre.id, bill.centreId))
+    .innerJoin(patient, eq(patient.id, bill.patientId))
+    .where(eq(bill.status, 'unpaid'))
+    .groupBy(bill.patientId, patient.opNumber)
+    .orderBy(desc(unpaidPaise), patient.opNumber);
+}
+
+/** One patient's unpaid bills that the reader sees (BIL-10): the paise, the bills, the sessions. */
+export async function patientUnpaid(
+  db: DbOrTransaction,
+  patientId: string,
+): Promise<{ unpaidPaise: number; unpaidBills: number; unpaidSessions: number }> {
+  const [row] = await db
+    .select({
+      unpaidPaise: sql<number>`coalesce(sum(${bill.totalPaise}), 0)::bigint`.mapWith(Number),
+      unpaidBills: sql<number>`count(*)::int`.mapWith(Number),
+      unpaidSessions: unpaidSessionCount.mapWith(Number),
+    })
+    .from(bill)
+    .where(and(eq(bill.patientId, patientId), eq(bill.status, 'unpaid')));
+  return row ?? { unpaidPaise: 0, unpaidBills: 0, unpaidSessions: 0 };
+}
+
 /**
  * Live packages per centre as of `today` (the rules of the Packages list, BIL-08): active,
  * expiring within `expiringDays`, and expired with sessions left, with their sessions left.

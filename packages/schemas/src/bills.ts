@@ -7,16 +7,18 @@ import { rupeesSchema } from './money';
  * master's amounts, so nobody edits a price at the desk: the consultation fee when
  * `billing.consultation_fee_timing` says (after the consultation or at check in), at the
  * consultant's own fee (decision G4), and a package bill when the patient chooses a package
- * (BIL-02). Numbers are the centre's code, "B" and its next bill number, for example HSR-B-00001.
- * Payment (BIL-06), discounts (BIL-07) and invoices (BIL-09) come with their tickets.
+ * (BIL-02), and a session bill when a session paid per session is signed with no package used
+ * for it (BIL-10). Numbers are the centre's code, "B" and its next bill number, for example
+ * HSR-B-00001. Payment (BIL-06), discounts (BIL-07) and invoices (BIL-09) come with their tickets.
  */
 
-export const billKinds = ['consultation', 'package'] as const;
+export const billKinds = ['consultation', 'package', 'session'] as const;
 export type BillKind = (typeof billKinds)[number];
 
 export const billKindLabels: Record<BillKind, string> = {
   consultation: 'Consultation fee',
   package: 'Package',
+  session: 'Session',
 };
 
 export const billStatuses = ['unpaid', 'paid', 'cancelled'] as const;
@@ -35,6 +37,20 @@ export const billNumberPattern = /^[A-Z]{2,4}-B-\d{5,}$/;
 export const makeConsultationBillSchema = z.object({
   episodeId: z.guid({ error: 'That episode was not found.' }),
 });
+
+/**
+ * Pay as you go balances (BIL-10, PRD section 7): a patient is flagged when more than
+ * `billing.unpaid_sessions_flag_above` sessions are unpaid. A flag only: nothing blocks booking or
+ * check in until the client decides (DECISION #10).
+ */
+export function ytpFlagged(unpaidSessions: number, flagAbove: number): boolean {
+  return unpaidSessions > flagAbove;
+}
+
+/** "4 unpaid sessions", "1 unpaid session". */
+export function unpaidSessionsLabel(count: number): string {
+  return `${String(count)} unpaid ${count === 1 ? 'session' : 'sessions'}`;
+}
 
 /** Whether a consultation visit in this status is due its fee bill under the timing setting. */
 export function consultationFeeDue(

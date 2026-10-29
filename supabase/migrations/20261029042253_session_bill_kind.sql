@@ -1,0 +1,1 @@
+ALTER TYPE "public"."bill_kind" ADD VALUE 'session';

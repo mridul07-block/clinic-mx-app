@@ -1,0 +1,1 @@
+CREATE INDEX "bill_unpaid_patient_idx" ON "bill" USING btree ("patient_id") WHERE "bill"."status" = 'unpaid';
