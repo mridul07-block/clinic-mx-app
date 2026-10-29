@@ -689,3 +689,15 @@ export {
   type PreparationSheet,
   type SheetListing,
 } from './ai-sheet';
+export {
+  filledInstruments,
+  insertQuestionnaireResult,
+  liveQuestionnaireLink,
+  questionnaireResults,
+  questionnaireTarget,
+  questionnairesAnswered,
+  questionnairesDone,
+  questionnairesDue,
+  type DueQuestionnaire,
+  type QuestionnaireResultEntry,
+} from './questionnaire-results';

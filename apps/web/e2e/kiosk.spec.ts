@@ -126,8 +126,9 @@ test('a set up tablet is locked to the form sent to it, and resets after 2 minut
   await expect(phone.getByTestId('patient-link-status')).toHaveAttribute('data-status', 'valid');
   await phone.context().close();
 
-  // Touching the tablet keeps the next form: it resets 2 minutes after the last touch.
-  const next = await testLink({ purpose: 'questionnaire' });
+  // Touching the tablet keeps the next form: it resets 2 minutes after the last touch. (A form
+  // that opens: a questionnaire link needs a plan with one to fill since OUT-02.)
+  const next = await testLink({ purpose: 'consent' });
   await sendToTablet(kioskId, next.id);
   await waitForForm(page);
   await page.clock.runFor(60_000);
