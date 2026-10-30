@@ -257,17 +257,17 @@ export function partBGate(
   status: PartBStatus,
   plan: { package: boolean },
 ): { met: boolean; message: string } {
-  if (status.generalDeclined) {
-    return { met: false, message: 'Part B consent: a general term was declined. No treatment.' };
-  }
-  if (plan.package && status.packageDeclined) {
-    return {
-      met: false,
-      message: 'Part B consent: a package term was declined. Record another choice, or ask again.',
-    };
-  }
-  if (!status.complete) return { met: false, message: 'Part B consent is needed.' };
-  return { met: true, message: 'Part B consent complete' };
+  const reason: PartBGateReason = status.generalDeclined
+    ? 'general_declined'
+    : plan.package && status.packageDeclined
+      ? 'package_declined'
+      : status.complete
+        ? 'met'
+        : // Only a treatment's card outstanding: as when it was added to the plan later (BIL-04).
+          status.missing.every((key) => key.startsWith('part_b.modality.'))
+          ? 'missing_modality'
+          : 'missing';
+  return { met: reason === 'met', message: partBGateMessage(reason) };
 }
 
 /**
@@ -290,6 +290,7 @@ export const partBGateReasons = [
   'general_declined',
   'package_declined',
   'missing',
+  'missing_modality',
 ] as const;
 export type PartBGateReason = (typeof partBGateReasons)[number];
 
@@ -308,5 +309,7 @@ export function partBGateMessage(reason: PartBGateReason): string {
       return 'Part B consent: a package term was declined. Record another choice, or ask again.';
     case 'missing':
       return 'Part B consent is needed.';
+    case 'missing_modality':
+      return 'Consent for a newly planned treatment is needed before this session.';
   }
 }

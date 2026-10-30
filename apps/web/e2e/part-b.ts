@@ -1,6 +1,13 @@
-import { consentRecord, createDb, systemActor, withActor } from '@clinic-mx/db';
+import {
+  consentRecord,
+  createDb,
+  planModality,
+  planOfCare,
+  systemActor,
+  withActor,
+} from '@clinic-mx/db';
 import { partBStatementsFor } from '@clinic-mx/schemas';
-import { sql } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 
 // Part B consent for end to end tests (BIL-03, BIL-12): every statement the episode's Part B asks,
 // agreed by the patient with a typed name, as if signed on their phone. Generated test data only.
@@ -39,6 +46,39 @@ export async function partBAgreed(episodeId: string): Promise<void> {
         signer: 'patient' as const,
         signatureKind: 'typed' as const,
         typedName: 'Test Patient',
+      })),
+    );
+  });
+}
+
+/**
+ * A later version of the episode's plan of care adding `modalityKey` to what it plans (BIL-04): a
+ * copy of the newest version with the treatment added.
+ */
+export async function laterPlanAdding(episodeId: string, modalityKey: string): Promise<void> {
+  await withActor(db(), systemActor('tests'), async (tx) => {
+    const [newest] = await tx
+      .select()
+      .from(planOfCare)
+      .where(eq(planOfCare.episodeId, episodeId))
+      .orderBy(desc(planOfCare.version))
+      .limit(1);
+    if (!newest) throw new Error('The episode has no plan of care.');
+    const { id, ...rest } = newest;
+    const [later] = await tx
+      .insert(planOfCare)
+      .values({ ...rest, version: newest.version + 1, createdAt: new Date() })
+      .returning({ id: planOfCare.id });
+    if (!later) throw new Error('The plan of care was not written.');
+    const planned = await tx
+      .select({ modalityKey: planModality.modalityKey })
+      .from(planModality)
+      .where(eq(planModality.planOfCareId, id));
+    await tx.insert(planModality).values(
+      [...planned.map((row) => row.modalityKey), modalityKey].map((key) => ({
+        planOfCareId: later.id,
+        modalityKey: key,
+        reason: '',
       })),
     );
   });
