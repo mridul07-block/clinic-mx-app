@@ -78,7 +78,7 @@ which reaches everything:
 
 - Questionnaires wait for the clinic's instruments, licences and sign-off.
 - Exercise videos wait for the clinic's video library.
-- Part B consent waits for the clinic's consent texts.
+- Part B cards for Dry needling and the Zero Gravity Treadmill wait for the clinic's wording.
 
 ## If something goes wrong
 

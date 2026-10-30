@@ -79,7 +79,8 @@ On a phone, the bar at the bottom holds **Overview**, **Alerts**, **Settings** a
 - WhatsApp messages are queued but not sent; the desk shows patients a QR code instead. **WhatsApp templates** lists each message as a draft.
 - The AI preparation sheet stays off until the AI key and its blind test are done.
 - Questionnaires wait for the clinic's instruments, licences and sign-off.
-- Part B consent and diagnosis categories wait for the clinic's texts and mapping.
+- Part B wording for Dry needling and the Zero Gravity Treadmill, and the diagnosis categories, wait
+  for the clinic's texts and mapping.
 
 ## If something goes wrong
 

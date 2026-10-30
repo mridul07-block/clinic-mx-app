@@ -1,6 +1,6 @@
 import { asc, eq, sql, type SQL } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import { consentRecord, guardian } from './schema';
+import { consentRecord, guardian, patient } from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /** A consent decision as read back (INT-06). */
@@ -29,6 +29,16 @@ export interface OwnGuardian {
   id: string;
   name: string;
   relationship: (typeof guardian.$inferSelect)['relationship'];
+}
+
+/** The link's own patient, by name and date of birth, inside `withPatientAccess` (BIL-03). */
+export async function ownPatient(
+  db: DbOrTransaction,
+): Promise<{ id: string; name: string; dateOfBirth: string | null } | undefined> {
+  const [row] = await db
+    .select({ id: patient.id, name: patient.name, dateOfBirth: patient.dateOfBirth })
+    .from(patient);
+  return row;
 }
 
 /** The patient's guardians on file who are not removed, inside `withPatientAccess`. */

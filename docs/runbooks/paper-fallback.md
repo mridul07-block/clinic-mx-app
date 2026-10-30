@@ -33,7 +33,8 @@ Every choice below is a recommended default chosen under the user's standing app
 **Footer:** "Health form hf-3 · Part A consent version 1" and when it was printed.
 
 **What is not printed:**
-- **Part B:** it waits for its texts (BIL-03; decisions 9 and 21).
+- **Part B:** not printed: the patient signs it on their phone or the tablet (BIL-03,
+  `docs/runbooks/consent.md`).
 - **Report photos:** the desk adds them at check-in.
 
 **Wording still to approve:** the form's wording awaits the client's approval with the live form (INT-05). The paper-only words also go to the client:

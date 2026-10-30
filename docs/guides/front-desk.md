@@ -60,6 +60,14 @@ For a first visit about a problem, press **Form and reports** on the row.
    **Undo payment**, the same day.
 4. Once paid, **Book plan sessions**: **Check dates**, then **Book sessions**.
 
+### Ask for Part B consent
+
+1. After the patient's choice, on **Plan and payment**, find **Part B consent**.
+2. Press **Show Part B consent QR**: the patient scans it and signs on their phone. No phone? **Open
+   Part B on tablet**.
+3. **Complete** means treatment may start. **Declined** means speak to the patient; a declined
+   treatment is simply left out.
+
 ### Mark a no show
 
 1. In the Calendar, open the appointment and press **Mark no show** (from 25 minutes after the
@@ -89,7 +97,7 @@ For a first visit about a problem, press **Form and reports** on the row.
 ## Not live yet
 
 - WhatsApp messages are not sent. Show the patient a QR instead.
-- Part B consent waits for the clinic's consent texts.
+- Part B cards for Dry needling and the Zero Gravity Treadmill wait for the clinic's wording.
 
 ## If something goes wrong
 

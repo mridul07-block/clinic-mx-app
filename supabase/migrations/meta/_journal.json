@@ -1520,6 +1520,20 @@
       "when": 1793359365587,
       "tag": "20261030112245_whatsapp_webhook_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 217,
+      "version": "7",
+      "when": 1793354923245,
+      "tag": "20261030100843_consent_shown_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 218,
+      "version": "7",
+      "when": 1793354925523,
+      "tag": "20261030100845_part_b_consent_rules",
+      "breakpoints": true
     }
   ]
 }

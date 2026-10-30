@@ -290,6 +290,7 @@ export {
   latestConsent,
   minorStatus,
   parseConsent,
+  parseSignature,
   parseSigner,
   partAStatements,
   signatureKinds,
@@ -1330,3 +1331,17 @@ export {
   type WebhookContents,
   type WhatsappWebhook,
 } from './whatsapp-webhook';
+export {
+  modalityStatement,
+  parsePartB,
+  partBGate,
+  partBStatements,
+  partBStatementsFor,
+  partBStatus,
+  partBText,
+  partBToAsk,
+  type PartBFills,
+  type PartBStatement,
+  type PartBStatementKey,
+  type PartBStatus,
+} from './part-b-consent';

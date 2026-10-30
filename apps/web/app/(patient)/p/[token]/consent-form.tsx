@@ -21,7 +21,7 @@ import { patientPrimaryClass, patientSecondaryClass } from './patient-ui';
 const initialState: HealthFormState = {};
 
 /** A paired choice drawn as two 64 px buttons, as Yes / No and I agree / I do not agree. */
-const pairClass =
+export const pairClass =
   'flex min-h-16 cursor-pointer items-center justify-center rounded-control border border-line-control bg-surface px-2 text-center font-semibold text-ink has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-on-accent has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus';
 
 /** Who signs Part A (INT-07): under the adult age a guardian on file; unknown asks first. */
@@ -36,7 +36,7 @@ export interface ConsentSigning {
  * under 18?" first; for a patient under the adult age, the guardian on file who signs. Shown by
  * CSS while Yes is ticked, so it works without scripts.
  */
-function GuardianSection({
+export function GuardianSection({
   signing,
   values,
   errors,
@@ -129,7 +129,7 @@ const inBrowser = () => true;
 const onServer = () => false;
 
 /** The pad: draws on a canvas and posts it as a PNG; a typed name until scripts run. */
-function SignaturePad({ error, typedName }: { error?: string; typedName?: string }) {
+export function SignaturePad({ error, typedName }: { error?: string; typedName?: string }) {
   const id = useId();
   const canvas = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);

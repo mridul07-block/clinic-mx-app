@@ -19,7 +19,8 @@ import { guardian, patient } from './patients';
  * version, accepted or declined, when, and the e-signature: drawn on the pad (a PNG in the
  * private `signatures` bucket at `signature_file`) or a typed full name. Records are only ever
  * added; a change of mind is a new record, and the latest for each statement counts. Part A comes
- * with a visit's health form; the episode is set on submit (INT-10); Part B adds its modality.
+ * with a visit's health form; the episode is set on submit (INT-10). Part B (BIL-03) comes
+ * through the episode's consent link, with its modality and, when filled in, the text shown.
  */
 export const consentRecord = pgTable(
   'consent_record',
@@ -46,8 +47,13 @@ export const consentRecord = pgTable(
     signer: text('signer', { enum: consentSigners }).notNull(),
     /** The guardian on file who signed for a patient under the adult age (INT-07). */
     guardianId: uuid('guardian_id').references(() => guardian.id),
-    /** Part B's modality statements (later). */
+    /** A Part B modality card's modality (BIL-03). */
     modality: text('modality'),
+    /**
+     * The statement exactly as the patient read it, when it is filled in from their record (Part
+     * B's plan statement names the diagnosis and the modalities, BIL-03); null otherwise.
+     */
+    shownText: text('shown_text'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
