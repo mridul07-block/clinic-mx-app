@@ -62,8 +62,10 @@ answer, including a retry):
 zero data retention, and GPT 6.1 Sol as the yardstick if the clinicians want one.
 `docs/examples/blind-test-candidates.example.json` holds this file, with 12 seconds a call.
 
-**What it cost:** $0.59 on the development key, of which about $0.28 went on calls that timed out,
-whose cost never comes back (`docs/runbooks/ai-gateway.md`, Open risks). A real run of 50 cases
+**What it cost:** the full run at 12 seconds cost $0.44, of which about $0.28 went on calls that
+timed out, whose cost never comes back (`docs/runbooks/ai-gateway.md`, Open risks). With the
+probes and a first attempt at 6 seconds, stopped part way, the development key spent $0.59 in
+all. A real run of 50 cases
 with these candidates costs about $0.50 to $0.75.
 
 ## What the operator does

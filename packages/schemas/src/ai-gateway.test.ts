@@ -45,6 +45,8 @@ describe('the AI gateway schemas', () => {
     ]) {
       expect(namesBlockedProvider(pinned, blocked)).toBe(false);
     }
+    // A blocked entry written with a tag blocks the host whatever tag pins it.
+    expect(namesBlockedProvider(['deepseek/us'], ['DeepSeek/fp8'])).toBe(true);
   });
 
   it('takes back only numbered rows with a short reason', () => {
