@@ -61,7 +61,7 @@ const found = (value: ReturnType<typeof visit> | undefined) => {
   // As the database: progress only for a session type, in an Active episode by default (SES-01).
   db.sessionProgress.mockResolvedValue(
     value?.typeKey === 'session'
-      ? new Map([[value.id, { number: 1, planned: 12, episodeStatus: 'active' }]])
+      ? new Map([[value.id, { number: 1, planned: 12, episodeStatus: 'active', partB: 'met' }]])
       : new Map(),
   );
 };
@@ -80,7 +80,9 @@ describe('my patients today', () => {
     // A session in an Active episode by default: its gate is met (SES-01).
     db.sessionProgress.mockImplementation((_tx: unknown, ids: string[]) =>
       Promise.resolve(
-        new Map(ids.map((id) => [id, { number: 1, planned: 12, episodeStatus: 'active' }])),
+        new Map(
+          ids.map((id) => [id, { number: 1, planned: 12, episodeStatus: 'active', partB: 'met' }]),
+        ),
       ),
     );
   });
@@ -119,11 +121,11 @@ describe('my patients today', () => {
     );
   });
 
-  it('starts a session only once its gate is met (SES-01); consultations have none', async () => {
+  it('starts a session only once its gate is met (SES-01, BIL-12); consultations have none', async () => {
     found(visit());
-    const progress = (episodeStatus: string | null) =>
+    const progress = (episodeStatus: string | null, partB: string | null = 'met') =>
       db.sessionProgress.mockResolvedValueOnce(
-        new Map([[appointmentId, { number: 2, planned: 12, episodeStatus }]]),
+        new Map([[appointmentId, { number: 2, planned: 12, episodeStatus, partB }]]),
       );
     progress('plan_proposed');
     await expect(startVisit(context(), { appointmentId })).rejects.toThrow(
@@ -137,6 +139,13 @@ describe('my patients today', () => {
     await expect(startVisit(context(), { appointmentId })).rejects.toThrow(
       'Not part of an episode yet.',
     );
+    // BIL-12: paid, but Part B not met.
+    progress('active', 'missing');
+    await expect(startVisit(context(), { appointmentId })).rejects.toThrow(
+      'Part B consent is needed.',
+    );
+    progress('active', 'general_declined');
+    await expect(startVisit(context(), { appointmentId })).rejects.toThrow('No treatment');
     expect(db.startVisit).not.toHaveBeenCalled();
     progress('under_review');
     await expect(startVisit(context(), { appointmentId })).resolves.toEqual({

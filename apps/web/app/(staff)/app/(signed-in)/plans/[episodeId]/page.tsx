@@ -644,6 +644,9 @@ export default async function PlanSheetPage({
               view={partB}
               origin={origin}
               tablets={tablets}
+              closed={
+                sheet.episodeStatus === 'discharged' || sheet.episodeStatus === 'lost_to_follow_up'
+              }
             />
           ) : null}
         </>

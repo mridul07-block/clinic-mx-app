@@ -13,7 +13,9 @@ export interface PartBContext {
   episodeId: string;
   /** A signed consultation has a plan of care. */
   planned: boolean;
-  /** The plan's modalities, by name. */
+  /** The plan's interventions (exercise, manual therapy, …). */
+  interventions: string[];
+  /** The plan's modalities, by name, in the knowledge base's order. */
   modalities: { key: string; name: string }[];
   /** The patient's latest choice is a package. */
   package: boolean;
@@ -27,6 +29,7 @@ interface Row extends Record<string, unknown> {
   part_b: {
     episode_id: string;
     planned: boolean;
+    interventions: string[];
     modalities: { key: string; name: string }[];
     package: boolean;
     diagnosis: string | null;
@@ -40,6 +43,7 @@ function context(row: Row | undefined): PartBContext | undefined {
   return {
     episodeId: found.episode_id,
     planned: found.planned,
+    interventions: found.interventions,
     modalities: found.modalities,
     package: found.package,
     diagnosis: found.diagnosis,

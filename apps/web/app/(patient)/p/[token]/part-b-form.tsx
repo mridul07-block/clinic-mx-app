@@ -18,12 +18,16 @@ export function PartBConsentForm({
   token,
   firstName,
   cards,
+  awaiting,
+  shown,
   signing,
   guardianNeeded,
 }: {
   token: string;
   firstName: string;
   cards: PartBCard[];
+  awaiting: string[];
+  shown: string;
   signing: PartBSigning;
   guardianNeeded: boolean;
 }) {
@@ -33,6 +37,7 @@ export function PartBConsentForm({
   return (
     <form action={action} noValidate className="flex flex-col gap-6 pb-28">
       <input type="hidden" name="token" value={token} />
+      <input type="hidden" name="shown" value={shown} />
       <div className="flex flex-col gap-2">
         <h1 className="text-xl font-semibold text-ink">Your consent before treatment</h1>
         <p className="text-ink">
@@ -63,6 +68,7 @@ export function PartBConsentForm({
           <fieldset
             key={card.key}
             aria-invalid={errors[card.key] ? true : undefined}
+            aria-describedby={errors[card.key] ? [card.key, 'error'].join('-') : undefined}
             className="flex flex-col gap-3 rounded-panel border border-line bg-surface p-4"
             data-testid="part-b-card"
             data-key={card.key}
@@ -100,9 +106,25 @@ export function PartBConsentForm({
                 </label>
               ))}
             </div>
-            {errors[card.key] ? <p className="text-danger">{errors[card.key]}</p> : null}
+            {errors[card.key] ? (
+              <p id={[card.key, 'error'].join('-')} className="text-danger">
+                {errors[card.key]}
+              </p>
+            ) : null}
           </fieldset>
         ))}
+        {awaiting.length ? (
+          <div
+            className="flex flex-col gap-1 rounded-panel border border-line bg-surface-sunken p-4 text-ink"
+            data-testid="part-b-awaiting"
+          >
+            <p className="font-semibold">Not asked yet: {awaiting.join(', ')}</p>
+            <p>
+              The clinic’s consent wording for this is awaited. It will not be used until you have
+              read and agreed to it.
+            </p>
+          </div>
+        ) : null}
         <p className="text-ink">Sign below for what you agree to.</p>
         <SignaturePad
           error={errors.signature}

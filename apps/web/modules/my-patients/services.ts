@@ -141,7 +141,7 @@ export const startVisit = staffService({
     if (consulting && !found.episodeId) throw new SchedulingError(HEALTH_FORM_NEEDED);
     // SES-01: a treatment session starts only once its gate is met.
     if (session) {
-      const gate = sessionGate(session.episodeStatus);
+      const gate = sessionGate(session.episodeStatus, session.partB);
       if (!gate.met) throw new SchedulingError(gate.message);
     }
     if (!(await startVisitRow(tx, { appointmentId: found.id, by: actor.id, now }))) {

@@ -39,10 +39,15 @@ export async function savePartBAction(
     posted[key] = values.length === 1 ? (values[0] ?? '') : values;
   }
   const page = `/p/${token}`;
-  const result = await savePartB(token, posted, {
-    ip: await clientIp(),
-    store: signatureStore(),
-  });
+  let result: Awaited<ReturnType<typeof savePartB>>;
+  try {
+    result = await savePartB(token, posted, { ip: await clientIp(), store: signatureStore() });
+  } catch (error) {
+    // Sent twice at once (the phone and the tablet): the link's page says it is done.
+    const code = (error as { cause?: { code?: string } }).cause?.code;
+    if (error instanceof PatientLinkError || code === '42501') redirect(page);
+    throw error;
+  }
   if (result.status === 'invalid') {
     return { errors: result.errors, values: posted, attempt: (state.attempt ?? 0) + 1 };
   }

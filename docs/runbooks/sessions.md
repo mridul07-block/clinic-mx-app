@@ -13,13 +13,15 @@ An appointment whose type is in `packages.session_appointment_types` (Session, Z
 - **N:** the planned sessions of the episode's newest plan (sessions per week × weeks). Without a frequency the label is "Session n" alone. The package meter stays separate (BIL-08).
 - **n:** once a session appointment of the episode is checked in, it is 1 + the episode's earlier checked in, in progress or completed session appointments, in order of arrival. No-shows and cancellations never count. Undoing a check in gives the number back, because n is worked out on read.
 - SES-03 stores the session row with its number when the session starts.
-- **The read:** `internal.session_progress(appointment_ids)` (SECURITY DEFINER, `supabase/migrations/20261025175542_session_progress_rules.sql`) returns the number, the planned total and the episode's status. It answers only for appointments at centres the reader sees, so the front desk gets N without reading the plan. `sessionProgress` in `packages/db/src/sessions.ts` wraps it, and `sessionView` and `sessionGate` in `packages/schemas/src/sessions.ts` give the words.
+- **The read:** `internal.session_progress(appointment_ids)` (SECURITY DEFINER, `supabase/migrations/20261025175542_session_progress_rules.sql`) returns the number, the planned total, the episode's status and its Part B gate (`internal.part_b_gate`, BIL-12). It answers only for appointments at centres the reader sees, so the front desk gets N without reading the plan. `sessionProgress` in `packages/db/src/sessions.ts` wraps it, and `sessionView` and `sessionGate` in `packages/schemas/src/sessions.ts` give the words.
 
 ### The gate
 
 | Episode | Gate | What is shown |
 | --- | --- | --- |
-| Active, Under review (the chosen plan is paid, BIL-06) | Met | "Session 1 of 12, payment complete", and "Part B consent is not checked yet." |
+| Active, Under review (the chosen plan is paid, BIL-06), Part B met (BIL-03) | Met | "Session 1 of 12, consent and payment complete" |
+| Active, Under review, an opening entry with no signed plan here (SCH-13) | Met | Consent was given on paper before launch |
+| Active, Under review, Part B not met | Blocked | "Part B consent is needed.", "a general term was declined. No treatment.", "a package term was declined…" or "follows the signed plan." |
 | Intake pending, Awaiting consultation, Plan proposed | Blocked | "Consent and payment are needed before the first session." |
 | On hold, Discharged, Lost to follow up | Blocked | "The episode is On hold." (and so on) |
 | No episode | Blocked | "Not part of an episode yet." |
@@ -30,7 +32,7 @@ An appointment whose type is in `packages.session_appointment_types` (Session, Z
   - Today ("Session n of N" and "Gate blocked" tags)
   - My patients ("Gate blocked: …" in place of Start session)
 - **Enforced:** `startVisit` (`apps/web/modules/my-patients/services.ts`) refuses Start session with the gate's message while it is blocked.
-- **Consent (DECISION SES-01):** Part B consent (BIL-03) waits for the client's texts. Until then payment alone gates, and BIL-03 adds consent to `sessionGate`.
+- **Consent and pricing (BIL-12, PRD J4.9; DECISION BIL-12):** pricing is met once the chosen plan is paid; Part B is met once every statement asked is decided with no general term declined, and with a package choice no package term declined (`docs/runbooks/consent.md`). A declined treatment does not block: it is left out. The database works the Part B reason out (`internal.part_b_gate`, its statements kept the same as the app's by a test); `sessionGate` gives the words.
 
 ### Tests
 
