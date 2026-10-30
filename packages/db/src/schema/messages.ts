@@ -16,6 +16,7 @@ import {
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { patientLink } from './patient-links';
 import { patient } from './patients';
 
 export const messageKind = pgEnum('message_kind', messageKinds);
@@ -81,10 +82,20 @@ export const message = pgTable(
     deliveredAt: timestamp('delivered_at', { withTimezone: true }),
     readAt: timestamp('read_at', { withTimezone: true }),
     statusAt: timestamp('status_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * WA-06: the patient link a check's message stands for (the first treatment check, a follow
+     * up), so a tap on its reply button is recorded as that link's answer.
+     */
+    patientLinkId: uuid('patient_link_id').references(() => patientLink.id),
+    /** WA-06: the job that queued it, so a job that runs again queues nothing more. */
+    sourceKey: text('source_key').unique(),
   },
   (table) => [
     index('message_created_at_idx').on(table.createdAt),
     index('message_patient_idx').on(table.patientId),
+    index('message_patient_link_idx')
+      .on(table.patientLinkId)
+      .where(sql`${table.patientLinkId} is not null`),
     // WA-03: when a number last wrote to us, for WhatsApp's 24 hour window.
     index('message_inbound_phone_idx')
       .on(table.fromPhone, table.sentAt)

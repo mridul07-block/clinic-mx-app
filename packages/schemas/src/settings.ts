@@ -616,6 +616,11 @@ export const settingDefinitions = {
     source: 'PAT-10: as the feedback links (recommended default)',
     description: 'Days a follow up link stays open for its answer.',
   },
+  'links.review_days': {
+    schema: days,
+    source: 'WA-06: the review request button (recommended default, user decision 30 October 2026)',
+    description: "Days the review request's link opens the centre's Google review page.",
+  },
   'links.feedback_days': {
     schema: days,
     source: 'User decision, 22 October 2026 (IAM-09)',

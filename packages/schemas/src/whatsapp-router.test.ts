@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MENU_BUTTONS,
+  checkAnswerOf,
   contactText,
   emergencyPhrasesSchema,
   frontDeskEmailSchema,
@@ -65,6 +66,28 @@ describe('routes', () => {
     expect(route({ kind: 'flow', replyId: 'booking' })).toBe('booking_flow');
     expect(route({ kind: 'flow', replyId: 'reschedule' })).toBe('reschedule_flow');
     expect(route({ kind: 'flow', replyId: 'flow' })).toBe('menu');
+  });
+
+  // WA-06: a check's reply buttons carry `<template>.<answer>`.
+  it('send a check’s reply buttons to its answer, and nothing else', () => {
+    expect(route({ kind: 'reply', replyId: 'first_treatment_check.still_sore' })).toBe(
+      'check_answer',
+    );
+    expect(route({ kind: 'reply', replyId: 'follow_up_check.injured_again' })).toBe('check_answer');
+    expect(checkAnswerOf('follow_up_check.doing_well')).toEqual({
+      template: 'follow_up_check',
+      answer: 'doing_well',
+    });
+    for (const other of [
+      'first_treatment_check.doing_well',
+      'follow_up_check',
+      'session_3_check.better',
+      'first_treatment_check.better.x',
+      'Still sore',
+    ]) {
+      expect(checkAnswerOf(other), other).toBeUndefined();
+      expect(route({ kind: 'reply', replyId: other }), other).toBe('menu');
+    }
   });
 
   it('answer anything else with the menu', () => {

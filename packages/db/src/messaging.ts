@@ -37,6 +37,10 @@ export interface NewMessage {
   createdBy: string;
   /** A router reply (WA-03): Meta's id of the message it answers. */
   contextWaId?: string | null;
+  /** WA-06: the patient link a check's message stands for. */
+  patientLinkId?: string | null;
+  /** WA-06: the job that queued it; a second message with the same key is not queued. */
+  sourceKey?: string | null;
 }
 
 /** Queues a message; its send job is queued with it. Returns the message id. */
@@ -44,6 +48,22 @@ export async function queueMessage(tx: DbOrTransaction, values: NewMessage): Pro
   const [row] = await tx.insert(message).values(values).returning({ id: message.id });
   if (!row) throw new Error('The message was not recorded.');
   return row.id;
+}
+
+/**
+ * Queues a clinic message once for its source (WA-06): a job that runs again queues nothing more.
+ * Returns the message id, or null when the source already queued one.
+ */
+export async function queueMessageOnce(
+  tx: DbOrTransaction,
+  values: NewMessage & { sourceKey: string },
+): Promise<string | null> {
+  const [row] = await tx
+    .insert(message)
+    .values(values)
+    .onConflictDoNothing({ target: message.sourceKey })
+    .returning({ id: message.id });
+  return row?.id ?? null;
 }
 
 /** One message, or undefined. */

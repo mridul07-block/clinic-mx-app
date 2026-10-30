@@ -14,6 +14,8 @@ export const patientLinkPurposes = [
   'my_plan',
   'follow_up',
   'clearance',
+  // WA-06: the review request's button, which opens the centre's Google review page.
+  'review',
 ] as const;
 
 export type PatientLinkPurpose = (typeof patientLinkPurposes)[number];
@@ -83,6 +85,15 @@ export const patientLinkDefinitions = {
     subject: 'episode',
     singleUse: true,
     lifetime: { setting: 'links.clearance_hours', unit: 'hours' },
+    reissuedFromWhatsApp: false,
+  },
+  // WA-06: the review request's "Leave a review" button; it only redirects to the centre's
+  // Google review page, so it may be opened again.
+  review: {
+    title: 'Leave a review',
+    subject: 'episode',
+    singleUse: false,
+    lifetime: { setting: 'links.review_days', unit: 'days' },
     reissuedFromWhatsApp: false,
   },
 } as const satisfies Record<PatientLinkPurpose, PatientLinkPurposeDefinition>;

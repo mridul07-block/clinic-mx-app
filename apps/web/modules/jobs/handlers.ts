@@ -28,6 +28,16 @@ import {
 } from '@clinic-mx/db';
 import { z } from 'zod';
 import { followUpThinkAboutIt } from '../billing/plan-choice';
+import {
+  sendFirstTreatmentCheck,
+  sendFollowUpCheck,
+  sendNoShow,
+  sendPackageExpiryReminder,
+  sendPlanSessionsList,
+  sendRedFlagSafetyAdvice,
+  sendReviewRequest,
+  sendSession3Check,
+} from '../messaging/clinic-messages';
 import { WHATSAPP_SEND_JOB, sendQueuedMessage } from '../messaging/send';
 import { WHATSAPP_ROUTE_JOB, routeInboundMessage } from '../messaging/router';
 import { WHATSAPP_EVENT_JOB, handleWhatsappEvent } from '../messaging/webhook';
@@ -97,38 +107,40 @@ export const jobHandlers: JobHandlers = {
   }),
   /**
    * The no show WhatsApp message (ALT-04, PRD J5.12), queued by the database when an appointment
-   * becomes No show. Nothing is sent yet: the WhatsApp tickets (WA-01 onwards) fill this in, and
-   * the sender must first check the appointment is still a no show (an undone one gets nothing),
-   * then send the `no_show` template. Until then the job completes without sending.
+   * becomes No show: the `no_show` template, only while the appointment is still a no show (an
+   * undone one gets nothing; WA-06).
    */
   /**
    * The day after first treatment check (PAT-05), queued by the database when an episode's session
-   * 1 is signed, for the next day at 10:00 IST. Nothing is sent yet: WA-06 fills this in, and its
-   * sender must first check the check is still unanswered (the desk QR may have taken it), then
-   * send `first_treatment_check`. Until then the job completes without sending.
+   * 1 is signed, for the next day at 10:00 IST: `first_treatment_check`, unless the desk QR took the answer
+   * already (WA-06); a tap on its reply buttons is recorded as the answer.
    */
   [FIRST_TREATMENT_CHECK_JOB]: defineJob({
     payload: z.object({ sessionId: z.guid(), episodeId: z.guid(), appointmentId: z.guid() }),
-    run: () => Promise.resolve(),
+    run: async ({ episodeId, appointmentId }, { db, job }) => {
+      await sendFirstTreatmentCheck(db, {
+        sourceKey: job.idempotencyKey ?? [job.kind, job.id].join(':'),
+        episodeId,
+        appointmentId,
+      });
+    },
   }),
   /**
    * The session 3 check (PAT-06), queued by the database when an episode's session 3 is signed, to
-   * go at once. A message only: WA-06 sends `session_3_check` with the patient's name, worded with
-   * the client. Until then the job completes without sending.
+   * go at once. A message only: `session_3_check` with the patient's name (WA-06).
    */
   /**
    * The review request (PAT-09), queued by the database when any episode is discharged, for the
-   * next day at 10:00 IST: to every discharged patient, never filtered by score. Nothing is sent
-   * yet: WA-06 sends `review_request` with the episode's centre's Google review link (and fails
-   * visibly, as a background job failure, when the centre has none). Until then the job completes
-   * without sending.
+   * next day at 10:00 IST: to every discharged patient, never filtered by score. `review_request`,
+   * whose button opens a review link to the centre's Google review page; it fails visibly, as a
+   * background job failure, when the centre has none (WA-06).
    */
   /**
    * The follow ups after discharge (PAT-10), queued by the database at discharge, one per interval
-   * of `engagement.follow_ups_after_discharge`, each on its day at 10:00 IST. Nothing is sent yet:
-   * WA-06 sends `follow_up_check` with the period, after checking the interval is still unanswered
-   * (the desk QR may have taken it) and skipping when the patient has a newer episode not yet
-   * discharged. Until then the job completes without sending.
+   * of `engagement.follow_ups_after_discharge`, each on its day at 10:00 IST: `follow_up_check`
+   * with the period, only while that interval is the one due and unanswered (the desk QR may have
+   * taken it) and the patient has no newer episode not yet discharged (WA-06); a tap on its reply
+   * buttons is recorded as the answer.
    */
   [FOLLOW_UP_CHECK_JOB]: defineJob({
     payload: z.object({
@@ -136,19 +148,39 @@ export const jobHandlers: JobHandlers = {
       count: z.int().positive(),
       unit: z.enum(['week', 'month']),
     }),
-    run: () => Promise.resolve(),
+    run: async (payload, { db, job }) => {
+      await sendFollowUpCheck(db, {
+        sourceKey: job.idempotencyKey ?? [job.kind, job.id].join(':'),
+        ...payload,
+      });
+    },
   }),
   [REVIEW_REQUEST_MESSAGE_JOB]: defineJob({
     payload: z.object({ episodeId: z.guid() }),
-    run: () => Promise.resolve(),
+    run: async ({ episodeId }, { db, job }) => {
+      await sendReviewRequest(db, {
+        sourceKey: job.idempotencyKey ?? [job.kind, job.id].join(':'),
+        episodeId,
+      });
+    },
   }),
   [SESSION_3_CHECK_JOB]: defineJob({
     payload: z.object({ sessionId: z.guid(), episodeId: z.guid(), appointmentId: z.guid() }),
-    run: () => Promise.resolve(),
+    run: async ({ episodeId }, { db, job }) => {
+      await sendSession3Check(db, {
+        sourceKey: job.idempotencyKey ?? [job.kind, job.id].join(':'),
+        episodeId,
+      });
+    },
   }),
   [NO_SHOW_MESSAGE_JOB]: defineJob({
     payload: z.object({ appointmentId: z.guid() }),
-    run: () => Promise.resolve(),
+    run: async ({ appointmentId }, { db, job }) => {
+      await sendNoShow(db, {
+        sourceKey: job.idempotencyKey ?? [job.kind, job.id].join(':'),
+        appointmentId,
+      });
+    },
   }),
   /**
    * The consultation summary (ALT-06), queued by the database when a consultation is signed and
@@ -177,9 +209,8 @@ export const jobHandlers: JobHandlers = {
   }),
   /**
    * The plan sessions list (SCH-11, PRD J4.8), queued by the database once per series booked with
-   * "Book plan sessions". Nothing is sent yet: WA-06 fills this in, sending the series' booked
-   * appointments still Booked or Confirmed with the `plan_sessions_list` template. Until then the
-   * job completes without sending.
+   * "Book plan sessions": the series' appointments still Booked or Confirmed, with the
+   * `plan_sessions_list` template (WA-06).
    */
   /**
    * The unsigned notes flag (CLN-10), every night at 9:00 PM IST: it queues the next night, then
@@ -272,7 +303,12 @@ export const jobHandlers: JobHandlers = {
   }),
   [PLAN_SESSIONS_LIST_JOB]: defineJob({
     payload: z.object({ planBookingId: z.guid() }),
-    run: () => Promise.resolve(),
+    run: async ({ planBookingId }, { db, job }) => {
+      await sendPlanSessionsList(db, {
+        sourceKey: job.idempotencyKey ?? [job.kind, job.id].join(':'),
+        planBookingId,
+      });
+    },
   }),
   /**
    * The referral letter (ALT-07), queued by the database when a red flag alert is referred, from
@@ -290,13 +326,17 @@ export const jobHandlers: JobHandlers = {
   }),
   /**
    * The safety advice after a red flag (CLN-11, PRD J3.10), queued with each referral and for
-   * Monitor with caution found in the consultation. Nothing is sent yet: WA-06 fills this in with
-   * the `red_flag_safety_advice` template once its advice is clinically signed off. Until then the
-   * job completes without sending.
+   * Monitor with caution found in the consultation: the `red_flag_safety_advice` template, holding
+   * text until the clinical lead signs off the advice (DECISION WA-06), with the centre's phone.
    */
   [RED_FLAG_SAFETY_ADVICE_JOB]: defineJob({
     payload: z.object({ alertId: z.guid() }),
-    run: () => Promise.resolve(),
+    run: async ({ alertId }, { db, job }) => {
+      await sendRedFlagSafetyAdvice(db, {
+        sourceKey: job.idempotencyKey ?? [job.kind, job.id].join(':'),
+        alertId,
+      });
+    },
   }),
   /**
    * The "I'll think about it" follow up (BIL-02), queued by the database when the choice is
@@ -343,13 +383,16 @@ export const jobHandlers: JobHandlers = {
   /**
    * The package expiry reminder (BIL-08, PRD section 7), queued by the database when a package is
    * activated, `packages.expiry_reminder_days` before its last day at
-   * `packages.expiry_reminder_time` IST. Nothing is sent yet: the WhatsApp tickets fill this in,
-   * and the sender must check the package is still active with sessions left (not cancelled,
-   * used up or expired), then send the `package_expiry_reminder` template with the sessions left
-   * and the expiry date. Until then the job completes without sending.
+   * `packages.expiry_reminder_time` IST: the `package_expiry_reminder` template with the sessions
+   * left and the expiry date, only while the package is still active with sessions left (WA-06).
    */
   [PACKAGE_EXPIRY_REMINDER_JOB]: defineJob({
     payload: z.object({ packageId: z.guid() }),
-    run: () => Promise.resolve(),
+    run: async ({ packageId }, { db, job }) => {
+      await sendPackageExpiryReminder(db, {
+        sourceKey: job.idempotencyKey ?? [job.kind, job.id].join(':'),
+        packageId,
+      });
+    },
   }),
 };

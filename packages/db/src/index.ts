@@ -734,6 +734,7 @@ export {
   markWhatsappEventProcessed,
   messageRecord,
   queueMessage,
+  queueMessageOnce,
   recentMessages,
   recordInboundMessage,
   recordMessageOutcome,
@@ -766,6 +767,21 @@ export {
   markFlowBooked,
   saveFlowState,
 } from './whatsapp-flows';
+export {
+  alertForMessage,
+  appointmentForMessage,
+  episodeForMessage,
+  feedbackSubjectOfLink,
+  firstTreatmentAnswered,
+  followUpDue,
+  liveMessageLink,
+  messagePatient,
+  newerOpenEpisode,
+  packageForMessage,
+  planSeriesForMessage,
+  repliedMessage,
+  type MessagePatient,
+} from './clinic-messages';
 export {
   applyTemplateUpdate,
   approvedTemplateVersion,

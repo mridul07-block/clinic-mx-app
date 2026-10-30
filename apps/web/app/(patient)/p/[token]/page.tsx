@@ -40,6 +40,7 @@ import {
 } from '../../../../modules/rate-limits/limits';
 import { loadFeedback } from '../../../../modules/feedback/services';
 import { loadMyPlan, type MyPlanContent } from '../../../../modules/patient-links/my-plan';
+import { reviewPageOf } from '../../../../modules/patient-links/review';
 import {
   loadQuestionnaireStep,
   type QuestionnaireStep,
@@ -121,7 +122,9 @@ function message(opened: Shown): { title: string; body: string } {
               ? 'There is nothing to sign here now. Please ask the front desk.'
               : opened.purpose === 'clearance'
                 ? 'There is nothing to acknowledge here now. Please ask your physiotherapist.'
-                : 'This form is no longer open. Please ask the front desk.',
+                : opened.purpose === 'review'
+                  ? 'This clinic has no review page yet. Thank you for thinking of us.'
+                  : 'This form is no longer open. Please ask the front desk.',
       };
     case 'used':
       return {
@@ -421,6 +424,12 @@ export default async function PatientPage({
           ? { status: 'used', purpose: 'consent' }
           : { status: 'closed', purpose: 'consent' };
     }
+  }
+  // WA-06: the review request's button opens the centre's Google review page.
+  if (link.status === 'valid' && link.link.purpose === 'review') {
+    const page = await reviewPageOf(link.link);
+    if (page) redirect(page);
+    opened = { status: 'closed', purpose: 'review' };
   }
   // OUT-09: the clearance acknowledgement, through the episode's clearance link.
   let clearance: ClearancePage | undefined;
