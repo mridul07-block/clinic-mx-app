@@ -190,12 +190,26 @@ test('a new patient books a consultation through the WhatsApp form, shown on the
     bookedBy: null,
     startsAt: new Date(time),
   });
-  const [confirmation] = await db()
-    .select()
-    .from(message)
-    .where(and(eq(message.toPhone, from), eq(message.templateKey, 'booking_confirmation')));
-  expect(confirmation?.patientId).toBe(booked?.patientId);
-  expect(confirmation?.variables.text).toContain(`Your appointment is booked: ${number}.`);
+  // WA-07: the booking confirmation, queued by the database and sent by the queue. They wrote to
+  // us just now and no version is approved here, so it goes as the same text in a plain reply.
+  await tickUntil(page.request, async () => {
+    const [confirmation] = await db()
+      .select()
+      .from(message)
+      .where(and(eq(message.toPhone, from), eq(message.templateKey, 'booking_confirmation')));
+    expect(confirmation).toMatchObject({
+      patientId: booked?.patientId,
+      kind: 'session',
+      appointmentId: booked?.id,
+    });
+    const said = String(confirmation?.variables.text);
+    expect(said).toContain(`your appointment ${number} is booked for `);
+    expect(said).toContain(`with ${physio.name} at Movementology HSR Layout.`);
+    expect(said).toMatch(/Fee: ₹[\d,]+, payable at the clinic\./);
+    expect(said).toContain('Please arrive 10 minutes early and bring any reports you have.');
+    expect(said).toContain('Directions: ');
+    expect(said).toMatch(/call the front desk on \+91 [\d ]+ or reply to this message\.$/);
+  });
   // An unknown Flow token is refused as Meta expects (427).
   expect(
     (await flowRequest(page.request, { action: 'INIT', flow_token: crypto.randomUUID() })).status,

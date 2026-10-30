@@ -14,15 +14,12 @@ import {
   markFlowBooked,
   patientsOnPhone,
   placeHold,
-  queueMessage,
   saveFlowState,
   type Db,
   type DbOrTransaction,
   type WhatsappFlowSession,
 } from '@clinic-mx/db';
 import {
-  SESSION_REPLY_VERSION,
-  TEMPLATE_LANGUAGE,
   contactText,
   documentTime,
   formatRupees,
@@ -320,30 +317,13 @@ const confirmBooking = systemService({
       now,
     });
     await markFlowBooked(tx, session.id, booked.id);
-    const { centre, lines } = await details(tx, state, name ?? '', person.name);
+    const { lines } = await details(tx, state, name ?? '', person.name);
     const confirmed = {
       appointment: booked.number,
       details: [`Appointment ${booked.number}`, ...lines].join('\n'),
     };
     await saveFlowState(tx, session.id, { ...state, confirmed });
-    // The confirmation text (user decision, 30 October 2026) until WA-07's approved template.
-    const text = [
-      `Your appointment is booked: ${booked.number}.`,
-      ...lines,
-      ...(centre?.mapLink ? [`Map: ${centre.mapLink}`] : []),
-      'Please arrive 10 minutes early and bring any reports you have.',
-      ...(centre?.phone ? [`Front desk: ${centre.phone}`] : []),
-    ].join('\n');
-    await queueMessage(tx, {
-      patientId,
-      toPhone: session.phone,
-      kind: 'session',
-      templateKey: 'booking_confirmation',
-      templateVersion: SESSION_REPLY_VERSION,
-      language: TEMPLATE_LANGUAGE,
-      variables: { text },
-      createdBy: 'system:whatsapp',
-    });
+    // The database queues the booking confirmation (WA-07) for the new appointment.
     return { screen: 'CONFIRMED', data: confirmed };
   },
 });

@@ -777,7 +777,9 @@ export {
   type MovableAppointment,
 } from './whatsapp-flows';
 export {
+  BOOKING_CONFIRMATION_JOB,
   alertForMessage,
+  appointmentForConfirmation,
   appointmentForMessage,
   consultationForMessage,
   documentForMessage,

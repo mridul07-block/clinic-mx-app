@@ -1,5 +1,5 @@
 import type { TemplateApprovalStatus } from '@clinic-mx/schemas';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { whatsappTemplate, type WhatsappTemplate } from './schema';
 import type { DbOrTransaction } from './versioned';
 
@@ -96,11 +96,15 @@ export async function applyTemplateUpdate(
   return 'changed';
 }
 
-/** The newest version of a template Meta approved on this number, if any: the one to send. */
+/**
+ * The newest version of a template Meta approved on this number, if any: the one to send. Never
+ * one older than `minVersion`, whose variables differ from the registry's (WA-07).
+ */
 export async function approvedTemplateVersion(
   db: DbOrTransaction,
   key: string,
   language: string,
+  minVersion = 1,
 ): Promise<{ metaName: string; version: number } | null> {
   const [row] = await db
     .select({ metaName: whatsappTemplate.metaName, version: whatsappTemplate.version })
@@ -110,6 +114,7 @@ export async function approvedTemplateVersion(
         eq(whatsappTemplate.key, key),
         eq(whatsappTemplate.language, language),
         eq(whatsappTemplate.status, 'approved'),
+        gte(whatsappTemplate.version, minVersion),
       ),
     )
     .orderBy(desc(whatsappTemplate.version))

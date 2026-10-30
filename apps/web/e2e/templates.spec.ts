@@ -71,14 +71,15 @@ test('the Super Admin views every template with its key, variables and version',
 
   const confirmation = card(page, 'booking_confirmation');
   await expect(confirmation.getByText('Booking confirmation', { exact: true })).toBeVisible();
-  await expect(confirmation.getByText('Version 1')).toBeVisible();
+  // WA-07: v2 says everything PRD J1.4 lists.
+  await expect(confirmation.getByText('Version 2')).toBeVisible();
   await expect(confirmation.getByTestId('template-body')).toHaveText(
-    'Hi {{patient_name}}, your appointment is booked: {{date}} at {{time}}, Movementology {{clinic}}, with {{physio}}. Reply to this message if you need to change it.',
+    'Hi {{patient_name}}, your appointment {{appointment_id}} is booked for {{date}} at {{time}} with {{physio}} at Movementology {{clinic}}. Fee: {{fee}}. Please arrive 10 minutes early and bring any reports you have. Directions: {{directions}}. For any change, call the front desk on {{clinic_phone}} or reply to this message.',
   );
   await expect(confirmation.getByTestId('template-variables')).toContainText(
     "patient_name: The patient's first name",
   );
-  for (const name of ['date', 'time', 'clinic', 'physio']) {
+  for (const name of ['appointment_id', 'date', 'time', 'clinic', 'physio', 'fee', 'directions']) {
     await expect(
       confirmation.getByTestId('template-variables').getByText(name, { exact: true }),
     ).toBeVisible();

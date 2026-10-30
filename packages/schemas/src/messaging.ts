@@ -84,6 +84,11 @@ export const skipReasons = {
 /** Meta's customer service window: a reply that is not a template goes only within it. */
 export const SESSION_WINDOW_HOURS = 24;
 
+/** Whether a number that last wrote to us at `last` is still within the window at `now`. */
+export function withinSessionWindow(last: Date | null, now: Date): boolean {
+  return last !== null && now.getTime() - last.getTime() < SESSION_WINDOW_HOURS * 60 * 60 * 1000;
+}
+
 /** Whether a message may go to this number now: anyone, or only the test list while it is on. */
 export function mayReceive(
   to: string,

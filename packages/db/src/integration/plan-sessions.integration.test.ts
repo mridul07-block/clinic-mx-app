@@ -1,5 +1,5 @@
 import { addDays } from '@clinic-mx/schemas';
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
@@ -190,6 +190,22 @@ describe('Book plan sessions', () => {
         .from(job)
         .where(eq(job.idempotencyKey, ['whatsapp.plan_sessions_list', planBookingId].join(':')));
       expect(queued).toEqual([{ kind: 'whatsapp.plan_sessions_list', payload: { planBookingId } }]);
+      // WA-07: the series' list stands for them; none of its appointments gets a confirmation.
+      const seriesVisits = await tx
+        .select({ id: appointment.id })
+        .from(appointment)
+        .where(eq(appointment.planBookingId, planBookingId));
+      const confirmations = await tx
+        .select({ id: job.id })
+        .from(job)
+        .where(
+          inArray(
+            job.idempotencyKey,
+            seriesVisits.map((row) => ['whatsapp.booking_confirmation', row.id].join(':')),
+          ),
+        );
+      expect(seriesVisits).toHaveLength(2);
+      expect(confirmations).toEqual([]);
     });
   });
 

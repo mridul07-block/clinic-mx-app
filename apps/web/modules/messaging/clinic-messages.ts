@@ -1,7 +1,9 @@
 import 'server-only';
 import {
   alertForMessage,
+  appointmentForConfirmation,
   appointmentForMessage,
+  approvedTemplateVersion,
   completePatientLinkRow,
   consultationForMessage,
   episodeForMessage,
@@ -10,6 +12,7 @@ import {
   followUpDue,
   insertFeedback,
   invoiceFacts,
+  lastInboundAt,
   liveDischargeFeedbackLink,
   liveFeedbackLink,
   liveMessageLink,
@@ -28,17 +31,25 @@ import {
   FIRST_TREATMENT_ANSWER_KEY,
   FOLLOW_UP_ANSWER_KEY,
   FOLLOW_UP_INTERVAL_KEY,
+  SESSION_REPLY_VERSION,
   TEMPLATE_LANGUAGE,
   checkAnswers,
+  confirmationDirections,
+  confirmationFee,
+  confirmationTemplateKey,
   dayBeforeRunDue,
   documentTime,
   firstName,
   firstTreatmentCheck,
   followUpCheck,
+  formatIndianPhone,
   formatRupees,
   istDate,
   messageTemplate,
+  oldestSendableVersion,
   packageState,
+  renderTemplateBody,
+  withinSessionWindow,
   type CheckTemplate,
   type MessageTemplateKey,
   type TemplateParameters,
@@ -315,6 +326,69 @@ export const sendPlanSessionsList = systemService({
           .join('; '),
       }),
     });
+  },
+});
+
+/**
+ * The booking confirmation (WA-07; PRD J1.4, J1.5), once per appointment the database queued it
+ * for: every booking not in a plan series, the same text whoever made it. Not once the appointment
+ * was cancelled, moved, marked a no show or completed. Until Meta approves a version that takes these
+ * variables, the same text goes as a plain reply when the number wrote to us within WhatsApp's 24
+ * hour window (user decision, 31 October 2026), else the template, Not sent "not approved". A
+ * centre without a phone fails the job, visibly; directions fall back to its address.
+ */
+export const sendBookingConfirmation = systemService({
+  component: 'whatsapp',
+  input: z.object({ ...job, appointmentId: z.guid(), now: z.date() }),
+  run: async (tx, input): Promise<SendOutcome> => {
+    const visit = await appointmentForConfirmation(tx, input.appointmentId);
+    if (!visit) return 'skipped:no appointment';
+    if (['cancelled', 'rescheduled', 'no_show', 'completed'].includes(visit.status)) {
+      return 'skipped:changed';
+    }
+    const phone = visit.centrePhone;
+    if (!phone) {
+      throw new ClinicMessageError(
+        `${visit.centreName} has no phone number; add it on the centre to send booking confirmations.`,
+      );
+    }
+    const patient = await messagePatient(tx, visit.patientId);
+    if (!patient) return 'skipped:no patient';
+    const key = confirmationTemplateKey(visit.channel);
+    const template = messageTemplate(key);
+    const variables = {
+      patient_name: firstName(patient.name),
+      appointment_id: visit.number,
+      date: flowDate(istDate(visit.startsAt)),
+      time: documentTime(visit.startsAt),
+      physio: visit.physioName,
+      clinic: visit.centreName,
+      fee: confirmationFee(visit.typeKey, visit.consultationFeePaise),
+      directions: confirmationDirections(visit.mapLink, visit.address),
+      clinic_phone: formatIndianPhone(phone),
+    };
+    const approved = await approvedTemplateVersion(
+      tx,
+      key,
+      TEMPLATE_LANGUAGE,
+      oldestSendableVersion(template),
+    );
+    const plain =
+      !approved && withinSessionWindow(await lastInboundAt(tx, patient.phone), input.now);
+    const id = await queueMessageOnce(tx, {
+      patientId: patient.id,
+      toPhone: patient.phone,
+      kind: plain ? 'session' : 'template',
+      templateKey: key,
+      templateVersion: plain ? SESSION_REPLY_VERSION : template.version,
+      language: TEMPLATE_LANGUAGE,
+      variables: plain ? { text: renderTemplateBody(template, variables) } : variables,
+      createdBy: 'system:whatsapp',
+      patientLinkId: null,
+      appointmentId: input.appointmentId,
+      sourceKey: input.sourceKey,
+    });
+    return id ? 'queued' : 'already_queued';
   },
 });
 

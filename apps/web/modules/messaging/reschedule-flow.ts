@@ -4,7 +4,6 @@ import {
   bookAppointment,
   bookingCounterOf,
   centreContacts,
-  centreList,
   changeAppointment,
   createFlowSession,
   datesWithFreeSlots,
@@ -14,7 +13,6 @@ import {
   movableAppointment,
   packageRescheduleState,
   placeHold,
-  queueMessage,
   saveFlowState,
   upcomingAppointmentsOnPhone,
   type Db,
@@ -23,8 +21,6 @@ import {
   type WhatsappFlowSession,
 } from '@clinic-mx/db';
 import {
-  SESSION_REPLY_VERSION,
-  TEMPLATE_LANGUAGE,
   documentTime,
   indianPhoneSchema,
   isChangeable,
@@ -342,25 +338,7 @@ const confirmMove = systemService({
       details: [`Appointment ${booked.number} (was ${visit.number})`, ...lines].join('\n'),
     };
     await saveFlowState(tx, session.id, { ...state, done });
-    const centre = (await centreList(tx)).find((c) => c.id === visit.centreId);
-    // The confirmation text, as the booking Flow's, until WA-07's approved template.
-    const text = [
-      `Your appointment is moved: ${booked.number} (was ${visit.number}).`,
-      ...lines,
-      ...(centre?.mapLink ? [`Map: ${centre.mapLink}`] : []),
-      'Please arrive 10 minutes early.',
-      ...(centre?.phone ? [`Front desk: ${centre.phone}`] : []),
-    ].join('\n');
-    await queueMessage(tx, {
-      patientId: visit.patientId,
-      toPhone: session.phone,
-      kind: 'session',
-      templateKey: 'reschedule_confirmation',
-      templateVersion: SESSION_REPLY_VERSION,
-      language: TEMPLATE_LANGUAGE,
-      variables: { text },
-      createdBy: 'system:whatsapp',
-    });
+    // The database queues the booking confirmation (WA-07) for the new appointment.
     return { screen: 'DONE', data: done };
   },
 });

@@ -67,7 +67,11 @@ the WhatsApp tickets, whose sender skips a payment since undone);
 only while the package is still active; BIL-08); `whatsapp.plan_sessions_list` (queued by the
 database once per series booked with Book plan sessions, key
 `whatsapp.plan_sessions_list:<plan booking id>`; does nothing until WA-06, whose sender lists the
-series' appointments still Booked or Confirmed; SCH-11); `whatsapp.day_before_reminders` (every
+series' appointments still Booked or Confirmed; SCH-11); `whatsapp.booking_confirmation` (queued
+by the database for every appointment booked outside a plan series, key
+`whatsapp.booking_confirmation:<appointment id>`; its sender skips one cancelled, moved, a no show or completed
+and fails visibly for a centre without a phone; WA-07, see `docs/runbooks/whatsapp-templates.md`);
+`whatsapp.day_before_reminders` (every
 evening at `reminders.day_before_time` IST, 6:00 PM, for the next day's appointments, key
 `whatsapp.day_before_reminders:<appointments' IST date>`) and `whatsapp.morning_reminders` (every
 morning at `reminders.morning_time` IST, 8:00 AM, for the day's, key

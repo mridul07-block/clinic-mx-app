@@ -134,8 +134,8 @@ The booking sheet (`booking-sheet.tsx`, `booking-forms.tsx`, `modules/scheduling
 4. **Cancel booking** (pinned at the bottom) gives the hold back. Close or Esc leave it to run out.
 
 Holding is a post (a server action), never a link: Next.js fetches links ahead, which would hold
-slots. Every booking from here is `front_desk` with `booked_by` set, audited. The WhatsApp
-confirmation (J1.5) comes with the WhatsApp tickets; the sheet says so.
+slots. Every booking from here is `front_desk` with `booked_by` set, audited. The patient gets the
+WhatsApp booking confirmation (J1.5, WA-07); the sheet says so.
 
 ## Reschedule and cancel (SCH-08)
 
@@ -363,7 +363,7 @@ Decisions (user, 26 October 2026):
   - The desk books it from New booking and closes the task.
 - **Already booked:** a job that runs again, or finds a Review in the episode that is not
   cancelled or moved, books nothing.
-- **No message yet:** the confirmation joins the WhatsApp tickets.
+- **The message:** the booking confirmation (WA-07), as for any booking.
 
 | Piece | Where |
 | --- | --- |

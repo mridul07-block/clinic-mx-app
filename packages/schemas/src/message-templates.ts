@@ -59,6 +59,11 @@ export type MessageTemplateDefinition = {
   readonly variables: readonly TemplateVariable[];
   readonly buttons: readonly TemplateButton[];
   readonly version: number;
+  /**
+   * The oldest version whose variables are this one's, so an approved older version may still be
+   * sent with them (WA-07: v2 of the booking confirmations has new variables, so v1 never is).
+   */
+  readonly sendsFrom?: number;
   /** Why it is not submitted yet, when it waits for another ticket. */
   readonly held?: string;
 };
@@ -79,29 +84,63 @@ const planLink = {
 } as const;
 const utility = { category: 'utility', version: 1 } as const;
 
+/**
+ * The booking confirmation (PRD J1.4), one text for WhatsApp and front desk bookings (PRD J1.5):
+ * the appointment ID, when, physio, clinic, the fee payable at the clinic, arrive 10 minutes
+ * early, bring reports, the map and the front desk number. Directions are the centre's map link,
+ * else its address, so a centre without one still confirms. A consultation's fee is the physio's;
+ * any other appointment's is as per the plan (user decision, 31 October 2026).
+ */
+const confirmationBody =
+  'Hi {{1}}, your appointment {{2}} is booked for {{3}} at {{4}} with {{5}} at Movementology {{6}}. Fee: {{7}}. Please arrive 10 minutes early and bring any reports you have. Directions: {{8}}. For any change, call the front desk on {{9}} or reply to this message.';
+const confirmationVariables = [
+  patientName,
+  { name: 'appointment_id', label: 'The appointment number', example: 'MVH-00042' },
+  date,
+  time,
+  physio,
+  clinic,
+  {
+    name: 'fee',
+    label: 'The fee payable at the clinic, or "as per your treatment plan"',
+    example: '₹1,000, payable at the clinic',
+  },
+  {
+    name: 'directions',
+    label: "The centre's map link, else its address",
+    example: 'https://maps.app.goo.gl/abc123',
+  },
+  { name: 'clinic_phone', label: "The centre's phone number", example: '+91 80 4000 0000' },
+] as const;
+
 export const messageTemplates = [
   {
     key: 'booking_confirmation',
     name: 'Booking confirmation',
-    purpose: 'Confirms an appointment booked through the WhatsApp booking Flow.',
-    source: 'PRD J1.1; TAD section 6',
+    purpose:
+      'Confirms an appointment booked or moved through WhatsApp; the same content as the front desk one (WA-07).',
+    source: 'PRD J1.4; TAD section 6',
     header: 'none',
-    body: 'Hi {{1}}, your appointment is booked: {{2}} at {{3}}, Movementology {{4}}, with {{5}}. Reply to this message if you need to change it.',
-    variables: [patientName, date, time, clinic, physio],
+    body: confirmationBody,
+    variables: confirmationVariables,
     buttons: [],
     ...utility,
+    version: 2,
+    sendsFrom: 2,
   },
   {
     key: 'front_desk_booking_confirmation',
     name: 'Front desk booking confirmation',
     purpose:
-      'Confirms an appointment the front desk booked for a caller or walk in; the same content as the WhatsApp confirmation (WA-07).',
-    source: 'PRD J1.5; TAD section 6',
+      'Confirms an appointment the clinic booked or moved, for a caller or walk in; the same content as the WhatsApp confirmation (WA-07).',
+    source: 'PRD J1.4, J1.5; TAD section 6',
     header: 'none',
-    body: 'Hi {{1}}, your appointment is booked: {{2}} at {{3}}, Movementology {{4}}, with {{5}}. Reply to this message if you need to change it.',
-    variables: [patientName, date, time, clinic, physio],
+    body: confirmationBody,
+    variables: confirmationVariables,
     buttons: [],
     ...utility,
+    version: 2,
+    sendsFrom: 2,
   },
   {
     key: 'plan_sessions_list',
@@ -345,6 +384,26 @@ export function messageTemplate<K extends MessageTemplateKey>(
   const found = messageTemplates.find((template) => template.key === key);
   if (!found) throw new Error(`No message template ${key}`);
   return found as Extract<MessageTemplate, { key: K }>;
+}
+
+/** The oldest version that may be sent with this version's variables (WA-07). */
+export function oldestSendableVersion(template: MessageTemplateDefinition): number {
+  return template.sendsFrom ?? 1;
+}
+
+/**
+ * The text with each `{{n}}` filled from the variables: what the template says, sent as a plain
+ * reply within WhatsApp's 24 hour window while no version is approved yet (WA-07).
+ */
+export function renderTemplateBody(
+  template: MessageTemplateDefinition,
+  variables: Readonly<Record<string, string>>,
+): string {
+  const names = bodyVariables(template).map((variable) => variable.name);
+  return template.body.replace(/\{\{(\d+)\}\}/g, (match, n: string) => {
+    const name = names[Number(n) - 1];
+    return name === undefined ? match : (variables[name] ?? '');
+  });
 }
 
 /** The name a template version has on Meta: a new version is a new template there. */

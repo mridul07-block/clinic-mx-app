@@ -108,11 +108,17 @@ describe('WhatsApp template versions on Meta', () => {
       });
       // Not for another language.
       expect(await approvedTemplateVersion(tx, key, 'en_US')).toBeNull();
+      // WA-07: never one older than the registry's variables allow.
+      expect(await approvedTemplateVersion(tx, key, 'en', 2)).toBeNull();
 
       expect(
         await applyTemplateUpdate(tx, { metaId: v2.metaId, status: 'approved', reason: null }),
       ).toBe('changed');
       expect(await approvedTemplateVersion(tx, key, 'en')).toEqual({
+        metaName: v2.metaName,
+        version: 2,
+      });
+      expect(await approvedTemplateVersion(tx, key, 'en', 2)).toEqual({
         metaName: v2.metaName,
         version: 2,
       });

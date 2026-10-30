@@ -129,8 +129,22 @@ describe('sending a queued WhatsApp message', () => {
       },
       expect.any(AbortSignal),
     );
-    expect(db.approvedTemplateVersion).toHaveBeenCalledWith({}, 'no_show', 'en');
+    expect(db.approvedTemplateVersion).toHaveBeenCalledWith({}, 'no_show', 'en', 1);
     expect(outcome()).toEqual([{ status: 'sent', waMessageId: 'wamid.2' }]);
+  });
+
+  // WA-07: v1 of the booking confirmations had other variables, so only v2 or newer goes.
+  it('asks only for a version that takes the registry’s variables', async () => {
+    db.messageRecord.mockResolvedValue(
+      clinicMessage({ templateKey: 'front_desk_booking_confirmation', templateVersion: 2 }),
+    );
+    await send({ transport: transport({ ok: true, waMessageId: 'wamid.7' }) });
+    expect(db.approvedTemplateVersion).toHaveBeenCalledWith(
+      {},
+      'front_desk_booking_confirmation',
+      'en',
+      2,
+    );
   });
 
   // WA-06: only a version Meta approved on this number goes, and the newest one.
