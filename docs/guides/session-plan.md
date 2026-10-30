@@ -105,7 +105,7 @@ they can check patients in):
 - WhatsApp messages are not sent; the desk shows the patient a QR code instead.
 - The AI preparation sheet and "Recheck with findings" stay off until the AI key and its blind
   test are done.
-- Part B consent waits for the clinic's consent texts.
+- Part B cards for Dry needling and the Zero Gravity Treadmill wait for the clinic's wording.
 - Exercise videos wait for the clinic's video library.
 - Questionnaires wait for the clinic's instruments, licences and sign-off.
 - Patient content appears only once a consultant approves it.

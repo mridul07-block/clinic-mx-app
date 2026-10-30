@@ -324,6 +324,7 @@ export {
   insertConsentRecords,
   ownConsentDecisions,
   ownGuardians,
+  ownPatient,
   partAConsentDeclined,
   type ConsentDecisionRow,
   type OwnGuardian,
@@ -739,3 +740,9 @@ export {
   type MessageOutcome,
   type NewMessage,
 } from './messaging';
+export {
+  liveConsentLink,
+  partBForEpisode,
+  partBForLink,
+  type PartBContext,
+} from './part-b-consent';

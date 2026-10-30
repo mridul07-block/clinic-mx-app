@@ -74,7 +74,8 @@ On a phone, the bar at the bottom holds **Alerts**, **Centres**, **Outcomes** (t
 
 - WhatsApp messages are queued but not sent. The desk shows patients a QR code instead, so feedback arrives only when the desk shows **Rate your visit**.
 - Questionnaires wait for the clinic's instruments, licences and sign-off, so meaningful change is not measured yet.
-- Part B consent waits for the clinic's texts. The paper form prints Part A only.
+- Part B cards for Dry needling and the Zero Gravity Treadmill wait for the clinic's wording. The
+  paper form prints Part A only.
 
 ## If something goes wrong
 

@@ -123,7 +123,8 @@ How a consent screen is saved (`saveConsentScreen` in `apps/web/modules/intake/s
 
 - **What a record holds:** stage, statement key and version, accepted, `signed_at`, the
   signature, the signer, and the appointment and link.
-- **Filled later:** the episode with INT-10; the modality with Part B.
+- **Filled later:** the episode with INT-10. Part B (BIL-03, `docs/runbooks/consent.md`) adds its
+  own records with the modality and the words shown.
 - **The check.** An acceptance is signed: a drawing with its file, or a typed name. A decline is
   never signed.
 - **The patient adds** only their own health form link's visit, at stage A, signed by the
