@@ -1527,6 +1527,20 @@
       "when": 1793357668420,
       "tag": "20261030105428_modality_consent_later",
       "breakpoints": true
+    },
+    {
+      "idx": 218,
+      "version": "7",
+      "when": 1793359002458,
+      "tag": "20261030111642_part_b_declined_task_once",
+      "breakpoints": true
+    },
+    {
+      "idx": 219,
+      "version": "7",
+      "when": 1793359015522,
+      "tag": "20261030111655_part_b_treatments_used",
+      "breakpoints": true
     }
   ]
 }

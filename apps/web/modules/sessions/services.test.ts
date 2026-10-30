@@ -1,5 +1,10 @@
 import type { Db, StaffMember } from '@clinic-mx/db';
-import { emptySessionNote, type KnowledgeMeasure, type SessionNote } from '@clinic-mx/schemas';
+import {
+  emptySessionNote,
+  partBStatements,
+  type KnowledgeMeasure,
+  type SessionNote,
+} from '@clinic-mx/schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotAllowedError, ReadOnlyError } from '../access/guard';
 import { baselineView } from './baseline';
@@ -22,6 +27,15 @@ const adherence = {
   daysDone: 5,
   tracked: true,
 };
+/** An episode's Part B with every treatment card decided `accepted`. */
+const partB = (accepted: boolean, planned = true) => ({
+  planned,
+  latest: Object.fromEntries(
+    Object.values(partBStatements).flatMap((statement) =>
+      statement.group === 'modality' ? [[statement.key, accepted]] : [],
+    ),
+  ),
+});
 const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
   sessionNoteOf: vi.fn(),
@@ -30,6 +44,7 @@ const db = vi.hoisted(() => ({
   addSessionAddendum: vi.fn(),
   signedSessionNotesOf: vi.fn(),
   planForSession: vi.fn(),
+  partBForEpisode: vi.fn(),
   saveSessionNote: vi.fn(),
   signSession: vi.fn(),
   sessionAdherence: vi.fn(),
@@ -303,6 +318,8 @@ describe('the session note', () => {
     db.saveSessionNote.mockResolvedValue({ status: 'saved', version: 5 });
     db.latestKnowledgeVersion.mockResolvedValue({ id: 'kb-1' });
     db.openSession.mockResolvedValue(sessionId);
+    // BIL-04: every treatment's Part B card agreed, unless a test says otherwise.
+    db.partBForEpisode.mockResolvedValue(partB(true));
   });
 
   it('opens prefilled from the last signed note, or from the plan the first time', async () => {
@@ -341,6 +358,29 @@ describe('the session note', () => {
       parameters: {},
       reasons: {},
     });
+    // BIL-04: a treatment the patient declined in Part B does not carry over, nor its parameters.
+    db.lastSignedSessionNote.mockResolvedValueOnce({
+      number: 2,
+      signedAt: new Date(),
+      note: {
+        ...complete(),
+        treatment: { ...lastTreatment, parameters: { laser: { area: 'Knee' } } },
+      },
+    });
+    db.partBForEpisode.mockResolvedValueOnce(partB(false));
+    await openSessionNote(fakeTx as never, opening);
+    const withoutLaser = db.openSession.mock.lastCall?.[1] as { note: SessionNote } | undefined;
+    expect(withoutLaser?.note.treatment).toMatchObject({ modalities: [], parameters: {} });
+    // Consented on paper (no signed plan here, an opening entry): carried over as it was.
+    db.lastSignedSessionNote.mockResolvedValueOnce({
+      number: 2,
+      signedAt: new Date(),
+      note: { ...complete(), treatment: lastTreatment },
+    });
+    db.partBForEpisode.mockResolvedValueOnce(partB(false, false));
+    await openSessionNote(fakeTx as never, opening);
+    const onPaper = db.openSession.mock.lastCall?.[1] as { note: SessionNote } | undefined;
+    expect(onPaper?.note.treatment.modalities).toEqual(['laser']);
     db.latestKnowledgeVersion.mockResolvedValueOnce(undefined);
     await expect(openSessionNote(fakeTx as never, opening)).rejects.toThrow(
       'The knowledge base is not loaded yet.',
@@ -815,6 +855,7 @@ describe('the session note', () => {
         name: 'Radial Shockwave (RSW)',
         parameters: shockwave.parameters,
         warnings: [{ label: 'Pregnancy', source: 'SOP 12.3' }],
+        consent: 'agreed',
       },
     ]);
     expect(db.sessionModalities).toHaveBeenCalledWith(fakeTx, 'kb-1');
@@ -842,6 +883,17 @@ describe('the session note', () => {
       }),
     );
     await expect(close()).resolves.toEqual({ status: 'signed' });
+    // BIL-04: declined in Part B, it is not given.
+    db.partBForEpisode.mockResolvedValueOnce(partB(false));
+    db.sessionNoteOf.mockResolvedValueOnce(
+      ticked({
+        parameters: { radial_shockwave: { area: 'Achilles' } },
+        reasons: { radial_shockwave: 'Postpartum, cleared by the obstetrician' },
+      }),
+    );
+    await expect(close()).rejects.toThrow(
+      'The patient declined Radial Shockwave (RSW) in Part B consent: untick it.',
+    );
   });
 
   it("refuses to close what is missing, someone else's, a stale version, or without the tick", async () => {

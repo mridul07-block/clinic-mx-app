@@ -67,6 +67,10 @@ export const task = pgTable(
     uniqueIndex('task_open_review_overdue_key')
       .on(table.episodeId)
       .where(sql`${table.kind} = 'review.overdue' and ${table.status} = 'open'`),
+    // One unclosed Part B decline task per episode (BIL-03): two declines at once add one.
+    uniqueIndex('task_open_part_b_declined_key')
+      .on(table.episodeId)
+      .where(sql`${table.kind} = 'consent.part_b_declined' and ${table.status} <> 'closed'`),
     // One open AI spend cap task at a time (AI-01): a capped day never adds a second.
     uniqueIndex('task_open_ai_spend_cap_key')
       .on(table.kind)

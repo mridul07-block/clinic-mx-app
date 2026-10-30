@@ -1,4 +1,4 @@
-import { partBStatements } from '@clinic-mx/schemas';
+import { earlierToday, partBStatements } from '@clinic-mx/schemas';
 import { sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { patientActor, setAuditContext, systemActor, withActor } from '../audit';
@@ -6,11 +6,14 @@ import { createDb } from '../client';
 import { insertConsentRecords } from '../consent';
 import type { StaffMember } from '../identity';
 import { partBForEpisode, partBForLink } from '../part-b-consent';
+import { startVisit } from '../my-patients';
 import { insertPatientLink } from '../patient-links';
-import { patientLink, planModality, planOfCare } from '../schema';
+import { latestKnowledgeVersion } from '../knowledge';
+import { openSession, signSession } from '../sessions';
+import { appointment, patientLink, planModality, planOfCare } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import { signedPlan } from './fake-plan';
-import { becomeStaff, testPhysio } from './fake-schedule';
+import { becomeStaff, testPatient, testPhysio, typeId } from './fake-schedule';
 
 // BIL-03 done when: Part B consent pages, general terms always, package terms only with a package,
 // one card per planned modality, signed. The database's side: the desk issues the episode's consent
@@ -105,7 +108,11 @@ async function setUp(tx: Tx) {
     expiresAt: new Date(Date.now() + 3_600_000),
   });
   await asOwner(tx);
-  return { ...plan, link: { id: link.id, patientId: plan.patientId, purpose: 'consent' } };
+  return {
+    ...plan,
+    consultant,
+    link: { id: link.id, patientId: plan.patientId, purpose: 'consent' },
+  };
 }
 
 const decision = (
@@ -373,10 +380,12 @@ describe('Part B records', () => {
   it('name a real, current statement with its own modality, words and guardian', async () => {
     await rolledBack(async (tx) => {
       const plan = await setUp(tx);
+      // Another patient's guardian.
+      const otherPatient = await testPatient(tx);
       const [stranger] = await tx.execute<{ id: string }>(sql`
         insert into guardian (patient_id, name, relationship, phone)
-        select p.id, 'Test Guardian Other', 'mother', '+919900000777'
-        from patient p where p.id <> ${plan.patientId} limit 1 returning id`);
+        values (${otherPatient}, 'Test Guardian Other', 'mother', '+919900000777') returning id`);
+      if (!stranger) throw new Error('No guardian was written.');
       await asLink(tx, plan.link);
       for (const forged of [
         decision(plan, 'part_b.anything', true),
@@ -389,7 +398,7 @@ describe('Part B records', () => {
         decision(plan, 'part_b.right_to_decline', true, { shownText: 'I agree to everything' }),
         decision(plan, 'part_b.plan', true, {
           signer: 'guardian',
-          guardianId: stranger?.id ?? '',
+          guardianId: stranger.id,
         }),
       ]) {
         expect(
@@ -422,6 +431,115 @@ describe('Part B records', () => {
         select assignee_role, priority from task
         where kind = 'consent.part_b_declined' and episode_id = ${plan.episodeId}`);
       expect(tasks).toEqual([{ assignee_role: 'front_desk', priority: 'high' }]);
+    });
+  });
+});
+
+// BIL-04 review: treatments are given through the session note.
+describe('Part B and the session note', () => {
+  it('asks for a treatment a note ticks, and signs a note only with treatments agreed', async () => {
+    await rolledBack(async (tx) => {
+      const plan = await setUp(tx);
+      await asLink(tx, plan.link);
+      await insertConsentRecords(tx, [
+        decision(plan, 'part_b.plan', true),
+        decision(plan, 'part_b.right_to_decline', true),
+        decision(plan, 'part_b.modality.laser', true, { modality: 'laser' }),
+      ]);
+      await asOwner(tx);
+      const startsAt = earlierToday(2);
+      const [visit] = await tx
+        .insert(appointment)
+        .values({
+          number: '',
+          patientId: plan.patientId,
+          centreId: centreIds.hsrLayout,
+          physioId: plan.consultant.id,
+          appointmentTypeId: await typeId(tx, 'session'),
+          episodeId: plan.episodeId,
+          startsAt,
+          endsAt: new Date(startsAt.getTime() + 60000),
+          channel: 'front_desk',
+          bookedBy: deskHsr.id,
+          status: 'checked_in',
+          arrivedAt: new Date(),
+          checkedInBy: deskHsr.id,
+        })
+        .returning({ id: appointment.id });
+      await becomeStaff(tx, plan.consultant);
+      await startVisit(tx, {
+        appointmentId: visit?.id ?? '',
+        by: plan.consultant.id,
+        now: new Date(),
+      });
+      const sessionId = await openSession(tx, {
+        appointmentId: visit?.id ?? '',
+        physioId: plan.consultant.id,
+        kbVersionId: (await latestKnowledgeVersion(tx))?.id ?? '',
+        note: {
+          treatment: {
+            interventions: ['exercise'],
+            modalities: ['laser', 'pemf'],
+            note: '',
+            parameters: {},
+            reasons: {},
+          },
+        },
+      });
+      const sign = (sp: Tx) =>
+        signSession(sp, {
+          sessionId,
+          baseVersion: 1,
+          by: plan.consultant.id,
+          pain: { rest: 2, activity: 4, after: 1 },
+        });
+      // PEMF, ticked but never asked: refused, and Part B now asks it.
+      expect(await failure(tx, sign)).toBe('23514');
+      const gate = async () => {
+        await asOwner(tx);
+        const [row] = await tx.execute<{ gate: string }>(
+          sql`select internal.part_b_gate(${plan.episodeId}::uuid) as gate`,
+        );
+        return row?.gate;
+      };
+      expect(await gate()).toBe('missing_modality');
+      await asLink(tx, plan.link);
+      expect((await partBForLink(tx))?.modalities.map((m) => m.key)).toContain('pemf');
+      // Declined: still refused.
+      await insertConsentRecords(tx, [
+        decision(plan, 'part_b.modality.pemf', false, { modality: 'pemf' }),
+      ]);
+      await asOwner(tx);
+      await becomeStaff(tx, plan.consultant);
+      expect(await failure(tx, sign)).toBe('23514');
+      // Agreed later: signed.
+      await asLink(tx, plan.link);
+      await insertConsentRecords(tx, [
+        decision(plan, 'part_b.modality.pemf', true, {
+          modality: 'pemf',
+          createdAt: new Date(Date.now() + 60_000),
+        }),
+      ]);
+      await asOwner(tx);
+      await becomeStaff(tx, plan.consultant);
+      expect(await sign(tx)).toBe('signed');
+    });
+  });
+
+  it('gives the desk one task however many declines arrive at once', async () => {
+    await rolledBack(async (tx) => {
+      const plan = await setUp(tx);
+      await asLink(tx, plan.link);
+      await insertConsentRecords(tx, [
+        decision(plan, 'part_b.plan', false),
+        decision(plan, 'part_b.right_to_decline', false),
+        decision(plan, 'part_b.modality.laser', false, { modality: 'laser' }),
+      ]);
+      await asOwner(tx);
+      const [row] = await tx.execute<{ n: number }>(sql`
+        select count(*)::int as n from task
+        where kind = 'consent.part_b_declined' and episode_id = ${plan.episodeId}`);
+      expect(row?.n).toBe(1);
     });
   });
 });

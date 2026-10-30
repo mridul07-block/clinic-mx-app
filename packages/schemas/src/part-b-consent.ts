@@ -249,6 +249,24 @@ export function partBStatus(
   };
 }
 
+/** Where a treatment's own Part B consent stands (BIL-04): only an agreed one is given. */
+export type PartBModalityConsent = 'agreed' | 'declined' | 'awaiting' | 'needed';
+
+/**
+ * A treatment's Part B consent from the latest decisions: its card's on the current version,
+ * 'awaiting' while its wording is (DECISION #21), and 'needed' when it has no card at all.
+ */
+export function partBModalityConsent(
+  modality: string,
+  latest: Readonly<Record<string, boolean>>,
+): PartBModalityConsent {
+  const statement = all.find((each) => each.modality === modality);
+  if (!statement) return 'needed';
+  if (statement.awaitingWording) return 'awaiting';
+  const decided = latest[statement.key];
+  return decided === undefined ? 'needed' : decided ? 'agreed' : 'declined';
+}
+
 /**
  * Whether Part B lets treatment start (BIL-12; PRD J4.5 and J4.9), and why not: every statement
  * decided, no general term declined, and with a package no package term declined.

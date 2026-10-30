@@ -28,6 +28,7 @@ import { asStaff } from '../access/staff-db';
 import { aiSheetPass } from '../ai/gate';
 import { SchedulingError, appointmentTarget } from '../scheduling/services';
 import { SessionError, openSessionNote } from '../sessions/services';
+import { getSetting } from '../settings/settings';
 
 /**
  * My patients today (CLN-01, Frontend Specification "Physiotherapist"): the signed in clinician's
@@ -139,10 +140,13 @@ export const startVisit = staffService({
       throw new SchedulingError('Only a consultant starts a consultation.');
     }
     if (consulting && !found.episodeId) throw new SchedulingError(HEALTH_FORM_NEEDED);
-    // SES-01: a treatment session starts only once its gate is met.
+    // SES-01: a treatment session starts only once its gate is met; one whose gate this person
+    // cannot read (not at its centre) does not start.
     if (session) {
       const gate = sessionGate(session.episodeStatus, session.partB);
       if (!gate.met) throw new SchedulingError(gate.message);
+    } else if ((await getSetting('packages.session_appointment_types')).includes(found.typeKey)) {
+      throw new SchedulingError('This session is at a centre you do not work at.');
     }
     if (!(await startVisitRow(tx, { appointmentId: found.id, by: actor.id, now }))) {
       throw new SchedulingError('Check the patient in first.');

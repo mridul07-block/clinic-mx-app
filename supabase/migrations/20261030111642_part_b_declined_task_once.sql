@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "task_open_part_b_declined_key" ON "task" USING btree ("episode_id") WHERE "task"."kind" = 'consent.part_b_declined' and "task"."status" <> 'closed';

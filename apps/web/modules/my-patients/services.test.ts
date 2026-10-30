@@ -23,7 +23,12 @@ vi.mock('@clinic-mx/db', () => ({ ...db, NoKnowledgeVersionError }));
 vi.mock('../access/staff-db', () => ({
   asStaff: (_actor: unknown, work: (tx: unknown) => unknown) => work(fakeTx),
 }));
-vi.mock('../settings/settings', () => ({ getSetting: vi.fn(() => Promise.resolve(1)) }));
+// Test values only; the real ones are the settings rows.
+vi.mock('../settings/settings', () => ({
+  getSetting: vi.fn((key: string) =>
+    Promise.resolve(key === 'packages.session_appointment_types' ? ['session'] : 1),
+  ),
+}));
 const openSessionNote = vi.hoisted(() => vi.fn(() => Promise.resolve('session-id')));
 vi.mock('../sessions/services', () => ({
   openSessionNote,
@@ -151,7 +156,13 @@ describe('my patients today', () => {
     await expect(startVisit(context(), { appointmentId })).resolves.toEqual({
       sessionAppointmentId: appointmentId,
     });
+    // A session whose progress this person cannot read (not at its centre): not started.
+    db.sessionProgress.mockResolvedValueOnce(new Map());
+    await expect(startVisit(context(), { appointmentId })).rejects.toThrow(
+      'This session is at a centre you do not work at.',
+    );
     // Not a session type: no progress, no gate.
+    found(visit({ typeKey: 'review_free' }));
     db.sessionProgress.mockResolvedValueOnce(new Map());
     await expect(startVisit(context(), { appointmentId })).resolves.toEqual({});
   });
