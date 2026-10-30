@@ -1,5 +1,14 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { messageTemplate, messageTemplates, type TemplateVariables } from './message-templates';
+import {
+  bodyVariables,
+  bodyWithNames,
+  messageTemplate,
+  messageTemplates,
+  metaTemplateName,
+  templateCreateBody,
+  type TemplateParameters,
+  type TemplateVariables,
+} from './message-templates';
 
 /** Lower case words joined by single underscores, starting with a letter. */
 const snakeCase = /^[a-z][a-z0-9_]*$/;
@@ -53,6 +62,98 @@ describe('message template registry', () => {
     expect(count('flow')).toBeLessThanOrEqual(1);
   });
 
+  // WA-06: Meta refuses a template whose text breaks these rules, so they are checked here first.
+  it.each(messageTemplates)('$key: text within Meta rules', (template) => {
+    const text = template.body as string;
+    expect(text.length).toBeLessThanOrEqual(1024);
+    expect(text).not.toMatch(/^\s*\{\{/);
+    expect(text).not.toMatch(/\}\}[\s.!?]*$/);
+    expect(text).not.toMatch(/\}\}\s*\{\{/);
+    expect(text).not.toMatch(/[\n\t]| {5}/);
+    const numbers = [...text.matchAll(/\{\{(\d+)\}\}/g)].map((match) => Number(match[1]));
+    const body = bodyVariables(template);
+    expect(numbers).toEqual(body.map((_, index) => index + 1));
+    for (const variable of template.variables) {
+      expect(variable.example).not.toBe('');
+      // Meta refuses line breaks inside a variable.
+      expect(variable.example).not.toMatch(/[\n\t]/);
+    }
+    // Every variable fills the text or a link button.
+    const used = new Set([
+      ...body.map((variable) => variable.name),
+      ...template.buttons.flatMap((button: { kind: string; variable?: string }) =>
+        button.variable ? [button.variable] : [],
+      ),
+    ]);
+    expect(used.size).toBe(template.variables.length);
+    expect(metaTemplateName(template.key, template.version)).toMatch(/^[a-z0-9_]{1,512}$/);
+  });
+
+  it('builds the request Meta creates a template from', () => {
+    const summary = templateCreateBody(messageTemplate('consultation_summary'), {
+      origin: 'https://clinic.example/',
+      documentHandle: 'handle-1',
+    });
+    expect(summary).toEqual({
+      name: 'consultation_summary_v1',
+      language: 'en',
+      category: 'UTILITY',
+      components: [
+        { type: 'HEADER', format: 'DOCUMENT', example: { header_handle: ['handle-1'] } },
+        {
+          type: 'BODY',
+          text: messageTemplate('consultation_summary').body,
+          example: { body_text: [['Asha']] },
+        },
+        {
+          type: 'BUTTONS',
+          buttons: [
+            {
+              type: 'URL',
+              text: 'Open My plan',
+              url: 'https://clinic.example/p/{{1}}',
+              example: ['https://clinic.example/p/k3f9q2'],
+            },
+            {
+              type: 'URL',
+              text: 'Rate your visit',
+              url: 'https://clinic.example/p/{{1}}',
+              example: ['https://clinic.example/p/r7m2x8'],
+            },
+          ],
+        },
+      ],
+    });
+    const check = templateCreateBody(messageTemplate('first_treatment_check'), {
+      origin: 'https://clinic.example',
+    });
+    expect(check.components.at(-1)).toEqual({
+      type: 'BUTTONS',
+      buttons: ['Better', 'Same', 'Still sore'].map((text) => ({ type: 'QUICK_REPLY', text })),
+    });
+    // A PDF header or a Flow button cannot be submitted without its sample or its Flow.
+    expect(() =>
+      templateCreateBody(messageTemplate('receipt'), { origin: 'https://clinic.example' }),
+    ).toThrow('needs a sample PDF');
+    expect(() =>
+      templateCreateBody(messageTemplate('day_before_reminder'), {
+        origin: 'https://clinic.example',
+      }),
+    ).toThrow('needs its Flow');
+  });
+
+  it('shows the text with variable names', () => {
+    expect(bodyWithNames(messageTemplate('morning_reminder'))).toBe(
+      'Hi {{patient_name}}, a reminder of your appointment today at {{time}} at Movementology {{clinic}}. See you soon.',
+    );
+  });
+
+  it('holds back only the reminder whose Flow WA-05 builds', () => {
+    expect(
+      messageTemplates.filter((template) => 'held' in template).map((template) => template.key),
+    ).toEqual(['day_before_reminder']);
+  });
+
   it('finds a template by key and refuses an unknown one', () => {
     expect(messageTemplate('follow_up_check').variables.map((v) => v.name)).toEqual([
       'patient_name',
@@ -70,6 +171,16 @@ describe('message template registry', () => {
       clinic: string;
       physio: string;
     }>();
-    expectTypeOf<TemplateVariables<'review_request'>>().toEqualTypeOf<{ patient_name: string }>();
+    expectTypeOf<TemplateVariables<'morning_reminder'>>().toEqualTypeOf<{
+      patient_name: string;
+      time: string;
+      clinic: string;
+    }>();
+    expectTypeOf<TemplateParameters<'receipt'>>().toEqualTypeOf<
+      { patient_name: string; amount: string; bill_number: string } & {
+        document_link: string;
+        document_name: string;
+      }
+    >();
   });
 });

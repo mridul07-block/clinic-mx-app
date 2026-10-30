@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { messageTemplate, type MessageTemplateKey, type TemplateStatus } from './message-templates';
 
 /**
  * WhatsApp messages (WA-01; TAD section 6, `message`): every message the platform sends is a row
@@ -78,6 +77,7 @@ export const skipReasons = {
   notOnTestList: 'Not on the WhatsApp test list.',
   notConfigured: 'WhatsApp is not configured on this server.',
   windowClosed: 'More than 24 hours since they last wrote; only a template may go now.',
+  notApproved: 'Meta has not approved this template on this number.',
 } as const;
 
 /** Meta's customer service window: a reply that is not a template goes only within it. */
@@ -89,11 +89,6 @@ export function mayReceive(
   rules: { testRecipientsOnly: boolean; testRecipients: readonly string[] },
 ): boolean {
   return !rules.testRecipientsOnly || rules.testRecipients.includes(to);
-}
-
-/** Whether a clinic template may be sent: only once Meta has approved it (WA-06). */
-export function templateSendable(key: MessageTemplateKey): boolean {
-  return (messageTemplate(key).status as TemplateStatus) === 'approved';
 }
 
 /** A number as lists show it: everything but the last 4 digits hidden. */

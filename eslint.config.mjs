@@ -116,13 +116,15 @@ export default defineConfig(
     // tablet's cookie is its sign in (IAM-10): the token's hash finds the tablet. Rate limit counters
     // (IAM-11) are bookkeeping no person drives. The health form's submit pipeline (INT-10) runs
     // as the system after the patient's own submit, and from its job. The blind test (AI-06) is
-    // an operator's command line tool, with no person signed in. Meta's WhatsApp webhook (WA-02)
+    // an operator's command line tool, with no person signed in, as is submitting the WhatsApp
+    // templates to Meta (WA-06). Meta's WhatsApp webhook (WA-02)
     // and the booking Flow's data endpoint (WA-04) are signed by Meta with the app secret, with no
     // person signed in.
     files: [
       'apps/web/app/api/whatsapp/**',
       'apps/web/app/api/flows/**',
       'apps/web/scripts/blind-test.ts',
+      'apps/web/scripts/whatsapp-templates.ts',
       'apps/web/modules/intake/pipeline.ts',
       'apps/web/proxy.ts',
       'apps/web/lib/**',

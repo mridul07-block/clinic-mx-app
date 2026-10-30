@@ -3,7 +3,6 @@ import {
   maskNumber,
   mayReceive,
   retryableSendFailure,
-  templateSendable,
   testRecipientsSchema,
   whatsappNumberSchema,
 } from './messaging';
@@ -46,12 +45,6 @@ describe('mayReceive', () => {
     expect(mayReceive('+919999999999', { testRecipientsOnly: false, testRecipients: [] })).toBe(
       true,
     );
-  });
-});
-
-describe('templateSendable', () => {
-  it('sends no template Meta has not approved', () => {
-    expect(templateSendable('booking_confirmation')).toBe(false);
   });
 });
 

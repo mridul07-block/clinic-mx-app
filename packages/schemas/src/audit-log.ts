@@ -105,6 +105,8 @@ export const auditSetupTables = [
   'staff_user',
   'staff_user_centre',
   'support_grant',
+  // WA-06: Meta's verdict on each WhatsApp template version.
+  'whatsapp_template',
 ] as const;
 
 /** Every table placed on purpose; a database test checks each audited table is here once. */

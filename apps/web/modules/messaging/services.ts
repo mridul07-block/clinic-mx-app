@@ -1,5 +1,12 @@
 import 'server-only';
-import { queueMessage, recentMessages, type MessageEntry, type StaffMember } from '@clinic-mx/db';
+import {
+  queueMessage,
+  recentMessages,
+  templateVersionsOnMeta,
+  type MessageEntry,
+  type StaffMember,
+  type WhatsappTemplate,
+} from '@clinic-mx/db';
 import { TEST_TEMPLATE, can, sendTestMessageSchema } from '@clinic-mx/schemas';
 import { staffService } from '../access/service';
 import { asStaff } from '../access/staff-db';
@@ -21,6 +28,12 @@ const RECENT_MESSAGES = 20;
 export async function recentMessagesOf(actor: StaffMember): Promise<MessageEntry[]> {
   if (!can(actor, 'templates.manage') || actor.support) return [];
   return asStaff(actor, (tx) => recentMessages(tx, RECENT_MESSAGES));
+}
+
+/** What Meta decided about each template version on this environment's number (WA-06). */
+export async function templateVersionsOf(actor: StaffMember): Promise<WhatsappTemplate[]> {
+  if (!can(actor, 'templates.manage') || actor.support) return [];
+  return asStaff(actor, (tx) => templateVersionsOnMeta(tx));
 }
 
 export const sendTestMessageService = staffService({

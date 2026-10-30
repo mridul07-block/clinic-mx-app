@@ -1,6 +1,7 @@
 import 'server-only';
 import {
   applyDeliveryUpdate,
+  applyTemplateUpdate,
   markWhatsappEventProcessed,
   recordInboundMessage,
   storeWhatsappEvent,
@@ -50,6 +51,8 @@ export interface EventOutcome {
   received: number;
   /** Their ids, for the router (WA-03). */
   receivedIds: string[];
+  /** Templates of ours Meta moved on (WA-06). */
+  templates: number;
   /** Already handled, or deleted. */
   skipped: boolean;
 }
@@ -60,13 +63,19 @@ const handle = systemService({
   run: async (tx, { eventId, now }): Promise<EventOutcome> => {
     const event = await whatsappEventRecord(tx, eventId, { lock: true });
     if (!event || event.processedAt) {
-      return { updated: 0, received: 0, receivedIds: [], skipped: true };
+      return { updated: 0, received: 0, receivedIds: [], templates: 0, skipped: true };
     }
-    const outcome: EventOutcome = { updated: 0, received: 0, receivedIds: [], skipped: false };
+    const outcome: EventOutcome = {
+      updated: 0,
+      received: 0,
+      receivedIds: [],
+      templates: 0,
+      skipped: false,
+    };
     // The route stored only bodies that passed this schema; one that no longer does is closed.
     const parsed = whatsappWebhookSchema.safeParse(event.payload);
     if (parsed.success) {
-      const { updates, messages } = webhookContents(parsed.data);
+      const { updates, messages, templates } = webhookContents(parsed.data);
       let unknown = 0;
       for (const update of updates) {
         if (update.status === 'sent') continue;
@@ -85,6 +94,10 @@ const handle = systemService({
         if (id) outcome.receivedIds.push(id);
       }
       outcome.received = outcome.receivedIds.length;
+      // A template submitted from another environment, or one of Meta's samples, is not ours.
+      for (const template of templates) {
+        if ((await applyTemplateUpdate(tx, template)) === 'changed') outcome.templates++;
+      }
     }
     await markWhatsappEventProcessed(tx, eventId);
     return outcome;

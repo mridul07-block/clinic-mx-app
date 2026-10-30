@@ -5,6 +5,7 @@ import { StatusAheadOfSendError, UNKNOWN_STATUS_WAIT_MS, handleWhatsappEvent } f
 vi.mock('server-only', () => ({}));
 const db = vi.hoisted(() => ({
   applyDeliveryUpdate: vi.fn(),
+  applyTemplateUpdate: vi.fn(),
   markWhatsappEventProcessed: vi.fn(),
   recordInboundMessage: vi.fn(),
   storeWhatsappEvent: vi.fn(),
@@ -63,7 +64,13 @@ describe('handling a webhook body', () => {
   it('applies Delivered and Read (never Sent again), locked, then marks it handled', async () => {
     db.whatsappEventRecord.mockResolvedValue(event(statuses));
     const outcome = await handleWhatsappEvent({} as Db, eventId, soon);
-    expect(outcome).toEqual({ updated: 2, received: 0, receivedIds: [], skipped: false });
+    expect(outcome).toEqual({
+      updated: 2,
+      received: 0,
+      receivedIds: [],
+      templates: 0,
+      skipped: false,
+    });
     expect(db.whatsappEventRecord).toHaveBeenCalledWith('system-tx', eventId, { lock: true });
     const applied = db.applyDeliveryUpdate.mock.calls as [unknown, { status: string }][];
     expect(applied.map(([, update]) => update.status)).toEqual(['delivered', 'read']);
@@ -77,6 +84,7 @@ describe('handling a webhook body', () => {
       updated: 0,
       received: 1,
       receivedIds: ['message-1'],
+      templates: 0,
       skipped: false,
     });
     expect(db.recordInboundMessage).toHaveBeenCalledWith(
@@ -111,9 +119,72 @@ describe('handling a webhook body', () => {
       updated: 0,
       received: 0,
       receivedIds: [],
+      templates: 0,
       skipped: false,
     });
     expect(db.markWhatsappEventProcessed).toHaveBeenCalledTimes(1);
+  });
+
+  // WA-06: Meta's verdict on a template, and a category it moved one to.
+  it('applies template verdicts and category changes, leaving templates not ours alone', async () => {
+    db.applyTemplateUpdate
+      .mockResolvedValueOnce('changed')
+      .mockResolvedValueOnce('unknown')
+      .mockResolvedValueOnce('changed');
+    db.whatsappEventRecord.mockResolvedValue(
+      event({
+        object: 'whatsapp_business_account',
+        entry: [
+          {
+            id: '1',
+            changes: [
+              {
+                field: 'message_template_status_update',
+                value: {
+                  event: 'APPROVED',
+                  message_template_id: 1698651768258211,
+                  message_template_name: 'no_show_v1',
+                  message_template_language: 'en',
+                  reason: 'NONE',
+                },
+              },
+              {
+                field: 'message_template_status_update',
+                value: {
+                  event: 'REJECTED',
+                  message_template_id: '42',
+                  message_template_name: 'jaspers_market',
+                  message_template_language: 'en_US',
+                  reason: 'INVALID_FORMAT',
+                },
+              },
+              {
+                field: 'template_category_update',
+                value: {
+                  message_template_id: '77',
+                  message_template_name: 'review_request_v1',
+                  message_template_language: 'en',
+                  previous_category: 'UTILITY',
+                  new_category: 'MARKETING',
+                },
+              },
+              { field: 'message_template_status_update', value: { event: 'FLAGGED' } },
+            ],
+          },
+        ],
+      }),
+    );
+    expect((await handleWhatsappEvent({} as Db, eventId, soon)).templates).toBe(2);
+    expect(db.applyTemplateUpdate.mock.calls.map((call) => call[1] as unknown)).toEqual([
+      { metaId: '1698651768258211', status: 'approved', reason: null },
+      { metaId: '42', status: 'rejected', reason: 'INVALID_FORMAT' },
+      {
+        metaId: '77',
+        category: 'MARKETING',
+        reason: 'Meta moved it to the marketing category.',
+      },
+    ]);
+    expect(db.markWhatsappEventProcessed).toHaveBeenCalledWith('system-tx', eventId);
   });
 
   it('closes a stored body that no longer reads as a WhatsApp one, changing nothing', async () => {

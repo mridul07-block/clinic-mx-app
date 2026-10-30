@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { TemplateApprovalStatus } from './message-templates';
 import type { InboundKind, MessageStatus } from './messaging';
 
 /**
@@ -16,10 +17,13 @@ export const whatsappWebhookSchema = z.object({
       changes: z.array(
         z.object({
           field: z.string(),
-          value: z.object({
-            statuses: z.array(z.unknown()).optional(),
-            messages: z.array(z.unknown()).optional(),
-          }),
+          value: z
+            .object({
+              statuses: z.array(z.unknown()).optional(),
+              messages: z.array(z.unknown()).optional(),
+            })
+            // A template update's fields sit on the value itself (WA-06).
+            .loose(),
         }),
       ),
     }),
@@ -84,14 +88,95 @@ export interface InboundMessage {
   contextWaId: string | null;
 }
 
+/**
+ * Meta moved one of our templates on (WA-06): its verdict (`message_template_status_update`) or
+ * its category (`template_category_update`).
+ */
+export interface TemplateUpdate {
+  metaId: string;
+  status?: TemplateApprovalStatus;
+  category?: string;
+  /** Meta's reason; none when it gives "NONE". */
+  reason: string | null;
+}
+
 export interface WebhookContents {
   updates: DeliveryUpdate[];
   messages: InboundMessage[];
+  templates: TemplateUpdate[];
   /** Items not understood (another status, a malformed entry); counted, never stored. */
   ignored: number;
 }
 
 const at = (seconds: string) => new Date(Number(seconds) * 1000);
+
+/**
+ * Meta's word for a template's state, from the webhook's event or the template list's status, as
+ * ours; none for one that does not change whether it may be sent (Flagged, a limit reached).
+ */
+export function templateApprovalOf(meta: string): TemplateApprovalStatus | null {
+  switch (meta.toUpperCase()) {
+    case 'APPROVED':
+    case 'REINSTATED':
+      return 'approved';
+    case 'PENDING':
+    case 'IN_APPEAL':
+    case 'APPEAL_REQUESTED':
+      return 'pending';
+    case 'REJECTED':
+      return 'rejected';
+    case 'PAUSED':
+      return 'paused';
+    case 'DISABLED':
+    case 'PENDING_DELETION':
+    case 'DELETED':
+    case 'ARCHIVED':
+      return 'disabled';
+    default:
+      return null;
+  }
+}
+
+const metaTemplateId = z
+  .union([z.string().regex(/^\d+$/), z.int().nonnegative()])
+  .transform(String);
+const metaReason = (reason: string | null | undefined) =>
+  reason && reason.toUpperCase() !== 'NONE' ? reason : null;
+
+const templateStatusUpdate = z.object({
+  event: z.string(),
+  message_template_id: metaTemplateId,
+  reason: z.string().nullish(),
+});
+
+const templateCategoryUpdate = z.object({
+  message_template_id: metaTemplateId,
+  new_category: z.string().optional(),
+  correct_category: z.string().optional(),
+});
+
+function templateUpdate(field: string, value: unknown): TemplateUpdate | null {
+  if (field === 'message_template_status_update') {
+    const parsed = templateStatusUpdate.safeParse(value);
+    const status = parsed.success ? templateApprovalOf(parsed.data.event) : null;
+    return parsed.success && status
+      ? { metaId: parsed.data.message_template_id, status, reason: metaReason(parsed.data.reason) }
+      : null;
+  }
+  const parsed = templateCategoryUpdate.safeParse(value);
+  const category = parsed.success
+    ? (parsed.data.new_category ?? parsed.data.correct_category)
+    : undefined;
+  return parsed.success && category
+    ? {
+        metaId: parsed.data.message_template_id,
+        category,
+        reason: `Meta moved it to the ${category.toLowerCase()} category.`,
+      }
+    : null;
+}
+
+const templateFields = new Set(['message_template_status_update', 'template_category_update']);
 
 function flowAnswers(json: string): Record<string, unknown> | null {
   try {
@@ -136,11 +221,20 @@ function inbound(message: z.infer<typeof metaMessage>): InboundMessage {
   return { ...common, ...none, kind: 'other' };
 }
 
-/** The statuses and messages in a webhook body Meta signed; only the `messages` field counts. */
+/**
+ * The statuses, messages and template updates in a webhook body Meta signed; other fields are
+ * ignored.
+ */
 export function webhookContents(body: WhatsappWebhook): WebhookContents {
-  const contents: WebhookContents = { updates: [], messages: [], ignored: 0 };
+  const contents: WebhookContents = { updates: [], messages: [], templates: [], ignored: 0 };
   for (const entry of body.entry) {
     for (const change of entry.changes) {
+      if (templateFields.has(change.field)) {
+        const update = templateUpdate(change.field, change.value);
+        if (update) contents.templates.push(update);
+        else contents.ignored++;
+        continue;
+      }
       if (change.field !== 'messages') {
         contents.ignored++;
         continue;
