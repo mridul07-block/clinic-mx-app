@@ -1,6 +1,6 @@
 {
-  "id": "5b174009-ff1d-440d-ab30-44927215d70e",
-  "prevId": "98af3d99-564f-4dc5-9ddf-703526161ae4",
+  "id": "206991a2-7ae6-40ce-8043-acefab9bf185",
+  "prevId": "9d2e8122-78f5-4ae4-89c9-3830940277fe",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -12793,6 +12793,19 @@
           "primaryKey": false,
           "notNull": false
         },
+        "route": {
+          "name": "route",
+          "type": "message_route",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "routed_at": {
+          "name": "routed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "message_status",
@@ -12895,6 +12908,28 @@
           "with": {},
           "method": "btree",
           "concurrently": false
+        },
+        "message_inbound_phone_idx": {
+          "name": "message_inbound_phone_idx",
+          "columns": [
+            {
+              "expression": "from_phone",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sent_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "where": "\"message\".\"direction\" = 'inbound'",
+          "concurrently": false
         }
       },
       "foreignKeys": {
@@ -12942,7 +12977,11 @@
         },
         "message_outbound": {
           "name": "message_outbound",
-          "value": "\"message\".\"direction\" <> 'outbound' or (\"message\".\"to_phone\" is not null and \"message\".\"from_phone\" is null and \"message\".\"template_key\" is not null and \"message\".\"template_version\" is not null and \"message\".\"language\" is not null and \"message\".\"kind\" in ('template', 'test') and \"message\".\"status\" <> 'received')"
+          "value": "\"message\".\"direction\" <> 'outbound' or (\"message\".\"to_phone\" is not null and \"message\".\"from_phone\" is null and \"message\".\"template_key\" is not null and \"message\".\"template_version\" is not null and \"message\".\"language\" is not null and \"message\".\"kind\" in ('template', 'test', 'session') and \"message\".\"status\" <> 'received')"
+        },
+        "message_route": {
+          "name": "message_route",
+          "value": "(\"message\".\"route\" is null) = (\"message\".\"routed_at\" is null) and (\"message\".\"route\" is null or \"message\".\"direction\" = 'inbound')"
         },
         "message_inbound": {
           "name": "message_inbound",
@@ -13615,10 +13654,26 @@
       "values": [
         "template",
         "test",
+        "session",
         "text",
         "reply",
         "flow",
         "other"
+      ]
+    },
+    "public.message_route": {
+      "name": "message_route",
+      "schema": "public",
+      "values": [
+        "emergency",
+        "menu",
+        "talk",
+        "book",
+        "reschedule",
+        "confirm",
+        "booking_flow",
+        "reschedule_flow",
+        "assistant"
       ]
     },
     "public.message_status": {
