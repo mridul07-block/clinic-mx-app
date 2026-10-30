@@ -102,12 +102,21 @@ pnpm ai:patient-content --model <vendor/model> --provider <host> [--provider <ho
   word to 2,000 characters); and its region's programme phases (name, timing, goal). Never the
   condition ID and never anything about a patient.
 - **The prompt** (`write_patient_content.v1`, pinned by a test) says how to write, never what is
-  true: plain words, "you", at most 150 words a part, the SOP's CLEAR framework (section 11.1),
-  only the facts in the input, no outcome promised, and "the physiotherapist will set" a timeline
-  the input does not give.
+  true: plain words, "you", at most 150 words a part, the SOP's CLEAR style (section 11.1), each
+  part only from its own sources, nothing added that the input does not say, clinicians' options
+  left out, no outcome promised, and "the physiotherapist will set" a timeline the input does not
+  give. Each part's sources:
+  - Explanation: the name, symptoms and cause.
+  - Roadmap: the phases, timeline and loading stage.
+  - Home advice: the corrections, management emphasis and loading stage.
+  - Warning signs: the red flags and referral trigger.
+- **A part with no source** says only "Your physiotherapist will go through this with you."
+  (`PATIENT_CONTENT_HANDOFF`), set by the code whatever the model wrote, so no safety advice is
+  ever made up. In knowledge base version 1 every condition has text for each part.
 - **What comes back:** the four parts, each 1 to 4,000 characters. A valid answer becomes a draft
-  written by the server (`system:ai`): source `ai`, no writer, revision 1, against the live
-  version, audited. A condition that gained a draft meanwhile is skipped, never overwritten.
+  written by the server (`system:ai`): source `ai`, no writer, revision 1, audited, against the
+  version its text was read from. If that version stops being live during the run, the draft is
+  saved again before it can be approved, as any draft is. A condition that gained a draft meanwhile is skipped, never overwritten.
 - **Through the gateway:** zero data retention, no data collection, the pinned hosts with no
   fallbacks, never a blocked provider (`pinnedAiTasks`), the identifier guard, one retry, and one
   `ai_run` per condition (`write_patient_content`, outside any episode, with its knowledge base
@@ -116,8 +125,12 @@ pnpm ai:patient-content --model <vendor/model> --provider <host> [--provider <ho
   counts every run of the task, ever. It never counts against the daily cap and never stops the live
   sheet. At the budget the run stops; running again carries on with the conditions still without
   content.
+- **A failing host:** a timed out call is billed, but its cost never comes back, so the budget
+  cannot see it. The run also stops after `ai.patient_content_stop_after_failures` (3) calls in a
+  row with no valid answer; check the host with `pnpm ai:check` and run again.
 - **Settings:** `ai.task_write_patient_content` holds the prompt version, reasoning (none), the
-  timeout (60 seconds) and the token limit (2,500). The model and hosts are the operator's, for the
+  timeout (60 seconds; up to 2 minutes for this task only, the live sheet's tasks keep 20 seconds)
+  and the token limit (2,500). The model and hosts are the operator's, for the
   run. A new prompt changes with a release.
 - **`--dry-run`** builds and checks every input and calls nothing.
 - Only counts are printed, with the run's cost as the gateway recorded it.
@@ -136,6 +149,12 @@ conditions ready to send. Then three conditions each, on hosts with zero data re
   repair, with the workbook's own timeline and risk factors.
 - GLM 5.3 was clear but rougher: for the shoulder (SHO-001) it put "Avoid routine surgery", a
   management note, under home advice.
+- **After the review** the prompt names each part's sources and leaves out clinicians' options.
+  Run again on GPT 6.1 Sol for KNE-005, ANK-001, LUM-002 and SHO-001: 4 of 4, 17 to 26 s and about
+  $0.011 a condition ($0.045 in all). The shoulder's home advice no longer mentions surgery, and its
+  numbers (sets, repetitions, a 5/10 pain limit, settling within 24 hours) are all in the
+  condition's own row. Where the row gives no urgent care signs, the draft says the physiotherapist
+  will go through them.
 - **Recommended for the full run** (DECISION AI-07, for the client to confirm): GPT 6.1 Sol on
   `azure/eu`, about $4 for all 345, within the ₹3,500 placeholder budget. It is the "best
   available" of the models with a zero retention host that can return the four parts in a strict
@@ -162,7 +181,7 @@ approves each one, exactly as a hand-written draft. Nothing reaches a patient be
 | `packages/db/src/integration/my-plan.integration.test.ts` (About your condition) | nothing while none is approved, never a draft or another condition's; the approved explanation for the signed diagnosis, then the confirmed one's instead. Without the approved-only filter it fails |
 | `apps/web/e2e/explain.spec.ts` | 360 px and desktop: Explain to patient from the consultation, saying none is approved before and while there is only a draft (never showing it), then the approved content for the chosen condition; the patient's My plan with About your condition, the explanation alone |
 | `apps/web/e2e/patient-content.spec.ts` | 360 px and desktop: the consultant finds a condition, is asked for each part, saves the draft ("Draft saved."), approves it; a physio who does not consult reads it with nothing to write. An AI draft shows "Written by AI", not shown to patients; the consultant edits it ("Written by AI, edited by") and approves it |
-| `packages/schemas/src/ai-patient-content.test.ts` | the input holds the condition's own words and its region's phases, never its ID, strict; long text cut at a word; the four parts back, each written and within 4000 characters |
-| `apps/web/modules/ai/patient-content-generation.test.ts` | a draft per condition without content, as the server; only the conditions and limit asked for, one with content refused; a draft started meanwhile never overwritten, a failed call leaves no content; the budget stops it; a dry run, a blocked host, no host, no knowledge base and no key call nothing |
+| `packages/schemas/src/ai-patient-content.test.ts` | the input holds the condition's own words and its region's phases, never its ID, strict; long text cut at a word; the parts with no source named; the four parts back, each written and within 4000 characters |
+| `apps/web/modules/ai/patient-content-generation.test.ts` | a draft per condition without content, as the server, against the run's version, with the hand-off line in each part without a source; only the conditions and limit asked for, one with content refused; a draft started meanwhile never overwritten, a failed call leaves no content; failed calls in a row stop it; the budget stops it; a dry run, a blocked host, no host, no knowledge base and no key call nothing |
 | `apps/web/modules/ai/gateway/run.test.ts` (writing patient content) | zero data retention and the named hosts pinned, logged outside any episode; its own budget, never the daily cap or the Super Admin's task; a wrong answer refused; never a blocked or unpinned host; a model named for the run only for this task |
 | `packages/db/src/integration/patient-content-generation.integration.test.ts` | only conditions with neither a draft nor approved content are listed, with their own text; an AI draft is the server's (source ai, no writer, revision 1) and never replaces a consultant's; each region's phases; its spend counted apart from the daily cap; a run without a knowledge base version refused. Without the "no content yet" filter it fails |
