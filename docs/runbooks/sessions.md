@@ -541,7 +541,7 @@ to confirm:
 | --- | --- |
 | Sections, tick, parsing | `packages/schemas/src/clearance-acknowledgement.ts` |
 | The page, the save, the QR | `apps/web/modules/consent/clearance.ts`, `app/(patient)/p/[token]/clearance-form.tsx`, the review screen's `readiness-panel.tsx` |
-| Rules | `supabase/migrations/20261030124625_clearance_acknowledgement_rules.sql` |
+| Rules | `supabase/migrations/20261030133656_clearance_acknowledgement_rules.sql` |
 | `packages/schemas/src/clearance-acknowledgement.test.ts` | which clearances ask; the sections needed to sign; every tick and the signature |
 | `apps/web/modules/reviews/readiness.test.ts` | the sections kept with Return to training; where the acknowledgement stands |
 | `packages/db/src/integration/clinical-record.integration.test.ts` (readiness and clearances) | Return to training refused without the sections or with one blank; the desk and a physio cannot issue or read the link; other words, a clearance not signed, another version, a decline, another patient or a used link refused; the link used only once something is recorded; the desk reads nothing |

@@ -1,6 +1,6 @@
 {
-  "id": "98af3d99-564f-4dc5-9ddf-703526161ae4",
-  "prevId": "c0272b85-b65d-4240-bd1d-5f0434ff3974",
+  "id": "71026cf8-57ab-456c-a840-07623a1315c4",
+  "prevId": "dd4ac5f2-aa89-4f36-8834-8e4e2f35f8fc",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -6002,7 +6002,7 @@
       "checkConstraints": {
         "consent_record_stage": {
           "name": "consent_record_stage",
-          "value": "\"consent_record\".\"stage\" in ('A', 'B', 'C')"
+          "value": "\"consent_record\".\"stage\" in ('A', 'B')"
         },
         "consent_record_signer": {
           "name": "consent_record_signer",
@@ -7051,24 +7051,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "patient_plan": {
-          "name": "patient_plan",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "warning_signs": {
-          "name": "warning_signs",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "residual_risk": {
-          "name": "residual_risk",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {},
@@ -12793,6 +12775,19 @@
           "primaryKey": false,
           "notNull": false
         },
+        "route": {
+          "name": "route",
+          "type": "message_route",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "routed_at": {
+          "name": "routed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "message_status",
@@ -12895,6 +12890,28 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "message_inbound_phone_idx": {
+          "name": "message_inbound_phone_idx",
+          "columns": [
+            {
+              "expression": "from_phone",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sent_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"message\".\"direction\" = 'inbound'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -12942,7 +12959,11 @@
         },
         "message_outbound": {
           "name": "message_outbound",
-          "value": "\"message\".\"direction\" <> 'outbound' or (\"message\".\"to_phone\" is not null and \"message\".\"from_phone\" is null and \"message\".\"template_key\" is not null and \"message\".\"template_version\" is not null and \"message\".\"language\" is not null and \"message\".\"kind\" in ('template', 'test') and \"message\".\"status\" <> 'received')"
+          "value": "\"message\".\"direction\" <> 'outbound' or (\"message\".\"to_phone\" is not null and \"message\".\"from_phone\" is null and \"message\".\"template_key\" is not null and \"message\".\"template_version\" is not null and \"message\".\"language\" is not null and \"message\".\"kind\" in ('template', 'test', 'session') and \"message\".\"status\" <> 'received')"
+        },
+        "message_route": {
+          "name": "message_route",
+          "value": "(\"message\".\"route\" is null) = (\"message\".\"routed_at\" is null) and (\"message\".\"route\" is null or \"message\".\"direction\" = 'inbound')"
         },
         "message_inbound": {
           "name": "message_inbound",
@@ -13615,10 +13636,26 @@
       "values": [
         "template",
         "test",
+        "session",
         "text",
         "reply",
         "flow",
         "other"
+      ]
+    },
+    "public.message_route": {
+      "name": "message_route",
+      "schema": "public",
+      "values": [
+        "emergency",
+        "menu",
+        "talk",
+        "book",
+        "reschedule",
+        "confirm",
+        "booking_flow",
+        "reschedule_flow",
+        "assistant"
       ]
     },
     "public.message_status": {
