@@ -4,7 +4,7 @@
   "routing_model": {
     "APPOINTMENT": ["DATE_TIME", "BLOCKED"],
     "DATE_TIME": ["SUMMARY", "BLOCKED"],
-    "SUMMARY": ["DONE", "DATE_TIME", "BLOCKED"],
+    "SUMMARY": ["DONE", "BLOCKED"],
     "DONE": [],
     "BLOCKED": []
   },
