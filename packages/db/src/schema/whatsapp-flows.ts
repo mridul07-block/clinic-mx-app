@@ -15,7 +15,7 @@ export const whatsappFlowSession = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     /** E.164: who the Flow was sent to. */
     phone: text('phone').notNull(),
-    /** `booking` (WA-04); `reschedule` comes with WA-05. */
+    /** `booking` (WA-04) or `reschedule` (WA-05, its appointment in `state`). */
     kind: text('kind').notNull(),
     state: jsonb('state').$type<Record<string, unknown>>().notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -26,7 +26,7 @@ export const whatsappFlowSession = pgTable(
   (table) => [
     index('whatsapp_flow_session_created_at_idx').on(table.createdAt),
     check('whatsapp_flow_session_phone', sql`${table.phone} ~ '^\\+[1-9][0-9]{7,14}$'`),
-    check('whatsapp_flow_session_kind', sql`${table.kind} in ('booking')`),
+    check('whatsapp_flow_session_kind', sql`${table.kind} in ('booking', 'reschedule')`),
     check('whatsapp_flow_session_expiry', sql`${table.expiresAt} > ${table.createdAt}`),
   ],
 ).enableRLS();

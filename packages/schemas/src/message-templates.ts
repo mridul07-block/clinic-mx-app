@@ -135,7 +135,6 @@ export const messageTemplates = [
       { kind: 'quick_reply', text: 'Confirm', id: 'confirm' },
       { kind: 'flow', text: 'Reschedule' },
     ],
-    held: 'Its Reschedule button opens the reschedule Flow, which WA-05 builds and submits it with.',
     ...utility,
   },
   {

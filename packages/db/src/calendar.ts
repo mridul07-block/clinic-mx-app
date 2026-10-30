@@ -43,6 +43,8 @@ export interface CalendarAppointment {
   /** Cancelled or rescheduled (SCH-08): who asked, who did it and when. */
   changeReason: AppointmentChangeReason | null;
   changedByName: string | null;
+  /** `whatsapp` when the patient moved it on the reschedule Flow (WA-05), with no staff member. */
+  changeChannel: BookingChannel | null;
   changedAt: Date | null;
   /** Marked a no show (INT-11): when, and by whom. */
   noShowAt: Date | null;
@@ -144,6 +146,7 @@ export async function calendarDay(
             episodeId: appointment.episodeId,
             changeReason: appointment.changeReason,
             changedByName: changedBy.name,
+            changeChannel: appointment.changeChannel,
             changedAt: appointment.changedAt,
             noShowAt: appointment.noShowAt,
             noShowByName: noShowBy.name,

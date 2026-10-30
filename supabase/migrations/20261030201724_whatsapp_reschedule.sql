@@ -1,0 +1,6 @@
+ALTER TABLE "appointment" DROP CONSTRAINT "appointment_change";--> statement-breakpoint
+ALTER TABLE "whatsapp_flow_session" DROP CONSTRAINT "whatsapp_flow_session_kind";--> statement-breakpoint
+ALTER TABLE "appointment" ADD COLUMN "change_channel" "booking_channel";--> statement-breakpoint
+ALTER TABLE "appointment" ADD CONSTRAINT "appointment_change_channel" CHECK ("appointment"."change_channel" is null or ("appointment"."change_channel" = 'whatsapp' and "appointment"."changed_by" is null and "appointment"."change_reason" is not null and "appointment"."change_reason" = 'patient'));--> statement-breakpoint
+ALTER TABLE "appointment" ADD CONSTRAINT "appointment_change" CHECK (("appointment"."status" in ('cancelled', 'rescheduled')) = ("appointment"."change_reason" is not null and "appointment"."changed_at" is not null and ("appointment"."changed_by" is not null or "appointment"."change_channel" is not null)) and ("appointment"."change_reason" is null) = ("appointment"."changed_at" is null) and ("appointment"."change_reason" is null) = ("appointment"."changed_by" is null and "appointment"."change_channel" is null)) NOT VALID;--> statement-breakpoint
+ALTER TABLE "whatsapp_flow_session" ADD CONSTRAINT "whatsapp_flow_session_kind" CHECK ("whatsapp_flow_session"."kind" in ('booking', 'reschedule'));

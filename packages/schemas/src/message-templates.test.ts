@@ -148,10 +148,10 @@ describe('message template registry', () => {
     );
   });
 
-  it('holds back only the reminder whose Flow WA-05 builds', () => {
+  it('holds back no template now the reschedule Flow exists (WA-05)', () => {
     expect(
       messageTemplates.filter((template) => 'held' in template).map((template) => template.key),
-    ).toEqual(['day_before_reminder']);
+    ).toEqual([]);
   });
 
   it('finds a template by key and refuses an unknown one', () => {

@@ -42,7 +42,12 @@ async function main() {
   if (command !== 'submit' || !values.origin || !/^https:\/\/[^/]+\/?$/.test(values.origin)) {
     throw new MetaTemplateError(usage);
   }
-  const results = await submitTemplates(appDb(), meta, { origin: values.origin, samplePdf });
+  // The day before reminder's Reschedule button opens the reschedule Flow on this number (WA-05).
+  const results = await submitTemplates(appDb(), meta, {
+    origin: values.origin,
+    samplePdf,
+    flowId: env.WHATSAPP_RESCHEDULE_FLOW_ID,
+  });
   for (const result of results) {
     console.log(`${result.key} v${String(result.version)}: ${result.outcome}, ${result.status}`);
   }

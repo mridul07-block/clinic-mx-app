@@ -64,6 +64,8 @@ const serverEnvSchema = z.object({
    */
   WHATSAPP_FLOW_PRIVATE_KEY: z.string().min(100).optional(),
   WHATSAPP_BOOKING_FLOW_ID: z.string().regex(/^\d+$/).optional(),
+  /** The reschedule Flow (WA-05), sealed with the same key pair. */
+  WHATSAPP_RESCHEDULE_FLOW_ID: z.string().regex(/^\d+$/).optional(),
   WHATSAPP_FLOW_MODE: z.enum(['draft', 'published']).default('published'),
   /** The Graph API version the Cloud API is called at, for example v25.0. */
   WHATSAPP_GRAPH_VERSION: z

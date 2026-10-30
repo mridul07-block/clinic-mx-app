@@ -40,14 +40,16 @@ export const inboundRouteLabels: Record<InboundRoute, string> = {
 
 /**
  * The replies sent inside WhatsApp's 24 hour window: the router's own (the menu, the contact
- * details, the booking Flow, WA-04), the booking confirmation text the Flow sends (until WA-07)
- * and the thanks for a check's answer (WA-06).
+ * details, the booking Flow, WA-04, the reschedule Flow, WA-05), the confirmation texts the Flows
+ * send (until WA-07) and the thanks for a check's answer (WA-06).
  */
 export const sessionReplies = [
   'menu',
   'contact',
   'booking_flow',
   'booking_confirmation',
+  'reschedule_flow',
+  'reschedule_confirmation',
   'check_answer',
 ] as const;
 export type SessionReply = (typeof sessionReplies)[number];
@@ -57,15 +59,30 @@ export const sessionReplyLabels: Record<SessionReply, string> = {
   contact: 'Contact details',
   booking_flow: 'Booking form',
   booking_confirmation: 'Booking confirmation',
+  reschedule_flow: 'Reschedule form',
+  reschedule_confirmation: 'Reschedule confirmation',
   check_answer: 'Answer noted',
 };
 
 /** What the router answers a route with; `none` when the handler has answered already. */
-export type RouteReply = Exclude<SessionReply, 'booking_confirmation' | 'check_answer'> | 'none';
+export type RouteReply =
+  | Exclude<SessionReply, 'booking_confirmation' | 'reschedule_confirmation' | 'check_answer'>
+  | 'none';
+
+/** The Flow replies (WA-04, WA-05): sent with a Flow session, else the contact details. */
+export const flowReplies = ['booking_flow', 'reschedule_flow'] as const;
+export type FlowReply = (typeof flowReplies)[number];
 
 /** The booking Flow message (WA-04): its text and the button that opens the form. */
 export const BOOKING_FLOW_TEXT = 'Book your appointment in a few taps.';
 export const BOOKING_FLOW_CTA = 'Book appointment';
+
+/**
+ * The reschedule Flow message (WA-05). Cancelling stays with the clinic until decision 11
+ * (user decision, 31 October 2026); the form says so.
+ */
+export const RESCHEDULE_FLOW_TEXT = 'Move your appointment to another day or time.';
+export const RESCHEDULE_FLOW_CTA = 'Reschedule';
 
 /** Who handles each route, and what is sent until that handler is live. */
 export const routeHandlers: Record<
@@ -79,11 +96,12 @@ export const routeHandlers: Record<
   talk: { ticket: 'WA-09', live: true, reply: 'contact' },
   // WA-04: the booking Flow; the router falls back to the contact details where it is not set up.
   book: { ticket: 'WA-04', live: true, reply: 'booking_flow' },
-  reschedule: { ticket: 'WA-05', live: false, reply: 'contact' },
+  // WA-05: the reschedule Flow, the contact details where it is not set up.
+  reschedule: { ticket: 'WA-05', live: true, reply: 'reschedule_flow' },
   confirm: { ticket: 'WA-08', live: false, reply: 'contact' },
-  // The form already booked and sent the confirmation text; nothing more to say.
+  // The form already booked (or moved) and sent the confirmation text; nothing more to say.
   booking_flow: { ticket: 'WA-04', live: true, reply: 'none' },
-  reschedule_flow: { ticket: 'WA-05', live: false, reply: 'contact' },
+  reschedule_flow: { ticket: 'WA-05', live: true, reply: 'none' },
   assistant: { ticket: 'WA-11', live: false, reply: 'menu' },
   // The handler records the answer and thanks them itself.
   check_answer: { ticket: 'WA-06', live: true, reply: 'none' },

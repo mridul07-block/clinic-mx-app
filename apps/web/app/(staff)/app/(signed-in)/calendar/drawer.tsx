@@ -209,6 +209,7 @@ export function AppointmentDrawer({
           <Detail term={status === 'rescheduled' ? 'Rescheduled' : 'Cancelled'}>
             {appointmentChangeReasonLabels[appointment.changeReason]}
             {appointment.changedByName ? `, by ${appointment.changedByName}` : ''}
+            {appointment.changeChannel === 'whatsapp' ? ', on WhatsApp' : ''}
             {appointment.changedAt
               ? `, ${formatIstDate(istDate(appointment.changedAt))} ${timeOf(appointment.changedAt)}`
               : ''}

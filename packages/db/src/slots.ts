@@ -352,10 +352,13 @@ export async function freeSlots(
   });
 }
 
-/** The dates from `from` on, `days` of them, with at least one free start (Flow screen 1). */
+/**
+ * The dates from `from` on, `days` of them, with at least one free start (Flow screen 1), with
+ * any physio or the one asked for (the reschedule Flow, WA-05).
+ */
 export async function datesWithFreeSlots(
   db: DbOrTransaction,
-  request: Omit<FreeSlotsRequest, 'date' | 'physioId'> & { from: string; days: number },
+  request: Omit<FreeSlotsRequest, 'date'> & { from: string; days: number },
 ): Promise<string[]> {
   const to = addDays(request.from, request.days - 1);
   const plan = await loadPlan(db, { ...request, to });
@@ -662,7 +665,10 @@ export async function changeAppointment(
     appointmentId: string;
     status: 'cancelled' | 'rescheduled';
     reason: AppointmentChangeReason;
-    changedBy: string;
+    /** The staff member; none for the patient's own move on WhatsApp (WA-05). */
+    changedBy: string | null;
+    /** `whatsapp` for the patient's own move on the reschedule Flow (WA-05). */
+    channel?: 'whatsapp';
     now: Date;
   },
 ): Promise<{ id: string } | undefined> {
@@ -673,6 +679,7 @@ export async function changeAppointment(
       changeReason: change.reason,
       changedAt: change.now,
       changedBy: change.changedBy,
+      changeChannel: change.channel ?? null,
       updatedAt: change.now,
     })
     .where(

@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { TEST_JOBS_SECRET } from './e2e/jobs';
-import { TEST_BOOKING_FLOW_ID, testFlowPrivateKey } from './e2e/flows';
+import { TEST_BOOKING_FLOW_ID, TEST_RESCHEDULE_FLOW_ID, testFlowPrivateKey } from './e2e/flows';
 import { TEST_WHATSAPP_APP_SECRET, TEST_WHATSAPP_VERIFY_TOKEN } from './e2e/whatsapp';
 
 const PORT = 3000;
@@ -58,6 +58,7 @@ export default defineConfig({
       // WA-04: a key pair made for this run (e2e/flows.ts), so tests seal Flow screens as Meta.
       WHATSAPP_FLOW_PRIVATE_KEY: testFlowPrivateKey(),
       WHATSAPP_BOOKING_FLOW_ID: TEST_BOOKING_FLOW_ID,
+      WHATSAPP_RESCHEDULE_FLOW_ID: TEST_RESCHEDULE_FLOW_ID,
       WHATSAPP_FLOW_MODE: 'draft',
     },
     url: `http://localhost:${PORT}/api/health`,

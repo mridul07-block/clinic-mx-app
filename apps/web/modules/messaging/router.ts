@@ -2,6 +2,7 @@ import 'server-only';
 import {
   centreContacts,
   createFlowSession,
+  flowSessionRecord,
   inboundToRoute,
   queueMessage,
   recordRoute,
@@ -17,10 +18,12 @@ import {
   TEMPLATE_LANGUAGE,
   checkAnswerOf,
   contactText,
+  flowReplies,
   inboundKinds,
   routeHandlers,
   routeInbound,
   type InboundKind,
+  type FlowReply,
   type InboundRoute,
   type RouteReply,
 } from '@clinic-mx/schemas';
@@ -41,16 +44,21 @@ import { recordCheckAnswerIn } from './clinic-messages';
 export const WHATSAPP_ROUTE_JOB = 'whatsapp.route';
 
 /**
- * How long a booking Flow sent now can be used: WhatsApp's 24 hour window, after which no reply
- * that is not a template may go anyway (a technical limit, not a business rule).
+ * How long a Flow sent now can be used: WhatsApp's 24 hour window, after which no reply that is
+ * not a template may go anyway (a technical limit, not a business rule).
  */
 const FLOW_SESSION_MS = 24 * 60 * 60 * 1000;
 
-/** Whether the booking Flow is set up on this server (WA-04). */
-function bookingFlowReady(): boolean {
+/** Whether a Flow is set up on this server: booking (WA-04) or reschedule (WA-05). */
+export function flowReady(reply: FlowReply): boolean {
   const env = serverEnv();
-  return Boolean(env.WHATSAPP_BOOKING_FLOW_ID && env.WHATSAPP_FLOW_PRIVATE_KEY);
+  const id =
+    reply === 'booking_flow' ? env.WHATSAPP_BOOKING_FLOW_ID : env.WHATSAPP_RESCHEDULE_FLOW_ID;
+  return Boolean(id && env.WHATSAPP_FLOW_PRIVATE_KEY);
 }
+
+const isFlowReply = (reply: RouteReply): reply is FlowReply =>
+  (flowReplies as readonly string[]).includes(reply);
 
 export interface RouteOutcome {
   route: InboundRoute | null;
@@ -61,6 +69,18 @@ export interface RouteOutcome {
 
 const isInboundKind = (kind: string): kind is InboundKind =>
   (inboundKinds as readonly string[]).includes(kind);
+
+/**
+ * Which of our Flows a completed form came from: Meta names every completion `flow`, so the
+ * Flow token in its answers finds our session and its kind (`booking` or `reschedule`).
+ */
+async function completedFlowKind(
+  tx: DbOrTransaction,
+  answers: Record<string, unknown> | null,
+): Promise<string | undefined> {
+  const token = z.guid().safeParse(answers?.flow_token);
+  return token.success ? (await flowSessionRecord(tx, token.data))?.kind : undefined;
+}
 
 /**
  * A tap on a check's reply button (WA-06): recorded as the answer of the link the message we sent
@@ -95,8 +115,10 @@ const route = systemService({
       getSetting('whatsapp.front_desk_email'),
       solePatientByPhone(tx, message.fromPhone),
     ]);
+    const flowKind =
+      message.kind === 'flow' ? await completedFlowKind(tx, message.replyPayload) : undefined;
     const chosen = routeInbound(
-      { kind: message.kind, body: message.body, replyId: message.replyId },
+      { kind: message.kind, body: message.body, replyId: flowKind ?? message.replyId },
       { emergencyPhrases },
     );
     await recordRoute(tx, message.id, chosen, owner?.id ?? null);
@@ -118,17 +140,18 @@ const route = systemService({
     }
 
     const wanted = routeHandlers[chosen].reply;
-    const reply = wanted === 'booking_flow' && !bookingFlowReady() ? 'contact' : wanted;
+    const reply = isFlowReply(wanted) && !flowReady(wanted) ? 'contact' : wanted;
     if (reply === 'none') return { route: chosen, reply, skipped: false };
     let variables: Record<string, string> = {};
     if (reply === 'contact') {
       variables = {
         text: contactText({ centres: await centreContacts(tx, owner?.centreId), email }),
       };
-    } else if (reply === 'booking_flow') {
+    } else if (isFlowReply(reply)) {
+      // From the menu the reschedule form first lists the number's appointments (WA-05).
       const flowToken = await createFlowSession(tx, {
         phone: message.fromPhone,
-        kind: 'booking',
+        kind: reply === 'booking_flow' ? 'booking' : 'reschedule',
         expiresAt: new Date(Date.now() + FLOW_SESSION_MS),
       });
       variables = { flowToken };

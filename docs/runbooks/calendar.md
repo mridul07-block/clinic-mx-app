@@ -151,6 +151,11 @@ Decisions (user, 23 October 2026):
   shows "Rescheduled to MVH-…", the new one "Moved from MVH-…".
 - **Who asked is "By the patient" or "By the clinic",** required, with who did it and when. No
   free text. SCH-09 counts the patient's reschedules from this.
+- **The patient's own move on WhatsApp** (WA-05, `docs/runbooks/whatsapp.md`, "The reschedule
+  Flow") is the same reschedule, by the patient, with no staff member: `change_channel` is
+  `whatsapp` and `changed_by` is empty. The sheet shows "By the patient, on WhatsApp". Only the
+  server records it (`appointment_change_channel_server`); a signed in change always names its
+  staff member.
 
 How it holds together:
 

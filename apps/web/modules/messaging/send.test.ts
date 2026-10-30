@@ -28,7 +28,11 @@ const settings = vi.hoisted(() => {
 vi.mock('../settings/settings', () => ({
   getSetting: (key: string) => Promise.resolve(settings.values[key]),
 }));
-vi.mock('../../lib/env', () => ({ serverEnv: () => ({ WHATSAPP_GRAPH_VERSION: 'v25.0' }) }));
+const env = vi.hoisted(() => {
+  const values: Record<string, string | undefined> = { WHATSAPP_GRAPH_VERSION: 'v25.0' };
+  return { values };
+});
+vi.mock('../../lib/env', () => ({ serverEnv: () => env.values }));
 
 const messageId = '00000000-0000-4000-8000-000000000901';
 const onList = '+919845012345';
@@ -318,6 +322,39 @@ describe('sending a router reply', () => {
       expect.any(AbortSignal),
     );
     expect(outcome().map((o) => o.status)).toEqual(['sent', 'sent']);
+  });
+
+  // WA-04, WA-05: the booking and reschedule forms, each with its Flow and session token.
+  it('sends each form with its own Flow, text and button, as a draft on the test number', async () => {
+    env.values = {
+      WHATSAPP_GRAPH_VERSION: 'v25.0',
+      WHATSAPP_BOOKING_FLOW_ID: '1000000000000004',
+      WHATSAPP_RESCHEDULE_FLOW_ID: '1000000000000005',
+      WHATSAPP_FLOW_MODE: 'draft',
+    };
+    const meta = transport({ ok: true, waMessageId: 'wamid.form' });
+    db.messageRecord.mockResolvedValue(reply('reschedule_flow', { flowToken: 'session-2' }));
+    await send({ transport: meta });
+    expect(meta.sendSession).toHaveBeenLastCalledWith(
+      {
+        to: onList,
+        text: 'Move your appointment to another day or time.',
+        flow: { id: '1000000000000005', token: 'session-2', cta: 'Reschedule', mode: 'draft' },
+      },
+      expect.any(AbortSignal),
+    );
+    db.messageRecord.mockResolvedValue(reply('booking_flow', { flowToken: 'session-1' }));
+    await send({ transport: meta });
+    expect((meta.sendSession.mock.lastCall as unknown[] | undefined)?.[0]).toMatchObject({
+      flow: { id: '1000000000000004', cta: 'Book appointment' },
+    });
+    // Where its Flow is not set up on this server, the form is not sent.
+    env.values = { WHATSAPP_GRAPH_VERSION: 'v25.0', WHATSAPP_BOOKING_FLOW_ID: '1000000000000004' };
+    db.messageRecord.mockResolvedValue(reply('reschedule_flow', { flowToken: 'session-3' }));
+    await send({ transport: meta });
+    expect(meta.sendSession).toHaveBeenCalledTimes(2);
+    expect(outcome().map((o) => o.status)).toEqual(['sent', 'sent', 'skipped']);
+    env.values = { WHATSAPP_GRAPH_VERSION: 'v25.0' };
   });
 
   it('keeps it as Not sent once 24 hours have passed since they wrote, or if they never did', async () => {

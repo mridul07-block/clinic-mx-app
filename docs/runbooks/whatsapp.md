@@ -115,15 +115,20 @@ shares a mobile, so nobody is guessed).
 | Typed text with an emergency phrase (checked first) | Emergency | WA-10 | The team's contact details |
 | Other typed text | Typed message | WA-11 (assistant) | The three button menu |
 | The menu's Book appointment | Book appointment | WA-04 (live) | The booking form (the team's contact details where it is not set up) |
-| The menu's Reschedule or cancel, or the reminder's Reschedule | Reschedule or cancel | WA-05 | The team's contact details |
+| The menu's Reschedule or cancel, or the reminder's Reschedule | Reschedule or cancel | WA-05 (live) | The reschedule form (the team's contact details where it is not set up) |
 | The menu's Talk to our team | Talk to our team | WA-09 (live) | The team's contact details |
 | The day before reminder's Confirm | Confirm | WA-08 | The team's contact details |
 | A booking form completed | Booking form | WA-04 (live) | None: the form sent the confirmation when it booked |
-| A reschedule form completed | Reschedule form | WA-05 | The team's contact details |
+| A reschedule form completed | Reschedule form | WA-05 (live) | None: the form sent the confirmation when it moved the appointment |
 | Anything else (a photo, a voice note, an old button) | Menu | WA-03 (live) | The three button menu |
 
 When a ticket makes its handler live it changes one line of `routeHandlers`
 (`packages/schemas/src/whatsapp-router.ts`).
+
+A completed form is known by the Flow token in its answers: Meta names every completion `flow`,
+so the router finds our session by the token and routes by its kind (booking or reschedule). Before
+WA-05 it matched the name, and a real completed booking form would have been answered with the
+menu.
 
 - **The menu** (PRD J1.2): "How can we help you today?" with Book appointment, Reschedule or
   cancel, Talk to our team.
@@ -182,29 +187,84 @@ The endpoint:
 | A Flow token we do not know, or older than 24 hours | 427 |
 | No private key or app secret on the server | 503 |
 
-### Setting the Flow up (done for the test number, 30 October 2026)
+### Setting the Flows up (booking done for the test number, 30 October 2026)
 
 1. **Key pair:** a 2048 bit RSA pair. The private key goes straight into `apps/web/.env.local` as
    `WHATSAPP_FLOW_PRIVATE_KEY` (Base64 of the PEM), never printed; the public key is uploaded with
    `POST /{phone-number-id}/whatsapp_business_encryption` (`business_public_key`). Meta signs it;
    `GET` on the same path shows `VALID`.
-2. **The Flow:** created on the WhatsApp Business Account with `POST /{waba-id}/flows` (name
-   "Clinic Mx booking", category Appointment booking), and its JSON
-   (`apps/web/modules/messaging/flows/booking-flow.json`) uploaded with
-   `POST /{flow-id}/assets`; Meta lists any validation errors. Its endpoint is set to
-   `https://<host>/api/flows/booking`. On the test number it stays a draft, sent with
-   `mode: draft`.
-3. **Vercel:** `WHATSAPP_FLOW_PRIVATE_KEY`, `WHATSAPP_BOOKING_FLOW_ID` and `WHATSAPP_FLOW_MODE`
-   (`draft` on staging), printing names only, then redeploy.
+2. **The Flows:** `pnpm whatsapp:flows <booking|reschedule> --origin https://<host>` (WA-05)
+   creates the Flow on the WhatsApp Business Account (`POST /{waba-id}/flows`, "Clinic Mx booking"
+   or "Clinic Mx reschedule", category Appointment booking, endpoint
+   `https://<host>/api/flows/<kind>`), uploads its JSON from `apps/web/modules/messaging/flows/`
+   (`POST /{flow-id}/assets`) and prints its id and Meta's validation errors. With `--id <flow id>`
+   it updates that Flow's JSON and endpoint instead. The booking Flow was made by hand the same way
+   before the command existed. On the test number they stay drafts, sent with `mode: draft`.
+3. **Vercel:** `WHATSAPP_FLOW_PRIVATE_KEY`, `WHATSAPP_BOOKING_FLOW_ID`,
+   `WHATSAPP_RESCHEDULE_FLOW_ID` and `WHATSAPP_FLOW_MODE` (`draft` on staging), printing names only,
+   then redeploy. Both Flows use the one key pair.
 
-**Changing the Flow:** edit the JSON, upload it again (step 2), and change the screens' code in
-`apps/web/modules/messaging/booking-flow.ts` with it. A published Flow cannot be edited: publish a
+**Changing a Flow:** edit the JSON, upload it again (`pnpm whatsapp:flows <kind> --origin ...
+--id <flow id>`), and change the screens' code in `apps/web/modules/messaging/booking-flow.ts` or
+`reschedule-flow.ts` with it. A published Flow cannot be edited: publish a
 new one and change `WHATSAPP_BOOKING_FLOW_ID`.
 
 **Rotating the key:** make a new pair, upload the public key, then replace the private key on
 Vercel and redeploy; requests sealed for the old key get 421 and Meta retries with the new one.
 
-## Statuses
+## The reschedule Flow
+
+"Reschedule or cancel" on the menu opens the reschedule form (WA-05; PRD J1.7, J1.8; Frontend
+Specification, Reschedule), and so will the day before reminder's Reschedule button (sent by WA-08).
+Its endpoint is `/api/flows/reschedule`, signed, sealed and answered exactly as the booking
+endpoint (`flowEndpoint`, `apps/web/modules/messaging/flow-endpoint.ts`); a token of the booking
+Flow there is 427, and the other way round.
+
+Decisions (user, 31 October 2026):
+
+- **Reschedule only.** Cancelling stays with the clinic until decision 11 (late cancellation) is
+  settled: the date screen says "To cancel, call the clinic on <centre phone>" (DECISION WA-05).
+- **Reschedules left, both as they apply:** a package session shows "This package has N
+  reschedules left; moving uses one."; every appointment shows "You can move appointments online N
+  more times." (`booking.self_booking_block_reschedules` less those counted).
+- **Dates:** the next `booking.whatsapp_days_ahead` (14) days from today, as booking.
+
+The screens:
+
+1. **Which appointment** (from the menu only): the Booked or Confirmed appointments from now on of
+   everyone on this number, soonest first (a family shares one). The reminder's session names its
+   appointment and opens straight on the date (`rescheduleFlowToken`, lasting until the
+   appointment starts).
+2. **New date and time:** the appointment's type and number, who, the clinic and physio
+   (prefilled, never changed), its current time, the reschedules left and the cancel line. The
+   dates with a free start for that physio and type; picking one loads its times. The old time
+   counts as free, but is not offered as a move.
+3. **Check and confirm:** from and to.
+4. **Moved:** the new appointment number and what was moved, and a text with the details, map and
+   front desk (`reschedule_confirmation`) follows, until WA-07's template.
+
+Refused, with the team's contact details instead of dates:
+
+| When | Says |
+| --- | --- |
+| A Zero Gravity Treadmill appointment (`packages.never_reschedulable_items`), with or without a package | Zero Gravity Treadmill sessions cannot be moved online. |
+| Self booking blocked (2 reschedules or 2 no shows, SCH-09) | Online changes are paused for this patient after several reschedules or missed visits. |
+| A package session with no reschedules left (SCH-10) | This package has no reschedules left, so this session cannot be moved online. |
+| No longer Booked or Confirmed, started, or not this number's | This appointment can no longer be moved online. |
+| No upcoming appointment on this number | There is no upcoming appointment on this number to move. |
+
+How it moves:
+
+- Picking a time holds it for `booking.slot_hold_minutes` (holder `flow:<session>`).
+- Confirm, in one transaction as the system (`system:whatsapp`): the old appointment becomes
+  Rescheduled, by the patient, `change_channel` WhatsApp and no staff member; then the new one is
+  booked for the same patient, episode, clinic, physio and type, channel WhatsApp,
+  `rescheduled_from_id` the old one. If the new booking is refused nothing changes (PRD J1.7). The
+  database counts the reschedule (SCH-09) and takes one of the package's (SCH-10), whose refusal
+  the form shows.
+- A time taken meanwhile sends them back to the date screen with "This slot was just booked. Pick
+  another time." and the times still free. A second confirm (Meta retries) returns the same move.
+
 
 | Status | Meaning |
 | --- | --- |
@@ -256,9 +316,10 @@ already Sent, Failed or Not sent is never sent again, so a job that runs twice c
 2. Submit the templates and Flows on that number, and mark each registry entry `approved` once
    Meta approves it.
 3. Replace the four `WHATSAPP_*` values on Vercel with the client's, and redeploy.
-4. Set up the booking Flow on that number as in "Setting the Flow up": a new key pair uploaded to
-   the number, the Flow created on the client's account and published once Meta approves it,
-   `WHATSAPP_FLOW_MODE=published`.
+4. Set up both Flows on that number as in "Setting the Flows up": a new key pair uploaded to the
+   number, each Flow created on the client's account and published once Meta approves it,
+   `WHATSAPP_FLOW_MODE=published`. Then submit the day before reminder with the published
+   reschedule Flow's id.
 5. Switch `whatsapp.test_recipients_only` off on Settings.
 
 ## Checking it
@@ -286,11 +347,19 @@ already Sent, Failed or Not sent is never sent again, so a job that runs twice c
 | `apps/web/app/api/flows/booking/route.test.ts` | The health check and a screen sealed as Meta expects; Meta's error notice acknowledged; 432, 421, 427, 503, 429 |
 | `apps/web/modules/messaging/router.test.ts` (booking) | Book appointment sends the form with a new session, or the contact details where it is not set up; a completed form gets no reply |
 | `packages/db/src/integration/whatsapp-flows.integration.test.ts` | Sessions keep what was picked, are the server's alone, need a number with its country code, and go after the retention days; consultation fees |
+| `packages/schemas/src/reschedule-flow.test.ts` | The reschedules left, both limits as they apply; the Zero Gravity Treadmill with or without a package, a blocked patient and a used up package refused |
+| `apps/web/modules/messaging/router.test.ts` (reschedule) | Reschedule or cancel sends the reschedule form with a new session, or the contact details where its Flow is not set up; a completed form known by its token's session, an unknown token gets the menu |
+| `apps/web/modules/messaging/send.test.ts` (forms) | Each form with its own Flow id, text and button, as a draft; Not sent where its Flow is not set up |
+| `apps/web/modules/messaging/meta-flows.test.ts` | `pnpm whatsapp:flows`: created with its endpoint, JSON uploaded, validation errors returned, updated by id; the token never in a URL; https only |
+| `packages/db/src/integration/whatsapp-flows.integration.test.ts` (reschedule) | Reschedule sessions; the number's upcoming appointments, everyone on it, soonest first; the patient's own move with no staff member, counted; any other change needs a staff member, a reason never without one; no signed in person claims WhatsApp; a package session uses its reschedule, then is refused |
+| `apps/web/e2e/reschedule-flow.spec.ts` | At 360 px and desktop, as Meta: Reschedule or cancel opens the form; the appointment, prefilled clinic and physio, reschedules left, dates, times, confirm; moved as by the patient on WhatsApp, counted, confirmed by text; a second confirm moves nothing more; the completed form routed by its token with no reply; the desk's sheet says "By the patient, on WhatsApp". From the reminder's session: the Zero Gravity Treadmill, a used up package and a blocked patient refused; a time taken meanwhile sends them back |
 | `apps/web/e2e/booking-flow.spec.ts` | At 360 px and desktop, as Meta: Book appointment opens the form; clinic, dates, times, a physio with fee, someone new, confirm; a second confirm books nothing more; the booking on the staff calendar; a slot held by someone else refused, and one taken before confirming sends them back to the free times |
 
 Without the test list check in `sendQueuedMessage`, the unit test "keeps a clinic message to a
 number off the test list as Not sent" fails. Without the signature check in the webhook route, the
-route test "refuses a wrong, missing or other body's signature" fails. Without the taken slot
+route test "refuses a wrong, missing or other body's signature" fails. Without the Zero Gravity
+Treadmill check in `selfRescheduleCheck`, the end to end test "the reminder's form refuses a Zero
+Gravity Treadmill session" fails. Without the taken slot
 handling in the booking Flow's confirm, the end to end test "a slot taken meanwhile sends the
 person back to the next free times" fails. With the emergency check after the
 typed-text route, the router test "come before anything else a typed message would get" fails.

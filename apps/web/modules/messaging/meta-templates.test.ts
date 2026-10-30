@@ -2,6 +2,7 @@ import type { Db } from '@clinic-mx/db';
 import { messageTemplate } from '@clinic-mx/schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  MetaTemplateError,
   metaTemplateClient,
   samplePdf,
   submitTemplates,
@@ -38,7 +39,7 @@ const recorded = () => db.recordTemplateVersion.mock.calls.map((call) => call[1]
 describe('submitting the templates to Meta', () => {
   beforeEach(() => db.recordTemplateVersion.mockReset());
 
-  it('creates each version Meta lacks, once, leaving out a held one, and records them all', async () => {
+  it('creates each version Meta lacks, once, leaving out one whose Flow is not given, and records them all', async () => {
     const meta = fakeMeta([
       {
         id: 'id-morning',
@@ -91,6 +92,61 @@ describe('submitting the templates to Meta', () => {
       expect.objectContaining({ key: 'no_show', metaId: 'id-no_show_v1', status: 'pending' }),
       expect.objectContaining({ key: 'receipt', metaId: 'id-receipt_v1', status: 'pending' }),
     ]);
+  });
+
+  // WA-05: the day before reminder's Reschedule button opens the reschedule Flow on this number.
+  it('submits the reminder with the reschedule Flow, and reports Meta’s refusal for it alone', async () => {
+    const meta = fakeMeta(
+      ['no_show_v1', 'receipt_v1', 'morning_reminder_v1'].map((name) => ({
+        id: ['id', name].join('-'),
+        name,
+        language: 'en',
+        status: 'PENDING',
+        category: 'UTILITY',
+      })),
+    );
+    const options = { origin: 'https://clinic.example', samplePdf, flowId: '1000000000000005' };
+    const results = await submitTemplates({} as Db, meta, options, templates);
+    expect(results.find((r) => r.key === 'day_before_reminder')).toEqual({
+      key: 'day_before_reminder',
+      version: 1,
+      status: 'pending',
+      outcome: 'submitted',
+    });
+    expect(meta.create).toHaveBeenCalledTimes(1);
+    expect(meta.create.mock.calls[0]?.[0]).toMatchObject({
+      name: 'day_before_reminder_v1',
+      components: [
+        { type: 'BODY' },
+        {
+          type: 'BUTTONS',
+          buttons: [
+            { type: 'QUICK_REPLY', text: 'Confirm' },
+            { type: 'FLOW', text: 'Reschedule', flow_id: '1000000000000005' },
+          ],
+        },
+      ],
+    });
+
+    // Meta refusing it (a Flow not published yet, say) is its result; the rest go on.
+    const refusing = fakeMeta([]);
+    refusing.create.mockImplementation((body: { name: string }) =>
+      body.name === 'day_before_reminder_v1'
+        ? Promise.reject(new MetaTemplateError('Meta refused the request: Invalid Flow (100).'))
+        : Promise.resolve({
+            id: ['id', body.name].join('-'),
+            status: 'PENDING',
+            category: 'UTILITY',
+          }),
+    );
+    const outcomes = await submitTemplates({} as Db, refusing, options, templates);
+    expect(outcomes.map((r) => [r.key, r.outcome])).toEqual([
+      ['no_show', 'submitted'],
+      ['receipt', 'submitted'],
+      ['day_before_reminder', 'refused'],
+      ['morning_reminder', 'submitted'],
+    ]);
+    expect(outcomes[2]?.status).toBe('Meta refused the request: Invalid Flow (100).');
   });
 
   it('submits nothing twice and uploads no sample when every version is on Meta', async () => {
