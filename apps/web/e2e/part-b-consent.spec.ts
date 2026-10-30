@@ -4,13 +4,15 @@ import { signedConsultation } from './consultations';
 import { drawSignature, notUnderAge, otherBrowser, removePipelineRows } from './intake';
 import { consultationTypeId, submittedWithAlert } from './my-patients';
 import { testPatient } from './patients';
+import { laterPlanAdding, partBAgreed } from './part-b';
 import { plannedModality } from './plan-sheet';
 import { signIn, temporaryDesk, temporaryWithCode } from './staff';
 
 // BIL-03 done when: Part B consent pages; general terms always; package terms only with a
 // package; one card per planned modality; signature; decline rules from PRD J4.5. Recommended
 // defaults (30 October 2026): the desk shows the episode's consent QR on the plan and payment
-// sheet; what is agreed is not asked again. Generated test patients only.
+// sheet; what is agreed is not asked again. BIL-04 done when: a treatment added to the plan later
+// holds the session until its own consent is signed. Generated test patients only.
 
 const physios: string[] = [];
 const visits: string[] = [];
@@ -19,8 +21,8 @@ test.afterEach(async () => {
   if (physios.length) await removeCalendarRows(physios.splice(0));
 });
 
-/** A signed plan with Laser and Dry needling; the desk on its plan and payment sheet. */
-async function planForConsent(page: Page) {
+/** A signed plan (Laser and Dry needling unless told); the desk on its plan and payment sheet. */
+async function planForConsent(page: Page, modalities = ['laser', 'dry_needling']) {
   const physio = await temporaryWithCode('physiotherapist', ['HSR Layout'], { consultant: true });
   physios.push(physio.id);
   const patient = await testPatient();
@@ -35,14 +37,14 @@ async function planForConsent(page: Page) {
   visits.push(visit.id);
   await submittedWithAlert(visit.id, patient.id);
   const { consultationId, conditionName } = await signedConsultation(visit.id, physio.id);
-  await plannedModality(consultationId, 'laser');
-  await plannedModality(consultationId, 'dry_needling');
+  for (const modality of modalities) await plannedModality(consultationId, modality);
   const desk = await temporaryDesk();
   await signIn(page, desk.email);
   await page.goto(`/app/today?centre=${await centreIdByCode('HSR')}`);
   await page.getByRole('link', { name: `Plan and payment for ${patient.name}` }).click();
   await expect(page.getByRole('heading', { name: 'Plan and payment' })).toBeVisible();
-  return { patient, conditionName };
+  const episodeId = new URL(page.url()).pathname.split('/').at(-1) ?? '';
+  return { patient, conditionName, episodeId };
 }
 
 /** The patient's phone: the consent QR's page. */
@@ -138,5 +140,42 @@ test('a general term declined means no treatment until asked again', async ({ pa
   // Asked again: a new link, the declined statements only.
   await section.getByRole('button', { name: 'Show Part B consent QR' }).click();
   await expect(section.getByTestId('part-b-path')).toBeVisible();
+  await phone.context().close();
+});
+
+test('a treatment added to the plan later is asked alone, and holds treatment until agreed', async ({
+  page,
+  browser,
+}) => {
+  test.slow();
+  const { episodeId } = await planForConsent(page, ['laser']);
+  await partBAgreed(episodeId);
+  await page.reload();
+  const section = page.getByTestId('part-b');
+  await expect(section).toContainText('Complete');
+
+  // The plan's next version adds PEMF: only its consent is needed now.
+  await laterPlanAdding(episodeId, 'pemf');
+  await page.reload();
+  await expect(section).toContainText('Needed');
+  await expect(section.getByTestId('part-b-gate')).toHaveText(
+    'Consent for a newly planned treatment is needed before this session.',
+  );
+  await expect(section.getByTestId('part-b-modalities')).toContainText(/PEMF\s*not asked yet/);
+  await expect(section.getByTestId('part-b-modalities')).toContainText(/Laser\s*agreed/);
+
+  const phone = await patientPhone(page, browser);
+  // What was agreed is not asked again: the one new card.
+  await expect(phone.getByTestId('part-b-card')).toHaveCount(1);
+  await expect(card(phone, 'part_b.modality.pemf')).toBeVisible();
+  await notUnderAge(phone);
+  await card(phone, 'part_b.modality.pemf').getByText('I agree', { exact: true }).click();
+  await drawSignature(phone);
+  await phone.getByRole('button', { name: 'Done' }).click();
+  await expect(phone.getByText('Thank you. Your consent is with the clinic.')).toBeVisible();
+
+  await page.reload();
+  await expect(section).toContainText('Complete');
+  await expect(section.getByTestId('part-b-modalities')).toContainText(/PEMF\s*agreed/);
   await phone.context().close();
 });
