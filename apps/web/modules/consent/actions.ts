@@ -150,6 +150,7 @@ export async function saveClearanceAction(
     return { errors: result.errors, values: posted, attempt: (state.attempt ?? 0) + 1 };
   }
   if (result.status === 'guardian_needed') redirect(`${page}?guardian=needed`);
+  if (result.status === 'newer') redirect(`${page}?newer=1`);
   redirect(page);
 }
 

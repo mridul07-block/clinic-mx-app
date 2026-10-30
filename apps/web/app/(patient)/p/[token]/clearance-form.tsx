@@ -23,6 +23,7 @@ export function ClearanceAcknowledgementForm({
   tick,
   signing,
   guardianNeeded,
+  newer,
 }: {
   token: string;
   firstName: string;
@@ -32,6 +33,8 @@ export function ClearanceAcknowledgementForm({
   tick: string;
   signing: PartBSigning;
   guardianNeeded: boolean;
+  /** A newer clearance was signed after the page was opened: this is it. */
+  newer: boolean;
 }) {
   const [state, action, pending] = useActionState(saveClearanceAction, initialState);
   const values = state.values ?? {};
@@ -47,6 +50,14 @@ export function ClearanceAcknowledgementForm({
           it. If anything is unclear, ask before you tick.
         </p>
       </div>
+      {newer && !state.errors ? (
+        <p
+          role="alert"
+          className="rounded-control border border-danger-line bg-danger-soft p-3 text-ink"
+        >
+          Your physiotherapist signed a newer clearance. Please read this one and tick it.
+        </p>
+      ) : null}
       {guardianNeeded ? (
         <p
           role="alert"

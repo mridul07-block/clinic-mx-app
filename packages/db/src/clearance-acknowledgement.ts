@@ -78,9 +78,14 @@ export async function clearanceAckForEpisode(
   return context(row);
 }
 
-/** The clearance still to acknowledge: the newest signed one the patient has not acknowledged. */
+/**
+ * The clearance still to acknowledge: the newest signed one, until the patient acknowledges it. A
+ * newer clearance supersedes an older one's acknowledgement (DECISION OUT-09): a patient cleared
+ * for sport is not then asked to accept the training plan before it.
+ */
 export function clearanceToAcknowledge(
   found: ClearanceAckContext,
 ): AcknowledgedClearanceRecord | undefined {
-  return found.clearances.filter((each) => each.acknowledgedAt === null).at(-1);
+  const newest = found.clearances.at(-1);
+  return newest?.acknowledgedAt === null ? newest : undefined;
 }

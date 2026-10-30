@@ -233,7 +233,7 @@ describe('the readiness panel', () => {
     const view = await readinessView(fakeTx as never, episodeId);
     expect(view?.clearances.map((c) => ({ ack: c.acknowledgement, asks: c.asksTexts }))).toEqual([
       { ack: null, asks: false },
-      { ack: { at: null, byGuardian: false, next: true }, asks: true },
+      { ack: { state: 'waiting' }, asks: true },
       { ack: null, asks: true },
     ]);
   });

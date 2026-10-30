@@ -82,10 +82,15 @@ export interface ReadinessClearance {
   refusal: string | undefined;
   /**
    * The patient's acknowledgement (OUT-09) of a signed Return to training or Return to sport
-   * with its sections: when, and whether a guardian signed; `at` null while it waits; `next` for
-   * the one the clearance QR asks now (the newest waiting). Null where none is asked.
+   * with its sections: when, and whether a guardian signed; waiting for it (the newest, which the
+   * clearance QR asks); or superseded by a newer clearance (DECISION OUT-09). Null where none is
+   * asked.
    */
-  acknowledgement: { at: Date | null; byGuardian: boolean; next: boolean } | null;
+  acknowledgement:
+    | { state: 'acknowledged'; at: Date; byGuardian: boolean }
+    | { state: 'waiting' }
+    | { state: 'superseded'; by: string }
+    | null;
   /** Signing asks for the sections the patient acknowledges (OUT-09). */
   asksTexts: boolean;
 }
@@ -148,7 +153,7 @@ export async function readinessView(
   }));
   const signedStatuses = signed.map((c) => c.status);
   const acknowledged = (await clearanceAckForEpisode(tx, episodeId))?.clearances ?? [];
-  const next = acknowledged.filter((each) => each.acknowledgedAt === null).at(-1)?.status;
+  const newest = acknowledged.at(-1)?.status;
   return {
     region,
     kbVersionId,
@@ -162,13 +167,17 @@ export async function readinessView(
         refusal: record ? undefined : clearanceRefusal(status, signedStatuses, states),
         acknowledgement: (() => {
           const ack = acknowledged.find((each) => each.status === status);
-          return ack
-            ? {
-                at: ack.acknowledgedAt,
-                byGuardian: ack.signer === 'guardian',
-                next: ack.status === next,
-              }
-            : null;
+          if (!ack) return null;
+          if (ack.acknowledgedAt) {
+            return {
+              state: 'acknowledged' as const,
+              at: ack.acknowledgedAt,
+              byGuardian: ack.signer === 'guardian',
+            };
+          }
+          return newest && ack.status !== newest
+            ? { state: 'superseded' as const, by: clearanceStatusLabels[newest] }
+            : { state: 'waiting' as const };
         })(),
         asksTexts: isAcknowledgedClearance(status),
       };
