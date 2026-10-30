@@ -1,6 +1,6 @@
 {
-  "id": "e82bf7a5-9c58-426d-bf3a-55a895f06596",
-  "prevId": "206991a2-7ae6-40ce-8043-acefab9bf185",
+  "id": "5312485d-0ab3-4711-979e-dc2dcab10e75",
+  "prevId": "74dd0396-79ae-4319-90d0-88103e88cac2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -13051,6 +13051,107 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.whatsapp_flow_session": {
+      "name": "whatsapp_flow_session",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointment_id": {
+          "name": "appointment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "whatsapp_flow_session_created_at_idx": {
+          "name": "whatsapp_flow_session_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "whatsapp_flow_session_appointment_id_appointment_id_fk": {
+          "name": "whatsapp_flow_session_appointment_id_appointment_id_fk",
+          "tableFrom": "whatsapp_flow_session",
+          "tableTo": "appointment",
+          "columnsFrom": [
+            "appointment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "whatsapp_flow_session_phone": {
+          "name": "whatsapp_flow_session_phone",
+          "value": "\"whatsapp_flow_session\".\"phone\" ~ '^\\+[1-9][0-9]{7,14}$'"
+        },
+        "whatsapp_flow_session_kind": {
+          "name": "whatsapp_flow_session_kind",
+          "value": "\"whatsapp_flow_session\".\"kind\" in ('booking')"
+        },
+        "whatsapp_flow_session_expiry": {
+          "name": "whatsapp_flow_session_expiry",
+          "value": "\"whatsapp_flow_session\".\"expires_at\" > \"whatsapp_flow_session\".\"created_at\""
+        }
+      },
       "isRLSEnabled": true
     },
     "public.exercise": {
