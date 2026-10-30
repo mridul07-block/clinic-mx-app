@@ -5,6 +5,7 @@ import { routeInboundMessage } from './router';
 vi.mock('server-only', () => ({}));
 const db = vi.hoisted(() => ({
   centreContacts: vi.fn(),
+  confirmAppointment: vi.fn(),
   createFlowSession: vi.fn(),
   flowSessionRecord: vi.fn(),
   inboundToRoute: vi.fn(),
@@ -231,6 +232,82 @@ describe('routing a message sent to us', () => {
     );
     expect((await routeInboundMessage({} as Db, messageId)).reply).toBe('menu');
     expect(queued().map((reply) => reply.templateKey)).toEqual(['menu']);
+  });
+
+  // WA-08: a tap on the day before reminder's Confirm confirms its appointment, then thanks them.
+  describe('a tap on the reminder’s Confirm', () => {
+    const appointmentId = '00000000-0000-4000-8000-000000000a11';
+    const startsAt = new Date('2026-11-03T04:30:00.000Z'); // 10:00 AM IST
+    const tap = () =>
+      inbound({
+        kind: 'reply',
+        replyId: 'day_before_reminder.confirm',
+        body: 'Confirm',
+        contextWaId: 'wamid.REMINDER',
+      });
+    beforeEach(() => {
+      db.repliedMessage.mockResolvedValue({
+        id: 'sent-2',
+        templateKey: 'day_before_reminder',
+        patientId: 'patient-1',
+        patientLinkId: null,
+        appointmentId,
+      });
+      db.inboundToRoute.mockResolvedValue(tap());
+    });
+
+    it('confirms the reminder’s appointment and thanks them with its day and time', async () => {
+      db.confirmAppointment.mockResolvedValue({ outcome: 'confirmed', startsAt, centreId: 'c1' });
+      expect(await routeInboundMessage({} as Db, messageId)).toEqual({
+        route: 'confirm',
+        reply: 'none',
+        skipped: false,
+      });
+      expect(db.repliedMessage).toHaveBeenCalledWith('system-tx', 'wamid.REMINDER');
+      expect(db.confirmAppointment).toHaveBeenCalledWith(
+        'system-tx',
+        appointmentId,
+        expect.any(Date),
+      );
+      expect(queued()).toEqual([
+        expect.objectContaining({
+          kind: 'session',
+          templateKey: 'appointment_confirmed',
+          variables: {
+            text: 'Thank you, your appointment on Tue, 3 Nov at 10:00 AM is confirmed.',
+          },
+          contextWaId: 'wamid.IN1',
+        }),
+      ]);
+      // Confirmed already: thanked the same.
+      db.confirmAppointment.mockResolvedValue({ outcome: 'already', startsAt, centreId: 'c1' });
+      await routeInboundMessage({} as Db, messageId);
+      expect(queued()[1]?.variables).toEqual(queued()[0]?.variables);
+    });
+
+    it('gives the clinic’s contact details for an appointment changed since', async () => {
+      db.confirmAppointment.mockResolvedValue({ outcome: 'changed', centreId: 'c1' });
+      await routeInboundMessage({} as Db, messageId);
+      expect(db.centreContacts).toHaveBeenCalledWith('system-tx', 'c1');
+      const text = (queued()[0]?.variables as { text: string }).text;
+      expect(text).toMatch(/^This appointment has changed, so it cannot be confirmed here\. /);
+      expect(text).toContain('+91 80 0000 0001');
+      expect(queued()[0]?.templateKey).toBe('appointment_confirmed');
+    });
+
+    it('sends the menu for a Confirm on a message that is not a reminder', async () => {
+      db.repliedMessage.mockResolvedValue({
+        id: 'sent-3',
+        templateKey: 'no_show',
+        patientId: null,
+        patientLinkId: null,
+        appointmentId,
+      });
+      expect((await routeInboundMessage({} as Db, messageId)).reply).toBe('menu');
+      db.repliedMessage.mockResolvedValue(undefined);
+      expect((await routeInboundMessage({} as Db, messageId)).reply).toBe('menu');
+      expect(db.confirmAppointment).not.toHaveBeenCalled();
+    });
   });
 
   // WA-06: a tap on a check's reply button is that check's answer.

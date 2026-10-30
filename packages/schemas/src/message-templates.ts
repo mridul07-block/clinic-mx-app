@@ -323,15 +323,21 @@ export type TemplateVariables<K extends MessageTemplateKey> = {
 };
 
 /**
- * Everything a message row must carry to send the template: its variables, and for a document
- * header the PDF (our `document` row, uploaded to Meta when sent) and the file name.
+ * Everything a message row must carry to send the template: its variables, for a document header
+ * the PDF (our `document` row, uploaded to Meta when sent) and the file name, and for a Flow
+ * button the Flow session it opens (WA-05, WA-08: the day before reminder's Reschedule).
  */
-export type TemplateParameters<K extends MessageTemplateKey> = Extract<
+export type TemplateParameters<K extends MessageTemplateKey> = (Extract<
   MessageTemplate,
   { key: K }
 >['header'] extends 'document'
   ? TemplateVariables<K> & { document_id: string; document_name: string }
-  : TemplateVariables<K>;
+  : TemplateVariables<K>) &
+  ([Extract<Extract<MessageTemplate, { key: K }>['buttons'][number], { kind: 'flow' }>] extends [
+    never,
+  ]
+    ? unknown
+    : { flow_token: string });
 
 export function messageTemplate<K extends MessageTemplateKey>(
   key: K,

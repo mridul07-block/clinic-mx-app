@@ -109,10 +109,20 @@ describe('handlers', () => {
   });
 
   it('give the team’s contact details until a handler is live, the menu for typed text', () => {
-    for (const each of ['emergency', 'confirm'] as const) {
-      expect(routeHandlers[each]).toMatchObject({ live: false, reply: 'contact' });
-    }
+    expect(routeHandlers.emergency).toMatchObject({ live: false, reply: 'contact' });
     expect(routeHandlers.assistant).toMatchObject({ live: false, reply: 'menu' });
+  });
+
+  // WA-08: the day before reminder's Confirm (its quick reply payload) confirms its appointment;
+  // the handler answers itself.
+  it('confirm the reminder’s appointment, the handler answering', () => {
+    expect(routeHandlers.confirm).toMatchObject({ ticket: 'WA-08', live: true, reply: 'none' });
+    expect(
+      routeInbound(
+        { kind: 'reply', body: 'Confirm', replyId: 'day_before_reminder.confirm' },
+        { emergencyPhrases: [] },
+      ),
+    ).toBe('confirm');
   });
 
   // WA-05: Reschedule or cancel (the menu's, or the reminder's quick reply) opens the reschedule

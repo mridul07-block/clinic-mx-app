@@ -41,6 +41,8 @@ export interface NewMessage {
   patientLinkId?: string | null;
   /** WA-06: the job that queued it; a second message with the same key is not queued. */
   sourceKey?: string | null;
+  /** WA-08: the appointment a reminder is about, for its Confirm. */
+  appointmentId?: string | null;
 }
 
 /** Queues a message; its send job is queued with it. Returns the message id. */

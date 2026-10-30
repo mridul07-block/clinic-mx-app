@@ -15,11 +15,13 @@ import {
   liveMessageLink,
   liveMyPlanLink,
   messagePatient,
+  messageQueuedFor,
   newerOpenEpisode,
   newestDocument,
   packageForMessage,
   planSeriesForMessage,
   queueMessageOnce,
+  remindableAppointments,
   type DbOrTransaction,
 } from '@clinic-mx/db';
 import {
@@ -28,6 +30,7 @@ import {
   FOLLOW_UP_INTERVAL_KEY,
   TEMPLATE_LANGUAGE,
   checkAnswers,
+  dayBeforeRunDue,
   documentTime,
   firstName,
   firstTreatmentCheck,
@@ -44,6 +47,7 @@ import { z } from 'zod';
 import { systemService } from '../access/service';
 import { issuePatientLink, patientLinkPath } from '../patient-links/services';
 import { flowDate } from './booking-flow';
+import { rescheduleFlowToken } from './reschedule-flow';
 
 /**
  * The clinic's WhatsApp messages queued by the database (WA-06, part 1): each job's sender checks
@@ -71,6 +75,7 @@ async function queueFor<K extends MessageTemplateKey>(
     sourceKey: string;
     variables: (name: string) => TemplateParameters<K>;
     patientLinkId?: string;
+    appointmentId?: string;
   },
 ): Promise<SendOutcome> {
   const patient = await messagePatient(tx, values.patientId);
@@ -85,6 +90,7 @@ async function queueFor<K extends MessageTemplateKey>(
     variables: values.variables(firstName(patient.name)),
     createdBy: 'system:whatsapp',
     patientLinkId: values.patientLinkId ?? null,
+    appointmentId: values.appointmentId ?? null,
     sourceKey: values.sourceKey,
   });
   return id ? 'queued' : 'already_queued';
@@ -468,3 +474,70 @@ export async function recordCheckAnswerIn(
   });
   return 'recorded';
 }
+
+const reminderRun = z.object({ date: z.iso.date(), now: z.date() });
+
+/**
+ * The day before reminders (WA-08; PRD J1.6): one `day_before_reminder` per Booked or Confirmed
+ * appointment on `date` not yet started, each with its appointment (for Confirm) and a reschedule
+ * session naming it (WA-05, for Reschedule), once per appointment. Nothing once `date` has begun
+ * in IST: the morning reminder covers the day. How many were queued.
+ */
+export const sendDayBeforeReminders = systemService({
+  component: 'whatsapp',
+  input: reminderRun,
+  run: async (tx, { date, now }): Promise<number> => {
+    if (!dayBeforeRunDue(now, date)) return 0;
+    let queued = 0;
+    for (const visit of await remindableAppointments(tx, date, now)) {
+      const sourceKey = ['whatsapp.day_before_reminder', visit.id].join(':');
+      if (await messageQueuedFor(tx, sourceKey)) continue;
+      const flowToken = await rescheduleFlowToken(tx, visit, now);
+      if (!flowToken) continue;
+      const outcome = await queueFor(tx, {
+        key: 'day_before_reminder',
+        patientId: visit.patientId,
+        sourceKey,
+        appointmentId: visit.id,
+        variables: (name) => ({
+          patient_name: name,
+          date: flowDate(date),
+          time: documentTime(visit.startsAt),
+          clinic: visit.centreName,
+          physio: visit.physioName,
+          flow_token: flowToken,
+        }),
+      });
+      if (outcome === 'queued') queued++;
+    }
+    return queued;
+  },
+});
+
+/**
+ * The reminder on the day (WA-08; PRD J1.6: at 8:00 AM, to every patient): one `morning_reminder`
+ * per Booked or Confirmed appointment on `date` not yet started, once per appointment. How many
+ * were queued.
+ */
+export const sendMorningReminders = systemService({
+  component: 'whatsapp',
+  input: reminderRun,
+  run: async (tx, { date, now }): Promise<number> => {
+    let queued = 0;
+    for (const visit of await remindableAppointments(tx, date, now)) {
+      const outcome = await queueFor(tx, {
+        key: 'morning_reminder',
+        patientId: visit.patientId,
+        sourceKey: ['whatsapp.morning_reminder', visit.id].join(':'),
+        appointmentId: visit.id,
+        variables: (name) => ({
+          patient_name: name,
+          time: documentTime(visit.startsAt),
+          clinic: visit.centreName,
+        }),
+      });
+      if (outcome === 'queued') queued++;
+    }
+    return queued;
+  },
+});

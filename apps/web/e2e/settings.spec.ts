@@ -20,7 +20,7 @@ test.afterAll(async () => {
 });
 
 const key = 'day.running_late_minutes';
-/** Read by nothing until reminders are sent (WhatsApp), so changing it moves no rule. */
+/** Read only when the day before reminders queue their next run (WA-08), and put back after. */
 const unused = 'reminders.day_before_time';
 
 /** Someone else saves the setting as it is: its change time moves on. */
@@ -75,7 +75,7 @@ test('the Super Admin changes a setting, checked and on the value read', async (
     await card.getByRole('button', { name: 'Save' }).click();
     await expect(card.getByText('Nothing to save.')).toBeVisible();
 
-    // A real change, on a setting nothing reads yet, put back after.
+    // A real change, on a setting read only when the next reminder run is queued, put back after.
     const reminder = page.locator(`[data-testid="setting"][data-key="${unused}"]`);
     const was = ((await reminder.getByTestId('setting-value').textContent()) ?? '').replace(
       'Now: ',

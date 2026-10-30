@@ -795,6 +795,16 @@ export {
   type MessagePatient,
 } from './clinic-messages';
 export {
+  DAY_BEFORE_REMINDERS_JOB,
+  MORNING_REMINDERS_JOB,
+  confirmAppointment,
+  messageQueuedFor,
+  queueNextReminders,
+  remindableAppointments,
+  type RemindableAppointment,
+  type ReminderJob,
+} from './reminders';
+export {
   applyTemplateUpdate,
   approvedTemplateVersion,
   recordTemplateVersion,

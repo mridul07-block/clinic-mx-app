@@ -46,6 +46,8 @@ export interface CalendarAppointment {
   /** `whatsapp` when the patient moved it on the reschedule Flow (WA-05), with no staff member. */
   changeChannel: BookingChannel | null;
   changedAt: Date | null;
+  /** Confirmed by the patient on the day before reminder (WA-08): when. */
+  confirmedAt: Date | null;
   /** Marked a no show (INT-11): when, and by whom. */
   noShowAt: Date | null;
   noShowByName: string | null;
@@ -148,6 +150,7 @@ export async function calendarDay(
             changedByName: changedBy.name,
             changeChannel: appointment.changeChannel,
             changedAt: appointment.changedAt,
+            confirmedAt: appointment.confirmedAt,
             noShowAt: appointment.noShowAt,
             noShowByName: noShowBy.name,
             toId: replacedBy.id,

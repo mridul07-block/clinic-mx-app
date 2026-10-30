@@ -209,6 +209,7 @@ describe('a check’s answer from WhatsApp', () => {
         templateKey: 'first_treatment_check',
         patientId: held.patientId,
         patientLinkId: held.link.id,
+        appointmentId: null,
       });
       expect(await repliedMessage(tx, 'wamid.unknown')).toBeUndefined();
     });

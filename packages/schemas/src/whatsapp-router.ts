@@ -51,6 +51,7 @@ export const sessionReplies = [
   'reschedule_flow',
   'reschedule_confirmation',
   'check_answer',
+  'appointment_confirmed',
 ] as const;
 export type SessionReply = (typeof sessionReplies)[number];
 
@@ -62,11 +63,15 @@ export const sessionReplyLabels: Record<SessionReply, string> = {
   reschedule_flow: 'Reschedule form',
   reschedule_confirmation: 'Reschedule confirmation',
   check_answer: 'Answer noted',
+  appointment_confirmed: 'Confirm answered',
 };
 
 /** What the router answers a route with; `none` when the handler has answered already. */
 export type RouteReply =
-  | Exclude<SessionReply, 'booking_confirmation' | 'reschedule_confirmation' | 'check_answer'>
+  | Exclude<
+      SessionReply,
+      'booking_confirmation' | 'reschedule_confirmation' | 'check_answer' | 'appointment_confirmed'
+    >
   | 'none';
 
 /** The Flow replies (WA-04, WA-05): sent with a Flow session, else the contact details. */
@@ -98,7 +103,8 @@ export const routeHandlers: Record<
   book: { ticket: 'WA-04', live: true, reply: 'booking_flow' },
   // WA-05: the reschedule Flow, the contact details where it is not set up.
   reschedule: { ticket: 'WA-05', live: true, reply: 'reschedule_flow' },
-  confirm: { ticket: 'WA-08', live: false, reply: 'contact' },
+  // WA-08: the handler confirms the reminder's appointment and answers itself.
+  confirm: { ticket: 'WA-08', live: true, reply: 'none' },
   // The form already booked (or moved) and sent the confirmation text; nothing more to say.
   booking_flow: { ticket: 'WA-04', live: true, reply: 'none' },
   reschedule_flow: { ticket: 'WA-05', live: true, reply: 'none' },
@@ -184,6 +190,8 @@ const menuRoutes: Record<string, InboundRoute> = {
 /** The day before reminder's quick replies (SET-11 `day_before_reminder`), by payload or text. */
 const reminderRoutes: Record<string, InboundRoute> = {
   confirm: 'confirm',
+  // The template's quick reply payload (`quickReplyPayload`).
+  'day_before_reminder.confirm': 'confirm',
   reschedule: 'reschedule',
 };
 

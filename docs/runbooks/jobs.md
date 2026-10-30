@@ -67,7 +67,13 @@ the WhatsApp tickets, whose sender skips a payment since undone);
 only while the package is still active; BIL-08); `whatsapp.plan_sessions_list` (queued by the
 database once per series booked with Book plan sessions, key
 `whatsapp.plan_sessions_list:<plan booking id>`; does nothing until WA-06, whose sender lists the
-series' appointments still Booked or Confirmed; SCH-11); `notes.unsigned_flag` (every night at
+series' appointments still Booked or Confirmed; SCH-11); `whatsapp.day_before_reminders` (every
+evening at `reminders.day_before_time` IST, 6:00 PM, for the next day's appointments, key
+`whatsapp.day_before_reminders:<appointments' IST date>`) and `whatsapp.morning_reminders` (every
+morning at `reminders.morning_time` IST, 8:00 AM, for the day's, key
+`whatsapp.morning_reminders:<IST date>`): each run first queues the next in its own transaction at
+the setting's time as it is then, then queues one reminder per appointment; a migration queued the
+first of each; WA-08, see `docs/runbooks/whatsapp.md`, "Reminders"; `notes.unsigned_flag` (every night at
 9:00 PM IST, key `notes.unsigned_flag:<IST date>`; each night first queues the next night in its
 own transaction, then flags; a migration queued the first night; CLN-10, see
 `docs/runbooks/tasks.md`); `ai.kb_report` (on the 1st of each month at 01:00 IST for the month

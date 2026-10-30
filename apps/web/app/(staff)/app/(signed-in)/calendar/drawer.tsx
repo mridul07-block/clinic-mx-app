@@ -205,6 +205,12 @@ export function AppointmentDrawer({
             ? `${bookingChannelLabels[appointment.channel]}, by ${appointment.bookedByName}`
             : bookingChannelLabels[appointment.channel]}
         </Detail>
+        {appointment.confirmedAt && status === 'confirmed' ? (
+          <Detail term="Confirmed">
+            On WhatsApp, {formatIstDate(istDate(appointment.confirmedAt))}{' '}
+            {timeOf(appointment.confirmedAt)}
+          </Detail>
+        ) : null}
         {appointment.changeReason ? (
           <Detail term={status === 'rescheduled' ? 'Rescheduled' : 'Cancelled'}>
             {appointmentChangeReasonLabels[appointment.changeReason]}
