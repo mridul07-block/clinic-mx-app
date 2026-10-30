@@ -18,17 +18,43 @@
 ## Status: partly done
 
 These are recommended defaults, chosen under the user's standing approval of 28 October 2026, and
-recorded as DECISION AI-01 in `docs/PROGRESS.md`. No OpenRouter key exists yet.
+recorded as DECISION AI-01 in `docs/PROGRESS.md`.
 
 - Everything is built and tested with a fake transport.
-- Locally, in CI and on staging, each run is logged as `not_configured` and no model is called.
-- **Live calls need two things:**
+- **Proven live on 30 October 2026** with a development key (`pnpm ai:check` and the blind test,
+  `docs/runbooks/ai-blind-test.md`): OpenRouter takes `zdr`, `data_collection`, a pinned `order`
+  of host tags such as `wafer/us`, `allow_fallbacks: false`, `require_parameters` and the strict
+  schema, and reports each call's cost.
+- **No model is set yet**, so locally, in CI and on staging each run is logged as `not_configured`
+  and no model is called. Live calls need two things:
   - `OPENROUTER_API_KEY` in the environment (server only; `apps/web/lib/env.ts`, `.env.example`);
-  - a model and pinned providers in the task settings, chosen by the blind test (AI-06,
-    `docs/runbooks/ai-blind-test.md`).
-- No clinical call ever goes to a provider in `ai.blocked_providers` (DeepSeek: PRD section 6).
+  - a model and pinned providers in the task settings, set when the winner of the blind test is
+    adopted (AI-06).
+- No clinical call ever goes to a provider in `ai.blocked_providers` (DeepSeek: PRD section 6),
+  whether it is pinned by name (`deepseek`) or by a tag on it (`deepseek/fp8`).
 - Even then, the AI preparation sheet runs only while the AI gate is on (AI-09,
   `docs/runbooks/ai-gate.md`).
+
+## The live check (`pnpm ai:check`)
+
+Run it after setting the key in an environment, and before and after adopting a model.
+
+```
+pnpm ai:check
+pnpm ai:check --model z-ai/glm-5.3 --provider wafer/us --provider sail-research/us [--timeout-ms 12000]
+```
+
+- **The key:** what it has used, its credit limit and what is left. It warns when the key has no
+  limit: that limit is the only hard stop (see Open risks).
+- **Each task with a model in its settings,** or the one candidate named: one call with a fixed
+  made-up case (`apps/web/modules/ai/gateway/check.ts`), built by the gateway's own
+  `buildRequest`, so zero data retention, no data collection, pinning and the strict schema are
+  the ones the sheet uses.
+- **The outcome:** `ok`, `not_pinned` (a host outside the pinned list answered), `invalid_output`,
+  `timed_out`, `failed` (with the HTTP status) or `blocked_provider` (never called); the host that
+  answered, the time and the cost. It exits 2 unless every check is `ok`.
+- No patient data and no knowledge base text is sent, and nothing is written: the check runs no
+  task, so it is not an `ai_run`. A check costs a fraction of a cent.
 
 ## How a run goes (`apps/web/modules/ai/gateway`)
 
@@ -124,12 +150,15 @@ prompt in `aiPromptsWithSimilarCases`; a v1 prompt never gets it
   - blocked identifiers;
   - the run logged;
   - numbered rows mapped back.
+- `check.test.ts`: the live check's made-up case passes the allow list and the guard, goes out with
+  zero data retention and pinning, and reports another host, a wrong answer, a timeout and a
+  blocked provider (never called); the key's limit and use.
 - `transport.test.ts`:
   - the OpenRouter request, cost and tokens;
   - errors read without their text;
   - prompts pinned.
-- `packages/schemas/src/ai-gateway.test.ts`: the allow list, the output, the config, and the money
-  arithmetic.
+- `packages/schemas/src/ai-gateway.test.ts`: the allow list, the output, the config, the money
+  arithmetic, and a blocked provider by its name or a tag on it.
 - `packages/db/src/integration/ai-runs.integration.test.ts`:
   - who reads, per role;
   - the server writes, audited and never changed;
@@ -139,11 +168,14 @@ prompt in `aiPromptsWithSimilarCases`; a v1 prompt never gets it
 
 ## Open risks
 
-- **Unverified until a key exists:** OpenRouter's acceptance of zero data retention and pinning.
-  The field names follow OpenRouter's provider routing documentation as read on 28 October 2026.
+- **Timed out attempts are billed, but their cost never comes back.** The request is abandoned, so
+  OpenRouter's answer, which carries the cost, is never read; the daily cap cannot count it. In the
+  first blind test (30 October 2026) about $0.28 of $0.44 spent was on timed out calls. The key's
+  own credit limit on OpenRouter is therefore the hard stop: give every environment's key a
+  monthly limit, and choose timeouts from measured latency so that timeouts stay rare.
+- **Latency varies with the hosts' load.** Measured on 30 October 2026, the time to an answer for
+  the same model ran from 2 to 13 seconds within an hour. Two attempts of 6 seconds failed often for
+  every candidate (`docs/runbooks/ai-blind-test.md`).
 - **Name check:** a name typed in free text is caught only if the caller passes the patient's name
   words (AI-03).
 - **Unpriced runs:** a run whose provider reports no cost counts as nothing against the cap.
-- **Timed out attempts:** a timed out attempt is still billed by the provider, but its cost is not
-  known, so it does not count against the cap. Once a key exists, the generation's cost can be
-  looked up afterwards.

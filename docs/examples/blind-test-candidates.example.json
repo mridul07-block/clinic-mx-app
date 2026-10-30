@@ -1,24 +1,35 @@
 {
   "candidates": [
     {
-      "id": "candidate-a",
+      "id": "candidate-glm",
       "config": {
-        "model": "vendor-a/model-name",
-        "providers": ["host-a"],
-        "promptVersion": "rank_diagnoses.v1",
-        "reasoningEffort": "low",
-        "timeoutMs": 6000,
+        "model": "z-ai/glm-5.3",
+        "providers": ["wafer/us", "sail-research/us"],
+        "promptVersion": "rank_diagnoses.v2",
+        "reasoningEffort": "none",
+        "timeoutMs": 12000,
         "maxTokens": 800
       }
     },
     {
-      "id": "candidate-b",
+      "id": "candidate-deepseek",
       "config": {
-        "model": "vendor-b/model-name",
-        "providers": ["host-b"],
-        "promptVersion": "rank_diagnoses.v1",
-        "reasoningEffort": "low",
-        "timeoutMs": 6000,
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "providers": ["sail-research/us"],
+        "promptVersion": "rank_diagnoses.v2",
+        "reasoningEffort": "none",
+        "timeoutMs": 12000,
+        "maxTokens": 800
+      }
+    },
+    {
+      "id": "candidate-gpt",
+      "config": {
+        "model": "openai/gpt-6.1-sol",
+        "providers": ["azure/eu"],
+        "promptVersion": "rank_diagnoses.v2",
+        "reasoningEffort": "none",
+        "timeoutMs": 12000,
         "maxTokens": 800
       }
     }

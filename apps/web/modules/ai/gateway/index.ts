@@ -11,6 +11,7 @@ import { runTask, type AiResult, type RunOptions } from './run';
  * condition IDs. Whether the ranking is complete and right is AI-03's check.
  */
 export type { AiResult } from './run';
+export { checkTask, type AiCheckResult } from './check';
 
 export interface ShortlistRow extends Omit<AiRankRow, 'n'> {
   conditionId: string;

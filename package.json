@@ -31,7 +31,8 @@
     "backup": "pnpm --filter @clinic-mx/db backup",
     "backup:stack": "supabase start --workdir packages/db/src/backup/stack -x studio,imgproxy,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor",
     "ai:blind-test": "pnpm --filter web ai:blind-test",
-    "whatsapp:templates": "pnpm --filter web whatsapp:templates"
+    "whatsapp:templates": "pnpm --filter web whatsapp:templates",
+    "ai:check": "pnpm --filter web ai:check"
   },
   "devDependencies": {
     "@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
