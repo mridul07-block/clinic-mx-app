@@ -37,6 +37,7 @@ export const taskKindLabels: Record<string, string> = {
   'review.injured_again': 'Clinical review: injured again after discharge',
   'ai.spend_cap': 'AI spend cap reached',
   'ai.kb_report': 'Knowledge base report',
+  'consent.part_b_declined': 'Part B consent declined',
 };
 
 export function taskKindLabel(kind: string): string {

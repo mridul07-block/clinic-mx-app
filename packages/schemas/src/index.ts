@@ -751,7 +751,6 @@ export {
 } from './packages';
 export {
   closeSessionSchema,
-  consentNotCheckedYet,
   coversSessionsAt,
   emptySessionNote,
   newSymptomsAnswers,
@@ -1301,12 +1300,15 @@ export {
   modalityStatement,
   parsePartB,
   partBGate,
+  partBGateMessage,
+  partBGateReasons,
   partBStatements,
   partBStatementsFor,
   partBStatus,
   partBText,
   partBToAsk,
   type PartBFills,
+  type PartBGateReason,
   type PartBStatement,
   type PartBStatementKey,
   type PartBStatus,

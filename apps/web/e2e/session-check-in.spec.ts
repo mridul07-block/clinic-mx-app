@@ -8,6 +8,7 @@ import { testPatient } from './patients';
 import { packageSessionsUsed, plannedModality, proposedPlan, testPackage } from './plan-sheet';
 import { restorePrices, snapshotPrices } from './prices';
 import { exclusively, signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
+import { partBAgreed } from './part-b';
 
 // SES-01 done when: one tap check in shows "Session n of N" and the gate status. Decisions (user,
 // 25 October 2026): N is the plan's planned sessions; checked in Session and treadmill visits are
@@ -128,11 +129,14 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
         .filter({ hasText: 'Session ·' })
         .getByRole('link', { name: `Check in ${paid.patient.name}` })
         .click();
-      await expect(drawer.getByText('Part B consent is not checked yet.')).toBeVisible();
+      // BIL-12: paid, but Part B not yet: held at the gate.
+      await expect(drawer.getByTestId('session-gate')).toContainText('Part B consent is needed.');
+      await partBAgreed(paidEpisode);
+      await page.reload();
       await drawer.getByLabel('I have checked who this is (name and date of birth)').check();
       await drawer.getByRole('button', { name: 'Check in', exact: true }).click();
       await expect(drawer.getByTestId('session-progress')).toHaveText(
-        'Session 1 of 12, payment complete',
+        'Session 1 of 12, consent and payment complete',
       );
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),

@@ -14,6 +14,7 @@ import {
   withActor,
 } from '@clinic-mx/db';
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
+import { partBAgreed } from './part-b';
 
 // The plan and payment sheet for end to end tests (BIL-01): a priced modality on a signed
 // consultation's plan, and a package type covering a session item. Generated
@@ -151,7 +152,7 @@ export async function planSeriesOf(patientId: string) {
  */
 export async function activePlan(consultationId: string): Promise<string> {
   await proposedPlan(consultationId);
-  return withActor(db(), systemActor('tests'), async (tx) => {
+  const episodeId = await withActor(db(), systemActor('tests'), async (tx) => {
     const [row] = await tx
       .select({ episodeId: consultation.episodeId })
       .from(consultation)
@@ -160,6 +161,9 @@ export async function activePlan(consultationId: string): Promise<string> {
     await tx.update(episode).set({ status: 'active' }).where(eq(episode.id, row.episodeId));
     return row.episodeId;
   });
+  // BIL-12: Part B consent agreed too, so treatment may start.
+  await partBAgreed(episodeId);
+  return episodeId;
 }
 
 /** Makes another physio the episode's treating physio, on every plan version (OUT-04). */

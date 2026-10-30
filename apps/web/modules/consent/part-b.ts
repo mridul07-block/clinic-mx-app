@@ -1,4 +1,5 @@
 import 'server-only';
+import { createHash } from 'node:crypto';
 import {
   episodeRecord,
   findKioskDevice,
@@ -16,6 +17,7 @@ import {
 } from '@clinic-mx/db';
 import {
   guardianRelationshipLabels,
+  interventionLabels,
   istDate,
   minorStatus,
   parsePartB,
@@ -27,6 +29,7 @@ import {
   partBText,
   partBToAsk,
   type ConsentSignature,
+  type InterventionKind,
   type MinorStatus,
   type PartBFills,
   type PartBStatement,
@@ -77,7 +80,16 @@ export interface PartBSigning {
 }
 
 export type PartBPage =
-  | { open: true; firstName: string; cards: PartBCard[]; signing: PartBSigning }
+  | {
+      open: true;
+      firstName: string;
+      cards: PartBCard[];
+      /** Planned treatments whose consent wording is awaited: shown, not asked (DECISION #21). */
+      awaiting: string[];
+      signing: PartBSigning;
+      /** What the page shows, posted back so the save records exactly that (`shownFingerprint`). */
+      shown: string;
+    }
   | { open: false; reason: 'done' | 'no_plan' };
 
 const groupTitles = { general: 'General terms', package: 'Package terms' } as const;
@@ -91,9 +103,22 @@ function asked(context: PartBContext): { statements: PartBStatement[]; fills: Pa
     }),
     fills: {
       diagnosis: context.diagnosis ?? 'not recorded',
-      modalities: context.modalities.map((modality) => modality.name),
+      // The Blueprint's "[auto-listed from the plan of care]": its interventions, then modalities.
+      modalities: [
+        ...context.interventions.flatMap((kind) =>
+          kind in interventionLabels ? [interventionLabels[kind as InterventionKind]] : [],
+        ),
+        ...context.modalities.map((modality) => modality.name),
+      ],
     },
   };
+}
+
+/** A fingerprint of the cards a page shows, their versions and words, compared on save. */
+function shownFingerprint(cards: readonly PartBCard[]): string {
+  return createHash('sha256')
+    .update(JSON.stringify(cards.map((card) => [card.key, card.version, card.text])))
+    .digest('base64url');
 }
 
 function cardOf(statement: PartBStatement, context: PartBContext, fills: PartBFills): PartBCard {
@@ -126,10 +151,15 @@ export async function loadPartB(link: PatientLinkAccess, ip?: string): Promise<P
   const { statements, fills } = asked(context);
   const toAsk = partBToAsk(statements, context.latest);
   if (toAsk.length === 0) return { open: false, reason: 'done' };
+  const cards = toAsk.map((statement) => cardOf(statement, context, fills));
   return {
     open: true,
     firstName: patient.name.split(/\s+/)[0] ?? patient.name,
-    cards: toAsk.map((statement) => cardOf(statement, context, fills)),
+    cards,
+    awaiting: statements
+      .filter((statement) => statement.awaitingWording)
+      .map((statement) => cardOf(statement, context, fills).title),
+    shown: shownFingerprint(cards),
     signing: {
       status: minorStatus(patient.dateOfBirth, adultAge, istDate(new Date())),
       adultAge,
@@ -142,6 +172,8 @@ export async function loadPartB(link: PatientLinkAccess, ip?: string): Promise<P
 }
 
 const recordPartBSchema = z.object({
+  /** The fingerprint of the cards the patient saw. */
+  shown: z.string().min(1).max(100),
   decisions: z.record(z.string(), z.boolean()),
   signer: z.union([
     z.object({ signer: z.literal('patient') }),
@@ -169,13 +201,18 @@ export type PartBResult =
  */
 const recordPartB = patientService({
   input: recordPartBSchema,
-  run: async (tx, { decisions, signer, signature }, link): Promise<PartBResult> => {
+  run: async (tx, { shown, decisions, signer, signature }, link): Promise<PartBResult> => {
     const context = await partBForLink(tx);
     if (!context?.planned) return { status: 'link' };
     const { statements, fills } = asked(context);
     const toAsk = partBToAsk(statements, context.latest);
+    // The plan or the record changed since the page was shown: the patient reads it again.
+    const cards = toAsk.map((statement) => cardOf(statement, context, fills));
     const keys = toAsk.map((statement) => statement.key).sort();
-    if (JSON.stringify(keys) !== JSON.stringify(Object.keys(decisions).sort())) {
+    if (
+      shownFingerprint(cards) !== shown ||
+      JSON.stringify(keys) !== JSON.stringify(Object.keys(decisions).sort())
+    ) {
       return { status: 'stale' };
     }
     const agreed = Object.values(decisions).some(Boolean);
@@ -251,6 +288,7 @@ export async function savePartB(
     const result = await recordPartB(
       opened.link,
       {
+        shown: typeof posted.shown === 'string' ? posted.shown : '',
         decisions: parsed.decisions,
         signer:
           signer.signer === 'guardian'
@@ -279,8 +317,11 @@ export interface PartBView {
   package: boolean;
   status: PartBStatus;
   gate: { met: boolean; message: string };
-  /** The modalities asked, by name, with each one's latest decision (null: not yet). */
-  modalities: { key: string; name: string; accepted: boolean | null }[];
+  /**
+   * The modalities planned, by name, with each one's latest decision (null: not yet), and whether
+   * its consent wording is awaited (not used until consented).
+   */
+  modalities: { key: string; name: string; accepted: boolean | null; awaiting: boolean }[];
 }
 
 /** The view of an episode's Part B from what the database read. */
@@ -297,7 +338,11 @@ export function partBView(context: PartBContext): PartBView {
     modalities: context.modalities.map((modality) => {
       const statement = statements.find((each) => each.modality === modality.key);
       const decided = statement ? context.latest[statement.key] : undefined;
-      return { ...modality, accepted: decided ?? null };
+      return {
+        ...modality,
+        accepted: decided ?? null,
+        awaiting: statement?.awaitingWording === true,
+      };
     }),
   };
 }

@@ -23,7 +23,10 @@ export interface PartBStatement extends ConsentStatement {
   awaitingWording?: boolean;
 }
 
-/** What the general plan statement names, filled from the consultation and the plan. */
+/**
+ * What the general plan statement names, filled from the consultation and the plan: the diagnosis,
+ * and the interventions and modalities proposed.
+ */
 export interface PartBFills {
   diagnosis: string;
   modalities: readonly string[];
@@ -128,8 +131,9 @@ export const partBStatements = {
     text: 'I understand that therapeutic laser uses light energy to help manage pain and support recovery in selected musculoskeletal conditions. Possible side effects include temporary discomfort, redness, or skin irritation. I confirm that I have disclosed relevant medical conditions and medications. I understand that protective eyewear is required and the laser must not be directed into the eyes. I understand that treatment outcomes are not guaranteed and voluntarily consent to this treatment.',
     source: `${blueprint}, Laser`,
   },
-  // DECISION #21: the clinic sends the Dry needling and Zero Gravity Treadmill wording; until then
-  // their cards say it is awaited, and agreeing records consent to that placeholder (version 0).
+  // DECISION #21: the clinic sends the Dry needling and Zero Gravity Treadmill wording. Until then
+  // their cards (version 0) are shown for information only, never agreed: the treatment is not used
+  // until the patient consents to real wording (version 1, asked then).
   'part_b.modality.dry_needling': {
     key: 'part_b.modality.dry_needling',
     stage: 'B',
@@ -216,6 +220,8 @@ export interface PartBStatus {
   packageDeclined: boolean;
   /** Modalities declined: only these are left out (PRD J4.5). */
   modalitiesDeclined: string[];
+  /** Modalities whose consent wording is awaited: not used until consented (DECISION #21). */
+  modalitiesAwaiting: string[];
   /** Statements asked with no decision yet. */
   missing: string[];
 }
@@ -225,7 +231,9 @@ export function partBStatus(
   asked: readonly PartBStatement[],
   latest: Readonly<Record<string, boolean>>,
 ): PartBStatus {
-  const missing = asked.filter((statement) => !(statement.key in latest)).map((s) => s.key);
+  const missing = asked
+    .filter((statement) => !statement.awaitingWording && !(statement.key in latest))
+    .map((s) => s.key);
   const declined = asked.filter((statement) => latest[statement.key] === false);
   return {
     complete: missing.length === 0,
@@ -233,6 +241,9 @@ export function partBStatus(
     packageDeclined: declined.some((statement) => statement.group === 'package'),
     modalitiesDeclined: declined.flatMap((statement) =>
       statement.modality ? [statement.modality] : [],
+    ),
+    modalitiesAwaiting: asked.flatMap((statement) =>
+      statement.awaitingWording && statement.modality ? [statement.modality] : [],
     ),
     missing,
   };
@@ -261,11 +272,41 @@ export function partBGate(
 
 /**
  * The statements a link asks now: those asked with no decision yet, or declined (the desk can ask
- * again); one agreed is not asked again.
+ * again); one agreed is not asked again, nor one whose wording is awaited. `latest` holds decisions
+ * on each statement's current version only, so new wording asks again.
  */
 export function partBToAsk(
   asked: readonly PartBStatement[],
   latest: Readonly<Record<string, boolean>>,
 ): PartBStatement[] {
-  return asked.filter((statement) => latest[statement.key] !== true);
+  return asked.filter((statement) => !statement.awaitingWording && latest[statement.key] !== true);
+}
+
+/** Why Part B lets treatment start or not, as the database works it out (`internal.part_b_gate`). */
+export const partBGateReasons = [
+  'met',
+  'opening_entry',
+  'no_plan',
+  'general_declined',
+  'package_declined',
+  'missing',
+] as const;
+export type PartBGateReason = (typeof partBGateReasons)[number];
+
+/** The gate's words for a reason, the same as `partBGate` gives. */
+export function partBGateMessage(reason: PartBGateReason): string {
+  switch (reason) {
+    case 'met':
+      return 'Part B consent complete';
+    case 'opening_entry':
+      return 'Consent on paper (opening entry)';
+    case 'no_plan':
+      return 'Part B consent follows the signed plan.';
+    case 'general_declined':
+      return 'Part B consent: a general term was declined. No treatment.';
+    case 'package_declined':
+      return 'Part B consent: a package term was declined. Record another choice, or ask again.';
+    case 'missing':
+      return 'Part B consent is needed.';
+  }
 }

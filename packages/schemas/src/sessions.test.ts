@@ -27,9 +27,9 @@ describe('sessionLabel', () => {
 
 describe('sessionView', () => {
   it('labels a checked in session and gives the gate; nothing for other appointments', () => {
-    expect(sessionView({ number: 2, planned: 12, episodeStatus: 'active' })).toEqual({
+    expect(sessionView({ number: 2, planned: 12, episodeStatus: 'active', partB: 'met' })).toEqual({
       label: 'Session 2 of 12',
-      gate: { met: true, message: 'Payment complete' },
+      gate: { met: true, message: 'Consent and payment complete' },
     });
     expect(
       sessionView({ number: null, planned: 12, episodeStatus: 'plan_proposed' })?.label,
@@ -39,14 +39,29 @@ describe('sessionView', () => {
 });
 
 describe('sessionGate', () => {
-  it('is met once the chosen plan is paid: Active or Under review', () => {
-    expect(sessionGate('active')).toEqual({ met: true, message: 'Payment complete' });
-    expect(sessionGate('under_review').met).toBe(true);
+  it('is met once the chosen plan is paid and Part B consent is met (BIL-12)', () => {
+    expect(sessionGate('active', 'met')).toEqual({
+      met: true,
+      message: 'Consent and payment complete',
+    });
+    expect(sessionGate('under_review', 'met').met).toBe(true);
+    // A patient already in treatment before launch: consent on paper.
+    expect(sessionGate('active', 'opening_entry').met).toBe(true);
+  });
+
+  it('waits for Part B once paid, saying why', () => {
+    expect(sessionGate('active', 'missing')).toEqual({
+      met: false,
+      message: 'Part B consent is needed.',
+    });
+    expect(sessionGate('active', 'general_declined').message).toContain('No treatment');
+    expect(sessionGate('active', 'package_declined').met).toBe(false);
+    expect(sessionGate('active', null).met).toBe(false);
   });
 
   it('waits for consent and payment before the plan is paid', () => {
     for (const status of ['intake_pending', 'awaiting_consultation', 'plan_proposed'] as const) {
-      expect(sessionGate(status)).toEqual({
+      expect(sessionGate(status, 'met')).toEqual({
         met: false,
         message: 'Consent and payment are needed before the first session.',
       });
@@ -54,10 +69,10 @@ describe('sessionGate', () => {
   });
 
   it('names an episode that is paused or closed, and a visit outside any episode', () => {
-    expect(sessionGate('on_hold').message).toBe('The episode is On hold.');
-    expect(sessionGate('discharged').message).toBe('The episode is Discharged.');
-    expect(sessionGate('lost_to_follow_up').met).toBe(false);
-    expect(sessionGate(null)).toEqual({ met: false, message: 'Not part of an episode yet.' });
+    expect(sessionGate('on_hold', 'met').message).toBe('The episode is On hold.');
+    expect(sessionGate('discharged', 'met').message).toBe('The episode is Discharged.');
+    expect(sessionGate('lost_to_follow_up', 'met').met).toBe(false);
+    expect(sessionGate(null, null)).toEqual({ met: false, message: 'Not part of an episode yet.' });
   });
 });
 

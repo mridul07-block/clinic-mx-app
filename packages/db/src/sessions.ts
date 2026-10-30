@@ -1,4 +1,5 @@
 import type {
+  PartBGateReason,
   EpisodeStatus,
   InterventionKind,
   ModalityParameter,
@@ -30,6 +31,8 @@ export interface SessionProgress {
   planned: number | null;
   /** Null for an appointment outside an episode. */
   episodeStatus: EpisodeStatus | null;
+  /** The episode's Part B gate (BIL-12); null outside an episode. */
+  partB: PartBGateReason | null;
 }
 
 /** Session progress by appointment id; appointments of other types are absent. */
@@ -43,11 +46,17 @@ export async function sessionProgress(
     session_number: number | null;
     planned: number | null;
     episode_status: EpisodeStatus | null;
+    part_b: PartBGateReason | null;
   }>(sql`select * from internal.session_progress(${`{${appointmentIds.join(',')}}`}::uuid[])`);
   return new Map(
     rows.map((row) => [
       row.appointment_id,
-      { number: row.session_number, planned: row.planned, episodeStatus: row.episode_status },
+      {
+        number: row.session_number,
+        planned: row.planned,
+        episodeStatus: row.episode_status,
+        partB: row.part_b,
+      },
     ]),
   );
 }

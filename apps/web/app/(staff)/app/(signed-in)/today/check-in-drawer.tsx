@@ -1,5 +1,4 @@
 import {
-  consentNotCheckedYet,
   formatIstDateTime,
   guardianRelationshipLabels,
   healthFormStateLabels,
@@ -146,9 +145,7 @@ export async function CheckInDrawer({
               {view.session.gate.met ? `, ${view.session.gate.message.toLowerCase()}` : ''}
             </p>
           ) : null}
-          {view.session.gate.met ? (
-            <p className="text-sm text-ink-muted">{consentNotCheckedYet}</p>
-          ) : (
+          {view.session.gate.met ? null : (
             <p data-testid="session-gate" className="flex flex-wrap items-center gap-2 text-sm">
               <Tag tone="waiting">Gate blocked</Tag>
               <span className="text-ink-secondary">{view.session.gate.message}</span>

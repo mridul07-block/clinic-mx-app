@@ -2283,10 +2283,20 @@ describe('counter payments', () => {
         for (const id of [first, second, treadmill, review]) await arrive(tx, id);
         const ids = [first, second, treadmill, later, review, fixture.appointmentId];
         const progress = await read(tx, deskHsr, ids);
-        expect(progress.get(first)).toEqual({ number: 1, planned: 12, episodeStatus: 'active' });
+        expect(progress.get(first)).toEqual({
+          number: 1,
+          planned: 12,
+          episodeStatus: 'active',
+          partB: 'missing',
+        });
         expect(progress.get(second)?.number).toBe(2);
         expect(progress.get(treadmill)?.number).toBe(3);
-        expect(progress.get(later)).toEqual({ number: null, planned: 12, episodeStatus: 'active' });
+        expect(progress.get(later)).toEqual({
+          number: null,
+          planned: 12,
+          episodeStatus: 'active',
+          partB: 'missing',
+        });
         expect(progress.has(review), 'a review is not a session').toBe(false);
         expect(progress.has(fixture.appointmentId), 'nor a consultation').toBe(false);
 
@@ -2313,6 +2323,7 @@ describe('counter payments', () => {
           number: 1,
           planned: 12,
           episodeStatus: 'plan_proposed',
+          partB: 'missing',
         });
       });
     });
