@@ -206,7 +206,10 @@ The endpoint:
 
 **Changing a Flow:** edit the JSON, upload it again (`pnpm whatsapp:flows <kind> --origin ...
 --id <flow id>`), and change the screens' code in `apps/web/modules/messaging/booking-flow.ts` or
-`reschedule-flow.ts` with it. A published Flow cannot be edited: publish a
+`reschedule-flow.ts` with it. Meta's routing model lists forward routes only: a route straight
+back to the screen before (the reschedule form's confirm back to its date screen) is refused, and
+going back needs none. The reschedule Flow was created on the test number on 31 October 2026 (id
+1440709014915479, a draft, no validation errors). A published Flow cannot be edited: publish a
 new one and change `WHATSAPP_BOOKING_FLOW_ID`.
 
 **Rotating the key:** make a new pair, upload the public key, then replace the private key on
