@@ -1,11 +1,16 @@
 import { signPatientLink } from '@clinic-mx/db';
 import { expect, test, type Page } from '@playwright/test';
+import { openConsentLink } from './part-b';
 import { expiredLink, linkViews, reissuedMyPlan, submitLink, testLink } from './patient-links';
 
 // IAM-09 done when: signed, single purpose, expiring links; reissue from WhatsApp. Each test
 // makes its own links for a generated patient, so phone and desktop runs never share one.
 
 const status = (page: Page) => page.getByTestId('patient-link-status');
+const opened: { remove: () => Promise<void> }[] = [];
+test.afterEach(async () => {
+  for (const link of opened.splice(0)) await link.remove();
+});
 
 test('a valid link opens its page, for its purpose only, and the opening is audited', async ({
   page,
@@ -14,10 +19,11 @@ test('a valid link opens its page, for its purpose only, and the opening is audi
   page.on('request', (request) => {
     if (/supabase\.(co|in)/.test(request.url())) supabase.push(request.url());
   });
-  const link = await testLink({ purpose: 'consent' });
+  // A consent link opens Part B (BIL-03).
+  const link = await openConsentLink();
+  opened.push(link);
   const response = await page.goto(link.path);
-  await expect(page.getByRole('heading', { name: 'Your consent' })).toBeVisible();
-  await expect(status(page)).toHaveAttribute('data-status', 'valid');
+  await expect(page.getByRole('heading', { name: 'Your consent before treatment' })).toBeVisible();
   expect(await linkViews(link)).toBe(1);
 
   // The token stays on our page: no referrer to other sites, no caching, no search engines.
@@ -27,7 +33,8 @@ test('a valid link opens its page, for its purpose only, and the opening is audi
   expect(headers['x-robots-tag']).toContain('noindex');
 
   // Patient pages use the patient voice, 16 px (Frontend Specification section 1).
-  expect(await status(page).evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px');
+  const card = page.getByTestId('part-b-card').first();
+  expect(await card.evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px');
   expect(supabase).toEqual([]);
 });
 

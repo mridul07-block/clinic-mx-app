@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { testLink } from './patient-links';
+import { openConsentLink } from './part-b';
 import { clearSignInLimit, fromNetwork } from './rate-limits';
 import { seedPassword, temporaryDesk } from './staff';
 
@@ -76,17 +76,23 @@ test('a network that opens 20 bad patient links waits; other networks do not', a
     await page.goto(`/p/${'x'.repeat(attempt)}`);
     await expect(status).toHaveAttribute('data-status', 'invalid');
   }
-  const link = await testLink({ purpose: 'consent' });
-  await page.goto(link.path);
-  await expect(page.getByRole('heading', { name: 'Please wait a moment' })).toBeVisible();
-  await expect(status).toHaveText('Too many tries. Please wait a few minutes and try again.');
-  await expect(status).toHaveAttribute('data-status', 'limited');
+  const link = await openConsentLink();
+  try {
+    await page.goto(link.path);
+    await expect(page.getByRole('heading', { name: 'Please wait a moment' })).toBeVisible();
+    await expect(status).toHaveText('Too many tries. Please wait a few minutes and try again.');
+    await expect(status).toHaveAttribute('data-status', 'limited');
 
-  const phone = await (await browser.newContext(test.info().project.use)).newPage();
-  await fromNetwork(phone);
-  await phone.goto(link.path);
-  await expect(phone.getByTestId('patient-link-status')).toHaveAttribute('data-status', 'valid');
-  await phone.context().close();
+    const phone = await (await browser.newContext(test.info().project.use)).newPage();
+    await fromNetwork(phone);
+    await phone.goto(link.path);
+    await expect(
+      phone.getByRole('heading', { name: 'Your consent before treatment' }),
+    ).toBeVisible();
+    await phone.context().close();
+  } finally {
+    await link.remove();
+  }
 });
 
 test('the fourth reset email for one email in an hour is refused', async ({ page }) => {
