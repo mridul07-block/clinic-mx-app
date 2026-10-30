@@ -1639,6 +1639,20 @@
       "when": 1793371510384,
       "tag": "20261030144510_exercise_library_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 234,
+      "version": "7",
+      "when": 1793378127892,
+      "tag": "20261030163527_whatsapp_template",
+      "breakpoints": true
+    },
+    {
+      "idx": 235,
+      "version": "7",
+      "when": 1793378130712,
+      "tag": "20261030163530_whatsapp_template_rules",
+      "breakpoints": true
     }
   ]
 }

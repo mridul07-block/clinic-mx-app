@@ -47,6 +47,57 @@ describe('cloudApiTransport', () => {
     });
   });
 
+  // WA-06: a PDF header and the buttons' values, by their place on the template.
+  it('puts a document header and button values in their components', () => {
+    expect(
+      templateBody({
+        ...hello,
+        template: 'consultation_summary_v1',
+        language: 'en',
+        parameters: ['A'],
+        document: { link: 'https://clinic.example/d/1.pdf', filename: 'Summary.pdf' },
+        buttons: [
+          { index: 0, kind: 'url', suffix: 'token-1' },
+          { index: 1, kind: 'quick_reply', payload: 'key.better' },
+          { index: 2, kind: 'flow', token: 'flow-token' },
+        ],
+      }).template.components,
+    ).toEqual([
+      {
+        type: 'header',
+        parameters: [
+          {
+            type: 'document',
+            document: { link: 'https://clinic.example/d/1.pdf', filename: 'Summary.pdf' },
+          },
+        ],
+      },
+      { type: 'body', parameters: [{ type: 'text', text: 'A' }] },
+      {
+        type: 'button',
+        sub_type: 'url',
+        index: '0',
+        parameters: [{ type: 'text', text: 'token-1' }],
+      },
+      {
+        type: 'button',
+        sub_type: 'quick_reply',
+        index: '1',
+        parameters: [{ type: 'payload', payload: 'key.better' }],
+      },
+      {
+        type: 'button',
+        sub_type: 'flow',
+        index: '2',
+        parameters: [{ type: 'action', action: { flow_token: 'flow-token' } }],
+      },
+    ]);
+    expect(templateBody(hello).template).toEqual({
+      name: 'hello_world',
+      language: { code: 'en_US' },
+    });
+  });
+
   // WA-03: the router's replies, inside WhatsApp's 24 hour window.
   it('sends a reply as text, or as text with reply buttons', async () => {
     expect(sessionBody({ to: '+919845012345', text: 'Call 080.' })).toEqual({

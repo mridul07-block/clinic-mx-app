@@ -6,6 +6,7 @@ import type { WhatsAppTransport } from './transport';
 vi.mock('server-only', () => ({}));
 const db = vi.hoisted(() => ({
   MAX_JOB_ATTEMPTS: 5,
+  approvedTemplateVersion: vi.fn(),
   lastInboundAt: vi.fn(),
   messageRecord: vi.fn(),
   recordMessageOutcome: vi.fn(),
@@ -52,6 +53,11 @@ describe('sending a queued WhatsApp message', () => {
   beforeEach(() => {
     db.messageRecord.mockReset().mockResolvedValue(queued());
     db.recordMessageOutcome.mockReset().mockResolvedValue(true);
+    db.approvedTemplateVersion
+      .mockReset()
+      .mockImplementation((_db: unknown, key: string) =>
+        Promise.resolve({ metaName: `${key}_v2`, version: 2 }),
+      );
     settings.values = {
       'whatsapp.test_recipients_only': true,
       'whatsapp.test_recipients': [onList],
@@ -102,14 +108,80 @@ describe('sending a queued WhatsApp message', () => {
     const meta = transport({ ok: true, waMessageId: 'wamid.2' });
     await send({ transport: meta });
     expect(meta.sendTemplate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        template: 'no_show',
+      {
+        to: '+919999999999',
+        template: 'no_show_v2',
         language: 'en',
         parameters: ['Test Patient', '30 Oct', '10:00', 'HSR Layout'],
+      },
+      expect.any(AbortSignal),
+    );
+    expect(db.approvedTemplateVersion).toHaveBeenCalledWith({}, 'no_show', 'en');
+    expect(outcome()).toEqual([{ status: 'sent', waMessageId: 'wamid.2' }]);
+  });
+
+  // WA-06: only a version Meta approved on this number goes, and the newest one.
+  it('keeps a clinic template Meta has not approved here as Not sent, without calling Meta', async () => {
+    db.messageRecord.mockResolvedValue(clinicMessage());
+    db.approvedTemplateVersion.mockResolvedValue(null);
+    const meta = transport({ ok: true, waMessageId: 'wamid.5' });
+    await send({ transport: meta });
+    expect(meta.sendTemplate).not.toHaveBeenCalled();
+    expect(outcome()).toEqual([
+      {
+        status: 'skipped',
+        errorCode: 'not_approved',
+        errorTitle: 'Meta has not approved this template on this number.',
+      },
+    ]);
+  });
+
+  it('sends a document header, link tokens and quick reply payloads from the message', async () => {
+    const meta = transport({ ok: true, waMessageId: 'wamid.6' });
+    db.messageRecord.mockResolvedValue(
+      clinicMessage({
+        templateKey: 'consultation_summary',
+        variables: {
+          patient_name: 'Test Patient',
+          plan_link: 'plan-token',
+          feedback_link: 'feedback-token',
+          document_link: 'https://clinic.example/d/1.pdf',
+          document_name: 'Consultation summary.pdf',
+        },
+      }),
+    );
+    await send({ transport: meta });
+    expect(meta.sendTemplate).toHaveBeenCalledWith(
+      {
+        to: onList,
+        template: 'consultation_summary_v2',
+        language: 'en',
+        parameters: ['Test Patient'],
+        document: {
+          link: 'https://clinic.example/d/1.pdf',
+          filename: 'Consultation summary.pdf',
+        },
+        buttons: [
+          { index: 0, kind: 'url', suffix: 'plan-token' },
+          { index: 1, kind: 'url', suffix: 'feedback-token' },
+        ],
+      },
+      expect.any(AbortSignal),
+    );
+    db.messageRecord.mockResolvedValue(
+      clinicMessage({ templateKey: 'first_treatment_check', variables: { patient_name: 'T' } }),
+    );
+    await send({ transport: meta });
+    expect(meta.sendTemplate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        buttons: [
+          { index: 0, kind: 'quick_reply', payload: 'first_treatment_check.better' },
+          { index: 1, kind: 'quick_reply', payload: 'first_treatment_check.same' },
+          { index: 2, kind: 'quick_reply', payload: 'first_treatment_check.still_sore' },
+        ],
       }),
       expect.any(AbortSignal),
     );
-    expect(outcome()).toEqual([{ status: 'sent', waMessageId: 'wamid.2' }]);
   });
 
   it('sends a test message checked against the list when it was queued', async () => {

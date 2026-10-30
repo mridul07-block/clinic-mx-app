@@ -13,12 +13,21 @@ export interface WhatsAppConfig {
   graphVersion: string;
 }
 
+/** A button's value on a template (WA-06), by the button's place on it. */
+export type TemplateButtonParameter =
+  | { index: number; kind: 'url'; suffix: string }
+  | { index: number; kind: 'quick_reply'; payload: string }
+  | { index: number; kind: 'flow'; token: string };
+
 export interface TemplateSend {
   to: string;
   template: string;
   language: string;
   /** Body parameters, in the template's order. */
   parameters: string[];
+  /** A document header (WA-06): the PDF's link and the file name the patient sees. */
+  document?: { link: string; filename: string };
+  buttons?: readonly TemplateButtonParameter[];
 }
 
 /**
@@ -53,8 +62,34 @@ const isTimeout = (error: unknown) =>
 const text = (value: unknown) =>
   typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
 
+function buttonComponent(button: TemplateButtonParameter) {
+  const common = { type: 'button', sub_type: button.kind, index: String(button.index) };
+  switch (button.kind) {
+    case 'url':
+      return { ...common, parameters: [{ type: 'text', text: button.suffix }] };
+    case 'quick_reply':
+      return { ...common, parameters: [{ type: 'payload', payload: button.payload }] };
+    case 'flow':
+      return { ...common, parameters: [{ type: 'action', action: { flow_token: button.token } }] };
+  }
+}
+
 /** The request body Meta's Cloud API takes for a template message. */
 export function templateBody(message: TemplateSend) {
+  const components = [
+    ...(message.document
+      ? [{ type: 'header', parameters: [{ type: 'document', document: message.document }] }]
+      : []),
+    ...(message.parameters.length > 0
+      ? [
+          {
+            type: 'body',
+            parameters: message.parameters.map((value) => ({ type: 'text', text: value })),
+          },
+        ]
+      : []),
+    ...(message.buttons ?? []).map(buttonComponent),
+  ];
   return {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -64,16 +99,7 @@ export function templateBody(message: TemplateSend) {
     template: {
       name: message.template,
       language: { code: message.language },
-      ...(message.parameters.length > 0
-        ? {
-            components: [
-              {
-                type: 'body',
-                parameters: message.parameters.map((value) => ({ type: 'text', text: value })),
-              },
-            ],
-          }
-        : {}),
+      ...(components.length > 0 ? { components } : {}),
     },
   };
 }

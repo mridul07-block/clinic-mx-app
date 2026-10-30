@@ -767,6 +767,14 @@ export {
   saveFlowState,
 } from './whatsapp-flows';
 export {
+  applyTemplateUpdate,
+  approvedTemplateVersion,
+  recordTemplateVersion,
+  templateVersionsOnMeta,
+  TemplateVersionClashError,
+  type TemplateVersionOnMeta,
+} from './whatsapp-templates';
+export {
   activeExercises,
   exerciseRecord,
   insertExercise,

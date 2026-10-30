@@ -516,13 +516,24 @@ export {
   type RecordRedFlagInput,
 } from './red-flag-alerts';
 export {
+  bodyVariables,
+  bodyWithNames,
   messageTemplate,
   messageTemplates,
+  metaTemplateName,
+  quickReplyPayload,
+  templateApprovalLabels,
+  templateApprovalStatuses,
   templateButtonKindLabels,
+  templateCreateBody,
   templateHeaderLabels,
-  templateStatusLabels,
+  templateLinkBase,
   type MessageTemplate,
+  type MessageTemplateDefinition,
   type MessageTemplateKey,
+  type TemplateApprovalStatus,
+  type TemplateButton,
+  type TemplateParameters,
   type TemplateVariables,
 } from './message-templates';
 export {
@@ -1313,7 +1324,6 @@ export {
   retryableSendFailure,
   sendTestMessageSchema,
   skipReasons,
-  templateSendable,
   testRecipientsSchema,
   whatsappNumberSchema,
   type InboundKind,
@@ -1323,12 +1333,14 @@ export {
 } from './messaging';
 export {
   deliveryChange,
+  templateApprovalOf,
   webhookContents,
   whatsappWebhookSchema,
   type DeliveryChange,
   type DeliveryState,
   type DeliveryUpdate,
   type InboundMessage,
+  type TemplateUpdate,
   type WebhookContents,
   type WhatsappWebhook,
 } from './whatsapp-webhook';

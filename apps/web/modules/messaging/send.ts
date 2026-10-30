@@ -1,6 +1,7 @@
 import 'server-only';
 import {
   MAX_JOB_ATTEMPTS,
+  approvedTemplateVersion,
   lastInboundAt,
   messageRecord,
   recordMessageOutcome,
@@ -15,8 +16,10 @@ import {
   MENU_TEXT,
   SESSION_WINDOW_HOURS,
   TEST_TEMPLATE,
+  bodyVariables,
   mayReceive,
   messageTemplates,
+  quickReplyPayload,
   retryableSendFailure,
   skipReasons,
 } from '@clinic-mx/schemas';
@@ -28,6 +31,7 @@ import {
   cloudApiTransport,
   type SendResult,
   type SessionSend,
+  type TemplateSend,
   type WhatsAppTransport,
 } from './transport';
 
@@ -36,7 +40,8 @@ import {
  * message still Queued is touched, so a job that runs again changes nothing. A router reply (WA-03)
  * goes only within 24 hours of their last message to us, else it is Not sent. A clinic message to
  * a number off the test list while it is on, or any message with WhatsApp not configured on this
- * server (local and CI), is kept as Not sent. A failure Meta may get over (no answer, a rate limit, a fault on its side) is thrown,
+ * server (local and CI), is kept as Not sent, and so is a clinic template Meta has not approved
+ * on this number (WA-06), which goes as its newest approved version. A failure Meta may get over (no answer, a rate limit, a fault on its side) is thrown,
  * so the job queue tries again with its backoff; at the last attempt, and on any other refusal,
  * the message is Failed with Meta's code and title.
  */
@@ -88,12 +93,40 @@ async function windowOpen(db: Db, phone: string, now = Date.now()): Promise<bool
   return last !== null && now - last.getTime() < SESSION_WINDOW_HOURS * 60 * 60 * 1000;
 }
 
-/** The template's body parameters in its registry order; none for Meta's test sample. */
-function parametersOf(message: Message): string[] {
-  if (message.kind === 'test') return [];
+/**
+ * A clinic template as Meta sends it (WA-06): the text's variables in the registry's order, the
+ * PDF of a document header, a link button's token, a quick reply's payload naming the template and
+ * button, a Flow button's token; values come from the message's variables.
+ */
+function clinicTemplate(message: Message, name: string): Omit<TemplateSend, 'to' | 'language'> {
   const template = messageTemplates.find((entry) => entry.key === message.templateKey);
   if (!template) throw new Error(`No message template ${message.templateKey}`);
-  return template.variables.map((variable) => message.variables[variable.name] ?? '');
+  const value = (key: string) => message.variables[key] ?? '';
+  return {
+    template: name,
+    parameters: bodyVariables(template).map((variable) => value(variable.name)),
+    ...(template.header === 'document'
+      ? { document: { link: value('document_link'), filename: value('document_name') } }
+      : {}),
+    ...(template.buttons.length > 0
+      ? {
+          buttons: template.buttons.map((button, index) => {
+            switch (button.kind) {
+              case 'url':
+                return { index, kind: 'url' as const, suffix: value(button.variable) };
+              case 'quick_reply':
+                return {
+                  index,
+                  kind: 'quick_reply' as const,
+                  payload: quickReplyPayload(template.key, button.id),
+                };
+              case 'flow':
+                return { index, kind: 'flow' as const, token: value('flow_token') };
+            }
+          }),
+        }
+      : {}),
+  };
 }
 
 function configuredTransport(): WhatsAppTransport | undefined {
@@ -153,19 +186,26 @@ export async function sendQueuedMessage(
     return;
   }
 
+  let template: Omit<TemplateSend, 'to' | 'language'> | undefined;
+  if (message.kind === 'test') {
+    template = { template: TEST_TEMPLATE.key, parameters: [] };
+  } else if (message.kind !== 'session') {
+    const approved = await approvedTemplateVersion(db, templateKey, language);
+    if (!approved) {
+      await record({
+        status: 'skipped',
+        errorCode: 'not_approved',
+        errorTitle: skipReasons.notApproved,
+      });
+      return;
+    }
+    template = clinicTemplate(message, approved.metaName);
+  }
+
   const signal = AbortSignal.timeout(SEND_TIMEOUT_MS);
-  const result: SendResult =
-    message.kind === 'session'
-      ? await transport.sendSession({ to: toPhone, ...(session ?? { text: '' }) }, signal)
-      : await transport.sendTemplate(
-          {
-            to: toPhone,
-            template: message.kind === 'test' ? TEST_TEMPLATE.key : templateKey,
-            language,
-            parameters: parametersOf(message),
-          },
-          signal,
-        );
+  const result: SendResult = template
+    ? await transport.sendTemplate({ to: toPhone, language, ...template }, signal)
+    : await transport.sendSession({ to: toPhone, ...(session ?? { text: '' }) }, signal);
   if (result.ok) {
     await record({ status: 'sent', waMessageId: result.waMessageId });
     return;
