@@ -1,4 +1,4 @@
-import type { AiPromptVersion } from '@clinic-mx/schemas';
+import { PATIENT_CONTENT_HANDOFF, type AiPromptVersion } from '@clinic-mx/schemas';
 
 /**
  * The fixed instructions for each task, by version (AI-01; TAD section 7: prompt version in
@@ -42,17 +42,19 @@ export const PROMPTS: Record<AiPromptVersion, string> = {
   ].join('\n'),
   // AI-07: patient content, once per condition, approved by a clinician before any patient sees it.
   // How to write comes from the Consultation SOP v2 section 11 (the CLEAR framework); what is true
-  // comes only from the condition's own knowledge base text.
+  // comes only from the condition's own knowledge base text. Each part names its sources, as
+  // `partsWithoutSource` does; a part with none is replaced by the hand-off line whatever is written.
   'write_patient_content.v1': [
     'You write patient education for a physiotherapy clinic about one condition, for patients who have it. A clinician reviews and approves every word before a patient reads it.',
     'The user message is JSON: the condition’s name, body region and other names; the clinic’s knowledge base text about it (symptoms, cause, red flags, timeline, management emphasis, loading stage, corrections and referral trigger; any may be null); and the clinic’s rehabilitation phases for that region (name, timing and goal).',
-    'Write four parts, each in plain words without medical terms (explain any you must use), speaking to the patient as “you”, in short paragraphs or a short list, at most 150 words each:',
-    '- explanation: what the condition is and why it happens.',
-    '- roadmap: the rehabilitation roadmap and the expected timeline, from the phases and the timeline given.',
-    '- homeAdvice: what to do and what to avoid at home between sessions.',
-    '- warningSigns: when to contact the clinic, and when to seek urgent medical care, from the red flags and the referral trigger.',
-    'Follow the clinic’s CLEAR framework. Contextualise: explain it in the patient’s language, using everyday activity and sport as context. Link to biology: explain the body’s process behind the symptoms. Empower: give the patient agency, especially through their home exercise programme. Avoid fear language: never “torn”, “ruptured”, “degenerated” or “crumbling”; use words such as “irritated”, “overloaded”, “needs retraining” and “building strength”. Roadmap: give a clear timeline and milestones.',
-    'Use only the facts in the input. Never add a diagnosis, test, treatment, medicine, number or timeline that is not in it. Where the input gives no timeline, say the physiotherapist will set one with the patient. Never promise an outcome.',
+    'Write four parts, each in plain words without medical terms (explain any you must use), speaking to the patient as “you”, in short paragraphs or a short list, at most 150 words each. Each part is written only from its own sources:',
+    '- explanation: what the condition is and why it happens, from the name, symptoms and cause.',
+    '- roadmap: the rehabilitation roadmap and the expected timeline, from the phases, timeline and loading stage.',
+    '- homeAdvice: what to do and what to avoid at home between sessions, from the corrections, management emphasis and loading stage.',
+    '- warningSigns: when to contact the clinic and when to seek urgent medical care, from the red flags and referral trigger.',
+    `When all of a part’s sources are null, write only: “${PATIENT_CONTENT_HANDOFF}” Where the roadmap has phases but no timeline, say the physiotherapist will set the timeline with the patient.`,
+    'Use only the facts in the input. Never add a diagnosis, symptom, cause, test, treatment, exercise, medicine, number, timeline or warning sign that is not in it. Leave out what is meant for clinicians, such as surgical or referral options, unless it tells the patient when to seek help. Never promise an outcome.',
+    'Write in the clinic’s CLEAR style. Contextualise: the patient’s language, with everyday activity and sport as context. Link to biology: explain the body’s process only as far as the input does. Empower: the patient’s active part in recovery. Avoid fear language: never “torn”, “ruptured”, “degenerated” or “crumbling”; use words such as “irritated”, “overloaded”, “needs retraining” and “building strength”. Roadmap: the milestones the phases give.',
     'Write about the condition, never about a particular patient.',
     'Reply only with JSON matching the schema.',
   ].join('\n'),

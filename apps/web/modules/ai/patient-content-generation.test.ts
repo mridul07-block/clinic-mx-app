@@ -37,6 +37,7 @@ const condition = (n: number): ConditionKnowledge => ({
   redFlagText: null,
   details: {},
 });
+const KB = '00000000-0000-4000-8000-0000000000b1';
 const parts = {
   explanation: 'What it is.',
   roadmap: 'What happens next.',
@@ -63,8 +64,9 @@ describe('writing patient content with AI', () => {
         maxTokens: 2500,
       },
       'ai.blocked_providers': ['deepseek'],
+      'ai.patient_content_stop_after_failures': 3,
     });
-    db.liveKbVersionId.mockResolvedValue('kb-1');
+    db.liveKbVersionId.mockResolvedValue(KB);
     db.conditionsWithoutPatientContent.mockResolvedValue([1, 2, 3].map(condition));
     db.regionPhases.mockResolvedValue({
       knee: [{ name: 'Phase 1', timing: 'Weeks 0 to 2', goal: 'Settle' }],
@@ -80,22 +82,32 @@ describe('writing patient content with AI', () => {
       unavailable: 0,
       skipped: 0,
       capped: false,
+      failing: false,
     });
     const [, call] = gateway.writePatientContent.mock.calls[0] as [
       unknown,
       Record<string, unknown>,
     ];
     expect(call).toMatchObject({
-      kbVersionId: 'kb-1',
+      kbVersionId: KB,
       config: { model: 'vendor/model-1', providers: ['host-a/us'], maxTokens: 2500 },
       input: {
         condition: { name: 'Test condition 1', region: 'Knee' },
         phases: [{ name: 'Phase 1' }],
       },
     });
+    // Against the version its text was read from. The knowledge base gives no corrections,
+    // management or loading stage, nor red flags or referral trigger, so home advice and warning
+    // signs are the hand-off line, never the model's words.
     expect(db.insertAiPatientContentDraft).toHaveBeenCalledWith(
       {},
-      { conditionId: 'KNE-001', ...parts },
+      {
+        conditionId: 'KNE-001',
+        kbVersionId: KB,
+        ...parts,
+        homeAdvice: 'Your physiotherapist will go through this with you.',
+        warningSigns: 'Your physiotherapist will go through this with you.',
+      },
     );
   });
 
@@ -114,6 +126,20 @@ describe('writing patient content with AI', () => {
     expect(db.insertAiPatientContentDraft).toHaveBeenCalledTimes(2);
   });
 
+  it('stops after too many calls in a row with no valid answer', async () => {
+    const failed = { status: 'unavailable', reason: 'timed_out', runId: 'run' };
+    db.conditionsWithoutPatientContent.mockResolvedValue([1, 2, 3, 4, 5].map(condition));
+    gateway.writePatientContent
+      .mockResolvedValueOnce(failed)
+      .mockResolvedValueOnce(ok)
+      .mockResolvedValueOnce(failed)
+      .mockResolvedValueOnce(failed);
+    settings['ai.patient_content_stop_after_failures'] = 2;
+    // A draft written resets the count: fail, write, fail, fail, stop.
+    expect(await run()).toMatchObject({ written: 1, unavailable: 3, failing: true });
+    expect(gateway.writePatientContent).toHaveBeenCalledTimes(4);
+  });
+
   it('stops at the budget', async () => {
     gateway.writePatientContent
       .mockResolvedValueOnce(ok)
@@ -129,7 +155,7 @@ describe('writing patient content with AI', () => {
     db.liveKbVersionId.mockResolvedValue(undefined);
     await expect(run()).rejects.toThrow('No knowledge base');
     expect(gateway.writePatientContent).not.toHaveBeenCalled();
-    db.liveKbVersionId.mockResolvedValue('kb-1');
+    db.liveKbVersionId.mockResolvedValue(KB);
     gateway.writePatientContent.mockResolvedValue({
       status: 'unavailable',
       reason: 'not_configured',

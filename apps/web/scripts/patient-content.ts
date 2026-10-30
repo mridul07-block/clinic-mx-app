@@ -54,6 +54,12 @@ async function main() {
     console.log('Stopped at ai.patient_content_budget_paise. Raise it to carry on.');
     process.exitCode = 2;
   }
+  if (result.failing) {
+    console.log(
+      'Stopped: too many calls in a row gave no valid answer (ai.patient_content_stop_after_failures). Check the host with pnpm ai:check.',
+    );
+    process.exitCode = 2;
+  }
   if (!values['dry-run']) {
     // As the hosts reported it; a timed out call is billed without its cost coming back.
     const cost = Number((await patientContentSpend(db)) - before) / 1e6;
@@ -64,8 +70,12 @@ async function main() {
 main()
   .then(() => process.exit())
   .catch((error: unknown) => {
+    // Only the kind of error and its database code: never its text, which may hold content.
+    const code = (error as { cause?: { code?: unknown } }).cause?.code;
     console.error(
-      error instanceof PatientContentGenerationError ? error.message : 'The run stopped.',
+      error instanceof PatientContentGenerationError
+        ? error.message
+        : `The run stopped (${error instanceof Error ? error.name : 'unknown'}${typeof code === 'string' ? ` ${code}` : ''}).`,
     );
     process.exit(1);
   });

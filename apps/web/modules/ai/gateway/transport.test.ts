@@ -92,7 +92,7 @@ describe('the prompts', () => {
         "rank_diagnoses.v2": "06028c23ada12f90",
         "recheck_with_findings.v1": "f7417437d9deda88",
         "recheck_with_findings.v2": "11d57daf16d6f880",
-        "write_patient_content.v1": "bd3c8625af008a6b",
+        "write_patient_content.v1": "08b610b53cd12aa9",
       }
     `);
   });

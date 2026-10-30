@@ -66,6 +66,7 @@ const stored: Settings = {
     maxTokens: 2500,
   },
   'ai.patient_content_budget_paise': 350000,
+  'ai.patient_content_stop_after_failures': 3,
   'ai.blind_test_cases_min': 30,
   'ai.blind_test_cases_max': 50,
   'ai.task_rank_diagnoses': {

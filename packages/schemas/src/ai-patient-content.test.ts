@@ -3,6 +3,8 @@ import {
   aiPatientContentInputSchema,
   aiPatientContentOutputSchema,
   clipText,
+  PATIENT_CONTENT_HANDOFF,
+  partsWithoutSource,
   patientContentInput,
   type ConditionKnowledge,
 } from './ai-patient-content';
@@ -58,6 +60,27 @@ describe('patient content input', () => {
     expect(clipText(null)).toBeNull();
     const input = patientContentInput({ ...condition, symptoms: long }, phases);
     expect(aiPatientContentInputSchema.safeParse(input).success).toBe(true);
+  });
+
+  it('names the parts with no knowledge base source, which get the hand-off line', () => {
+    expect(PATIENT_CONTENT_HANDOFF).toBe('Your physiotherapist will go through this with you.');
+    // Symptoms and cause, a timeline, corrections: only the warning signs have no source.
+    expect(partsWithoutSource(patientContentInput(condition, phases))).toEqual(['warningSigns']);
+    const bare = patientContentInput(
+      { ...condition, symptoms: null, biomechanicalCause: null, details: {} },
+      [],
+    );
+    expect(partsWithoutSource(bare)).toEqual([
+      'explanation',
+      'roadmap',
+      'homeAdvice',
+      'warningSigns',
+    ]);
+    const flagged = patientContentInput(
+      { ...condition, redFlagText: 'Cannot bear weight' },
+      phases,
+    );
+    expect(partsWithoutSource(flagged)).toEqual([]);
   });
 
   it('takes back the four parts, each written and within 4000 characters', () => {

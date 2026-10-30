@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { aiSheetSettingSchema } from './ai';
-import { aiTaskConfigSchema } from './ai-gateway';
+import { aiLongTaskConfigSchema, aiTaskConfigSchema } from './ai-gateway';
 import { redFlagTiers } from './knowledge';
 import { testRecipientsSchema } from './messaging';
 import { emergencyPhrasesSchema, frontDeskEmailSchema } from './whatsapp-router';
@@ -477,9 +477,8 @@ export const settingDefinitions = {
     description:
       'OpenRouter providers no clinical AI call is ever routed to, whatever a task or blind test names.',
   },
-  // DECISION AI-06: the blind test's budget is the client's; 2,000 rupees is a placeholder.
   'ai.task_write_patient_content': {
-    schema: aiTaskConfigSchema,
+    schema: aiLongTaskConfigSchema,
     source:
       'TAD section 7 ("One time patient content | Best available, once | Reviewed and approved by clinicians before use"); AI-07, recommended default, 30 October 2026',
     description:
@@ -493,6 +492,14 @@ export const settingDefinitions = {
     description:
       'The most writing patient content drafts with AI may spend in all, in paise; past it the run stops. Never the daily cap.',
   },
+  'ai.patient_content_stop_after_failures': {
+    schema: z.int().min(1).max(50),
+    source:
+      'AI-07 review: a timed out call is billed without its cost coming back, so the budget cannot see a failing host; 3 in a row, recommended default, 31 October 2026',
+    description:
+      'Writing patient content drafts stops after this many calls in a row give no valid answer.',
+  },
+  // DECISION AI-06: the blind test's budget is the client's; 2,000 rupees is a placeholder.
   'ai.blind_test_budget_paise': {
     schema: z.int().positive(),
     source:

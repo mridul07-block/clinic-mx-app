@@ -42,7 +42,7 @@ export async function conditionsWithoutPatientContent(
       and not exists (
         select 1 from kb_patient_content p
         where p.condition_id = c.condition_id and p.status in ('draft', 'approved'))
-    order by c.condition_id, (l.region = c.home_region) desc nulls last, l.row_number`);
+    order by c.condition_id, (l.region = c.home_region) desc nulls last, l.region, l.row_number`);
   return rows.map((row) => ({
     conditionId: row.condition_id,
     name: row.name,
@@ -89,12 +89,13 @@ export async function patientContentSpend(db: DbOrTransaction): Promise<bigint> 
 }
 
 /**
- * Saves an AI draft against the live version, by the server: source `ai`, no writer, revision 1.
- * Undefined when the condition gained a draft meanwhile, which is never overwritten.
+ * Saves an AI draft against the version its text was read from, by the server: source `ai`, no
+ * writer, revision 1. Should that version stop being live, the draft is saved again before it can
+ * be approved. Undefined when the condition gained a draft meanwhile, which is never overwritten.
  */
 export async function insertAiPatientContentDraft(
   tx: DbOrTransaction,
-  draft: PatientContentDraft,
+  draft: PatientContentDraft & { kbVersionId: string },
 ): Promise<string | undefined> {
   const [made] = await tx
     .insert(kbPatientContent)
@@ -104,7 +105,7 @@ export async function insertAiPatientContentDraft(
       roadmap: draft.roadmap,
       homeAdvice: draft.homeAdvice,
       warningSigns: draft.warningSigns,
-      kbVersionId: sql<string>`internal.live_kb_version()`,
+      kbVersionId: draft.kbVersionId,
       source: 'ai',
     })
     .onConflictDoNothing()

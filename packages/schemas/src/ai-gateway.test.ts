@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   aiCaseSchema,
   aiRankOutputSchema,
+  aiLongTaskConfigSchema,
   aiTaskConfigSchema,
   microUsdToPaise,
   namesBlockedProvider,
@@ -78,9 +79,10 @@ describe('the AI gateway schemas', () => {
     );
     expect(aiTaskConfigSchema.safeParse({ ...config, model: 'model' }).success).toBe(false);
     expect(aiTaskConfigSchema.safeParse({ ...config, promptVersion: 'v2' }).success).toBe(false);
-    // Up to 2 minutes: patient content (AI-07) writes four parts in one call.
-    expect(aiTaskConfigSchema.safeParse({ ...config, timeoutMs: 60000 }).success).toBe(true);
-    expect(aiTaskConfigSchema.safeParse({ ...config, timeoutMs: 120001 }).success).toBe(false);
+    expect(aiTaskConfigSchema.safeParse({ ...config, timeoutMs: 60000 }).success).toBe(false);
+    // Up to 2 minutes only for a task that writes at length (patient content, AI-07).
+    expect(aiLongTaskConfigSchema.safeParse({ ...config, timeoutMs: 60000 }).success).toBe(true);
+    expect(aiLongTaskConfigSchema.safeParse({ ...config, timeoutMs: 120001 }).success).toBe(false);
   });
 
   it('counts dollars as paise, rounded up, in whole numbers', () => {
