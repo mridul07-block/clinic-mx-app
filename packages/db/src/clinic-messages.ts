@@ -4,6 +4,8 @@ import type { FeedbackSubject } from './feedback';
 import {
   appointment,
   centre,
+  consultation,
+  document,
   episode,
   feedback,
   message,
@@ -162,6 +164,46 @@ export async function planSeriesForMessage(db: DbOrTransaction, planBookingId: s
     )
     .orderBy(asc(appointment.startsAt));
   return { ...series, starts: starts.map((row) => row.startsAt) };
+}
+
+/** The newest version of a document made from `sourceId` (a consultation, episode or payment). */
+export async function newestDocument(
+  db: DbOrTransaction,
+  kind: 'consultation_summary' | 'discharge_report' | 'invoice_receipt',
+  sourceId: string,
+): Promise<{ id: string; patientId: string } | undefined> {
+  const [row] = await db
+    .select({ id: document.id, patientId: document.patientId })
+    .from(document)
+    .where(and(eq(document.kind, kind), eq(document.sourceId, sourceId)))
+    .orderBy(desc(document.version))
+    .limit(1);
+  return row;
+}
+
+/** Where a document's PDF is kept, and whose it is: what a send uploads to Meta. */
+export async function documentForMessage(db: DbOrTransaction, documentId: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(documentId)) return undefined;
+  const [row] = await db
+    .select({ patientId: document.patientId, filePath: document.filePath })
+    .from(document)
+    .where(eq(document.id, documentId));
+  return row;
+}
+
+/** A consultation with its visit, episode and patient, for the summary message. */
+export async function consultationForMessage(db: DbOrTransaction, consultationId: string) {
+  const [row] = await db
+    .select({
+      status: consultation.status,
+      appointmentId: consultation.appointmentId,
+      episodeId: consultation.episodeId,
+      patientId: episode.patientId,
+    })
+    .from(consultation)
+    .innerJoin(episode, eq(episode.id, consultation.episodeId))
+    .where(eq(consultation.id, consultationId));
+  return row;
 }
 
 /** A red flag alert's episode, for the safety advice. */

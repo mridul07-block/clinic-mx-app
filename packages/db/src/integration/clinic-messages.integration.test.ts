@@ -3,9 +3,11 @@ import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { patientActor, setAuditContext, systemActor, withActor } from '../audit';
 import {
+  documentForMessage,
   feedbackSubjectOfLink,
   firstTreatmentAnswered,
   newerOpenEpisode,
+  newestDocument,
   repliedMessage,
 } from '../clinic-messages';
 import { createDb } from '../client';
@@ -13,7 +15,7 @@ import { feedbackSubject, insertFeedback } from '../feedback';
 import type { StaffMember } from '../identity';
 import { queueMessageOnce } from '../messaging';
 import { completePatientLinkRow, insertPatientLink } from '../patient-links';
-import { message, task, treatmentSession } from '../schema';
+import { document, message, task, treatmentSession } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import { asSystem, claimsOf, episodeThrough, knowledgeVersion, visit } from './fake-figures';
 import { testPhysio } from './fake-schedule';
@@ -249,6 +251,43 @@ describe('what the senders check', () => {
           }),
         ),
       ).toBe('23514');
+    });
+  });
+});
+
+describe('the PDF a message carries', () => {
+  it('is the newest version made from its source, and says whose it is', async () => {
+    await rolledBack(async (tx) => {
+      const held = await treated(tx);
+      const sourceId = crypto.randomUUID();
+      const made = async (version: number) => {
+        const id = crypto.randomUUID();
+        await tx.insert(document).values({
+          id,
+          kind: 'consultation_summary',
+          patientId: held.patientId,
+          episodeId: held.id,
+          centreId: centreIds.hsrLayout,
+          sourceId,
+          version,
+          filePath: [held.patientId, `${id}.pdf`].join('/'),
+          sizeBytes: 100,
+        });
+        return id;
+      };
+      expect(await newestDocument(tx, 'consultation_summary', sourceId)).toBeUndefined();
+      await made(1);
+      const second = await made(2);
+      expect(await newestDocument(tx, 'consultation_summary', sourceId)).toEqual({
+        id: second,
+        patientId: held.patientId,
+      });
+      expect(await newestDocument(tx, 'discharge_report', sourceId)).toBeUndefined();
+      expect(await documentForMessage(tx, second)).toEqual({
+        patientId: held.patientId,
+        filePath: [held.patientId, `${second}.pdf`].join('/'),
+      });
+      expect(await documentForMessage(tx, 'not-an-id')).toBeUndefined();
     });
   });
 });

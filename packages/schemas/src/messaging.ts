@@ -78,6 +78,7 @@ export const skipReasons = {
   notConfigured: 'WhatsApp is not configured on this server.',
   windowClosed: 'More than 24 hours since they last wrote; only a template may go now.',
   notApproved: 'Meta has not approved this template on this number.',
+  noDocument: "The PDF to send is missing or not this patient's.",
 } as const;
 
 /** Meta's customer service window: a reply that is not a template goes only within it. */

@@ -11,7 +11,8 @@ at `/app/templates` (`templates.manage`).
 
 - `MessageTemplateKey` is the union of keys, so messaging code cannot name an unknown template.
 - `TemplateParameters<K>` is everything a message row must carry to send it: the text's
-  variables, each link button's token, and for a PDF header `document_link` and `document_name`.
+  variables, each link button's token, and for a PDF header `document_id` (our document) and
+  `document_name`.
 - Each template has its `body` (`{{n}}` is the n-th text variable), made-up `example` values for
   Meta's review, its buttons and a `version`.
 
@@ -45,11 +46,20 @@ as Not sent.
 | `package_expiry_reminder` | package activated (BIL-08) | still active with sessions left |
 | `plan_sessions_list` | Book plan sessions (SCH-11) | sessions still Booked or Confirmed |
 | `red_flag_safety_advice` | referral, Monitor with caution (CLN-11) | always, with the centre's phone; fails visibly without one |
+| `consultation_summary` | consultation signed (ALT-06) | signed; the newest summary PDF, the My plan link the patient holds (else a new one) and the visit's feedback link |
+| `discharge_report` | discharge with a signed consultation (OUT-11) | discharged; the newest report PDF and the discharge feedback link |
+| `receipt` | each payment (BIL-09) | not undone; the newest invoice and receipt PDF, the amount and the bill |
 
 A tap on a check's reply button comes back as `<template>.<answer>` with our message's id as its
 context: the router (`check_answer`) records it as the answer of the link that message stands for and
-thanks the patient. The consultation summary, discharge report and receipt (PDFs) follow in part 2;
-"I'll think about it" has no template.
+thanks the patient. "I'll think about it" has no template.
+
+**The PDFs (part 2).** A PDF message carries our document's id (`document_id`) and the file name the
+patient sees. Until the PDF job has made it, the message job fails and the queue tries again. When
+sent, the send job reads the patient's own document from storage (another patient's is refused,
+"no_document"), uploads it to Meta's media store for this number (`POST /<phone number id>/media`)
+and sends the template with Meta's media id: no document is ever reachable by a public link (user
+decision, 30 October 2026). An upload Meta may get over is retried like a send.
 
 ## The text (WA-06)
 

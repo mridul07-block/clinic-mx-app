@@ -88,7 +88,7 @@ Frontend Specification §11, TAD §9 and PRD J4.7. Decisions made by the user on
   - for a package: its name, sessions and "Valid until 28 Feb 2027 (3 months from payment)". The expiry runs from the payment date with `packages.validity_months`, falling on the month's last day when needed (`packageValidUntil`); BIL-08 uses the same rule.
 - **Left out for now:** discounts (BIL-07), tax (decision 17) and legal details (DECISION ALT-05).
 - **Undo:** undoing the payment queues the invoice again. Version 2 opens with "Cancelled: the payment was undone on <date>. <reason>".
-- **Receipt:** `whatsapp.receipt` is queued with each payment and sends nothing until WhatsApp exists. Its sender must skip a payment since undone and send the newest invoice.
+- **Receipt:** `whatsapp.receipt` is queued with each payment and sends the newest invoice and receipt PDF by WhatsApp with the amount and bill number (WA-06 part 2), never for a payment since undone.
 - **Where:**
   - a paid bill on the sheet links "Invoice HSR-INV-00001 (PDF)", or says it is being made until the job runs
   - those who see amounts without clinical access find "Invoices" on the patient record's Overview

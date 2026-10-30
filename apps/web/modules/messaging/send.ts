@@ -2,6 +2,7 @@ import 'server-only';
 import {
   MAX_JOB_ATTEMPTS,
   approvedTemplateVersion,
+  documentForMessage,
   lastInboundAt,
   messageRecord,
   recordMessageOutcome,
@@ -26,6 +27,7 @@ import {
 import { z } from 'zod';
 import { serverEnv } from '../../lib/env';
 import { systemService } from '../access/service';
+import { documentStore } from '../documents/document-store';
 import { getSetting } from '../settings/settings';
 import {
   cloudApiTransport,
@@ -98,7 +100,11 @@ async function windowOpen(db: Db, phone: string, now = Date.now()): Promise<bool
  * PDF of a document header, a link button's token, a quick reply's payload naming the template and
  * button, a Flow button's token; values come from the message's variables.
  */
-function clinicTemplate(message: Message, name: string): Omit<TemplateSend, 'to' | 'language'> {
+function clinicTemplate(
+  message: Message,
+  name: string,
+  mediaId?: string,
+): Omit<TemplateSend, 'to' | 'language'> {
   const template = messageTemplates.find((entry) => entry.key === message.templateKey);
   if (!template) throw new Error(`No message template ${message.templateKey}`);
   const value = (key: string) => message.variables[key] ?? '';
@@ -106,7 +112,7 @@ function clinicTemplate(message: Message, name: string): Omit<TemplateSend, 'to'
     template: name,
     parameters: bodyVariables(template).map((variable) => value(variable.name)),
     ...(template.header === 'document'
-      ? { document: { link: value('document_link'), filename: value('document_name') } }
+      ? { document: { id: mediaId ?? '', filename: value('document_name') } }
       : {}),
     ...(template.buttons.length > 0
       ? {
@@ -203,9 +209,39 @@ export async function sendQueuedMessage(
   }
 
   const signal = AbortSignal.timeout(SEND_TIMEOUT_MS);
-  const result: SendResult = template
-    ? await transport.sendTemplate({ to: toPhone, language, ...template }, signal)
-    : await transport.sendSession({ to: toPhone, ...(session ?? { text: '' }) }, signal);
+  let result: SendResult;
+  if (template?.document) {
+    // A PDF header (WA-06 part 2): the patient's own document, uploaded to Meta for this send.
+    const pdf = await documentForMessage(db, message.variables.document_id ?? '');
+    if (!pdf || pdf.patientId !== message.patientId) {
+      await record({
+        status: 'failed',
+        errorCode: 'no_document',
+        errorTitle: skipReasons.noDocument,
+      });
+      return;
+    }
+    const bytes = await documentStore().get(pdf.filePath);
+    const uploaded = await transport.uploadMedia(
+      { bytes: new Uint8Array(bytes), filename: template.document.filename },
+      signal,
+    );
+    result = uploaded.ok
+      ? await transport.sendTemplate(
+          {
+            to: toPhone,
+            language,
+            ...template,
+            document: { ...template.document, id: uploaded.waMessageId },
+          },
+          signal,
+        )
+      : uploaded;
+  } else {
+    result = template
+      ? await transport.sendTemplate({ to: toPhone, language, ...template }, signal)
+      : await transport.sendSession({ to: toPhone, ...(session ?? { text: '' }) }, signal);
+  }
   if (result.ok) {
     await record({ status: 'sent', waMessageId: result.waMessageId });
     return;

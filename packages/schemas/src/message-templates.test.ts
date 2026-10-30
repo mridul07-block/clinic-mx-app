@@ -178,7 +178,7 @@ describe('message template registry', () => {
     }>();
     expectTypeOf<TemplateParameters<'receipt'>>().toEqualTypeOf<
       { patient_name: string; amount: string; bill_number: string } & {
-        document_link: string;
+        document_id: string;
         document_name: string;
       }
     >();

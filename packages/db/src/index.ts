@@ -770,6 +770,8 @@ export {
 export {
   alertForMessage,
   appointmentForMessage,
+  consultationForMessage,
+  documentForMessage,
   episodeForMessage,
   feedbackSubjectOfLink,
   firstTreatmentAnswered,
@@ -777,6 +779,7 @@ export {
   liveMessageLink,
   messagePatient,
   newerOpenEpisode,
+  newestDocument,
   packageForMessage,
   planSeriesForMessage,
   repliedMessage,
