@@ -1,5 +1,15 @@
-import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { priceItem, staffUser, whatsappFlowSession, type WhatsappFlowSession } from './schema';
+import { changeableStatuses } from '@clinic-mx/schemas';
+import { and, asc, eq, gte, inArray, isNull, type SQL } from 'drizzle-orm';
+import {
+  appointment,
+  appointmentType,
+  centre,
+  patient,
+  priceItem,
+  staffUser,
+  whatsappFlowSession,
+  type WhatsappFlowSession,
+} from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /**
@@ -10,7 +20,12 @@ import type { DbOrTransaction } from './versioned';
 
 export async function createFlowSession(
   db: DbOrTransaction,
-  values: { phone: string; kind: 'booking'; expiresAt: Date },
+  values: {
+    phone: string;
+    kind: 'booking' | 'reschedule';
+    expiresAt: Date;
+    state?: Record<string, unknown>;
+  },
 ): Promise<string> {
   const [row] = await db
     .insert(whatsappFlowSession)
@@ -65,4 +80,79 @@ export async function consultationFees(
     .innerJoin(priceItem, eq(priceItem.id, staffUser.consultationPriceItemId))
     .where(inArray(staffUser.id, [...physioIds]));
   return new Map(rows.map((row) => [row.id, { label: row.label, amountPaise: row.amountPaise }]));
+}
+
+/** An appointment the reschedule Flow (WA-05) may offer, with what its screens show. */
+export interface MovableAppointment {
+  id: string;
+  number: string;
+  patientId: string;
+  patientName: string;
+  phone: string;
+  centreId: string;
+  centreName: string;
+  physioId: string;
+  physioName: string;
+  appointmentTypeId: string;
+  typeKey: string;
+  typeName: string;
+  episodeId: string | null;
+  startsAt: Date;
+  status: string;
+}
+
+function movableAppointments(db: DbOrTransaction, where: SQL | undefined) {
+  return db
+    .select({
+      id: appointment.id,
+      number: appointment.number,
+      patientId: appointment.patientId,
+      patientName: patient.name,
+      phone: patient.phone,
+      centreId: appointment.centreId,
+      centreName: centre.name,
+      physioId: appointment.physioId,
+      physioName: staffUser.name,
+      appointmentTypeId: appointment.appointmentTypeId,
+      typeKey: appointmentType.key,
+      typeName: appointmentType.name,
+      episodeId: appointment.episodeId,
+      startsAt: appointment.startsAt,
+      status: appointment.status,
+    })
+    .from(appointment)
+    .innerJoin(patient, eq(patient.id, appointment.patientId))
+    .innerJoin(centre, eq(centre.id, appointment.centreId))
+    .innerJoin(staffUser, eq(staffUser.id, appointment.physioId))
+    .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
+    .where(where)
+    .orderBy(asc(appointment.startsAt), asc(appointment.number));
+}
+
+/**
+ * The Booked or Confirmed appointments from `now` on of everyone on this number (a family shares
+ * one), soonest first: what the menu's reschedule Flow offers (WA-05).
+ */
+export function upcomingAppointmentsOnPhone(
+  db: DbOrTransaction,
+  phone: string,
+  now: Date,
+): Promise<MovableAppointment[]> {
+  return movableAppointments(
+    db,
+    and(
+      eq(patient.phone, phone),
+      inArray(appointment.status, [...changeableStatuses]),
+      gte(appointment.startsAt, now),
+    ),
+  );
+}
+
+/** One appointment as the reschedule Flow shows it, whatever its status. */
+export async function movableAppointment(
+  db: DbOrTransaction,
+  appointmentId: string,
+): Promise<MovableAppointment | undefined> {
+  const [row] = await movableAppointments(db, eq(appointment.id, appointmentId));
+  return row;
 }

@@ -1382,7 +1382,17 @@ export {
   type PartBStatus,
 } from './part-b-consent';
 export {
+  rescheduleRefusalMessages,
+  selfRescheduleCheck,
+  type SelfRescheduleCheck,
+  type RescheduleRefusal,
+} from './reschedule-flow';
+export {
   BOOKING_FLOW_CTA,
+  RESCHEDULE_FLOW_CTA,
+  RESCHEDULE_FLOW_TEXT,
+  flowReplies,
+  type FlowReply,
   BOOKING_FLOW_TEXT,
   CHECK_ANSWER_ALREADY,
   CHECK_ANSWER_THANKS,

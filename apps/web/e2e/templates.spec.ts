@@ -86,7 +86,7 @@ test('the Super Admin views every template with its key, variables and version',
 
   const reminder = card(page, 'day_before_reminder');
   await expect(reminder).toContainText('Confirm (Quick reply), Reschedule (WhatsApp Flow)');
-  await expect(reminder).toContainText('Not submitted yet: Its Reschedule button opens');
+  await expect(reminder).not.toContainText('Not submitted yet');
   await expect(card(page, 'consultation_summary')).toContainText('Document (PDF)');
   expect(supabaseRequests).toEqual([]);
 });

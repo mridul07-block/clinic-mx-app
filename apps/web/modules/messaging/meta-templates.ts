@@ -46,12 +46,12 @@ const listPage = z.object({
   paging: z.object({ next: z.string().optional() }).optional(),
 });
 
-function graph(config: MetaConfig, path: string): string {
+export function graph(config: MetaConfig, path: string): string {
   return `https://graph.facebook.com/${config.graphVersion}/${path}`;
 }
 
 /** Meta's error title only; never the request, which carries the token in its headers. */
-async function metaJson(response: Response, what: string): Promise<unknown> {
+export async function metaJson(response: Response, what: string): Promise<unknown> {
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const error = z
@@ -169,25 +169,33 @@ export interface SubmitResult {
   key: string;
   version: number;
   status: string;
-  /** Created now, already on Meta, or waiting for another ticket. */
-  outcome: 'submitted' | 'on_meta' | 'held';
+  /**
+   * Created now, already on Meta, waiting (held for another ticket, or a Flow button without
+   * its Flow on this number), or refused by Meta (its message as the status).
+   */
+  outcome: 'submitted' | 'on_meta' | 'held' | 'refused';
 }
 
 /**
  * Creates each registry version Meta does not have yet, then records what Meta says of every
- * version of ours it holds. A held template (its Flow not built yet) is left out.
+ * version of ours it holds. A held template, or one with a Flow button when `flowId` (the
+ * reschedule Flow on this number, WA-05) is not given, is left out; Meta refusing one is reported
+ * for it, and the others go on.
  */
 export async function submitTemplates(
   db: Db,
   meta: MetaTemplateClient,
-  options: { origin: string; samplePdf: () => Uint8Array<ArrayBuffer> },
+  options: { origin: string; samplePdf: () => Uint8Array<ArrayBuffer>; flowId?: string },
   templates: readonly MessageTemplateDefinition[] = messageTemplates,
 ): Promise<SubmitResult[]> {
   const onMeta = await meta.list();
   const has = (name: string) =>
     onMeta.find((found) => found.name === name && found.language === TEMPLATE_LANGUAGE);
+  const waiting = (template: MessageTemplateDefinition) =>
+    Boolean(template.held) ||
+    (!options.flowId && template.buttons.some((button) => button.kind === 'flow'));
   const toCreate = templates.filter(
-    (template) => !template.held && !has(metaTemplateName(template.key, template.version)),
+    (template) => !waiting(template) && !has(metaTemplateName(template.key, template.version)),
   );
   const documentHandle = toCreate.some((template) => template.header === 'document')
     ? await meta.uploadSample(options.samplePdf())
@@ -196,7 +204,7 @@ export async function submitTemplates(
   const results: SubmitResult[] = [];
   for (const template of templates) {
     const name = metaTemplateName(template.key, template.version);
-    if (template.held) {
+    if (waiting(template)) {
       results.push({
         key: template.key,
         version: template.version,
@@ -206,9 +214,25 @@ export async function submitTemplates(
       continue;
     }
     if (toCreate.includes(template)) {
-      const created = await meta.create(
-        templateCreateBody(template, { origin: options.origin, documentHandle }),
-      );
+      let created: Awaited<ReturnType<MetaTemplateClient['create']>>;
+      try {
+        created = await meta.create(
+          templateCreateBody(template, {
+            origin: options.origin,
+            documentHandle,
+            flowId: options.flowId,
+          }),
+        );
+      } catch (error) {
+        if (!(error instanceof MetaTemplateError)) throw error;
+        results.push({
+          key: template.key,
+          version: template.version,
+          status: error.message,
+          outcome: 'refused',
+        });
+        continue;
+      }
       onMeta.push({
         id: created.id,
         name,

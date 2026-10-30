@@ -69,7 +69,7 @@ interface BookingState {
 }
 
 /** Meta's limit on the items of one dropdown or radio group. */
-const MAX_ITEMS = 200;
+export const MAX_ITEMS = 200;
 const NEW_PERSON = 'new';
 
 const choice = z.string().trim().min(1).max(200);
@@ -111,12 +111,13 @@ async function activeCentres(db: DbOrTransaction) {
   return (await centreList(db)).filter((centre) => centre.active);
 }
 
-async function blocked(
+/** The closing screen with the team's contact details, after the reason (WA-04, WA-05). */
+export async function blocked(
   db: DbOrTransaction,
   centreId: string | undefined,
-  rule: Rules,
+  rule: { email: string },
   why: string,
-) {
+): Promise<FlowScreenResponse> {
   const centres = await centreContacts(db, centreId);
   return {
     screen: 'BLOCKED',

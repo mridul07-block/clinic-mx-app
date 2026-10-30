@@ -771,7 +771,10 @@ export {
   createFlowSession,
   flowSessionRecord,
   markFlowBooked,
+  movableAppointment,
   saveFlowState,
+  upcomingAppointmentsOnPhone,
+  type MovableAppointment,
 } from './whatsapp-flows';
 export {
   alertForMessage,

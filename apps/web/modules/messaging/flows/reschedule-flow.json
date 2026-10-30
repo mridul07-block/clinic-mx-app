@@ -1,0 +1,204 @@
+{
+  "version": "6.0",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "APPOINTMENT": ["DATE_TIME", "BLOCKED"],
+    "DATE_TIME": ["SUMMARY", "BLOCKED"],
+    "SUMMARY": ["DONE", "DATE_TIME", "BLOCKED"],
+    "DONE": [],
+    "BLOCKED": []
+  },
+  "screens": [
+    {
+      "id": "APPOINTMENT",
+      "title": "Reschedule",
+      "data": {
+        "appointments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          },
+          "__example__": [
+            {
+              "id": "a1",
+              "title": "Tue, 3 Nov, 10:00 AM",
+              "description": "Test Patient: Session with Test Physio, HSR Layout"
+            }
+          ]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "RadioButtonsGroup",
+            "name": "appointment",
+            "label": "Which appointment?",
+            "required": true,
+            "data-source": "${data.appointments}"
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "step": "appointment", "appointment": "${form.appointment}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "DATE_TIME",
+      "title": "New date and time",
+      "data": {
+        "heading": { "type": "string", "__example__": "Session MVH-00012" },
+        "details": {
+          "type": "string",
+          "__example__": "Clinic: HSR Layout\nPhysio: Test Physio\nNow: Tue, 3 Nov, 10:00 AM"
+        },
+        "allowance": {
+          "type": "string",
+          "__example__": "You can move appointments online 2 more times."
+        },
+        "cancel_note": { "type": "string", "__example__": "To cancel, call the clinic." },
+        "dates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "id": { "type": "string" }, "title": { "type": "string" } }
+          },
+          "__example__": [{ "id": "2026-11-05", "title": "Thu, 5 Nov" }]
+        },
+        "dates_visible": { "type": "boolean", "__example__": true },
+        "no_dates_visible": { "type": "boolean", "__example__": false },
+        "times": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "id": { "type": "string" }, "title": { "type": "string" } }
+          },
+          "__example__": [{ "id": "2026-11-05T06:00:00.000Z", "title": "11:30 AM" }]
+        },
+        "times_visible": { "type": "boolean", "__example__": false }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextSubheading", "text": "${data.heading}" },
+          { "type": "TextBody", "text": "${data.details}" },
+          { "type": "TextCaption", "text": "${data.allowance}" },
+          {
+            "type": "Dropdown",
+            "name": "date",
+            "label": "New date",
+            "required": true,
+            "visible": "${data.dates_visible}",
+            "data-source": "${data.dates}",
+            "on-select-action": {
+              "name": "data_exchange",
+              "payload": { "step": "date", "date": "${form.date}" }
+            }
+          },
+          {
+            "type": "Dropdown",
+            "name": "time",
+            "label": "New time",
+            "required": true,
+            "visible": "${data.times_visible}",
+            "data-source": "${data.times}"
+          },
+          {
+            "type": "TextBody",
+            "visible": "${data.no_dates_visible}",
+            "text": "No free times with this physio in the next two weeks. Please call the clinic."
+          },
+          { "type": "TextCaption", "text": "${data.cancel_note}" },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "step": "slot", "date": "${form.date}", "time": "${form.time}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "SUMMARY",
+      "title": "Check and confirm",
+      "data": {
+        "summary": {
+          "type": "string",
+          "__example__": "Move Session MVH-00012\nFrom: Tue, 3 Nov, 10:00 AM\nTo: Thu, 5 Nov, 11:30 AM"
+        },
+        "allowance": {
+          "type": "string",
+          "__example__": "You can move appointments online 2 more times."
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextBody", "text": "${data.summary}" },
+          { "type": "TextCaption", "text": "${data.allowance}" },
+          {
+            "type": "Footer",
+            "label": "Confirm",
+            "on-click-action": { "name": "data_exchange", "payload": { "step": "confirm" } }
+          }
+        ]
+      }
+    },
+    {
+      "id": "DONE",
+      "title": "Moved",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "details": { "type": "string", "__example__": "Appointment MVH-00013 (was MVH-00012)" },
+        "appointment": { "type": "string", "__example__": "MVH-00013" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextBody", "text": "${data.details}" },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": {
+              "name": "complete",
+              "payload": { "appointment": "${data.appointment}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "BLOCKED",
+      "title": "Please call us",
+      "terminal": true,
+      "success": false,
+      "data": {
+        "message": { "type": "string", "__example__": "Please call the clinic you visit." }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextBody", "text": "${data.message}" },
+          {
+            "type": "Footer",
+            "label": "Close",
+            "on-click-action": { "name": "complete", "payload": { "blocked": "yes" } }
+          }
+        ]
+      }
+    }
+  ]
+}

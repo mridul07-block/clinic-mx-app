@@ -15,6 +15,7 @@ import {
   type InboundKind,
   type MessageStatus,
   type MessageTemplate,
+  type MessageTemplateDefinition,
   type SessionReply,
   type TemplateApprovalStatus,
 } from '@clinic-mx/schemas';
@@ -110,7 +111,8 @@ function TemplateCard({
   const status = current?.status ?? 'not_submitted';
   // An older approved version keeps sending until this one is approved.
   const sending = versions.find((entry) => entry.status === 'approved');
-  const held = 'held' in template ? template.held : undefined;
+  // Every entry is a definition; `held` is set only while one waits for another ticket.
+  const held = (template as MessageTemplateDefinition).held;
   return (
     <li
       data-testid="message-template"

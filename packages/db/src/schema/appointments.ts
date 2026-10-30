@@ -112,10 +112,14 @@ export const appointment = pgTable(
     /** Which of the centre's units of the machine, 1 upwards. */
     machineUnit: integer('machine_unit'),
     confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
-    /** Cancelled or rescheduled (SCH-08): who asked, and the staff member who did it, when. */
+    /**
+     * Cancelled or rescheduled (SCH-08): who asked, and the staff member who did it, when. The
+     * patient's own move on WhatsApp (WA-05) has no staff member: `change_channel` says so.
+     */
     changeReason: appointmentChangeReason('change_reason'),
     changedAt: timestamp('changed_at', { withTimezone: true }),
     changedBy: uuid('changed_by').references(() => staffUser.id),
+    changeChannel: bookingChannel('change_channel'),
     /** On the appointment a reschedule booked: the one it replaced (SCH-08). */
     rescheduledFromId: uuid('rescheduled_from_id')
       .unique()
@@ -151,7 +155,12 @@ export const appointment = pgTable(
     check('appointment_machine', machineCheck(table.machine)),
     check(
       'appointment_change',
-      sql`(${table.status} in ('cancelled', 'rescheduled')) = (${table.changeReason} is not null and ${table.changedAt} is not null and ${table.changedBy} is not null) and (${table.changeReason} is null) = (${table.changedAt} is null) and (${table.changeReason} is null) = (${table.changedBy} is null)`,
+      sql`(${table.status} in ('cancelled', 'rescheduled')) = (${table.changeReason} is not null and ${table.changedAt} is not null and (${table.changedBy} is not null or ${table.changeChannel} is not null)) and (${table.changeReason} is null) = (${table.changedAt} is null) and (${table.changeReason} is null) = (${table.changedBy} is null and ${table.changeChannel} is null)`,
+    ),
+    // Only the patient's own WhatsApp move is made by nobody on the staff (WA-05).
+    check(
+      'appointment_change_channel',
+      sql`${table.changeChannel} is null or (${table.changeChannel} = 'whatsapp' and ${table.changedBy} is null and ${table.changeReason} is not null and ${table.changeReason} = 'patient')`,
     ),
     check(
       'appointment_arrived',

@@ -32,6 +32,7 @@
     "backup:stack": "supabase start --workdir packages/db/src/backup/stack -x studio,imgproxy,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor",
     "ai:blind-test": "pnpm --filter web ai:blind-test",
     "whatsapp:templates": "pnpm --filter web whatsapp:templates",
+    "whatsapp:flows": "pnpm --filter web whatsapp:flows",
     "ai:check": "pnpm --filter web ai:check",
     "ai:patient-content": "pnpm --filter web ai:patient-content"
   },

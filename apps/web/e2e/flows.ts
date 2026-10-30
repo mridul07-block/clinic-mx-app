@@ -18,6 +18,10 @@ import { TEST_WHATSAPP_APP_SECRET } from './whatsapp';
 // it never leaves the machine and is never a deployment's.
 
 export const TEST_BOOKING_FLOW_ID = '1000000000000004';
+export const TEST_RESCHEDULE_FLOW_ID = '1000000000000005';
+
+/** Which Flow's endpoint a request goes to (WA-04, WA-05). */
+export type FlowPath = 'booking' | 'reschedule';
 
 export function testFlowPrivateKey(): string {
   process.env.E2E_FLOW_PRIVATE_KEY ??= Buffer.from(
@@ -44,6 +48,7 @@ export interface FlowAnswer {
 export async function flowRequest(
   request: APIRequestContext,
   body: Record<string, unknown>,
+  flow: FlowPath = 'booking',
 ): Promise<FlowAnswer> {
   const aesKey = randomBytes(16);
   const iv = randomBytes(16);
@@ -61,7 +66,7 @@ export async function flowRequest(
     ).toString('base64'),
     initial_vector: iv.toString('base64'),
   });
-  const response = await request.post('/api/flows/booking', {
+  const response = await request.post(`/api/flows/${flow}`, {
     data: raw,
     headers: {
       'content-type': 'application/json',
@@ -88,12 +93,13 @@ export async function flowRequest(
   return { status: 200, ...parsed };
 }
 
-/** A screen submitted in the booking Flow. */
+/** A screen submitted in the booking Flow, or the reschedule Flow. */
 export const flowStep = (
   request: APIRequestContext,
   token: string,
   data: Record<string, unknown>,
-) => flowRequest(request, { action: 'data_exchange', flow_token: token, data });
+  flow: FlowPath = 'booking',
+) => flowRequest(request, { action: 'data_exchange', flow_token: token, data }, flow);
 
 export const items = (answer: FlowAnswer, key: string) =>
   (answer.data?.[key] ?? []) as { id: string; title: string; description?: string }[];

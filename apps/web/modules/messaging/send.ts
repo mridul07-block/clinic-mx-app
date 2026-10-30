@@ -13,6 +13,8 @@ import {
 import {
   BOOKING_FLOW_CTA,
   BOOKING_FLOW_TEXT,
+  RESCHEDULE_FLOW_CTA,
+  RESCHEDULE_FLOW_TEXT,
   MENU_BUTTONS,
   MENU_TEXT,
   SESSION_WINDOW_HOURS,
@@ -64,24 +66,32 @@ export class RetrySendError extends Error {
   override name = 'RetrySendError';
 }
 
+/** The Flow messages (WA-04, WA-05): their Flow id on this server, text and button. */
+const flowMessages = {
+  booking_flow: { env: 'WHATSAPP_BOOKING_FLOW_ID', text: BOOKING_FLOW_TEXT, cta: BOOKING_FLOW_CTA },
+  reschedule_flow: {
+    env: 'WHATSAPP_RESCHEDULE_FLOW_ID',
+    text: RESCHEDULE_FLOW_TEXT,
+    cta: RESCHEDULE_FLOW_CTA,
+  },
+} as const;
+
 /**
- * A reply's content (WA-03): the menu with its buttons, the booking Flow (WA-04; undefined where
- * the Flow is not set up on this server), or the text stored when it was queued.
+ * A reply's content (WA-03): the menu with its buttons, the booking or reschedule Flow (WA-04,
+ * WA-05; undefined where the Flow is not set up on this server), or the text stored when it was
+ * queued.
  */
 function sessionContent(message: Message): Omit<SessionSend, 'to'> | undefined {
   if (message.templateKey === 'menu') return { text: MENU_TEXT, buttons: MENU_BUTTONS };
-  if (message.templateKey === 'booking_flow') {
+  if (message.templateKey === 'booking_flow' || message.templateKey === 'reschedule_flow') {
     const env = serverEnv();
+    const flow = flowMessages[message.templateKey];
+    const id = env[flow.env];
     const token = message.variables.flowToken;
-    if (!env.WHATSAPP_BOOKING_FLOW_ID || !token) return undefined;
+    if (!id || !token) return undefined;
     return {
-      text: BOOKING_FLOW_TEXT,
-      flow: {
-        id: env.WHATSAPP_BOOKING_FLOW_ID,
-        token,
-        cta: BOOKING_FLOW_CTA,
-        mode: env.WHATSAPP_FLOW_MODE,
-      },
+      text: flow.text,
+      flow: { id, token, cta: flow.cta, mode: env.WHATSAPP_FLOW_MODE },
     };
   }
   const text = message.variables.text;

@@ -6,6 +6,7 @@ vi.mock('server-only', () => ({}));
 const db = vi.hoisted(() => ({
   centreContacts: vi.fn(),
   createFlowSession: vi.fn(),
+  flowSessionRecord: vi.fn(),
   inboundToRoute: vi.fn(),
   queueMessage: vi.fn(),
   recordRoute: vi.fn(),
@@ -164,6 +165,72 @@ describe('routing a message sent to us', () => {
     );
     expect((await routeInboundMessage({} as Db, messageId)).reply).toBe('contact');
     expect(db.createFlowSession).not.toHaveBeenCalled();
+  });
+
+  // WA-05: Reschedule or cancel opens the reschedule form, which first lists the number's
+  // appointments; the contact details where the Flow is not set up.
+  it('sends the reschedule form for Reschedule or cancel where the Flow is set up', async () => {
+    env.values = {
+      WHATSAPP_RESCHEDULE_FLOW_ID: '1000000000000005',
+      WHATSAPP_FLOW_PRIVATE_KEY: 'k'.repeat(120),
+    };
+    db.inboundToRoute.mockResolvedValue(
+      inbound({ kind: 'reply', replyId: 'menu.reschedule', body: null }),
+    );
+    expect(await routeInboundMessage({} as Db, messageId)).toMatchObject({
+      route: 'reschedule',
+      reply: 'reschedule_flow',
+    });
+    expect(db.createFlowSession).toHaveBeenCalledWith(
+      'system-tx',
+      expect.objectContaining({ phone: from, kind: 'reschedule' }),
+    );
+    expect(queued()[0]).toMatchObject({
+      templateKey: 'reschedule_flow',
+      variables: { flowToken: '00000000-0000-4000-8000-000000000801' },
+    });
+  });
+
+  it('gives the contact details for Reschedule or cancel where its Flow is not set up', async () => {
+    // The booking Flow alone does not open the reschedule form.
+    env.values = {
+      WHATSAPP_BOOKING_FLOW_ID: '1000000000000004',
+      WHATSAPP_FLOW_PRIVATE_KEY: 'k'.repeat(120),
+    };
+    db.inboundToRoute.mockResolvedValue(
+      inbound({ kind: 'reply', replyId: 'menu.reschedule', body: null }),
+    );
+    expect((await routeInboundMessage({} as Db, messageId)).reply).toBe('contact');
+    expect(db.createFlowSession).not.toHaveBeenCalled();
+  });
+
+  // Meta names every completed form `flow`: the Flow token in its answers says which it was.
+  it('knows a completed form by its Flow token’s session, without replying', async () => {
+    const token = '00000000-0000-4000-8000-000000000802';
+    for (const kind of ['booking', 'reschedule'] as const) {
+      db.flowSessionRecord.mockResolvedValueOnce({ id: token, kind });
+      db.inboundToRoute.mockResolvedValueOnce(
+        inbound({
+          kind: 'flow',
+          replyId: 'flow',
+          body: null,
+          replyPayload: { flow_token: token, appointment: 'MVH-00013' },
+        }),
+      );
+      expect(await routeInboundMessage({} as Db, messageId)).toEqual({
+        route: `${kind}_flow`,
+        reply: 'none',
+        skipped: false,
+      });
+    }
+    expect(db.flowSessionRecord).toHaveBeenCalledWith('system-tx', token);
+    // A token we do not know: the menu.
+    db.flowSessionRecord.mockResolvedValueOnce(undefined);
+    db.inboundToRoute.mockResolvedValueOnce(
+      inbound({ kind: 'flow', replyId: 'flow', body: null, replyPayload: { flow_token: token } }),
+    );
+    expect((await routeInboundMessage({} as Db, messageId)).reply).toBe('menu');
+    expect(queued().map((reply) => reply.templateKey)).toEqual(['menu']);
   });
 
   // WA-06: a tap on a check's reply button is that check's answer.

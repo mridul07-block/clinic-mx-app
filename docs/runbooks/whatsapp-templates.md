@@ -70,8 +70,11 @@ advice, transactional so Meta keeps them in the utility category (decision of 30
 - The red flag safety advice is holding text with no medical advice ("your physio has advised
   further checks ... follow the advice you were given at the clinic ... call us on {{2}}"). The
   clinical lead's signed-off advice replaces it as a new version.
-- The day before reminder is written but held: its Reschedule button opens the reschedule Flow,
-  which WA-05 builds and submits it with.
+- The day before reminder's Reschedule button opens the reschedule Flow (WA-05); `submit` sends it
+  with `WHATSAPP_RESCHEDULE_FLOW_ID` and leaves it out without one. Meta's documentation says a
+  template's Flow button needs a published Flow, so on the test number (Flows left as drafts until
+  the business is verified) Meta may refuse it: `submit` prints that as its result and goes on.
+  WA-08 sends it, each with a session naming the appointment (`rescheduleFlowToken`).
 - The plan sessions list joins the sessions with "; ", because Meta refuses line breaks in a
   variable.
 - The review request might be moved to the Marketing category by Meta; the page shows it, and a
@@ -91,8 +94,9 @@ pnpm whatsapp:templates submit --origin https://clinic-mx-app.vercel.app
 pnpm whatsapp:templates sync
 ```
 
-- `submit` lists Meta's templates, creates each registry version not there yet (held ones left
-  out), and records Meta's verdict on every version of ours. A PDF header needs an example: the
+- `submit` lists Meta's templates, creates each registry version not there yet (held ones, and a
+  Flow button without its Flow, left out; one Meta refuses is printed with Meta's reason and the
+  rest go on), and records Meta's verdict on every version of ours. A PDF header needs an example: the
   script generates a one page "sample document" PDF (no patient data) and uploads it once with
   Meta's resumable upload. Link buttons are submitted as `<origin>/p/{{1}}`.
 - `sync` records Meta's verdict again, for when the webhook was not subscribed or missed one.
@@ -131,9 +135,9 @@ Approved on every template before switching off `whatsapp.test_recipients_only`.
 
 | Test | What it checks |
 | --- | --- |
-| `packages/schemas/src/message-templates.test.ts` | Every TAD template once; snake case keys; Meta's text and button rules; the create request (PDF header handle, link buttons with examples, quick replies); only the reminder held; types per key. |
-| `apps/web/modules/messaging/meta-templates.test.ts` | Submit creates only what Meta lacks, uploads one sample PDF, leaves the held one out and records ours only; sync records verdicts and reasons; the token never in a URL; Meta's refusal reported. |
+| `packages/schemas/src/message-templates.test.ts` | Every TAD template once; snake case keys; Meta's text and button rules; the create request (PDF header handle, link buttons with examples, quick replies); no template held now (WA-05); types per key. |
+| `apps/web/modules/messaging/meta-templates.test.ts` | Submit creates only what Meta lacks, uploads one sample PDF, leaves the reminder out without its Flow and sends it with the reschedule Flow's id once given (Meta refusing it reported for it alone); records ours only; sync records verdicts and reasons; the token never in a URL; Meta's refusal reported. |
 | `apps/web/modules/messaging/send.test.ts` | An unapproved template is Not sent without calling Meta; the newest approved version is sent with its PDF, link tokens and quick reply payloads. |
 | `apps/web/modules/messaging/webhook.test.ts` | Template verdicts and category changes applied; templates not ours left alone. |
 | `packages/db/src/integration/whatsapp-templates.integration.test.ts` | The newest approved version is sent, paused or rejected ones are not; Meta's webhook moves a row on once; a version keeps its identity; audited as the server; only the Super Admin reads, nobody signed in writes. |
-| `apps/web/e2e/templates.spec.ts` | 360 px and desktop: 16 cards with their text; the held reminder says why; a recorded version shows Waiting for Meta, then Rejected with Meta's reason and Approved after signed webhooks; the front desk and a physio are refused. |
+| `apps/web/e2e/templates.spec.ts` | 360 px and desktop: 16 cards with their text; the reminder is no longer held; a recorded version shows Waiting for Meta, then Rejected with Meta's reason and Approved after signed webhooks; the front desk and a physio are refused. |
