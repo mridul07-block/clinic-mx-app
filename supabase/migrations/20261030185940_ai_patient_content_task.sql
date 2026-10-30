@@ -1,0 +1,1 @@
+ALTER TYPE "public"."ai_task" ADD VALUE 'write_patient_content';

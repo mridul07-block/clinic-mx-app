@@ -99,8 +99,10 @@ export default async function PatientContentPage({
         {draft ? (
           <p className="text-sm text-ink-muted">
             {draft.source === 'ai' ? 'Written by AI' : 'Written'}
-            {draft.writtenByName ? ` by ${draft.writtenByName}` : ''}, last saved{' '}
-            {formatIstDateTime(draft.updatedAt)}. Not shown to patients until approved.
+            {draft.writtenByName
+              ? `${draft.source === 'ai' ? ', edited' : ''} by ${draft.writtenByName}`
+              : ''}
+            , last saved {formatIstDateTime(draft.updatedAt)}. Not shown to patients until approved.
           </p>
         ) : null}
         {writes ? (

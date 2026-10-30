@@ -11,7 +11,8 @@
     "test:e2e": "playwright test",
     "ai:blind-test": "node --conditions=react-server --import tsx scripts/blind-test.ts",
     "whatsapp:templates": "node --conditions=react-server --import tsx scripts/whatsapp-templates.ts",
-    "ai:check": "node --conditions=react-server --import tsx scripts/ai-check.ts"
+    "ai:check": "node --conditions=react-server --import tsx scripts/ai-check.ts",
+    "ai:patient-content": "node --conditions=react-server --import tsx scripts/patient-content.ts"
   },
   "dependencies": {
     "@clinic-mx/db": "workspace:*",

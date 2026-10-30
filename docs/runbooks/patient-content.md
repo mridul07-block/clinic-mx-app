@@ -78,22 +78,79 @@ Recommended defaults chosen under the user's standing approval, 29 October 2026 
 
 **My plan:** "About your condition" shows the approved explanation alone for the episode's diagnosis: the confirmed one (AI-05), else the newest signed one. It is not shown while none is approved (`docs/runbooks/my-plan.md`). A provisional diagnosis's explanation is shown like any other; the content is about the condition, not the patient. That is a default for the client to confirm.
 
-## Generation by AI (not yet)
+## Generation by AI
 
-The gateway task waits for:
-- the `OPENROUTER_API_KEY`;
-- the choice of the "best available" model;
-- a one-time spend cap of its own: the $20 to $35 run cannot finish under the daily cap `ai.daily_spend_cap_paise` of ₹200.
+Built on 30 October 2026, as recommended defaults chosen under the user's standing approval
+(DECISION AI-07), for the client to confirm. TAD section 7: "One time patient content | Best
+available, once | Reviewed and approved by clinicians before use".
 
-Until then a consultant writes each draft. Once AI generation runs, its drafts are written by the system with source `ai`, and are approved the same way.
+**Who runs it:** an operator, once, from the command line, with the model and its pinned hosts
+named for the run (`apps/web/scripts/patient-content.ts`,
+`apps/web/modules/ai/patient-content-generation.ts`):
 
-The prompt says how to write (lay terms, CLEAR, the four parts), never what is clinically true. Its input is the condition's own knowledge base rows, with no patient data.
+```
+pnpm ai:patient-content --model <vendor/model> --provider <host> [--provider <host>] [--condition <ID> ...] [--limit <n>] [--dry-run]
+```
+
+- It needs `DATABASE_URL` for the environment and `OPENROUTER_API_KEY`.
+- **Which conditions:** every condition of the live knowledge base version with neither a draft nor
+  approved content, or only the `--condition` IDs named (refused if one has content already), at
+  most `--limit` calls.
+- **What is sent** (`packages/schemas/src/ai-patient-content.ts`): the condition's name, its
+  workbook's region and its other names; its listing's own text for symptoms, cause, red flags,
+  timeline, management emphasis, loading stage, corrections and referral trigger (each cut at a
+  word to 2,000 characters); and its region's programme phases (name, timing, goal). Never the
+  condition ID and never anything about a patient.
+- **The prompt** (`write_patient_content.v1`, pinned by a test) says how to write, never what is
+  true: plain words, "you", at most 150 words a part, the SOP's CLEAR framework (section 11.1),
+  only the facts in the input, no outcome promised, and "the physiotherapist will set" a timeline
+  the input does not give.
+- **What comes back:** the four parts, each 1 to 4,000 characters. A valid answer becomes a draft
+  written by the server (`system:ai`): source `ai`, no writer, revision 1, against the live
+  version, audited. A condition that gained a draft meanwhile is skipped, never overwritten.
+- **Through the gateway:** zero data retention, no data collection, the pinned hosts with no
+  fallbacks, never a blocked provider (`pinnedAiTasks`), the identifier guard, one retry, and one
+  `ai_run` per condition (`write_patient_content`, outside any episode, with its knowledge base
+  version; the database refuses it otherwise).
+- **Its own budget:** `ai.patient_content_budget_paise` (₹3,500, a placeholder for the client)
+  counts every run of the task, ever. It never counts against the daily cap and never stops the live
+  sheet. At the budget the run stops; running again carries on with the conditions still without
+  content.
+- **Settings:** `ai.task_write_patient_content` holds the prompt version, reasoning (none), the
+  timeout (60 seconds) and the token limit (2,500). The model and hosts are the operator's, for the
+  run. A new prompt changes with a release.
+- **`--dry-run`** builds and checks every input and calls nothing.
+- Only counts are printed, with the run's cost as the gateway recorded it.
+
+**First trial (30 October 2026, development key, local database only):** a dry run found all 345
+conditions ready to send. Then three conditions each, on hosts with zero data retention:
+
+| Model | Host | Drafts | Time a condition | Cost a condition | All 345, about |
+| --- | --- | --- | --- | --- | --- |
+| `openai/gpt-6.1-sol` | `azure/eu` | 3 of 3 | 17 to 23 s | $0.011 | $3.90 |
+| `z-ai/glm-5.3` | `wafer/us` | 3 of 3 | 4 to 9 s | $0.001 | $0.30 |
+
+- Both kept to the knowledge base's facts and used none of the fear words.
+- GPT 6.1 Sol wrote clearly better drafts. For the quadriceps tendon tear (KNE-005), it sent the
+  patient for urgent surgical assessment first, and said the exercise roadmap applies only after
+  repair, with the workbook's own timeline and risk factors.
+- GLM 5.3 was clear but rougher: for the shoulder (SHO-001) it put "Avoid routine surgery", a
+  management note, under home advice.
+- **Recommended for the full run** (DECISION AI-07, for the client to confirm): GPT 6.1 Sol on
+  `azure/eu`, about $4 for all 345, within the ₹3,500 placeholder budget. It is the "best
+  available" of the models with a zero retention host that can return the four parts in a strict
+  schema. Clinicians review every draft either way.
+
+**After the run:** each draft shows "Written by AI" on the condition's page, and "Written by AI,
+edited by" the consultant once someone saves it. A consultant who treats patients reads, edits and
+approves each one, exactly as a hand-written draft. Nothing reaches a patient before that.
 
 ## What the clinic supplies
 
 - **The content:** about 12 to 18 clinician hours across 345 conditions (PRD client dependencies).
 - **The approver:** who counts as an approving clinician.
-- **Hand writing:** whether hand-written drafts may stand alongside AI ones. The ticket says "generated"; this default lets a consultant write each word until AI runs.
+- **Hand writing:** whether hand-written drafts may stand alongside AI ones. The ticket says "generated"; this default lets a consultant write any condition by hand, and the AI run skips it.
+- **The model and the budget for the full run:** which model writes the drafts, and how much the run may spend (`ai.patient_content_budget_paise`).
 - **Warning signs:** the warning-sign wording for OUT-09.
 
 ## Tests
@@ -104,4 +161,8 @@ The prompt says how to write (lay terms, CLEAR, the four parts), never what is c
 | `packages/db/src/integration/patient-content.integration.test.ts` | a consultant's draft saved and changed on the revision read, approved, then superseded by another's, audited; a save or approval on an old revision refused, and a second first draft; approved text unchanged, its id kept, never removed or truncated even by the database owner; nobody else writes (a physio who does not consult, a desk login even with both ticks, Finance, support) or approves; a draft discarded; a draft on an older version not approved, nor saved without its condition in the live one; read by knowledge base readers, not the desk or Finance. Without the guard trigger it fails |
 | `packages/db/src/integration/my-plan.integration.test.ts` (About your condition) | nothing while none is approved, never a draft or another condition's; the approved explanation for the signed diagnosis, then the confirmed one's instead. Without the approved-only filter it fails |
 | `apps/web/e2e/explain.spec.ts` | 360 px and desktop: Explain to patient from the consultation, saying none is approved before and while there is only a draft (never showing it), then the approved content for the chosen condition; the patient's My plan with About your condition, the explanation alone |
-| `apps/web/e2e/patient-content.spec.ts` | 360 px and desktop: the consultant finds a condition, is asked for each part, saves the draft ("Draft saved."), approves it; a physio who does not consult reads it with nothing to write |
+| `apps/web/e2e/patient-content.spec.ts` | 360 px and desktop: the consultant finds a condition, is asked for each part, saves the draft ("Draft saved."), approves it; a physio who does not consult reads it with nothing to write. An AI draft shows "Written by AI", not shown to patients; the consultant edits it ("Written by AI, edited by") and approves it |
+| `packages/schemas/src/ai-patient-content.test.ts` | the input holds the condition's own words and its region's phases, never its ID, strict; long text cut at a word; the four parts back, each written and within 4000 characters |
+| `apps/web/modules/ai/patient-content-generation.test.ts` | a draft per condition without content, as the server; only the conditions and limit asked for, one with content refused; a draft started meanwhile never overwritten, a failed call leaves no content; the budget stops it; a dry run, a blocked host, no host, no knowledge base and no key call nothing |
+| `apps/web/modules/ai/gateway/run.test.ts` (writing patient content) | zero data retention and the named hosts pinned, logged outside any episode; its own budget, never the daily cap or the Super Admin's task; a wrong answer refused; never a blocked or unpinned host; a model named for the run only for this task |
+| `packages/db/src/integration/patient-content-generation.integration.test.ts` | only conditions with neither a draft nor approved content are listed, with their own text; an AI draft is the server's (source ai, no writer, revision 1) and never replaces a consultant's; each region's phases; its spend counted apart from the daily cap; a run without a knowledge base version refused. Without the "no content yet" filter it fails |

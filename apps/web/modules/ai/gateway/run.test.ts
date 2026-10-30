@@ -1,8 +1,8 @@
 import type { Db } from '@clinic-mx/db';
-import type { AiRankInput, AiTaskConfig } from '@clinic-mx/schemas';
+import { patientContentInput, type AiRankInput, type AiTaskConfig } from '@clinic-mx/schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { z } from 'zod';
-import { rankDiagnoses, rankForBlindTest, recheckWithFindings } from './index';
+import { rankDiagnoses, rankForBlindTest, recheckWithFindings, writePatientContent } from './index';
 import { PROMPTS } from './prompts';
 import { buildRequest, runTask } from './run';
 import type { AiRequest, AiTransport, AiTransportResult } from './transport';
@@ -12,6 +12,7 @@ const db = vi.hoisted(() => ({
   aiSpendSince: vi.fn(),
   blindTestSpend: vi.fn(),
   openAiSpendCapTask: vi.fn(),
+  patientContentSpend: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
 vi.mock('../../access/service', () => ({
@@ -469,5 +470,115 @@ describe('the blind test', () => {
       }),
     ).rejects.toThrow('outside any episode');
     expect(sent).toHaveLength(0);
+  });
+});
+
+// AI-07: patient content is written once, outside any episode, on pinned hosts, within its own
+// budget. Generated knowledge base text only.
+describe('writing patient content through the gateway', () => {
+  const contentConfig: AiTaskConfig & { model: string } = {
+    model: 'vendor/model-1',
+    providers: ['provider-a/us'],
+    promptVersion: 'write_patient_content.v1',
+    reasoningEffort: 'none',
+    timeoutMs: 60000,
+    maxTokens: 2500,
+  };
+  const parts = {
+    explanation: 'What it is.',
+    roadmap: 'What happens next.',
+    homeAdvice: 'What to do.',
+    warningSigns: 'When to call.',
+  };
+  const input = patientContentInput(
+    {
+      conditionId: 'KNE-001',
+      name: 'Test condition',
+      synonyms: [],
+      region: 'knee',
+      symptoms: 'Pain on stairs',
+      biomechanicalCause: null,
+      redFlagText: null,
+      details: {},
+    },
+    [{ name: 'Phase 1', timing: 'Weeks 0 to 2', goal: 'Settle pain' }],
+  );
+  const write = (transport: AiTransport, overrides: Partial<typeof contentConfig> = {}) =>
+    writePatientContent({} as Db, {
+      kbVersionId,
+      input,
+      config: { ...contentConfig, ...overrides },
+      transport,
+    });
+
+  beforeEach(() => {
+    for (const fn of Object.values(db)) fn.mockReset();
+    db.insertAiRun.mockResolvedValue('00000000-0000-4000-8000-000000000a02');
+    db.patientContentSpend.mockResolvedValue(0n);
+    Object.assign(settings, {
+      'ai.task_write_patient_content': { ...contentConfig, model: null, providers: [] },
+      'ai.patient_content_budget_paise': 350000,
+      'ai.usd_rate_paise': 9650,
+      'ai.blocked_providers': ['deepseek'],
+    });
+  });
+
+  it('pins the named hosts with zero data retention and logs the run outside any episode', async () => {
+    const { transport, sent } = fake(answer(parts));
+    expect(await write(transport)).toMatchObject({ status: 'ok', output: parts });
+    expect(sent[0]?.provider).toEqual({
+      zdr: true,
+      data_collection: 'deny',
+      require_parameters: true,
+      order: ['provider-a/us'],
+      allow_fallbacks: false,
+    });
+    expect(sent[0]?.messages[0]).toEqual({
+      role: 'system',
+      content: PROMPTS['write_patient_content.v1'],
+    });
+    expect(sent[0]?.max_tokens).toBe(2500);
+    expect(recorded()[0]).toMatchObject({
+      kind: 'write_patient_content',
+      episodeId: null,
+      kbVersionId,
+      model: 'vendor/model-1',
+      status: 'ok',
+    });
+    // Its own budget, never the daily cap.
+    expect(db.patientContentSpend).toHaveBeenCalled();
+    expect(db.aiSpendSince).not.toHaveBeenCalled();
+  });
+
+  it('stops at its budget without telling the Super Admin, and refuses a wrong answer', async () => {
+    db.patientContentSpend.mockResolvedValue(36_270_000n);
+    const { transport, sent } = fake();
+    expect(await write(transport)).toMatchObject({ status: 'unavailable', reason: 'capped' });
+    expect(sent).toHaveLength(0);
+    expect(db.openAiSpendCapTask).not.toHaveBeenCalled();
+    db.patientContentSpend.mockResolvedValue(0n);
+    const wrong = fake(answer({ ...parts, roadmap: ' ' }), answer({ explanation: 'x' }));
+    expect(await write(wrong.transport)).toMatchObject({ reason: 'invalid_output' });
+  });
+
+  it('never goes to a blocked host or an unpinned one', async () => {
+    const { transport, sent } = fake();
+    expect(await write(transport, { providers: ['deepseek/us'] })).toMatchObject({
+      reason: 'not_configured',
+    });
+    expect(await write(transport, { providers: [] })).toMatchObject({ reason: 'not_configured' });
+    expect(sent).toHaveLength(0);
+  });
+
+  it('takes a model named for the run only for patient content', async () => {
+    const { transport } = fake();
+    await expect(
+      runTask({} as Db, 'rank_diagnoses', rankInput, {
+        episodeId: null,
+        kbVersionId,
+        config: contentConfig,
+        transport,
+      }),
+    ).rejects.toThrow('Only patient content');
   });
 });

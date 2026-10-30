@@ -78,7 +78,9 @@ describe('the AI gateway schemas', () => {
     );
     expect(aiTaskConfigSchema.safeParse({ ...config, model: 'model' }).success).toBe(false);
     expect(aiTaskConfigSchema.safeParse({ ...config, promptVersion: 'v2' }).success).toBe(false);
-    expect(aiTaskConfigSchema.safeParse({ ...config, timeoutMs: 60000 }).success).toBe(false);
+    // Up to 2 minutes: patient content (AI-07) writes four parts in one call.
+    expect(aiTaskConfigSchema.safeParse({ ...config, timeoutMs: 60000 }).success).toBe(true);
+    expect(aiTaskConfigSchema.safeParse({ ...config, timeoutMs: 120001 }).success).toBe(false);
   });
 
   it('counts dollars as paise, rounded up, in whole numbers', () => {

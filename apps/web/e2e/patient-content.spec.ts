@@ -19,13 +19,16 @@ test.afterAll(async () => {
   await database?.close();
 });
 
-/** Each project's own condition of the live version, so phone and desktop never share one. */
-async function conditionOfThisProject(): Promise<string> {
-  const index = test.info().project.name === 'phone' ? 0 : 1;
+/**
+ * Each project's own condition of the live version, so phone and desktop never share one; each
+ * test its own pair (`offset`).
+ */
+async function conditionOfThisProject(offset = 0): Promise<string> {
+  const index = offset + (test.info().project.name === 'phone' ? 0 : 1);
   const rows = await db().execute<{ condition_id: string }>(sql`
     select c.condition_id from kb_condition c
     where c.kb_version_id = internal.live_kb_version()
-    group by c.condition_id order by c.condition_id desc limit 2`);
+    group by c.condition_id order by c.condition_id desc limit 4`);
   const id = rows[index]?.condition_id;
   if (!id) throw new Error('The live knowledge base has too few conditions.');
   return id;
@@ -105,4 +108,51 @@ test('a consultant writes and approves a condition’s patient content; a physio
   await expect(other.getByTestId('patient-content-form')).toHaveCount(0);
   await expect(other.getByTestId('patient-content-draft')).toContainText('No draft.');
   await context.close();
+});
+
+test('an AI draft is marked as written by AI, edited and approved by a consultant', async ({
+  page,
+}) => {
+  test.slow();
+  const conditionId = await conditionOfThisProject(2);
+  conditions.push(conditionId);
+  await removeContent(conditionId);
+  // The one-time run's draft, as the server writes it (source ai, no writer).
+  await withActor(db(), systemActor('ai'), async (tx) => {
+    await tx.insert(kbPatientContent).values({
+      conditionId,
+      kbVersionId: sql<string>`internal.live_kb_version()`,
+      explanation: 'Test AI explanation.',
+      roadmap: 'Test AI roadmap.',
+      homeAdvice: 'Test AI home advice.',
+      warningSigns: 'Test AI warning signs.',
+      source: 'ai',
+    });
+  });
+  const consultant = await temporaryWithCode('physiotherapist', ['HSR Layout'], {
+    consultant: true,
+  });
+  await signInWithCode(page, consultant.email, consultant.secret);
+  await page.goto(`/app/knowledge-base/patient-content/${conditionId}`);
+  const draft = page.getByTestId('patient-content-draft');
+  await expect(draft).toContainText('Written by AI, last saved');
+  await expect(draft).toContainText('Not shown to patients until approved.');
+  await expect(page.getByTestId('patient-content-approved')).toContainText('Nothing yet');
+  const form = page.getByTestId('patient-content-form');
+  await expect(form.getByLabel('Explanation')).toHaveValue('Test AI explanation.');
+  await form.getByLabel('Home advice').fill('Test AI home advice, checked by a consultant.');
+  await form.getByRole('button', { name: 'Save draft', exact: true }).click();
+  await expect(form.getByText('Draft saved.')).toBeVisible();
+  await expect(draft).toContainText(`Written by AI, edited by ${consultant.name}`);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page
+    .getByTestId('patient-content-decide')
+    .getByRole('button', { name: 'Approve for patients' })
+    .click();
+  await expect(page.getByText('Approved. Patients see this content from now on.')).toBeVisible();
+  await expect(page.getByTestId('patient-content-approved')).toContainText(
+    'Test AI home advice, checked by a consultant.',
+  );
 });

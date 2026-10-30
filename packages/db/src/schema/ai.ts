@@ -83,6 +83,11 @@ export const aiRun = pgTable(
       'ai_run_clinical_version',
       sql`${table.kind} not in ('rank_diagnoses', 'recheck_with_findings') or ${table.kbVersionId} is not null`,
     ),
+    // Patient content (AI-07) is about a condition of a knowledge base version, never a patient.
+    check(
+      'ai_run_patient_content',
+      sql`${table.kind} <> 'write_patient_content' or (${table.kbVersionId} is not null and ${table.episodeId} is null)`,
+    ),
   ],
 ).enableRLS();
 

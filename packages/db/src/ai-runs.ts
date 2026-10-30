@@ -1,4 +1,4 @@
-import { and, eq, gte, isNull, sql } from 'drizzle-orm';
+import { and, eq, gte, isNull, ne, sql } from 'drizzle-orm';
 import { aiRun, task } from './schema';
 import type { DbOrTransaction } from './versioned';
 
@@ -13,13 +13,19 @@ export async function insertAiRun(tx: DbOrTransaction, run: NewAiRun): Promise<s
 
 /**
  * What the live AI has been charged since `since`, in millionths of a US dollar; blind test runs
- * (AI-06) have their own budget and never count here.
+ * (AI-06) and the one-time patient content (AI-07) have their own budgets and never count here.
  */
 export async function aiSpendSince(db: DbOrTransaction, since: Date): Promise<bigint> {
   const [row] = await db
     .select({ total: sql<string>`coalesce(sum(${aiRun.costMicroUsd}), 0)::text` })
     .from(aiRun)
-    .where(and(gte(aiRun.createdAt, since), isNull(aiRun.blindTestRun)));
+    .where(
+      and(
+        gte(aiRun.createdAt, since),
+        isNull(aiRun.blindTestRun),
+        ne(aiRun.kind, 'write_patient_content'),
+      ),
+    );
   return BigInt(row?.total ?? '0');
 }
 

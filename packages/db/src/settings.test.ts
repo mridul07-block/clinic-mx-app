@@ -57,6 +57,15 @@ const stored: Settings = {
   'whatsapp.emergency_phrases': ['chest pain'],
   'whatsapp.front_desk_email': '',
   'ai.blind_test_budget_paise': 200000,
+  'ai.task_write_patient_content': {
+    model: null,
+    providers: [],
+    promptVersion: 'write_patient_content.v1',
+    reasoningEffort: 'none',
+    timeoutMs: 60000,
+    maxTokens: 2500,
+  },
+  'ai.patient_content_budget_paise': 350000,
   'ai.blind_test_cases_min': 30,
   'ai.blind_test_cases_max': 50,
   'ai.task_rank_diagnoses': {

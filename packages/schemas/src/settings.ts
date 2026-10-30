@@ -478,6 +478,21 @@ export const settingDefinitions = {
       'OpenRouter providers no clinical AI call is ever routed to, whatever a task or blind test names.',
   },
   // DECISION AI-06: the blind test's budget is the client's; 2,000 rupees is a placeholder.
+  'ai.task_write_patient_content': {
+    schema: aiTaskConfigSchema,
+    source:
+      'TAD section 7 ("One time patient content | Best available, once | Reviewed and approved by clinicians before use"); AI-07, recommended default, 30 October 2026',
+    description:
+      'Writing patient content drafts: the prompt version, reasoning effort, timeout and token limit. The model and its hosts are named by the operator for each run.',
+  },
+  // DECISION AI-07: the one-time patient content budget is the client's; 3,500 rupees is a placeholder.
+  'ai.patient_content_budget_paise': {
+    schema: z.int().positive(),
+    source:
+      'AI-07 and docs/runbooks/patient-content.md (the one-time run is about $20 to $35 with the best available model); a placeholder of 3,500 rupees, recommended default, 30 October 2026',
+    description:
+      'The most writing patient content drafts with AI may spend in all, in paise; past it the run stops. Never the daily cap.',
+  },
   'ai.blind_test_budget_paise': {
     schema: z.int().positive(),
     source:

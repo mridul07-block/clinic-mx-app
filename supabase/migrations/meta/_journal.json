@@ -1674,6 +1674,27 @@
       "when": 1793383219894,
       "tag": "20261030180019_check_answer_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 239,
+      "version": "7",
+      "when": 1793386780498,
+      "tag": "20261030185940_ai_patient_content_task",
+      "breakpoints": true
+    },
+    {
+      "idx": 240,
+      "version": "7",
+      "when": 1793386796096,
+      "tag": "20261030185956_ai_patient_content_run",
+      "breakpoints": true
+    },
+    {
+      "idx": 241,
+      "version": "7",
+      "when": 1793386798945,
+      "tag": "20261030185958_ai_patient_content_rules",
+      "breakpoints": true
     }
   ]
 }

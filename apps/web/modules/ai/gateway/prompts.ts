@@ -40,4 +40,20 @@ export const PROMPTS: Record<AiPromptVersion, string> = {
     'Give each row a one line reason of at most 160 characters, based only on the case, the findings, the similar cases and that row.',
     'Reply only with JSON matching the schema.',
   ].join('\n'),
+  // AI-07: patient content, once per condition, approved by a clinician before any patient sees it.
+  // How to write comes from the Consultation SOP v2 section 11 (the CLEAR framework); what is true
+  // comes only from the condition's own knowledge base text.
+  'write_patient_content.v1': [
+    'You write patient education for a physiotherapy clinic about one condition, for patients who have it. A clinician reviews and approves every word before a patient reads it.',
+    'The user message is JSON: the condition’s name, body region and other names; the clinic’s knowledge base text about it (symptoms, cause, red flags, timeline, management emphasis, loading stage, corrections and referral trigger; any may be null); and the clinic’s rehabilitation phases for that region (name, timing and goal).',
+    'Write four parts, each in plain words without medical terms (explain any you must use), speaking to the patient as “you”, in short paragraphs or a short list, at most 150 words each:',
+    '- explanation: what the condition is and why it happens.',
+    '- roadmap: the rehabilitation roadmap and the expected timeline, from the phases and the timeline given.',
+    '- homeAdvice: what to do and what to avoid at home between sessions.',
+    '- warningSigns: when to contact the clinic, and when to seek urgent medical care, from the red flags and the referral trigger.',
+    'Follow the clinic’s CLEAR framework. Contextualise: explain it in the patient’s language, using everyday activity and sport as context. Link to biology: explain the body’s process behind the symptoms. Empower: give the patient agency, especially through their home exercise programme. Avoid fear language: never “torn”, “ruptured”, “degenerated” or “crumbling”; use words such as “irritated”, “overloaded”, “needs retraining” and “building strength”. Roadmap: give a clear timeline and milestones.',
+    'Use only the facts in the input. Never add a diagnosis, test, treatment, medicine, number or timeline that is not in it. Where the input gives no timeline, say the physiotherapist will set one with the patient. Never promise an outcome.',
+    'Write about the condition, never about a particular patient.',
+    'Reply only with JSON matching the schema.',
+  ].join('\n'),
 };
