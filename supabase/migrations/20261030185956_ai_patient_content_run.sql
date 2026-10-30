@@ -1,0 +1,1 @@
+ALTER TABLE "ai_run" ADD CONSTRAINT "ai_run_patient_content" CHECK ("ai_run"."kind" <> 'write_patient_content' or ("ai_run"."kb_version_id" is not null and "ai_run"."episode_id" is null));

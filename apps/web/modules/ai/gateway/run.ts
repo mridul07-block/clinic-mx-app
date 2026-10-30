@@ -5,18 +5,21 @@ import {
   blindTestSpend,
   insertAiRun,
   openAiSpendCapTask,
+  patientContentSpend,
   type Db,
   type NewAiRun,
 } from '@clinic-mx/db';
 import {
+  aiPatientContentInputSchema,
+  aiPatientContentOutputSchema,
   aiPromptsWithSimilarCases,
   aiRankInputSchema,
   aiRankOutputSchema,
   aiRecheckInputSchema,
-  clinicalAiTasks,
   istDate,
   microUsdToPaise,
   namesBlockedProvider,
+  pinnedAiTasks,
   startOfIstDay,
   type AiRunStatus,
   type AiTaskConfig,
@@ -47,6 +50,11 @@ const TASKS = {
     settingKey: 'ai.task_recheck_with_findings',
     input: aiRecheckInputSchema,
     output: aiRankOutputSchema,
+  },
+  write_patient_content: {
+    settingKey: 'ai.task_write_patient_content',
+    input: aiPatientContentInputSchema,
+    output: aiPatientContentOutputSchema,
   },
 } as const;
 export type GatewayTask = keyof typeof TASKS;
@@ -108,13 +116,16 @@ export function portableSchema(schema: z.ZodType): unknown {
   return strip(z.toJSONSchema(schema));
 }
 
-/** The request for a task: zero data retention and no data collection always; pinned if clinical. */
+/**
+ * The request for a task: zero data retention and no data collection always; pinned for a clinical
+ * task and for patient content (`pinnedAiTasks`).
+ */
 export function buildRequest(
   task: GatewayTask,
   config: AiTaskConfig & { model: string },
   inputJson: string,
 ): AiRequest {
-  const clinical = clinicalAiTasks.includes(task);
+  const pinned = pinnedAiTasks.includes(task);
   return {
     model: config.model,
     messages: [
@@ -125,7 +136,7 @@ export function buildRequest(
       zdr: true,
       data_collection: 'deny',
       require_parameters: true,
-      ...(clinical ? { order: [...config.providers], allow_fallbacks: false as const } : {}),
+      ...(pinned ? { order: [...config.providers], allow_fallbacks: false as const } : {}),
     },
     response_format: {
       type: 'json_schema',
@@ -160,6 +171,11 @@ export interface RunOptions {
    * its own budget, and the run tagged. Only `rankForBlindTest` passes it.
    */
   blindTest?: { runId: string; config: AiTaskConfig & { model: string } };
+  /**
+   * The operator's one-time patient content run (AI-07): the model and hosts named for the run in
+   * place of the task's. Only `writePatientContent` passes it.
+   */
+  config?: AiTaskConfig & { model: string };
 }
 
 export async function runTask<K extends GatewayTask>(
@@ -174,7 +190,11 @@ export async function runTask<K extends GatewayTask>(
   if (options.blindTest && (options.episodeId !== null || task !== 'rank_diagnoses')) {
     throw new Error('A blind test ranks anonymised cases only, outside any episode.');
   }
-  const config = options.blindTest?.config ?? (await getSetting(TASKS[task].settingKey));
+  if (options.config && (options.episodeId !== null || task !== 'write_patient_content')) {
+    throw new Error('Only patient content is written with a model named for the run.');
+  }
+  const config =
+    options.blindTest?.config ?? options.config ?? (await getSetting(TASKS[task].settingKey));
   // Similar cases (AI-05) go only to a prompt that is told about them.
   const parsed = TASKS[task].input.safeParse(
     aiPromptsWithSimilarCases.includes(config.promptVersion) ? rawInput : withoutSimilar(rawInput),
@@ -211,12 +231,12 @@ export async function runTask<K extends GatewayTask>(
   if (!parsed.success) return finish('blocked');
   const transport = options.transport === undefined ? defaultTransport() : options.transport;
   const model = config.model;
-  if (!transport || !model || (clinicalAiTasks.includes(task) && config.providers.length === 0)) {
+  if (!transport || !model || (pinnedAiTasks.includes(task) && config.providers.length === 0)) {
     return finish('not_configured');
   }
   // Never a blocked provider for a clinical call (PRD: DeepSeek's own API never gets patient data).
   if (
-    clinicalAiTasks.includes(task) &&
+    pinnedAiTasks.includes(task) &&
     namesBlockedProvider(config.providers, await getSetting('ai.blocked_providers'))
   ) {
     return finish('not_configured');
@@ -224,7 +244,13 @@ export async function runTask<K extends GatewayTask>(
   if (!outboundAllowed(textsOf(parsed.data), options.forbidden)) return finish('blocked');
 
   const rate = await getSetting('ai.usd_rate_paise');
-  if (options.blindTest) {
+  if (task === 'write_patient_content') {
+    // Patient content is written once, with its own budget; never the daily cap (AI-07).
+    const spentOnContent = microUsdToPaise(await patientContentSpend(db), rate);
+    if (spentOnContent >= BigInt(await getSetting('ai.patient_content_budget_paise'))) {
+      return finish('capped');
+    }
+  } else if (options.blindTest) {
     // A blind test has its own budget; it never stops the live sheet or tells the Super Admin.
     const spentOnTest = microUsdToPaise(await blindTestSpend(db, options.blindTest.runId), rate);
     if (spentOnTest >= BigInt(await getSetting('ai.blind_test_budget_paise'))) {

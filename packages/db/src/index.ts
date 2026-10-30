@@ -717,6 +717,12 @@ export {
   type PatientContentEntry,
   type PatientContentListEntry,
 } from './patient-content';
+export {
+  conditionsWithoutPatientContent,
+  insertAiPatientContentDraft,
+  patientContentSpend,
+  regionPhases,
+} from './patient-content-generation';
 export { auditLog, logAuditDownload, type AuditLogFilters } from './audit-log';
 export {
   closeDataRequest,

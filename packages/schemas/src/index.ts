@@ -1092,6 +1092,7 @@ export {
   clinicalAiTasks,
   microUsdToPaise,
   namesBlockedProvider,
+  pinnedAiTasks,
   usdToMicroUsd,
   type AiCase,
   type AiPromptVersion,
@@ -1231,6 +1232,18 @@ export {
   type PatientContentState,
   type PatientContentStatus,
 } from './patient-content';
+export {
+  AI_KNOWLEDGE_TEXT_MAX,
+  aiPatientContentDetailKeys,
+  aiPatientContentInputSchema,
+  aiPatientContentOutputSchema,
+  clipText,
+  patientContentInput,
+  type AiPatientContentInput,
+  type AiPatientContentOutput,
+  type ConditionKnowledge,
+  type RegionPhase,
+} from './ai-patient-content';
 export {
   MORE_TAB,
   currentPhoneTab,

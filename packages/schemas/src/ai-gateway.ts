@@ -12,17 +12,27 @@ import { screeningRegions } from './red-flags';
  * docs/runbooks/ai-gateway.md).
  */
 
-/** Every task the gateway runs (TAD: rankDiagnoses, recheckWithFindings, assistantReply, tagFeedback). */
+/**
+ * Every task the gateway runs (TAD: rankDiagnoses, recheckWithFindings, assistantReply,
+ * tagFeedback; and the one time patient content, AI-07).
+ */
 export const aiTasks = [
   'rank_diagnoses',
   'recheck_with_findings',
   'assistant_reply',
   'tag_feedback',
+  'write_patient_content',
 ] as const;
 export type AiTask = (typeof aiTasks)[number];
 
 /** Tasks that suggest diagnoses: behind the AI gate (AI-09), on pinned providers only. */
 export const clinicalAiTasks: readonly AiTask[] = ['rank_diagnoses', 'recheck_with_findings'];
+
+/**
+ * Tasks pinned to their providers with no fallbacks, and never sent to a blocked one: the clinical
+ * tasks, and the patient content clinicians approve for patients (AI-07).
+ */
+export const pinnedAiTasks: readonly AiTask[] = [...clinicalAiTasks, 'write_patient_content'];
 
 /**
  * Whether any pinned host is a blocked provider (`ai.blocked_providers`). OpenRouter pins a host by
@@ -56,6 +66,7 @@ export const aiPromptVersions = [
   'recheck_with_findings.v1',
   'rank_diagnoses.v2',
   'recheck_with_findings.v2',
+  'write_patient_content.v1',
 ] as const;
 export type AiPromptVersion = (typeof aiPromptVersions)[number];
 
@@ -79,7 +90,7 @@ export const aiTaskConfigSchema = z.strictObject({
   providers: z.array(z.string().min(1)).max(3),
   promptVersion: z.enum(aiPromptVersions),
   reasoningEffort: z.enum(['none', 'low', 'medium', 'high']),
-  timeoutMs: z.int().min(1000).max(20000),
+  timeoutMs: z.int().min(1000).max(120000),
   maxTokens: z.int().min(1).max(4000),
 });
 export type AiTaskConfig = z.infer<typeof aiTaskConfigSchema>;

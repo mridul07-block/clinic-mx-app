@@ -1,6 +1,13 @@
 import 'server-only';
 import type { Db } from '@clinic-mx/db';
-import type { AiCase, AiRankRow, AiSimilarCase, AiTaskConfig } from '@clinic-mx/schemas';
+import type {
+  AiCase,
+  AiPatientContentInput,
+  AiPatientContentOutput,
+  AiRankRow,
+  AiSimilarCase,
+  AiTaskConfig,
+} from '@clinic-mx/schemas';
 import type { AiSheetPass } from '../gate';
 import { runTask, type AiResult, type RunOptions } from './run';
 
@@ -127,4 +134,26 @@ export async function recheckWithFindings(
     },
   );
   return byCondition(call.rows, result);
+}
+
+/**
+ * Writes one condition's patient content draft (AI-07): its own knowledge base text and its
+ * region's phases in, the four parts out, with the model and hosts the operator named for the run.
+ * Outside any episode and any gate pass: it is about a condition, never a patient.
+ */
+export async function writePatientContent(
+  db: Db,
+  call: {
+    kbVersionId: string;
+    input: AiPatientContentInput;
+    config: AiTaskConfig & { model: string };
+    transport?: RunOptions['transport'];
+  },
+): Promise<AiResult<AiPatientContentOutput>> {
+  return runTask(db, 'write_patient_content', call.input, {
+    episodeId: null,
+    kbVersionId: call.kbVersionId,
+    config: call.config,
+    transport: call.transport,
+  });
 }

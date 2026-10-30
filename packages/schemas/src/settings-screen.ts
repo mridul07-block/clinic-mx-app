@@ -80,6 +80,9 @@ export function settingChangedElsewhere(key: string): { reason: string; href?: s
       href: '/app/opening-entries',
     };
   }
+  if (key === 'ai.task_write_patient_content') {
+    return { reason: 'A new prompt for patient content changes with a release.' };
+  }
   if (key.startsWith('ai.task_')) {
     return { reason: 'A new model or prompt needs a new blind test, then a release.' };
   }
