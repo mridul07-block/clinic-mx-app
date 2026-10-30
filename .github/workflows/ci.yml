@@ -90,12 +90,16 @@ jobs:
   # logins with a password made for this run. The phone (360 px) and desktop projects run as two
   # jobs side by side, each on its own stack, and start with the other checks rather than after
   # them: the same tests in about half the time. Every job must pass before a merge.
+  # Each screen size's suite is split across 3 machines that run at once (Playwright sharding),
+  # each with its own local stack and app, so no shard waits on or touches another's data. The
+  # suite grew to about 260 tests a project (7 min on one machine); a shard runs about a third.
   e2e:
-    name: End to end (${{ matrix.project }})
+    name: End to end (${{ matrix.project }} ${{ matrix.shard }}/3)
     strategy:
       fail-fast: false
       matrix:
         project: [phone, desktop]
+        shard: [1, 2, 3]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -171,13 +175,13 @@ jobs:
 
       # Playwright builds the app and runs `next start` (playwright.config.ts webServer).
       - name: End to end tests
-        run: pnpm test:e2e --project=${{ matrix.project }}
+        run: pnpm test:e2e --project=${{ matrix.project }} --shard=${{ matrix.shard }}/3
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report-${{ matrix.project }}
+          name: playwright-report-${{ matrix.project }}-${{ matrix.shard }}
           path: apps/web/playwright-report/
           retention-days: 7
 

@@ -19,7 +19,7 @@ the first failure:
 | Migrations match the schema; migrations are forward only against `origin/main` | Same job |
 | Local database reset and every migration applied to it; seed; knowledge base import | Local Supabase stack |
 | Database tests | Local Supabase stack |
-| End to end, phone then desktop (`CI=1`: a fresh build, one retry, as on CI) | End to end (phone), (desktop) |
+| End to end, phone then desktop (`CI=1`: a fresh build, one retry, as on CI) | End to end (phone 1/3 to 3/3), (desktop 1/3 to 3/3) |
 | Secret scan of the whole history (the gitleaks 8.30.1 release binary, checked against a pinned hash) | Secret scan |
 
 It ends with "Local gate passed at <commit>". The pull request notes that it passed locally, with

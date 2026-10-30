@@ -20,7 +20,7 @@ quickly. Decision (user, 22 October 2026): faster checks, without dropping any t
 - **Why Playwright's `--only-changed` does not pick them.** It follows imports, and our end to
   end tests drive the app through the browser rather than importing its code.
 
-## In CI (`.github/workflows/ci.yml`), on every pull request and on main
+## In CI (`.github/workflows/ci.yml`), on every pull request
 
 These jobs all start together:
 
@@ -28,8 +28,8 @@ These jobs all start together:
 | --- | --- | --- |
 | Format, lint, typecheck, unit tests | Also the design check and both migration checks | 2 min |
 | Local Supabase stack | Every migration on an empty database, the seed, the database tests | 2 to 3 min |
-| End to end (phone) | The full suite at 360 px, on its own local stack | 4 to 5 min |
-| End to end (desktop) | The full suite at 1440 px, on its own local stack | 4 to 5 min |
+| End to end (phone 1/3, 2/3, 3/3) | The suite at 360 px, split in three, each part on its own local stack | about 5 min |
+| End to end (desktop 1/3, 2/3, 3/3) | The suite at 1440 px, split the same way | about 5 min |
 | Secret scan | gitleaks over the history | 10 s |
 
 Each run reuses two things from the Actions cache. Each restores the same thing a fresh run would
@@ -38,7 +38,15 @@ download or build, so the tests are unchanged:
 - **Chromium,** keyed on the Playwright version. A cached Chromium skips the `apt` step, which
   once stalled for 11 minutes.
 - **The Next.js build cache,** following the Next.js CI build caching guide. A warm build takes
-  seconds.
+  seconds. A pull request's first run finds none (CI does not run on main, and a pull request's
+  cache is its own), so it builds in about a minute; reruns of the same pull request reuse it.
+
+**Why the end to end suite is split (30 October 2026).** It grew to 257 tests a screen size. On
+one machine with 2 workers a job took about 10 minutes: 25 s setup, 80 s starting Supabase, 10 s
+seed and knowledge base, 60 s build, 7.2 min of tests. The tests were 70% of it, so each screen
+size now runs as 3 shards (`--shard=n/3`) on 3 machines at once, each with its own stack and app;
+the fixed 3 minutes stay, the tests take a third. More workers on one machine would share one
+database and app and invite flaky tests; more shards add the fixed 3 minutes again for less gain.
 
 The Supabase Docker images are pulled on every run, deliberately. Measured on 22 October 2026, a
 cached copy was slower: restoring it took 33 s and `docker load` 1 min 50 s, against 1.5 to 3 min
