@@ -417,7 +417,9 @@ export default async function PatientPage({
   // Something declined on Part B: the desk speaks to the patient.
   const body =
     opened.status === 'used' && opened.purpose === 'consent' && declined === '1'
-      ? 'Thank you. You did not agree to everything; the front desk will speak to you about it.'
+      ? `Thank you. You did not agree to everything; the front desk will speak to you about it.${
+          kiosk ? ' Please hand the tablet back to the front desk.' : ''
+        }`
       : shown.body;
   const formScreen = welcome?.open ? (
     healthFormScreen(
@@ -439,6 +441,8 @@ export default async function PatientPage({
       token={token}
       firstName={partB.firstName}
       cards={partB.cards}
+      awaiting={partB.awaiting}
+      shown={partB.shown}
       signing={partB.signing}
       guardianNeeded={guardian === 'needed'}
     />

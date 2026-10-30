@@ -12,9 +12,12 @@ export function PartBSection({
   view,
   origin,
   tablets,
+  closed,
 }: {
   episodeId: string;
   view: PartBView;
+  /** Discharged or lost to follow up: nothing to ask. */
+  closed: boolean;
   origin: string;
   tablets: { id: string; name: string }[];
 }) {
@@ -55,17 +58,19 @@ export function PartBSection({
             <li key={modality.key} className="flex flex-wrap items-center gap-2">
               <span className="text-ink">{modality.name}</span>
               <span className="text-ink-muted">
-                {modality.accepted === null
-                  ? 'not asked yet'
-                  : modality.accepted
-                    ? 'agreed'
-                    : 'declined: leave it out'}
+                {modality.awaiting
+                  ? 'consent wording awaited: do not use'
+                  : modality.accepted === null
+                    ? 'not asked yet'
+                    : modality.accepted
+                      ? 'agreed'
+                      : 'declined: leave it out'}
               </span>
             </li>
           ))}
         </ul>
       ) : null}
-      {view.planned && toAsk ? (
+      {view.planned && toAsk && !closed ? (
         <div className="flex flex-col gap-3">
           <PartBConsentQr episodeId={episodeId} origin={origin} />
           {tablets.length ? <PartBTabletForm episodeId={episodeId} tablets={tablets} /> : null}

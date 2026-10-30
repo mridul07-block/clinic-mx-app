@@ -60,7 +60,7 @@ async function patientPhone(page: Page, browser: Parameters<typeof otherBrowser>
 const card = (phone: Page, key: string) =>
   phone.locator(`[data-testid="part-b-card"][data-key="${key}"]`);
 
-test('the patient agrees the general terms and Laser, declines Dry needling, and signs', async ({
+test('the patient agrees the general terms, declines Laser, and signs; Dry needling waits for its wording', async ({
   page,
   browser,
 }) => {
@@ -74,13 +74,13 @@ test('the patient agrees the general terms and Laser, declines Dry needling, and
 
   const phone = await patientPhone(page, browser);
   // The general terms, no package terms (no package chosen), one card per planned treatment.
-  await expect(phone.getByTestId('part-b-card')).toHaveCount(4);
-  await expect(card(phone, 'part_b.plan')).toContainText(`(${conditionName})`);
+  // Dry needling's wording is awaited: told, never asked.
+  await expect(phone.getByTestId('part-b-card')).toHaveCount(3);
+  await expect(card(phone, 'part_b.plan')).toContainText(`(${conditionName}`);
   await expect(card(phone, 'part_b.plan')).toContainText('Laser');
   await expect(card(phone, 'part_b.package_refund')).toHaveCount(0);
-  await expect(card(phone, 'part_b.modality.dry_needling')).toContainText(
-    'Wording awaited from the clinic',
-  );
+  await expect(card(phone, 'part_b.modality.dry_needling')).toHaveCount(0);
+  await expect(phone.getByTestId('part-b-awaiting')).toContainText('Dry needling');
   expect(
     await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
   ).toBe(true);
@@ -89,12 +89,10 @@ test('the patient agrees the general terms and Laser, declines Dry needling, and
   // Done before answering: every statement asks.
   await phone.getByRole('button', { name: 'Done' }).click();
   await expect(card(phone, 'part_b.plan')).toContainText('Choose I agree or I do not agree.');
-  for (const key of ['part_b.plan', 'part_b.right_to_decline', 'part_b.modality.laser']) {
+  for (const key of ['part_b.plan', 'part_b.right_to_decline']) {
     await card(phone, key).getByText('I agree', { exact: true }).click();
   }
-  await card(phone, 'part_b.modality.dry_needling')
-    .getByText('I do not agree', { exact: true })
-    .click();
+  await card(phone, 'part_b.modality.laser').getByText('I do not agree', { exact: true }).click();
   // Something agreed: it is signed.
   await phone.getByRole('button', { name: 'Done' }).click();
   await expect(phone.getByText('Please sign in the box.')).toBeVisible();
@@ -103,13 +101,20 @@ test('the patient agrees the general terms and Laser, declines Dry needling, and
   await phone.getByRole('button', { name: 'Done' }).click();
   await expect(phone.getByText('the front desk will speak to you about it')).toBeVisible();
 
-  // The desk: complete, Dry needling left out; the declined treatment may be asked again.
+  // The desk: complete, Laser left out, Dry needling not used until its wording; a task to speak to
+  // the patient about the decline.
   await page.reload();
   await expect(section).toContainText('Complete');
   await expect(section.getByTestId('part-b-modalities')).toContainText(
-    /Dry needling\s*declined: leave it out/,
+    /Laser\s*declined: leave it out/,
   );
-  await expect(section.getByTestId('part-b-modalities')).toContainText(/Laser\s*agreed/);
+  await expect(section.getByTestId('part-b-modalities')).toContainText(
+    /Dry needling\s*consent wording awaited: do not use/,
+  );
+  await page.goto('/app/tasks');
+  await expect(page.getByRole('main')).toContainText(
+    'Part B consent declined: speak to the patient',
+  );
   await phone.context().close();
 });
 

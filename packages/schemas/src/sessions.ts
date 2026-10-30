@@ -9,6 +9,7 @@ import {
 import { recordVersionSchema } from './drafts';
 import { episodeStatusLabels, type EpisodeStatus } from './episodes';
 import { interventionKinds, type InterventionKind, type ModalityParameter } from './plan';
+import { partBGateMessage, type PartBGateReason } from './part-b-consent';
 import { addendumTextSchema } from './signed-record';
 
 /**
@@ -17,7 +18,8 @@ import { addendumTextSchema } from './signed-record';
  * is session n of the episode, in check in order, of N planned in the signed plan (sessions per
  * week x weeks). The gate: the desk still checks the patient in, but the physio starts the
  * session only once it is met. Payment is met once the chosen plan is paid, so the episode is in
- * treatment (Active or Under review). Part B consent joins the gate with BIL-03 (DECISION SES-01).
+ * treatment (Active or Under review); Part B consent (BIL-03) is met as `partBGate` decides, read by
+ * the database (`internal.part_b_gate`; BIL-12, PRD J4.9, DECISION BIL-12).
  */
 
 /** "Session 3 of 12", or "Session 3" when the plan sets no frequency. */
@@ -40,9 +42,6 @@ export interface SessionGate {
   message: string;
 }
 
-/** Shown until Part B consent (BIL-03) joins the gate. DECISION SES-01. */
-export const consentNotCheckedYet = 'Part B consent is not checked yet.';
-
 /** A session appointment as the screens show it: its label once checked in, and the gate. */
 export interface SessionView {
   /** "Session 3 of 12" once checked in; null before. */
@@ -53,20 +52,36 @@ export interface SessionView {
 /** The view of a session appointment from its progress, or null for other appointments. */
 export function sessionView(
   progress:
-    | { number: number | null; planned: number | null; episodeStatus: EpisodeStatus | null }
+    | {
+        number: number | null;
+        planned: number | null;
+        episodeStatus: EpisodeStatus | null;
+        partB?: PartBGateReason | null;
+      }
     | undefined,
 ): SessionView | null {
   if (!progress) return null;
   return {
     label: progress.number === null ? null : sessionLabel(progress.number, progress.planned),
-    gate: sessionGate(progress.episodeStatus),
+    gate: sessionGate(progress.episodeStatus, progress.partB ?? null),
   };
 }
 
-/** Whether a session of an episode in this status may start, and why not. */
-export function sessionGate(episodeStatus: EpisodeStatus | null): SessionGate {
+/**
+ * Whether a session of an episode in this status, with this Part B, may start, and why not: the
+ * chosen plan paid (in treatment) and Part B met (or on paper, for an opening entry).
+ */
+export function sessionGate(
+  episodeStatus: EpisodeStatus | null,
+  partB: PartBGateReason | null,
+): SessionGate {
   if (episodeStatus === null) return { met: false, message: 'Not part of an episode yet.' };
-  if (inTreatment.includes(episodeStatus)) return { met: true, message: 'Payment complete' };
+  if (inTreatment.includes(episodeStatus)) {
+    if (partB === 'met' || partB === 'opening_entry') {
+      return { met: true, message: 'Consent and payment complete' };
+    }
+    return { met: false, message: partBGateMessage(partB ?? 'missing') };
+  }
   if (beforePayment.includes(episodeStatus)) {
     return { met: false, message: 'Consent and payment are needed before the first session.' };
   }

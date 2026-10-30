@@ -8,6 +8,7 @@ import {
   partBStatementsFor,
   partBStatus,
   partBText,
+  partBToAsk,
 } from './part-b-consent';
 
 // BIL-03: Part B consent. The statements are the client's wording (Blueprint Module 3, Part B),
@@ -103,5 +104,21 @@ describe('Part B consent', () => {
         package: false,
       }).met,
     ).toBe(true);
+  });
+
+  it('never asks a card whose wording is awaited; its treatment waits, nothing else does', () => {
+    const asked = partBStatementsFor({ package: false, modalities: ['laser', 'dry_needling'] });
+    expect(partBToAsk(asked, {}).map((statement) => statement.key)).toEqual([
+      'part_b.plan',
+      'part_b.right_to_decline',
+      'part_b.modality.laser',
+    ]);
+    const status = partBStatus(asked, {
+      'part_b.plan': true,
+      'part_b.right_to_decline': true,
+      'part_b.modality.laser': true,
+    });
+    expect(status).toMatchObject({ complete: true, modalitiesAwaiting: ['dry_needling'] });
+    expect(partBGate(status, { package: false }).met).toBe(true);
   });
 });

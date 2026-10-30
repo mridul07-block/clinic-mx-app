@@ -1,3 +1,4 @@
+import { partBStatements } from '@clinic-mx/schemas';
 import { sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { patientActor, setAuditContext, systemActor, withActor } from '../audit';
@@ -205,6 +206,7 @@ describe('Part B consent', () => {
           ]),
         ),
       ).toBe('42501');
+      await insertConsentRecords(tx, [decision(plan, 'part_b.right_to_decline', true)]);
       await tx
         .update(patientLink)
         .set({ completedAt: sql`now()` })
@@ -237,6 +239,136 @@ describe('Part B consent', () => {
           ${ids?.item ?? ''}, ${deskHsr.id})`);
       await asLink(tx, plan.link);
       expect((await partBForLink(tx))?.package).toBe(true);
+    });
+  });
+});
+
+// BIL-12: the consent and pricing gate's Part B, as the database works it out.
+describe('the Part B gate', () => {
+  it('knows the same statements as the app', async () => {
+    const rows = await db.execute<{
+      statement_key: string;
+      statement_group: string;
+      modality: string | null;
+      version: number;
+    }>(sql`select * from internal.part_b_statements()`);
+    expect(
+      rows.map((row) => [row.statement_key, row.statement_group, row.modality, row.version]).sort(),
+    ).toEqual(
+      Object.values(partBStatements)
+        .map((statement) => [
+          statement.key,
+          statement.group,
+          'modality' in statement ? statement.modality : null,
+          statement.version,
+        ])
+        .sort(),
+    );
+  });
+
+  it('is met once every statement asked is decided, no general term declined', async () => {
+    await rolledBack(async (tx) => {
+      const plan = await setUp(tx);
+      const gate = async () => {
+        await asOwner(tx);
+        const [row] = await tx.execute<{ gate: string }>(
+          sql`select internal.part_b_gate(${plan.episodeId}::uuid) as gate`,
+        );
+        return row?.gate;
+      };
+      expect(await gate()).toBe('missing');
+      await asLink(tx, plan.link);
+      await insertConsentRecords(tx, [
+        decision(plan, 'part_b.plan', true),
+        decision(plan, 'part_b.right_to_decline', true),
+        decision(plan, 'part_b.modality.laser', true, { modality: 'laser' }),
+      ]);
+      // Dry needling's wording is awaited: never asked, nothing waits on it (DECISION #21).
+      expect(await gate()).toBe('met');
+      await asLink(tx, plan.link);
+      // A treatment declined leaves only it out.
+      await insertConsentRecords(tx, [
+        decision(plan, 'part_b.modality.laser', false, { modality: 'laser' }),
+      ]);
+      expect(await gate()).toBe('met');
+      await asLink(tx, plan.link);
+      // A later change of mind (a later transaction in life, a later time here).
+      await insertConsentRecords(tx, [
+        decision(plan, 'part_b.right_to_decline', false, {
+          createdAt: new Date(Date.now() + 60_000),
+        }),
+      ]);
+      expect(await gate()).toBe('general_declined');
+    });
+  });
+
+  it('waits for a signed plan', async () => {
+    await rolledBack(async (tx) => {
+      const [row] = await tx.execute<{ gate: string }>(sql`
+        with p as (insert into patient (name, phone, registered_centre_id)
+          values ('Test Patient Gate', '+919900000123', ${centreIds.hsrLayout}) returning id),
+        e as (insert into episode (patient_id, centre_id) select id, ${centreIds.hsrLayout} from p
+          returning id)
+        select internal.part_b_gate(e.id) as gate from e`);
+      expect(row?.gate).toBe('no_plan');
+    });
+  });
+});
+
+// BIL-03 review: what the patient's link may add, and what a decline does.
+describe('Part B records', () => {
+  it('name a real, current statement with its own modality, words and guardian', async () => {
+    await rolledBack(async (tx) => {
+      const plan = await setUp(tx);
+      const [stranger] = await tx.execute<{ id: string }>(sql`
+        insert into guardian (patient_id, name, relationship, phone)
+        select p.id, 'Test Guardian Other', 'mother', '+919900000777'
+        from patient p where p.id <> ${plan.patientId} limit 1 returning id`);
+      await asLink(tx, plan.link);
+      for (const forged of [
+        decision(plan, 'part_b.anything', true),
+        decision(plan, 'part_b.plan', true, { statementVersion: 99 }),
+        decision(plan, 'part_b.modality.laser', true, { modality: 'pemf' }),
+        decision(plan, 'part_b.modality.dry_needling', true, {
+          modality: 'dry_needling',
+          statementVersion: 0,
+        }),
+        decision(plan, 'part_b.right_to_decline', true, { shownText: 'I agree to everything' }),
+        decision(plan, 'part_b.plan', true, {
+          signer: 'guardian',
+          guardianId: stranger?.id ?? '',
+        }),
+      ]) {
+        expect(
+          await failure(tx, (sp) => insertConsentRecords(sp, [forged])),
+          forged.statementKey,
+        ).toBe('42501');
+      }
+    });
+  });
+
+  it('use the link only once something is recorded, and a decline gives the desk a task', async () => {
+    await rolledBack(async (tx) => {
+      const plan = await setUp(tx);
+      await asLink(tx, plan.link);
+      const complete = (sp: Tx) =>
+        sp
+          .update(patientLink)
+          .set({ completedAt: sql`now()` })
+          .where(sql`id = ${plan.link.id}`)
+          .returning({ id: patientLink.id });
+      expect(
+        await failure(tx, async (sp) => {
+          if ((await complete(sp)).length === 0) throw Object.assign(new Error(), { code: 'none' });
+        }),
+      ).toBeDefined();
+      await insertConsentRecords(tx, [decision(plan, 'part_b.right_to_decline', false)]);
+      expect(await complete(tx)).toHaveLength(1);
+      await asOwner(tx);
+      const tasks = await tx.execute<{ assignee_role: string; priority: string }>(sql`
+        select assignee_role, priority from task
+        where kind = 'consent.part_b_declined' and episode_id = ${plan.episodeId}`);
+      expect(tasks).toEqual([{ assignee_role: 'front_desk', priority: 'high' }]);
     });
   });
 });
