@@ -79,6 +79,8 @@ export const auditSetupTables = [
   'appointment_type',
   'centre',
   'data_request',
+  // SET-07: the exercise library.
+  'exercise',
   'kb_condition',
   'kb_condition_listing',
   'kb_diagnosis_category',
