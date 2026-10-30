@@ -40,7 +40,13 @@ export default async function SessionPage({
   const nextSession = screen.readOnly ? undefined : await nextSessionPanel(staff, appointmentId);
   const { visit, session, summary, nextVisit, readOnly, writerName, coveredBy, note } = screen;
   return (
-    <main className="flex w-full max-w-5xl flex-col gap-4 px-4 py-6">
+    // On phones the note's Close session bar is fixed to the bottom of the screen: the page ends
+    // with room for it, below whatever comes last (the next session panel included).
+    <main
+      className={`flex w-full max-w-5xl flex-col gap-4 px-4 py-6 ${
+        note?.editable ? 'pb-32 md:pb-6' : ''
+      }`}
+    >
       <div className="flex flex-col gap-1.5">
         <Link
           href="/app/my-patients"

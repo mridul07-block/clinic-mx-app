@@ -138,7 +138,7 @@ export default async function FinanceUnpaidPage() {
                   className="border-b border-line last:border-0"
                   data-testid="unpaid-row"
                 >
-                  <td className="px-3 py-2 font-mono text-ink">
+                  <td className="px-3 py-2 font-mono whitespace-nowrap text-ink">
                     {row.href ? (
                       <Link
                         href={row.href}
@@ -155,7 +155,7 @@ export default async function FinanceUnpaidPage() {
                   <td className="px-3 py-2 text-ink">{row.kind}</td>
                   <td className="px-3 py-2 text-right text-ink">{row.amount}</td>
                   <td className="px-3 py-2 text-right text-ink">{row.days}</td>
-                  <td className="px-3 py-2 font-mono text-ink">{row.opNumber}</td>
+                  <td className="px-3 py-2 font-mono whitespace-nowrap text-ink">{row.opNumber}</td>
                 </tr>
               ))}
             </tbody>
