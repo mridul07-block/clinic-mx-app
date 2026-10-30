@@ -6,6 +6,17 @@ test('health endpoint reports ok', async ({ request }) => {
   expect(await response.json()).toMatchObject({ status: 'ok' });
 });
 
+// OPS-06: every page refuses another site's frame, keeps to HTTPS and is never type-sniffed.
+for (const path of ['/app/sign-in', '/p/test-token', '/kiosk', '/api/health']) {
+  test(`${path} sends the security headers`, async ({ request }) => {
+    const headers = (await request.get(path, { maxRedirects: 0 })).headers();
+    expect(headers['x-frame-options']).toBe('DENY');
+    expect(headers['content-security-policy']).toBe("frame-ancestors 'none'");
+    expect(headers['strict-transport-security']).toBe('max-age=63072000; includeSubDomains');
+    expect(headers['x-content-type-options']).toBe('nosniff');
+  });
+}
+
 test('root leads to staff sign in', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/app\/sign-in$/);

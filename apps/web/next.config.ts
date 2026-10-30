@@ -32,6 +32,18 @@ const nextConfig: NextConfig = {
   headers() {
     return Promise.resolve([
       {
+        // Every response (OPS-06, before the penetration test): no page is ever shown inside
+        // another site's frame (none of ours frames another), the browser keeps to HTTPS for two
+        // years once it has seen the site, and never guesses a file's type from its bytes.
+        source: '/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+      {
         // Browsers must always fetch the latest service worker script.
         source: '/sw.js',
         headers: [
