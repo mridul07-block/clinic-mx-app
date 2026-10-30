@@ -9,6 +9,8 @@ import {
   type MessageOutcome,
 } from '@clinic-mx/db';
 import {
+  BOOKING_FLOW_CTA,
+  BOOKING_FLOW_TEXT,
   MENU_BUTTONS,
   MENU_TEXT,
   SESSION_WINDOW_HOURS,
@@ -22,7 +24,12 @@ import { z } from 'zod';
 import { serverEnv } from '../../lib/env';
 import { systemService } from '../access/service';
 import { getSetting } from '../settings/settings';
-import { cloudApiTransport, type SendResult, type WhatsAppTransport } from './transport';
+import {
+  cloudApiTransport,
+  type SendResult,
+  type SessionSend,
+  type WhatsAppTransport,
+} from './transport';
 
 /**
  * Sends one queued WhatsApp message (WA-01), as the `whatsapp.send` job queued with it. Only a
@@ -50,11 +57,28 @@ export class RetrySendError extends Error {
   override name = 'RetrySendError';
 }
 
-/** A router reply's text and buttons (WA-03): the menu, or the text stored when it was queued. */
-function sessionContent(message: Message): { text: string; buttons?: typeof MENU_BUTTONS } {
+/**
+ * A reply's content (WA-03): the menu with its buttons, the booking Flow (WA-04; undefined where
+ * the Flow is not set up on this server), or the text stored when it was queued.
+ */
+function sessionContent(message: Message): Omit<SessionSend, 'to'> | undefined {
   if (message.templateKey === 'menu') return { text: MENU_TEXT, buttons: MENU_BUTTONS };
+  if (message.templateKey === 'booking_flow') {
+    const env = serverEnv();
+    const token = message.variables.flowToken;
+    if (!env.WHATSAPP_BOOKING_FLOW_ID || !token) return undefined;
+    return {
+      text: BOOKING_FLOW_TEXT,
+      flow: {
+        id: env.WHATSAPP_BOOKING_FLOW_ID,
+        token,
+        cta: BOOKING_FLOW_CTA,
+        mode: env.WHATSAPP_FLOW_MODE,
+      },
+    };
+  }
   const text = message.variables.text;
-  if (!text) throw new Error(`Router reply ${message.id} has no text`);
+  if (!text) throw new Error(`Reply ${message.id} has no text`);
   return { text };
 }
 
@@ -119,7 +143,8 @@ export async function sendQueuedMessage(
     });
     return;
   }
-  if (!transport) {
+  const session = message.kind === 'session' ? sessionContent(message) : undefined;
+  if (!transport || (message.kind === 'session' && !session)) {
     await record({
       status: 'skipped',
       errorCode: 'not_configured',
@@ -131,7 +156,7 @@ export async function sendQueuedMessage(
   const signal = AbortSignal.timeout(SEND_TIMEOUT_MS);
   const result: SendResult =
     message.kind === 'session'
-      ? await transport.sendSession({ to: toPhone, ...sessionContent(message) }, signal)
+      ? await transport.sendSession({ to: toPhone, ...(session ?? { text: '' }) }, signal)
       : await transport.sendTemplate(
           {
             to: toPhone,

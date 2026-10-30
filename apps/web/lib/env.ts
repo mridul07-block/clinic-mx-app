@@ -56,6 +56,15 @@ const serverEnvSchema = z.object({
    */
   WHATSAPP_APP_SECRET: z.string().min(16).optional(),
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().min(16).optional(),
+  /**
+   * The booking Flow (WA-04): the private key of the pair whose public half is uploaded to the
+   * number (a PEM, or a PEM written as Base64), the Flow's id, and whether to send it as a draft
+   * (Meta's test number, before it is published). Without them "Book appointment" gives the
+   * team's contact details.
+   */
+  WHATSAPP_FLOW_PRIVATE_KEY: z.string().min(100).optional(),
+  WHATSAPP_BOOKING_FLOW_ID: z.string().regex(/^\d+$/).optional(),
+  WHATSAPP_FLOW_MODE: z.enum(['draft', 'published']).default('published'),
   /** The Graph API version the Cloud API is called at, for example v25.0. */
   WHATSAPP_GRAPH_VERSION: z
     .string()

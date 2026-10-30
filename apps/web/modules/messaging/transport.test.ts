@@ -80,6 +80,37 @@ describe('cloudApiTransport', () => {
     expect(result).toEqual({ ok: true, waMessageId: 'wamid.2' });
   });
 
+  // WA-04: the booking form, opened from a button, as a draft on the test number.
+  it('sends a Flow with its token and button, as a draft until it is published', () => {
+    const flow = { id: '1429976172668253', token: 'token-1', cta: 'Book appointment' };
+    expect(
+      sessionBody({ to: '+919845012345', text: 'Book.', flow: { ...flow, mode: 'draft' } }),
+    ).toMatchObject({
+      type: 'interactive',
+      interactive: {
+        type: 'flow',
+        body: { text: 'Book.' },
+        action: {
+          name: 'flow',
+          parameters: {
+            flow_message_version: '3',
+            flow_token: 'token-1',
+            flow_id: '1429976172668253',
+            flow_cta: 'Book appointment',
+            flow_action: 'data_exchange',
+            mode: 'draft',
+          },
+        },
+      },
+    });
+    const published = sessionBody({
+      to: '+919845012345',
+      text: 'Book.',
+      flow: { ...flow, mode: 'published' },
+    });
+    expect(JSON.stringify(published)).not.toContain('"mode"');
+  });
+
   it('gives Meta’s code and short title on a refusal, never its message', async () => {
     const send = vi.fn(() =>
       json(400, {

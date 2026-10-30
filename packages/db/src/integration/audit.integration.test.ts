@@ -178,6 +178,8 @@ describe('the audit trail', () => {
     // audit_event: the trail itself.
     // centre_sequence: the last number issued (SCH-01); the patient row it numbers is the event.
     // slot_hold: a picked slot held for minutes (SCH-04); the appointment booked is the event.
+    // whatsapp_flow_session: an open WhatsApp Flow (WA-04); the patient and appointment it makes
+    // are the audited events.
     // whatsapp_event: Meta's raw webhook body (WA-02), deleted after days; the messages it becomes are
     // the audited events, and a copy in the trail would outlive the deletion.
     const exempt = [
@@ -187,6 +189,7 @@ describe('the audit trail', () => {
       'rate_limit',
       'slot_hold',
       'whatsapp_event',
+      'whatsapp_flow_session',
     ];
     const rows = await db.execute<{ table: string }>(sql`
       select c.relname as table

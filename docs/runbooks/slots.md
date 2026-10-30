@@ -132,8 +132,10 @@ Holds have the same two. A refusal (23P01) becomes `taken`.
 - `bookSlot(context, booking)`: the patient must exist, and an episode given must be the patient's
   and not discharged.
 
-They read the settings before the transaction opens (SET-03). WA-04 will call the engine in
-`packages/db` as the system, with a Flow session as the holder. The calendar (SCH-05,
+They read the settings before the transaction opens (SET-03). The WhatsApp booking Flow
+(WA-04, `docs/runbooks/whatsapp.md`) calls the engine in `packages/db` as the system, with its
+Flow session as the holder (`flow:<session>`): `datesWithFreeSlots`, `freeSlots`, `placeHold`
+and `bookAppointment`, channel WhatsApp. The calendar (SCH-05,
 `docs/runbooks/calendar.md`) draws its free cells and slot drawer from the same engine.
 
 ## Checking it

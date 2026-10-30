@@ -1,0 +1,239 @@
+{
+  "version": "6.0",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "CLINIC_DATE": ["TIME_PHYSIO", "BLOCKED"],
+    "TIME_PHYSIO": ["PERSON", "BLOCKED"],
+    "PERSON": ["SUMMARY", "BLOCKED"],
+    "SUMMARY": ["CONFIRMED", "TIME_PHYSIO", "BLOCKED"],
+    "CONFIRMED": [],
+    "BLOCKED": []
+  },
+  "screens": [
+    {
+      "id": "CLINIC_DATE",
+      "title": "Book appointment",
+      "data": {
+        "centres": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "id": { "type": "string" }, "title": { "type": "string" } }
+          },
+          "__example__": [{ "id": "hsr", "title": "HSR Layout" }]
+        },
+        "dates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "id": { "type": "string" }, "title": { "type": "string" } }
+          },
+          "__example__": [{ "id": "2026-11-02", "title": "Mon, 2 Nov" }]
+        },
+        "dates_visible": { "type": "boolean", "__example__": false },
+        "no_dates_visible": { "type": "boolean", "__example__": false }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Dropdown",
+            "name": "centre",
+            "label": "Clinic",
+            "required": true,
+            "data-source": "${data.centres}",
+            "on-select-action": {
+              "name": "data_exchange",
+              "payload": { "step": "centre", "centre": "${form.centre}" }
+            }
+          },
+          {
+            "type": "Dropdown",
+            "name": "date",
+            "label": "Date",
+            "required": true,
+            "visible": "${data.dates_visible}",
+            "data-source": "${data.dates}"
+          },
+          {
+            "type": "TextBody",
+            "visible": "${data.no_dates_visible}",
+            "text": "No free times at this clinic in the next two weeks. Please pick another clinic."
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "step": "date", "centre": "${form.centre}", "date": "${form.date}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "TIME_PHYSIO",
+      "title": "Time and physio",
+      "data": {
+        "heading": { "type": "string", "__example__": "HSR Layout, Mon, 2 Nov" },
+        "times": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "id": { "type": "string" }, "title": { "type": "string" } }
+          },
+          "__example__": [{ "id": "2026-11-02T04:30:00.000Z", "title": "10:00 AM" }]
+        },
+        "physios": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          },
+          "__example__": [{ "id": "p1", "title": "Test Physio", "description": "Fee ₹1,000" }]
+        },
+        "physios_visible": { "type": "boolean", "__example__": false }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextSubheading", "text": "${data.heading}" },
+          {
+            "type": "Dropdown",
+            "name": "time",
+            "label": "Time",
+            "required": true,
+            "data-source": "${data.times}",
+            "on-select-action": {
+              "name": "data_exchange",
+              "payload": { "step": "time", "time": "${form.time}" }
+            }
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "physio",
+            "label": "Physio",
+            "required": true,
+            "visible": "${data.physios_visible}",
+            "data-source": "${data.physios}"
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "step": "slot", "time": "${form.time}", "physio": "${form.physio}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PERSON",
+      "title": "Who is coming",
+      "data": {
+        "people": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "id": { "type": "string" }, "title": { "type": "string" } }
+          },
+          "__example__": [{ "id": "new", "title": "Someone new" }]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "RadioButtonsGroup",
+            "name": "person",
+            "label": "Who is coming?",
+            "required": true,
+            "data-source": "${data.people}"
+          },
+          {
+            "type": "TextInput",
+            "name": "name",
+            "label": "Full name, if someone new",
+            "input-type": "text",
+            "required": false
+          },
+          {
+            "type": "Footer",
+            "label": "Next",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "step": "person", "person": "${form.person}", "name": "${form.name}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "SUMMARY",
+      "title": "Check and confirm",
+      "data": {
+        "summary": { "type": "string", "__example__": "HSR Layout\nMon, 2 Nov, 10:00 AM" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextBody", "text": "${data.summary}" },
+          {
+            "type": "Footer",
+            "label": "Confirm",
+            "on-click-action": { "name": "data_exchange", "payload": { "step": "confirm" } }
+          }
+        ]
+      }
+    },
+    {
+      "id": "CONFIRMED",
+      "title": "Booked",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "details": { "type": "string", "__example__": "Appointment MVK-00042" },
+        "appointment": { "type": "string", "__example__": "MVK-00042" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextBody", "text": "${data.details}" },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": {
+              "name": "complete",
+              "payload": { "appointment": "${data.appointment}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "BLOCKED",
+      "title": "Please call us",
+      "terminal": true,
+      "success": false,
+      "data": {
+        "message": { "type": "string", "__example__": "Please call the clinic you visit." }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextBody", "text": "${data.message}" },
+          {
+            "type": "Footer",
+            "label": "Close",
+            "on-click-action": { "name": "complete", "payload": { "blocked": "yes" } }
+          }
+        ]
+      }
+    }
+  ]
+}

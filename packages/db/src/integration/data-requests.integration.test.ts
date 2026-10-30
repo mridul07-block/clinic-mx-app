@@ -261,7 +261,9 @@ describe('data requests', () => {
   it('copy only tables reviewed for a patient’s copy, or left out on purpose', async () => {
     // A new table that points at a patient fails here until it is reviewed: added to
     // internal.patient_export_tables (with any columns to hide) or to the list left out.
-    const leftOut = ['notification', 'task'];
+    // whatsapp_flow_session (WA-04): an open WhatsApp form's number and choices, deleted within
+    // days; the appointment it booked is in the copy.
+    const leftOut = ['notification', 'task', 'whatsapp_flow_session'];
     const linked = await db.execute<{ name: string }>(sql`
       select distinct c.table_name as name from information_schema.columns c
       join information_schema.tables t

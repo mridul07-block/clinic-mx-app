@@ -117,9 +117,11 @@ export default defineConfig(
     // (IAM-11) are bookkeeping no person drives. The health form's submit pipeline (INT-10) runs
     // as the system after the patient's own submit, and from its job. The blind test (AI-06) is
     // an operator's command line tool, with no person signed in. Meta's WhatsApp webhook (WA-02)
-    // is signed by Meta with the app secret, with no person signed in.
+    // and the booking Flow's data endpoint (WA-04) are signed by Meta with the app secret, with no
+    // person signed in.
     files: [
       'apps/web/app/api/whatsapp/**',
+      'apps/web/app/api/flows/**',
       'apps/web/scripts/blind-test.ts',
       'apps/web/modules/intake/pipeline.ts',
       'apps/web/proxy.ts',

@@ -21,11 +21,15 @@ export interface TemplateSend {
   parameters: string[];
 }
 
-/** A reply inside WhatsApp's 24 hour window: text, with up to 3 reply buttons. */
+/**
+ * A reply inside WhatsApp's 24 hour window: text, with up to 3 reply buttons, or with a button
+ * opening a Flow (WA-04).
+ */
 export interface SessionSend {
   to: string;
   text: string;
   buttons?: readonly { id: string; title: string }[];
+  flow?: { id: string; token: string; cta: string; mode: 'draft' | 'published' };
 }
 
 export type SendResult =
@@ -81,6 +85,27 @@ export function sessionBody(message: SessionSend) {
     recipient_type: 'individual',
     to: message.to.replace(/^\+/, ''),
   };
+  if (message.flow) {
+    return {
+      ...common,
+      type: 'interactive',
+      interactive: {
+        type: 'flow',
+        body: { text: message.text },
+        action: {
+          name: 'flow',
+          parameters: {
+            flow_message_version: '3',
+            flow_token: message.flow.token,
+            flow_id: message.flow.id,
+            flow_cta: message.flow.cta,
+            flow_action: 'data_exchange',
+            ...(message.flow.mode === 'draft' ? { mode: 'draft' } : {}),
+          },
+        },
+      },
+    };
+  }
   if (!message.buttons?.length) {
     return { ...common, type: 'text', text: { preview_url: false, body: message.text } };
   }

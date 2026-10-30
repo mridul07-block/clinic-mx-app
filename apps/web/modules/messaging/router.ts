@@ -1,6 +1,7 @@
 import 'server-only';
 import {
   centreContacts,
+  createFlowSession,
   inboundToRoute,
   queueMessage,
   recordRoute,
@@ -16,9 +17,10 @@ import {
   routeInbound,
   type InboundKind,
   type InboundRoute,
-  type SessionReply,
+  type RouteReply,
 } from '@clinic-mx/schemas';
 import { z } from 'zod';
+import { serverEnv } from '../../lib/env';
 import { systemService } from '../access/service';
 import { getSetting } from '../settings/settings';
 
@@ -32,9 +34,21 @@ import { getSetting } from '../settings/settings';
 
 export const WHATSAPP_ROUTE_JOB = 'whatsapp.route';
 
+/**
+ * How long a booking Flow sent now can be used: WhatsApp's 24 hour window, after which no reply
+ * that is not a template may go anyway (a technical limit, not a business rule).
+ */
+const FLOW_SESSION_MS = 24 * 60 * 60 * 1000;
+
+/** Whether the booking Flow is set up on this server (WA-04). */
+function bookingFlowReady(): boolean {
+  const env = serverEnv();
+  return Boolean(env.WHATSAPP_BOOKING_FLOW_ID && env.WHATSAPP_FLOW_PRIVATE_KEY);
+}
+
 export interface RouteOutcome {
   route: InboundRoute | null;
-  reply: SessionReply | null;
+  reply: RouteReply | null;
   /** Already routed, or not an inbound message. */
   skipped: boolean;
 }
@@ -61,11 +75,22 @@ const route = systemService({
     );
     await recordRoute(tx, message.id, chosen, owner?.id ?? null);
 
-    const reply = routeHandlers[chosen].reply;
-    const variables: Record<string, string> =
-      reply === 'contact'
-        ? { text: contactText({ centres: await centreContacts(tx, owner?.centreId), email }) }
-        : {};
+    const wanted = routeHandlers[chosen].reply;
+    const reply = wanted === 'booking_flow' && !bookingFlowReady() ? 'contact' : wanted;
+    if (reply === 'none') return { route: chosen, reply, skipped: false };
+    let variables: Record<string, string> = {};
+    if (reply === 'contact') {
+      variables = {
+        text: contactText({ centres: await centreContacts(tx, owner?.centreId), email }),
+      };
+    } else if (reply === 'booking_flow') {
+      const flowToken = await createFlowSession(tx, {
+        phone: message.fromPhone,
+        kind: 'booking',
+        expiresAt: new Date(Date.now() + FLOW_SESSION_MS),
+      });
+      variables = { flowToken };
+    }
     await queueMessage(tx, {
       patientId: owner?.id ?? null,
       toPhone: message.fromPhone,

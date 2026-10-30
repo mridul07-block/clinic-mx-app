@@ -12,9 +12,10 @@ import {
 } from '@clinic-mx/schemas';
 import { and, asc, eq, gte, inArray, lt } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import { appointment, appointmentType, patient, priceItem, staffUser } from './schema';
+import { appointment, appointmentType, patient, staffUser } from './schema';
 import { loadPeople, windowsOn } from './slots';
 import type { DbOrTransaction } from './versioned';
+import { consultationFees } from './whatsapp-flows';
 
 /**
  * The calendar day view (SCH-05, Frontend Specification "Calendar"): a column per physio with
@@ -120,14 +121,7 @@ export async function calendarDay(
     to: request.date,
   });
   const ids = people.map((p) => p.id);
-  const fees =
-    ids.length === 0
-      ? []
-      : await db
-          .select({ id: staffUser.id, label: priceItem.label, amountPaise: priceItem.amountPaise })
-          .from(staffUser)
-          .innerJoin(priceItem, eq(priceItem.id, staffUser.consultationPriceItemId))
-          .where(inArray(staffUser.id, ids));
+  const fees = [...(await consultationFees(db, ids))].map(([id, fee]) => ({ id, ...fee }));
   const rows =
     ids.length === 0
       ? []

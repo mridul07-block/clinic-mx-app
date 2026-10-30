@@ -52,6 +52,7 @@ const stored: Settings = {
   'whatsapp.test_recipients_only': true,
   'whatsapp.test_recipients': [],
   'whatsapp.event_retention_days': 7,
+  'booking.whatsapp_days_ahead': 14,
   'whatsapp.emergency_phrases': ['chest pain'],
   'whatsapp.front_desk_email': '',
   'ai.blind_test_budget_paise': 200000,
