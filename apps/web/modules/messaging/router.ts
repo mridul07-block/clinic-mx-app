@@ -5,12 +5,17 @@ import {
   inboundToRoute,
   queueMessage,
   recordRoute,
+  repliedMessage,
   solePatientByPhone,
   type Db,
+  type DbOrTransaction,
 } from '@clinic-mx/db';
 import {
+  CHECK_ANSWER_ALREADY,
+  CHECK_ANSWER_THANKS,
   SESSION_REPLY_VERSION,
   TEMPLATE_LANGUAGE,
+  checkAnswerOf,
   contactText,
   inboundKinds,
   routeHandlers,
@@ -23,6 +28,7 @@ import { z } from 'zod';
 import { serverEnv } from '../../lib/env';
 import { systemService } from '../access/service';
 import { getSetting } from '../settings/settings';
+import { recordCheckAnswerIn } from './clinic-messages';
 
 /**
  * The conversation router (WA-03; TAD section 6). Each message sent to the clinic's number gets
@@ -56,6 +62,26 @@ export interface RouteOutcome {
 const isInboundKind = (kind: string): kind is InboundKind =>
   (inboundKinds as readonly string[]).includes(kind);
 
+/**
+ * A tap on a check's reply button (WA-06): recorded as the answer of the link the message we sent
+ * stands for, then thanked; one answered already (the desk's QR, an earlier tap) is thanked as
+ * such. A tap on a message we cannot find, or one that stands for no link, gets the menu.
+ */
+async function answerCheck(
+  tx: DbOrTransaction,
+  inbound: { replyId: string | null; contextWaId: string | null },
+): Promise<'menu' | { text: string }> {
+  const tapped = checkAnswerOf(inbound.replyId);
+  const ours = inbound.contextWaId ? await repliedMessage(tx, inbound.contextWaId) : undefined;
+  if (!tapped || !ours?.patientLinkId || ours.templateKey !== tapped.template) return 'menu';
+  const outcome = await recordCheckAnswerIn(tx, {
+    linkId: ours.patientLinkId,
+    template: tapped.template,
+    answer: tapped.answer,
+  });
+  return { text: outcome === 'recorded' ? CHECK_ANSWER_THANKS : CHECK_ANSWER_ALREADY };
+}
+
 const route = systemService({
   component: 'whatsapp',
   input: z.object({ messageId: z.guid() }),
@@ -74,6 +100,22 @@ const route = systemService({
       { emergencyPhrases },
     );
     await recordRoute(tx, message.id, chosen, owner?.id ?? null);
+
+    if (chosen === 'check_answer') {
+      const answered = await answerCheck(tx, message);
+      await queueMessage(tx, {
+        patientId: owner?.id ?? null,
+        toPhone: message.fromPhone,
+        kind: 'session',
+        templateKey: answered === 'menu' ? 'menu' : 'check_answer',
+        templateVersion: SESSION_REPLY_VERSION,
+        language: TEMPLATE_LANGUAGE,
+        variables: answered === 'menu' ? {} : answered,
+        createdBy: 'system:whatsapp',
+        contextWaId: message.waMessageId,
+      });
+      return { route: chosen, reply: answered === 'menu' ? 'menu' : 'none', skipped: false };
+    }
 
     const wanted = routeHandlers[chosen].reply;
     const reply = wanted === 'booking_flow' && !bookingFlowReady() ? 'contact' : wanted;

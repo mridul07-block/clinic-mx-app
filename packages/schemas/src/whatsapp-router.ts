@@ -20,6 +20,8 @@ export const inboundRoutes = [
   'booking_flow',
   'reschedule_flow',
   'assistant',
+  // WA-06: a tap on a check's reply button (the first treatment check, a follow up).
+  'check_answer',
 ] as const;
 export type InboundRoute = (typeof inboundRoutes)[number];
 
@@ -33,13 +35,21 @@ export const inboundRouteLabels: Record<InboundRoute, string> = {
   booking_flow: 'Booking form',
   reschedule_flow: 'Reschedule form',
   assistant: 'Typed message',
+  check_answer: 'Check answer',
 };
 
 /**
  * The replies sent inside WhatsApp's 24 hour window: the router's own (the menu, the contact
- * details, the booking Flow, WA-04) and the booking confirmation text the Flow sends (until WA-07).
+ * details, the booking Flow, WA-04), the booking confirmation text the Flow sends (until WA-07)
+ * and the thanks for a check's answer (WA-06).
  */
-export const sessionReplies = ['menu', 'contact', 'booking_flow', 'booking_confirmation'] as const;
+export const sessionReplies = [
+  'menu',
+  'contact',
+  'booking_flow',
+  'booking_confirmation',
+  'check_answer',
+] as const;
 export type SessionReply = (typeof sessionReplies)[number];
 
 export const sessionReplyLabels: Record<SessionReply, string> = {
@@ -47,10 +57,11 @@ export const sessionReplyLabels: Record<SessionReply, string> = {
   contact: 'Contact details',
   booking_flow: 'Booking form',
   booking_confirmation: 'Booking confirmation',
+  check_answer: 'Answer noted',
 };
 
 /** What the router answers a route with; `none` when the handler has answered already. */
-export type RouteReply = Exclude<SessionReply, 'booking_confirmation'> | 'none';
+export type RouteReply = Exclude<SessionReply, 'booking_confirmation' | 'check_answer'> | 'none';
 
 /** The booking Flow message (WA-04): its text and the button that opens the form. */
 export const BOOKING_FLOW_TEXT = 'Book your appointment in a few taps.';
@@ -74,7 +85,35 @@ export const routeHandlers: Record<
   booking_flow: { ticket: 'WA-04', live: true, reply: 'none' },
   reschedule_flow: { ticket: 'WA-05', live: false, reply: 'contact' },
   assistant: { ticket: 'WA-11', live: false, reply: 'menu' },
+  // The handler records the answer and thanks them itself.
+  check_answer: { ticket: 'WA-06', live: true, reply: 'none' },
 };
+
+/**
+ * The checks whose reply buttons are answers (WA-06): the quick reply payload is
+ * `<template key>.<button id>` (`quickReplyPayload`), and each button id is the stored answer.
+ */
+export const checkAnswers = {
+  first_treatment_check: ['better', 'same', 'still_sore'],
+  follow_up_check: ['doing_well', 'some_pain', 'injured_again'],
+} as const;
+export type CheckTemplate = keyof typeof checkAnswers;
+export interface CheckAnswer {
+  template: CheckTemplate;
+  answer: string;
+}
+
+/** The check and answer a reply button's payload stands for; undefined for any other reply. */
+export function checkAnswerOf(replyId: string | null): CheckAnswer | undefined {
+  const [template, answer, ...rest] = (replyId ?? '').split('.');
+  if (rest.length > 0 || !template || !answer || !(template in checkAnswers)) return undefined;
+  const answers: readonly string[] = checkAnswers[template as CheckTemplate];
+  return answers.includes(answer) ? { template: template as CheckTemplate, answer } : undefined;
+}
+
+/** The thanks for a check's answer, and the reply when it was answered before. */
+export const CHECK_ANSWER_THANKS = 'Thank you, we have noted your answer.';
+export const CHECK_ANSWER_ALREADY = 'We already have your answer, thank you.';
 
 /** The three button menu (PRD J1.2); Meta allows 3 reply buttons of at most 20 characters. */
 export const MENU_BUTTONS = [
@@ -146,6 +185,7 @@ export function routeInbound(
       return 'assistant';
     case 'reply': {
       const id = message.replyId ?? '';
+      if (checkAnswerOf(id)) return 'check_answer';
       return menuRoutes[id] ?? reminderRoutes[id.trim().toLowerCase()] ?? 'menu';
     }
     case 'flow':

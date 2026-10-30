@@ -9,9 +9,12 @@ const db = vi.hoisted(() => ({
   inboundToRoute: vi.fn(),
   queueMessage: vi.fn(),
   recordRoute: vi.fn(),
+  repliedMessage: vi.fn(),
   solePatientByPhone: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
+const answers = vi.hoisted(() => ({ recordCheckAnswerIn: vi.fn() }));
+vi.mock('./clinic-messages', () => answers);
 vi.mock('../access/service', () => ({
   systemService:
     (definition: { run: (tx: unknown, input: unknown) => unknown }) =>
@@ -161,6 +164,70 @@ describe('routing a message sent to us', () => {
     );
     expect((await routeInboundMessage({} as Db, messageId)).reply).toBe('contact');
     expect(db.createFlowSession).not.toHaveBeenCalled();
+  });
+
+  // WA-06: a tap on a check's reply button is that check's answer.
+  describe('a tap on a check’s reply button', () => {
+    const linkId = '00000000-0000-4000-8000-000000000901';
+    const tap = (replyId: string) =>
+      inbound({ kind: 'reply', replyId, body: null, contextWaId: 'wamid.OUT1' });
+    beforeEach(() => {
+      answers.recordCheckAnswerIn.mockReset().mockResolvedValue('recorded');
+      db.repliedMessage.mockResolvedValue({
+        id: 'sent-1',
+        templateKey: 'first_treatment_check',
+        patientId: 'patient-1',
+        patientLinkId: linkId,
+      });
+    });
+
+    it('records the answer for the link the message stands for, and thanks them', async () => {
+      db.inboundToRoute.mockResolvedValue(tap('first_treatment_check.still_sore'));
+      expect(await routeInboundMessage({} as Db, messageId)).toEqual({
+        route: 'check_answer',
+        reply: 'none',
+        skipped: false,
+      });
+      expect(db.repliedMessage).toHaveBeenCalledWith('system-tx', 'wamid.OUT1');
+      expect(answers.recordCheckAnswerIn).toHaveBeenCalledWith('system-tx', {
+        linkId,
+        template: 'first_treatment_check',
+        answer: 'still_sore',
+      });
+      expect(queued()).toEqual([
+        expect.objectContaining({
+          kind: 'session',
+          templateKey: 'check_answer',
+          variables: { text: 'Thank you, we have noted your answer.' },
+          contextWaId: 'wamid.IN1',
+        }),
+      ]);
+    });
+
+    it('says so when it was answered already', async () => {
+      answers.recordCheckAnswerIn.mockResolvedValue('closed');
+      db.inboundToRoute.mockResolvedValue(tap('first_treatment_check.better'));
+      await routeInboundMessage({} as Db, messageId);
+      expect(queued()[0]).toMatchObject({
+        variables: { text: 'We already have your answer, thank you.' },
+      });
+    });
+
+    it('sends the menu for a tap on a message we cannot match', async () => {
+      db.repliedMessage.mockResolvedValue(undefined);
+      db.inboundToRoute.mockResolvedValue(tap('follow_up_check.some_pain'));
+      expect((await routeInboundMessage({} as Db, messageId)).reply).toBe('menu');
+      // Another check's button on this message, or a message that stands for no link.
+      db.repliedMessage.mockResolvedValue({
+        id: 'sent-1',
+        templateKey: 'first_treatment_check',
+        patientId: null,
+        patientLinkId: linkId,
+      });
+      expect((await routeInboundMessage({} as Db, messageId)).reply).toBe('menu');
+      expect(answers.recordCheckAnswerIn).not.toHaveBeenCalled();
+      expect(queued().map((reply) => reply.templateKey)).toEqual(['menu', 'menu']);
+    });
   });
 
   it('records a completed booking form without replying: it sent its confirmation already', async () => {

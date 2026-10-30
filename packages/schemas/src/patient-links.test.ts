@@ -36,12 +36,13 @@ describe('patient link purposes', () => {
     }
   });
 
-  it('make only My plan reusable and reissued from WhatsApp (decision 22 October 2026)', () => {
+  it('make only My plan and the review redirect reusable, only My plan reissued from WhatsApp', () => {
     const reusable = patientLinkPurposes.filter((p) => !patientLinkDefinitions[p].singleUse);
     const reissued = patientLinkPurposes.filter(
       (p) => patientLinkDefinitions[p].reissuedFromWhatsApp,
     );
-    expect(reusable).toEqual(['my_plan']);
+    // WA-06: the review link only redirects to the centre's Google page, so it opens again.
+    expect(reusable).toEqual(['my_plan', 'review']);
     expect(reissued).toEqual(['my_plan']);
   });
 

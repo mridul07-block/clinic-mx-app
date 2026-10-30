@@ -28,6 +28,29 @@ sent, "Meta has not approved this template on this number". A quick reply sends 
 `<key>.<button id>` (for example `first_treatment_check.still_sore`) for the router; a link button
 opens `<origin>/p/<token>`.
 
+## Who sends what (WA-06 senders)
+
+The database queues each message as a job; its sender (`apps/web/modules/messaging/clinic-messages.ts`)
+checks it is still due, then queues the template for the patient's number, once per job (the job's
+key is the message's `source_key`). The send job then sends the newest approved version, or keeps it
+as Not sent.
+
+| Template | Queued by | Sent only when |
+| --- | --- | --- |
+| `first_treatment_check` | session 1 signed (PAT-05) | not answered yet; stands for the visit's feedback link |
+| `session_3_check` | session 3 signed (PAT-06) | the episode is Active or Under review |
+| `follow_up_check` | discharge, per interval (PAT-10) | that interval is due and unanswered; no newer episode open; stands for the follow up link |
+| `review_request` | discharge (PAT-09) | always; the button opens a `review` link to the centre's Google page; fails visibly without one |
+| `no_show` | No show (ALT-04) | still a no show |
+| `package_expiry_reminder` | package activated (BIL-08) | still active with sessions left |
+| `plan_sessions_list` | Book plan sessions (SCH-11) | sessions still Booked or Confirmed |
+| `red_flag_safety_advice` | referral, Monitor with caution (CLN-11) | always, with the centre's phone; fails visibly without one |
+
+A tap on a check's reply button comes back as `<template>.<answer>` with our message's id as its
+context: the router (`check_answer`) records it as the answer of the link that message stands for and
+thanks the patient. The consultation summary, discharge report and receipt (PDFs) follow in part 2;
+"I'll think about it" has no template.
+
 ## The text (WA-06)
 
 Drafted by Velyx Labs from the facts each message already carries; plain English, no clinical

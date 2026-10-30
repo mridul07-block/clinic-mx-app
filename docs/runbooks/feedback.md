@@ -134,15 +134,18 @@ the user's standing approval, 29 October 2026 (DECISION PAT-05).
   (`feedback.first_treatment_check_time`), or at once when the note is signed after that; once per
   episode (key per episode). Never for an opening entry's episode (SCH-13): those patients had
   their first treatment before launch (`internal.first_treatment_episode`). The job sends
-  nothing until WA-06, whose sender must first check the check is still unanswered.
+  `first_treatment_check` by WhatsApp (WA-06) unless the desk's QR took the answer already; the
+  message stands for the visit's feedback link (a working one, else a new one).
 - **Until WhatsApp:** the desk shows "First treatment check" as a QR on the plan and payment
   sheet, for the episode's signed session 1's visit (a feedback link for that visit, working for
   `links.feedback_days`); before session 1 is signed it says the check opens then; once answered,
   "Answer received".
 - **The question:** "How do you feel since your first treatment?" is a placeholder (DECISION
   PAT-05); the answers are the PRD's, Better, Same and Still sore, as three 64 px buttons, one tap
-  sends it. Nothing else is asked or stored. The WhatsApp template keeps its three quick replies;
-  when WA-03 routes them, they write through the same service.
+  sends it. Nothing else is asked or stored. **On WhatsApp (WA-06)** the same three answers are the
+  message's reply buttons: a tap is recorded as the link's answer, the same row, once
+  (`recordCheckAnswerIn`, through `internal.feedback_subject_of`), and the patient is thanked; a
+  check answered already is thanked as such.
 - **Still sore:** the episode's treating physio (the plan of care's), else the physio of session 1,
   gets a high task, "Still sore the day after the first treatment" (`review.still_sore`), counted
   with the open clinical reviews on the Centre Manager's Alerts ("New symptoms, adverse events,
@@ -169,8 +172,8 @@ the user's standing approval, 29 October 2026 (DECISION PAT-06).
   Feedback screen and service recovery. The `session_3_check` template keeps no buttons until then.
 - **When:** signing the episode's session numbered `feedback.session_check_number` (3) queues
   `whatsapp.session_3_check` at once (the TAD gives no time), once per episode (key per episode),
-  never for an opening entry's episode (numbering starts again at launch). It sends nothing until
-  WA-06, whose sender should skip an episode no longer active.
+  never for an opening entry's episode (numbering starts again at launch). It sends
+  `session_3_check` by WhatsApp (WA-06), skipping an episode no longer Active or Under review.
 - **Code:** `internal.session_3_check` and its trigger (`*_session_3_check_rules.sql`); the job stub
   in `apps/web/modules/jobs/handlers.ts`.
 - **Tests:** `packages/db/src/integration/first-treatment-check.integration.test.ts` ("the session
@@ -191,8 +194,9 @@ recommended default chosen under the user's standing approval, 29 October 2026 (
   `internal.episode_discharged_follow_up`), once per episode.
 - **When:** the day after discharge (`feedback.review_request_days`, 1; the discharge report and
   its feedback go the same day) at 10:00 IST (`feedback.review_request_time`; the TAD gives no
-  time), or at once when later. It sends nothing until WA-06, which sends `review_request` with the
-  episode's centre's link and fails visibly when the centre has none.
+  time), or at once when later. It sends `review_request` by WhatsApp (WA-06); its "Leave a review"
+  button opens a `review` patient link (`links.review_days`, 30), which redirects to the episode's
+  centre's Google review page. The job fails visibly when the centre has no link.
 - **Until WhatsApp:** the plan and payment sheet of every discharged episode shows "Leave a review",
   the centre's link as a QR (a public link, so no patient link), for those who check in at its
   centre (`internal.review_link_target`); without a link it says so.
@@ -216,9 +220,10 @@ recommended default chosen under the user's standing approval, 29 October 2026 (
   weeks, 3 months, 12 months), each on that day after discharge (IST; a month at a month's end as
   the calendar allows) at `engagement.follow_up_time` (10:00 IST), keyed per episode and interval.
   Each follow up is open from its day until the next one's day (the last for `links.follow_up_days`,
-  7 days); a missed one lapses. They send nothing until
-  WA-06, whose sender checks the interval is still unanswered and skips a patient with a newer
-  episode not yet discharged. The schedule is fixed at discharge: changing the setting later moves
+  7 days); a missed one lapses. Each sends `follow_up_check` by WhatsApp (WA-06) only while its
+  interval is the one due and unanswered, never to a patient with a newer episode not yet
+  discharged; the message stands for the episode's follow up link, and a tap on Doing well, Some
+  pain or Injured again is recorded as its answer, as on the link page. The schedule is fixed at discharge: changing the setting later moves
   nothing already scheduled.
 - **How the patient answers:** a `follow_up` link for the episode (single use, `links.follow_up_days`,
   7 days; it opens on the clinic tablet too, as feedback links do) opens the follow up open now and

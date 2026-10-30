@@ -116,6 +116,7 @@ const stored: Settings = {
   'links.consent_hours': 2,
   'links.clearance_hours': 24,
   'links.questionnaire_days': 7,
+  'links.review_days': 30,
   'links.feedback_days': 7,
   'links.my_plan_days': 30,
   'kiosk.idle_seconds': 120,
