@@ -30,7 +30,8 @@ recorded as DECISION AI-06 in `docs/PROGRESS.md`.
   it was left out; high risk rows were left out because they are always on the sheet.
 - 3 candidates, the PRD's two test candidates and one premium model as a yardstick, each pinned to
   a zero data retention host, with reasoning off, prompt `rank_diagnoses.v2`, 800 tokens and
-  12 seconds a call.
+  12 seconds a call. The prompts are v3 since (only the rows the sheet shows: AI-03's live run made
+  the sheet ready in about 2.5 seconds), so the real run uses v3, as the candidate file does.
 
 **What it showed** (`ok` is a valid ranking within the time; p50 and p95 are the time to an
 answer, including a retry):

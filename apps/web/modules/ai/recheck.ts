@@ -155,9 +155,14 @@ async function rerank(
     rows.some((row) => row.conditionId === item.conditionId),
   );
   if (!sheet.case) return done({ status: 'unavailable', reason: 'no_region', aiRunId: null });
+  const counts = {
+    top: await getSetting('ai.sheet_top_count'),
+    alsoConsider: await getSetting('ai.sheet_also_consider_count'),
+  };
   const result = await recheckWithFindings(db, pass, {
     case: sheet.case,
     rows,
+    limit: counts.top + counts.alsoConsider,
     episodeId,
     findings,
     // The sheet's own similar cases (AI-05), as it sent them: steps 5 to 7 only run again.
@@ -169,10 +174,7 @@ async function rerank(
     const reason: AiSheetUnavailableReason = result.reason;
     return done({ status: 'unavailable', reason, aiRunId: result.runId });
   }
-  const suggestions = validateRanking(items, result.output, {
-    top: await getSetting('ai.sheet_top_count'),
-    alsoConsider: await getSetting('ai.sheet_also_consider_count'),
-  });
+  const suggestions = validateRanking(items, result.output, counts);
   if (suggestions.length === 0) {
     return done({ status: 'unavailable', reason: 'no_valid_suggestions', aiRunId: result.runId });
   }

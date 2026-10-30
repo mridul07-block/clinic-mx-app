@@ -171,6 +171,8 @@ describe('recheck with findings', () => {
       Record<string, unknown>,
     ];
     expect(call.findings).toEqual(['Lachman test: Positive']);
+    // Only the rows the sheet shows are asked for: its top and also consider counts.
+    expect(call.limit).toBe(5);
     // The name words go only to the guard, which refuses a request that carries them.
     const { forbidden, ...sent } = call;
     expect(JSON.stringify(sent)).not.toContain('Fake Name');

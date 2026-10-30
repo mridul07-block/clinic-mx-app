@@ -120,7 +120,7 @@ usual." (AI-03).
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `ai.task_rank_diagnoses`, `ai.task_recheck_with_findings` | model none, providers none, prompt v2 (since AI-05), reasoning low, 6000 ms, 800 tokens | Set the model and providers after the blind test (AI-06). Two attempts of 6 seconds stay inside the 15 second target. |
+| `ai.task_rank_diagnoses`, `ai.task_recheck_with_findings` | model none, providers none, prompt v3 (since AI-03's live run: only the rows the sheet shows), reasoning none, 6000 ms, 800 tokens | Set the model and providers after the blind test (AI-06). Two attempts of 6 seconds stay inside the 15 second target. |
 | `ai.daily_spend_cap_paise` | 20000 | DECISION AI-01: a placeholder for the client. |
 | `ai.usd_rate_paise` | 9650 | Paise per US dollar, from TAD section 11. |
 | `ai.task_write_patient_content` | model none, providers none, prompt `write_patient_content.v1`, reasoning none, 60000 ms (up to 120000 for this task only; the sheet's tasks keep 20000), 2500 tokens | Patient content (AI-07): the operator names the model and hosts for each run (`docs/runbooks/patient-content.md`). |
@@ -133,7 +133,10 @@ usual." (AI-03).
 clinically true. A prompt changes only as a new version, because a unit test pins each version's
 text. A new prompt or model means a new blind test (TAD section 7).
 
-Version 2 of both clinical prompts (AI-05) is told about the similar confirmed cases. The input
+Version 3 of both clinical prompts (AI-03's live run, 31 October 2026) is sent a `limit`, the
+number of rows the sheet shows, and returns only that many; `runTask` sends it only to a prompt in
+`aiPromptsWithLimit`. Version 2 of both clinical prompts (AI-05) is told about the similar confirmed
+cases, as v3 is. The input
 schemas allow `similar` (strict structured cases, at most 5), and `runTask` sends it only to a
 prompt in `aiPromptsWithSimilarCases`; a v1 prompt never gets it
 (`docs/runbooks/ai-similar-cases.md`).

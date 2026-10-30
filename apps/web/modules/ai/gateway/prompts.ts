@@ -58,4 +58,22 @@ export const PROMPTS: Record<AiPromptVersion, string> = {
     'Write about the condition, never about a particular patient.',
     'Reply only with JSON matching the schema.',
   ].join('\n'),
+  // AI-03 live (31 October 2026): as v2, but only the rows the sheet shows. Ranking every row of a
+  // 25 row shortlist ran out of tokens; the sheet keeps only its top and also consider rows.
+  'rank_diagnoses.v3': [
+    'You help a physiotherapist prepare for a consultation.',
+    'The user message is JSON: a case (age, sex, body region, symptoms, duration in weeks, sport and goal), a numbered shortlist of conditions from the clinic’s knowledge base, in the knowledge base’s own words, similar past cases of other patients whose diagnosis a clinician confirmed at review or discharge (each with its confirmed condition and, when that condition is on the shortlist, its row number), and a limit.',
+    'Return only the most likely rows of the shortlist for this case, most likely first: as many as the limit, or every row if there are fewer.',
+    'Use only the row numbers given and never add a condition. The similar cases are context only: they may be few or none, and they never outweigh the case itself.',
+    'Give each row a one line reason of at most 160 characters, based only on the case, the similar cases and that row.',
+    'Reply only with JSON matching the schema.',
+  ].join('\n'),
+  'recheck_with_findings.v3': [
+    'You help a physiotherapist during a consultation.',
+    'The user message is JSON: a case (age, sex, body region, symptoms, duration in weeks, sport and goal), the examination findings, a numbered shortlist of conditions from the clinic’s knowledge base, in the knowledge base’s own words, similar past cases of other patients whose diagnosis a clinician confirmed at review or discharge (each with its confirmed condition and, when that condition is on the shortlist, its row number), and a limit.',
+    'Given the findings, return only the most likely rows of the shortlist, most likely first: as many as the limit, or every row if there are fewer.',
+    'Use only the row numbers given and never add a condition. The similar cases are context only: they may be few or none, and they never outweigh the case and the findings.',
+    'Give each row a one line reason of at most 160 characters, based only on the case, the findings, the similar cases and that row.',
+    'Reply only with JSON matching the schema.',
+  ].join('\n'),
 };

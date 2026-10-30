@@ -35,6 +35,8 @@ interface ClinicalCall {
   rows: readonly ShortlistRow[];
   /** Similar confirmed cases (AI-05), sent only to a prompt told about them. */
   similar?: readonly AiSimilarCase[];
+  /** How many rows the sheet shows (top and also consider), sent only to a prompt told about it. */
+  limit: number;
   episodeId: string;
   /** The patient's own name words: never sent. */
   forbidden?: readonly string[];
@@ -69,7 +71,12 @@ export async function rankDiagnoses(
   const result = await runTask(
     db,
     'rank_diagnoses',
-    { case: call.case, rows: numbered(call.rows), similar: [...(call.similar ?? [])] },
+    {
+      case: call.case,
+      rows: numbered(call.rows),
+      similar: [...(call.similar ?? [])],
+      limit: call.limit,
+    },
     {
       episodeId: call.episodeId,
       kbVersionId: pass.kbVersionId,
@@ -93,6 +100,7 @@ export async function rankForBlindTest(
     case: AiCase;
     rows: readonly ShortlistRow[];
     similar?: readonly AiSimilarCase[];
+    limit: number;
     config: AiTaskConfig & { model: string };
     transport?: RunOptions['transport'];
   },
@@ -100,7 +108,12 @@ export async function rankForBlindTest(
   const result = await runTask(
     db,
     'rank_diagnoses',
-    { case: call.case, rows: numbered(call.rows), similar: [...(call.similar ?? [])] },
+    {
+      case: call.case,
+      rows: numbered(call.rows),
+      similar: [...(call.similar ?? [])],
+      limit: call.limit,
+    },
     {
       episodeId: null,
       kbVersionId: call.kbVersionId,
@@ -125,6 +138,7 @@ export async function recheckWithFindings(
       rows: numbered(call.rows),
       findings: [...call.findings],
       similar: [...(call.similar ?? [])],
+      limit: call.limit,
     },
     {
       episodeId: call.episodeId,

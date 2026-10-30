@@ -144,8 +144,11 @@ describe('the AI preparation sheet job', () => {
     const sent = call?.[2] as {
       rows: { conditionId: string; mustRuleOut: boolean }[];
       forbidden: string[];
+      limit: number;
     };
     expect(sent.rows[0]).toMatchObject({ conditionId: 'KNE-040', mustRuleOut: true });
+    // Only the rows the sheet shows are asked for: its top and also consider counts.
+    expect(sent.limit).toBe(5);
     expect(sent.forbidden).toEqual(['Test Patient']);
     // AI-05: the similar confirmed cases, chosen for this case and its numbered rows, are sent and
     // kept with the sheet exactly as sent.

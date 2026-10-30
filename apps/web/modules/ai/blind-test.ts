@@ -277,6 +277,7 @@ export async function runBlindTest(
           case: c.case,
           rows,
           similar,
+          limit: top + alsoConsider,
           config: candidate.config,
           transport,
         });

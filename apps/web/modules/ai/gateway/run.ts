@@ -12,6 +12,7 @@ import {
 import {
   aiPatientContentInputSchema,
   aiPatientContentOutputSchema,
+  aiPromptsWithLimit,
   aiPromptsWithSimilarCases,
   aiRankInputSchema,
   aiRankOutputSchema,
@@ -21,6 +22,7 @@ import {
   namesBlockedProvider,
   pinnedAiTasks,
   startOfIstDay,
+  type AiPromptVersion,
   type AiRunStatus,
   type AiTaskConfig,
 } from '@clinic-mx/schemas';
@@ -64,9 +66,14 @@ export type AiResult<T> =
   | { status: 'ok'; output: T; runId: string }
   | { status: 'unavailable'; reason: Exclude<AiRunStatus, 'ok'>; runId: string };
 
-function withoutSimilar(input: unknown): unknown {
+/** The input without what its prompt is not told about: similar cases (AI-05), a row limit. */
+function forPrompt(input: unknown, promptVersion: AiPromptVersion): unknown {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
-  return Object.fromEntries(Object.entries(input).filter(([key]) => key !== 'similar'));
+  const dropped = new Set([
+    ...(aiPromptsWithSimilarCases.includes(promptVersion) ? [] : ['similar']),
+    ...(aiPromptsWithLimit.includes(promptVersion) ? [] : ['limit']),
+  ]);
+  return Object.fromEntries(Object.entries(input).filter(([key]) => !dropped.has(key)));
 }
 
 /** JSON with keys in order, so the same input always hashes the same. */
@@ -195,10 +202,8 @@ export async function runTask<K extends GatewayTask>(
   }
   const config =
     options.blindTest?.config ?? options.config ?? (await getSetting(TASKS[task].settingKey));
-  // Similar cases (AI-05) go only to a prompt that is told about them.
-  const parsed = TASKS[task].input.safeParse(
-    aiPromptsWithSimilarCases.includes(config.promptVersion) ? rawInput : withoutSimilar(rawInput),
-  );
+  // Similar cases (AI-05) and a row limit (AI-03) go only to a prompt that is told about them.
+  const parsed = TASKS[task].input.safeParse(forPrompt(rawInput, config.promptVersion));
   const inputJson = canonicalJson(parsed.success ? parsed.data : rawInput);
   const base = {
     kind: task,

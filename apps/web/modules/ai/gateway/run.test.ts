@@ -300,6 +300,7 @@ describe('the clinical tasks', () => {
     const result = await rankDiagnoses({} as Db, pass, {
       case: theCase,
       rows,
+      limit: 5,
       episodeId,
       transport,
     });
@@ -319,6 +320,7 @@ describe('the clinical tasks', () => {
     const result = await recheckWithFindings({} as Db, pass, {
       case: theCase,
       rows,
+      limit: 5,
       episodeId,
       findings: ['Positive patellar grind'],
       transport,
@@ -327,6 +329,55 @@ describe('the clinical tasks', () => {
     expect(sent[0]?.messages[0]?.content).toBe(PROMPTS['recheck_with_findings.v1']);
     expect(sent[0]?.messages[1]?.content).toContain('Positive patellar grind');
   });
+  // AI-03 live: the number of rows the sheet shows goes only to a prompt told about it.
+  it('asks a v3 prompt for only the rows the sheet shows, and never an older one', async () => {
+    const v2 = fake();
+    settings['ai.task_rank_diagnoses'] = { ...config, promptVersion: 'rank_diagnoses.v2' };
+    await rankDiagnoses({} as Db, pass, {
+      case: theCase,
+      rows,
+      limit: 5,
+      episodeId,
+      transport: v2.transport,
+    });
+    expect(JSON.parse(v2.sent[0]?.messages[1]?.content ?? '{}')).not.toHaveProperty('limit');
+    expect(recorded()[0]?.input).not.toHaveProperty('limit');
+
+    for (const [task, promptVersion] of [
+      ['ai.task_rank_diagnoses', 'rank_diagnoses.v3'],
+      ['ai.task_recheck_with_findings', 'recheck_with_findings.v3'],
+    ] as const) {
+      settings[task] = { ...config, promptVersion };
+    }
+    const v3 = fake();
+    await rankDiagnoses({} as Db, pass, {
+      case: theCase,
+      rows,
+      limit: 5,
+      episodeId,
+      transport: v3.transport,
+    });
+    await recheckWithFindings({} as Db, pass, {
+      case: theCase,
+      rows,
+      limit: 4,
+      episodeId,
+      findings: ['Positive patellar grind'],
+      transport: v3.transport,
+    });
+    expect(v3.sent[0]?.messages[0]?.content).toBe(PROMPTS['rank_diagnoses.v3']);
+    expect(JSON.parse(v3.sent[0]?.messages[1]?.content ?? '{}')).toMatchObject({ limit: 5 });
+    expect(v3.sent[1]?.messages[0]?.content).toBe(PROMPTS['recheck_with_findings.v3']);
+    expect(JSON.parse(v3.sent[1]?.messages[1]?.content ?? '{}')).toMatchObject({ limit: 4 });
+    expect(recorded()[1]?.input).toMatchObject({ limit: 5 });
+    // This block does not reset the settings: put back the first versions for the next test.
+    settings['ai.task_rank_diagnoses'] = config;
+    settings['ai.task_recheck_with_findings'] = {
+      ...config,
+      promptVersion: 'recheck_with_findings.v1',
+    };
+  });
+
   // AI-05: similar confirmed cases go only to a prompt that is told about them.
   it('sends similar cases only with a v2 prompt, and logs what it sent', async () => {
     const similar = [
@@ -345,6 +396,7 @@ describe('the clinical tasks', () => {
     await rankDiagnoses({} as Db, pass, {
       case: theCase,
       rows,
+      limit: 5,
       similar,
       episodeId,
       transport: v1.transport,
@@ -357,6 +409,7 @@ describe('the clinical tasks', () => {
     await rankDiagnoses({} as Db, pass, {
       case: theCase,
       rows,
+      limit: 5,
       similar,
       episodeId,
       transport: v2.transport,
@@ -371,6 +424,7 @@ describe('the clinical tasks', () => {
     const refused = await rankDiagnoses({} as Db, pass, {
       case: theCase,
       rows,
+      limit: 5,
       similar: [{ ...similar[0], episodeId } as unknown as (typeof similar)[number]],
       episodeId,
       transport: v2b.transport,
@@ -391,6 +445,7 @@ describe('the blind test', () => {
       kbVersionId,
       case: theCase,
       rows,
+      limit: 5,
       config: { ...candidate, ...extra },
       transport,
     });
@@ -457,6 +512,7 @@ describe('the blind test', () => {
       kbVersionId,
       case: { ...theCase, symptoms: ['Call 98765 43210'] },
       rows,
+      limit: 5,
       config: candidate,
       transport,
     });

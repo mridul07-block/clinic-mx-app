@@ -132,20 +132,22 @@ export async function runPreparationSheet(
   const items = shortlist.items.filter((item) =>
     rows.some((row) => row.conditionId === item.conditionId),
   );
+  const counts = {
+    top: await getSetting('ai.sheet_top_count'),
+    alsoConsider: await getSetting('ai.sheet_also_consider_count'),
+  };
   const result = await rankDiagnoses(db, pass, {
     case: sent,
     rows,
     similar,
+    limit: counts.top + counts.alsoConsider,
     episodeId,
     forbidden,
     transport: options.transport,
   });
   if (result.status !== 'ok') return unavailable(result.reason, result.runId);
 
-  const suggestions: ValidatedSuggestion[] = validateRanking(items, result.output, {
-    top: await getSetting('ai.sheet_top_count'),
-    alsoConsider: await getSetting('ai.sheet_also_consider_count'),
-  });
+  const suggestions: ValidatedSuggestion[] = validateRanking(items, result.output, counts);
   if (suggestions.length === 0) return unavailable('no_valid_suggestions', result.runId);
   const done = await finish(db, {
     claim: claimed,
