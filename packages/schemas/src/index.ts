@@ -1369,3 +1369,22 @@ export {
   type RoutableMessage,
   type SessionReply,
 } from './whatsapp-router';
+export {
+  acknowledgedClearances,
+  clearanceAcknowledgementTitle,
+  clearanceSectionFields,
+  clearanceSectionHints,
+  clearanceSections,
+  clearanceSectionTitles,
+  clearanceSignWithTextsSchema,
+  clearanceStatementKey,
+  clearanceTextsSchema,
+  clearanceTick,
+  isAcknowledgedClearance,
+  parseClearanceAcknowledgement,
+  type AcknowledgedClearance,
+  type ClearanceSection,
+  type ClearanceSignWithTextsInput,
+  type ClearanceTexts,
+  type ParsedAcknowledgement,
+} from './clearance-acknowledgement';

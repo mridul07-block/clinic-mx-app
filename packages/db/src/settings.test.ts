@@ -112,6 +112,7 @@ const stored: Settings = {
   'security.support_grant_max_hours': 24,
   'links.health_form_hours': 2,
   'links.consent_hours': 2,
+  'links.clearance_hours': 24,
   'links.questionnaire_days': 7,
   'links.feedback_days': 7,
   'links.my_plan_days': 30,

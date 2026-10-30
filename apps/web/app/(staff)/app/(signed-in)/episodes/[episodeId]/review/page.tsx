@@ -1,7 +1,8 @@
-import { accessScope, formatIstDateTime, takesFinalTest } from '@clinic-mx/schemas';
+import { accessScope, can, formatIstDateTime, takesFinalTest } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { ownOrigin } from '../../../../../../../lib/own-origin';
 import { NotAllowedError } from '../../../../../../../modules/access/guard';
 import { requireStaff } from '../../../../../../../modules/auth/session';
 import { loadReview, type ReviewScreen } from '../../../../../../../modules/reviews/services';
@@ -76,7 +77,13 @@ export default async function ReviewPage({ params }: { params: Promise<{ episode
         )}
       </section>
       {readiness ? (
-        <ReadinessPanel episodeId={episode.id} view={readiness} works={screen.worksReadiness} />
+        <ReadinessPanel
+          episodeId={episode.id}
+          view={readiness}
+          works={screen.worksReadiness}
+          showsClearanceQr={can(staff, 'consultant_records.sign')}
+          origin={await ownOrigin()}
+        />
       ) : (
         <p className="text-ink-muted" data-testid="readiness-none">
           Readiness shows once the signed consultation names a region with criteria.

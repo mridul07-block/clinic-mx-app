@@ -47,7 +47,7 @@ As in the physiotherapist guide. **Knowledge base** also holds **Patient content
 1. Tap **Start review** on a review visit, or **Review and discharge** on the summary card.
 2. **Final testing**: retest each measure, then tap **Sign final testing**.
 3. **Confirmed diagnosis**: confirm or change the diagnosis, then tap **Confirm diagnosis**.
-4. **Readiness**: the app lists the criteria. Mark each **Met**, **Not met** or **Not assessed**, or use **Override** with a reason. Then sign each status under **Clearance**.
+4. **Readiness**: the app lists the criteria. Mark each **Met**, **Not met** or **Not assessed**, or use **Override** with a reason. Then sign each status under **Clearance**. For **Return to training** and **Return to sport**, write the **Plan**, the **Warning signs to stop** and the **Residual risk** for the patient first. Then tap **Show clearance QR**: the patient scans it, ticks each section and signs. The clearance then says when they acknowledged it.
 5. **Discharge**: pick the **Discharge reason**, mark the **Goals**, then tap **Discharge**.
 
 ### Approve patient content

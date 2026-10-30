@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { completeVisit } from './bills';
 import { removeCalendarRows, startedAppointment } from './calendar';
 import { consultationMeasures, signedConsultation } from './consultations';
-import { removePipelineRows } from './intake';
+import { ageQuestion, drawSignature, otherBrowser, removePipelineRows } from './intake';
 import { consultationTypeId, submittedWithAlert } from './my-patients';
 import { testPatient } from './patients';
 import { activePlan } from './plan-sheet';
@@ -13,6 +13,9 @@ import { signInWithCode, temporaryWithCode } from './staff';
 // workbook's readiness lines, measured ones judged from the newest reading (recorded on the panel
 // when never measured), yes or no ones marked by the consultant; the same criteria gate the three
 // statuses, signed in order; an override with a written reason covers Not met and Not assessed.
+// OUT-09 done when: the patient ticks and signs the plan, the warning signs and the residual risk
+// (recommended defaults, 30 October 2026: the consultant writes them when signing Return to
+// training or Return to sport, and shows the patient the clearance QR).
 
 const physios: string[] = [];
 const visits: string[] = [];
@@ -33,6 +36,7 @@ const HAMSTRINGS = 'knee.lsi.hamstrings'; // gitleaks:allow
 
 test('the readiness panel judges each criterion, and the three clearances are signed in order', async ({
   page,
+  browser,
 }) => {
   test.slow();
   const consultant = await temporaryWithCode('physiotherapist', ['HSR Layout'], {
@@ -129,17 +133,81 @@ test('the readiness panel judges each criterion, and the three clearances are si
   );
   await page.screenshot({ path: test.info().outputPath('readiness-panel.png'), fullPage: true });
 
-  // The three statuses, in order.
+  // The three statuses, in order. OUT-09: Return to training and Return to sport carry what the
+  // patient acknowledges, in the consultant's words (generated text).
+  const texts = {
+    Plan: 'Full team training this week, then matches.',
+    'Warning signs to stop': 'Swelling after training, or the knee giving way.',
+    'Residual risk': 'A small risk of injuring the knee again remains.',
+  };
+  await expect(clearance('rehabilitation_complete').getByTestId('clearance-texts')).toHaveCount(0);
   for (const [status, label] of [
     ['rehabilitation_complete', 'Rehabilitation complete'],
     ['return_to_training', 'Return to training'],
     ['return_to_sport', 'Return to sport'],
   ] as const) {
+    if (status !== 'rehabilitation_complete') {
+      for (const [field, text] of Object.entries(texts)) {
+        await clearance(status).getByLabel(field, { exact: true }).fill(text);
+      }
+    }
     await clearance(status)
       .getByRole('button', { name: `Sign ${label}` })
       .click();
     await expect(clearance(status)).toContainText(`Signed by ${consultant.name}`);
   }
+  // The patient acknowledges Return to sport, the newest, on their phone from the QR.
+  await expect(clearance('return_to_sport').getByTestId('clearance-acknowledgement')).toContainText(
+    'Not acknowledged by the patient yet.',
+  );
+  await expect(
+    clearance('return_to_training').getByRole('button', { name: 'Show clearance QR' }),
+  ).toHaveCount(0);
+  await clearance('return_to_sport').getByRole('button', { name: 'Show clearance QR' }).click();
+  const path = (
+    await clearance('return_to_sport').getByTestId('clearance-path').textContent()
+  )?.trim();
+  expect(path).toMatch(/^\/p\//);
+  const phone = await otherBrowser(browser);
+  await phone.goto(path ?? '');
+  await expect(
+    phone.getByRole('heading', { name: 'Your clearance: Return to sport' }),
+  ).toBeVisible();
+  for (const [title, text] of Object.entries(texts)) {
+    await expect(phone.getByRole('region', { name: title })).toContainText(text);
+  }
+  // The age question, asked when no date of birth is on file (INT-07): the patient signs.
+  if (await ageQuestion(phone).isVisible()) {
+    await ageQuestion(phone).getByText('No', { exact: true }).click();
+  }
+  await phone.getByRole('button', { name: 'Done' }).click();
+  await expect(phone.getByRole('region', { name: 'Residual risk' })).toContainText(
+    'Tick this once you have read it.',
+  );
+  for (const title of Object.keys(texts)) {
+    await phone
+      .getByRole('region', { name: title })
+      .getByText('I have read and understood this.')
+      .click();
+  }
+  await drawSignature(phone);
+  expect(
+    await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBe(true);
+  await phone.screenshot({ path: test.info().outputPath('clearance-phone.png'), fullPage: true });
+  await phone.getByRole('button', { name: 'Done' }).click();
+  await expect(
+    phone.getByText('Thank you. Your acknowledgement is with the clinic.'),
+  ).toBeVisible();
+  await phone.context().close();
+  await page.reload();
+  await expect(clearance('return_to_sport').getByTestId('clearance-acknowledged')).toContainText(
+    'Acknowledged by the patient on',
+  );
+  // Return to training waits for its own, now asked next.
+  await expect(
+    clearance('return_to_training').getByRole('button', { name: 'Show clearance QR' }),
+  ).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );

@@ -1,3 +1,4 @@
+import type { PatientLinkPurpose } from '@clinic-mx/schemas';
 import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
 import { patientLink } from './schema';
 import type { DbOrTransaction } from './versioned';
@@ -69,9 +70,18 @@ export async function partBForEpisode(
 }
 
 /** The episode's consent link still open (not used, revoked or expired), newest first. */
-export async function liveConsentLink(
+export function liveConsentLink(
   db: DbOrTransaction,
   episodeId: string,
+): Promise<{ id: string; expiresAt: Date } | undefined> {
+  return liveEpisodeLink(db, episodeId, 'consent');
+}
+
+/** The episode's link for `purpose` still open (not used, revoked or expired), newest first. */
+export async function liveEpisodeLink(
+  db: DbOrTransaction,
+  episodeId: string,
+  purpose: PatientLinkPurpose,
 ): Promise<{ id: string; expiresAt: Date } | undefined> {
   const [row] = await db
     .select({ id: patientLink.id, expiresAt: patientLink.expiresAt })
@@ -79,7 +89,7 @@ export async function liveConsentLink(
     .where(
       and(
         eq(patientLink.episodeId, episodeId),
-        eq(patientLink.purpose, 'consent'),
+        eq(patientLink.purpose, purpose),
         isNull(patientLink.revokedAt),
         isNull(patientLink.completedAt),
         gt(patientLink.expiresAt, sql`now()`),

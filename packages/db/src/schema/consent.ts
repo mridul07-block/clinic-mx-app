@@ -64,7 +64,7 @@ export const consentRecord = pgTable(
     ),
     // Part B is read by episode (BIL-03).
     index('consent_record_episode_idx').on(table.episodeId, table.stage, table.statementKey),
-    check('consent_record_stage', sql`${table.stage} in ('A', 'B')`),
+    check('consent_record_stage', sql`${table.stage} in ('A', 'B', 'C')`),
     check('consent_record_signer', sql`${table.signer} in ('patient', 'guardian')`),
     // A guardian's record names the guardian on file; the patient's names none.
     check(

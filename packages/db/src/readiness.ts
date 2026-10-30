@@ -265,6 +265,8 @@ export async function signClearance(
     kbVersionId: string;
     criteria: ClearanceCriterion[];
     by: string;
+    /** What the patient acknowledges (OUT-09): Return to training and Return to sport only. */
+    texts?: { plan: string; warningSigns: string; residualRisk: string };
   },
 ): Promise<void> {
   await tx.insert(clearance).values({
@@ -274,5 +276,8 @@ export async function signClearance(
     kbVersionId: values.kbVersionId,
     criteria: values.criteria,
     signedBy: values.by,
+    patientPlan: values.texts?.plan ?? null,
+    warningSigns: values.texts?.warningSigns ?? null,
+    residualRisk: values.texts?.residualRisk ?? null,
   });
 }

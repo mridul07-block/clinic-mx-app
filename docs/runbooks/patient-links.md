@@ -23,6 +23,7 @@ Each link is:
   | My plan | 30 days | `links.my_plan_days` |
   | Follow up (PAT-10) | 7 days | `links.follow_up_days` |
   | Questionnaire (OUT-02) | 7 days | `links.questionnaire_days` |
+  | Clearance acknowledgement (OUT-09) | 24 hours | `links.clearance_hours` |
 
 - **Only the newest My plan link works.** Issuing one stops the patient's older My plan links.
 - **Form links accept one submission.** Health form, consent, questionnaire and feedback links show
