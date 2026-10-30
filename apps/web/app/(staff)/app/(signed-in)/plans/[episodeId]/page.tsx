@@ -23,6 +23,7 @@ import { Tag } from '../../../../../../components/tag';
 import { ownOrigin } from '../../../../../../lib/own-origin';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { planSheetOf, type PlanSheet } from '../../../../../../modules/billing/plan-sheet';
+import { partBForSheet, tabletsForEpisode } from '../../../../../../modules/consent/part-b';
 import {
   planSessionsOf,
   type PlanSessionsView,
@@ -41,6 +42,7 @@ import {
   RateYourVisitQr,
 } from './patient-qrs';
 import { PaymentForm, UndoPaymentForm } from './payment-forms';
+import { PartBSection } from './part-b-section';
 import { PlanChoiceForm, type ChoiceOption } from './plan-choice-form';
 import { PlanSessionsForm } from './plan-sessions-form';
 
@@ -372,6 +374,9 @@ export default async function PlanSheetPage({
   // PAT-03: after discharge, My plan is the patient's maintenance page.
   const showsMyPlan = sheet.canShowMyPlan && sheet.myPlanHere;
   const origin = sheet.canShowMyPlan ? await ownOrigin() : '';
+  // BIL-03: Part B consent, for those who check patients in at the episode's centre.
+  const partB = sheet.canShowMyPlan ? await partBForSheet(staff, episodeId) : undefined;
+  const tablets = partB ? await tabletsForEpisode(staff, episodeId) : [];
   const { plan, options } = sheet;
   const [current, ...earlier] = sheet.choices;
   const choiceOptions: ChoiceOption[] = options
@@ -633,7 +638,14 @@ export default async function PlanSheetPage({
             ) : null}
           </section>
 
-          <p className="text-sm text-ink-muted">Consent comes next.</p>
+          {partB ? (
+            <PartBSection
+              episodeId={sheet.episodeId}
+              view={partB}
+              origin={origin}
+              tablets={tablets}
+            />
+          ) : null}
         </>
       )}
     </main>

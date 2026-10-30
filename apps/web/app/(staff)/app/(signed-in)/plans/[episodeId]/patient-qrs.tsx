@@ -7,6 +7,7 @@ import {
   showFirstTreatmentCheckAction,
   showFollowUpCheckAction,
 } from '../../../../../../modules/feedback/actions';
+import { showPartBConsentAction } from '../../../../../../modules/consent/actions';
 import { showMyPlanAction } from '../../../../../../modules/patient-links/actions';
 import { showQuestionnairesAction } from '../../../../../../modules/questionnaires/actions';
 
@@ -246,6 +247,25 @@ export function QuestionnairesQr({
       buttonLabel="Show questionnaires QR"
       alt="QR code for the patient’s questionnaires"
       action={showQuestionnairesAction}
+      fields={{ episodeId }}
+      origin={origin}
+    />
+  );
+}
+
+/**
+ * Show Part B consent QR (BIL-03, PRD J4.4): the patient reads and signs the pre-treatment consent
+ * on their phone; the episode's working consent link, or a new one.
+ */
+export function PartBConsentQr({ episodeId, origin }: { episodeId: string; origin: string }) {
+  return (
+    <PatientLinkQr
+      id="part-b"
+      title="Part B consent for the patient"
+      description="The pre-treatment consent: the general terms, the package terms when they chose a package, and each planned treatment. They scan it with their phone camera."
+      buttonLabel="Show Part B consent QR"
+      alt="QR code for the patient’s Part B consent"
+      action={showPartBConsentAction}
       fields={{ episodeId }}
       origin={origin}
     />

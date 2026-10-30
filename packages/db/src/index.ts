@@ -324,6 +324,7 @@ export {
   insertConsentRecords,
   ownConsentDecisions,
   ownGuardians,
+  ownPatient,
   partAConsentDeclined,
   type ConsentDecisionRow,
   type OwnGuardian,
@@ -725,3 +726,9 @@ export {
   patientExport,
   type DataRequestEntry,
 } from './data-requests';
+export {
+  liveConsentLink,
+  partBForEpisode,
+  partBForLink,
+  type PartBContext,
+} from './part-b-consent';

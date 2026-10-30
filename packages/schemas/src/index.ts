@@ -290,6 +290,7 @@ export {
   latestConsent,
   minorStatus,
   parseConsent,
+  parseSignature,
   parseSigner,
   partAStatements,
   signatureKinds,
@@ -1296,3 +1297,17 @@ export {
   type DataRequestKind,
   type DataRequestStatus,
 } from './data-requests';
+export {
+  modalityStatement,
+  parsePartB,
+  partBGate,
+  partBStatements,
+  partBStatementsFor,
+  partBStatus,
+  partBText,
+  partBToAsk,
+  type PartBFills,
+  type PartBStatement,
+  type PartBStatementKey,
+  type PartBStatus,
+} from './part-b-consent';

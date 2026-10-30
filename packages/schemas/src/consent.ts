@@ -103,7 +103,22 @@ export function parseConsent(
   }
   if (Object.keys(errors).length > 0) return { ok: false, errors };
   if (!Object.values(decisions).every(Boolean)) return { ok: true, decisions };
+  const signed = parseSignature(posted);
+  if (!signed.ok) return { ok: false, errors: { signature: signed.error } };
+  return { ok: true, decisions, signature: signed.signature };
+}
 
+/**
+ * Reads the e-signature as posted: `signature` (a PNG data URL from the pad) or `typedName`; or
+ * what is wrong, in words.
+ */
+export function parseSignature(
+  posted: Readonly<Record<string, string | readonly string[] | undefined>>,
+): { ok: true; signature: ConsentSignature } | { ok: false; error: string } {
+  const one = (key: string) => {
+    const raw = posted[key];
+    return (typeof raw === 'string' ? raw : raw?.[0])?.trim() ?? '';
+  };
   const drawn = one('signature');
   if (drawn) {
     const png = drawn.startsWith(pngDataUrl)
@@ -111,18 +126,14 @@ export function parseConsent(
       : undefined;
     const isPng =
       png !== undefined && png.length > 8 && png[0] === 0x89 && png[1] === 0x50 && png[2] === 0x4e;
-    if (!isPng || png.length > signatureMaxBytes)
-      return { ok: false, errors: { signature: SIGN_HERE } };
-    return { ok: true, decisions, signature: { kind: 'drawn', png } };
+    if (!isPng || png.length > signatureMaxBytes) return { ok: false, error: SIGN_HERE };
+    return { ok: true, signature: { kind: 'drawn', png } };
   }
   const typed = one('typedName').replace(/\s+/g, ' ');
   if (typed.length >= 2 && typed.length <= 100) {
-    return { ok: true, decisions, signature: { kind: 'typed', name: typed } };
+    return { ok: true, signature: { kind: 'typed', name: typed } };
   }
-  return {
-    ok: false,
-    errors: { signature: 'typedName' in posted ? TYPE_NAME : SIGN_HERE },
-  };
+  return { ok: false, error: 'typedName' in posted ? TYPE_NAME : SIGN_HERE };
 }
 
 /** A consent record as read back: what was decided, and when. */

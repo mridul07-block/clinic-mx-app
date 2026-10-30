@@ -20,6 +20,7 @@ import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { clientIp } from '../../../../modules/auth/session';
 import { loadHealthFormVisit, type HealthFormWelcome } from '../../../../modules/intake/visit';
+import { loadPartB, type PartBPage } from '../../../../modules/consent/part-b';
 import { kioskBrowser } from '../../../../modules/kiosk/device';
 import {
   openPatientLink,
@@ -47,6 +48,7 @@ import { ConsentScreenForm } from './consent-form';
 import { FeedbackForm } from './feedback-form';
 import { FirstTreatmentForm } from './first-treatment-form';
 import { FollowUpForm } from './follow-up-form';
+import { PartBConsentForm } from './part-b-form';
 import { QuestionnaireForm } from './questionnaire-form';
 import { HealthFormScreenForm } from './health-form';
 import { KioskShell } from './kiosk-shell';
@@ -110,7 +112,9 @@ function message(opened: Shown): { title: string; body: string } {
         body:
           opened.purpose === 'my_plan'
             ? 'Your plan cannot be shown. Please ask the clinic.'
-            : 'This form is no longer open. Please ask the front desk.',
+            : opened.purpose === 'consent'
+              ? 'There is nothing to sign here now. Please ask the front desk.'
+              : 'This form is no longer open. Please ask the front desk.',
       };
     case 'used':
       return {
@@ -118,11 +122,13 @@ function message(opened: Shown): { title: string; body: string } {
         body:
           opened.purpose === 'health_form'
             ? 'Thank you. Your answers are with your physiotherapist.'
-            : opened.purpose === 'feedback' || opened.purpose === 'follow_up'
-              ? 'Thank you. Your feedback has reached the clinic.'
-              : opened.purpose === 'questionnaire'
-                ? 'Thank you. Your answers are with your physiotherapist.'
-                : 'You have already sent this. Thank you.',
+            : opened.purpose === 'consent'
+              ? 'Thank you. Your consent is with the clinic.'
+              : opened.purpose === 'feedback' || opened.purpose === 'follow_up'
+                ? 'Thank you. Your feedback has reached the clinic.'
+                : opened.purpose === 'questionnaire'
+                  ? 'Thank you. Your answers are with your physiotherapist.'
+                  : 'You have already sent this. Thank you.',
       };
     case 'expired':
     case 'revoked':
@@ -340,10 +346,16 @@ export default async function PatientPage({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ screen?: string; change?: string; guardian?: string; changed?: string }>;
+  searchParams: Promise<{
+    screen?: string;
+    change?: string;
+    guardian?: string;
+    changed?: string;
+    declined?: string;
+  }>;
 }) {
   const { token } = await params;
-  const { screen: screenKey, change, guardian, changed } = await searchParams;
+  const { screen: screenKey, change, guardian, changed, declined } = await searchParams;
   const browser = await kioskBrowser();
   if (browser.status !== 'none') {
     const linkId = patientLinkIdFromToken(token);
@@ -389,7 +401,24 @@ export default async function PatientPage({
     else if (!step) opened = { status: 'closed', purpose: 'questionnaire' };
     else questionnaire = step;
   }
-  const { title, body } = kiosk ? kioskMessage(opened) : message(opened);
+  // BIL-03: Part B consent, through the episode's consent link.
+  let partB: PartBPage | undefined;
+  if (link.status === 'valid' && link.link.purpose === 'consent') {
+    partB = await loadPartB(link.link, ip);
+    if (!partB.open) {
+      opened =
+        partB.reason === 'done'
+          ? { status: 'used', purpose: 'consent' }
+          : { status: 'closed', purpose: 'consent' };
+    }
+  }
+  const shown = kiosk ? kioskMessage(opened) : message(opened);
+  const { title } = shown;
+  // Something declined on Part B: the desk speaks to the patient.
+  const body =
+    opened.status === 'used' && opened.purpose === 'consent' && declined === '1'
+      ? 'Thank you. You did not agree to everything; the front desk will speak to you about it.'
+      : shown.body;
   const formScreen = welcome?.open ? (
     healthFormScreen(
       token,
@@ -405,6 +434,14 @@ export default async function PatientPage({
     <FirstTreatmentForm token={token} />
   ) : followUp ? (
     <FollowUpForm token={token} followUp={followUp} />
+  ) : partB?.open ? (
+    <PartBConsentForm
+      token={token}
+      firstName={partB.firstName}
+      cards={partB.cards}
+      signing={partB.signing}
+      guardianNeeded={guardian === 'needed'}
+    />
   ) : questionnaire ? (
     <QuestionnaireForm
       key={questionnaire.key}
