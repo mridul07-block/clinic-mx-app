@@ -41,6 +41,19 @@ const serverEnvSchema = z.object({
    * CI, so no model is ever called there and each run is logged as not configured.
    */
   OPENROUTER_API_KEY: z.string().min(20).optional(),
+  /**
+   * WhatsApp Cloud API (WA-01; TAD section 6), server only: a permanent System User token of the
+   * Meta app, the sending number's Phone Number ID and its WhatsApp Business Account. Unset locally
+   * and in CI, so no message ever leaves; each is kept as Not sent, "not configured".
+   */
+  WHATSAPP_ACCESS_TOKEN: z.string().min(20).optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().regex(/^\d+$/).optional(),
+  WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().regex(/^\d+$/).optional(),
+  /** The Graph API version the Cloud API is called at, for example v25.0. */
+  WHATSAPP_GRAPH_VERSION: z
+    .string()
+    .regex(/^v\d+\.\d+$/)
+    .default('v25.0'),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

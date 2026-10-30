@@ -725,3 +725,12 @@ export {
   patientExport,
   type DataRequestEntry,
 } from './data-requests';
+export {
+  messageRecord,
+  queueMessage,
+  recentMessages,
+  recordMessageOutcome,
+  type MessageEntry,
+  type MessageOutcome,
+  type NewMessage,
+} from './messaging';

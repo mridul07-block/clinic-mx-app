@@ -12,7 +12,8 @@
 
 export type TemplateCategory = 'utility';
 export type TemplateHeader = 'none' | 'document';
-export type TemplateStatus = 'draft';
+/** Draft until WA-06 submits it; Approved once Meta approves it, and only then sent (WA-01). */
+export type TemplateStatus = 'draft' | 'approved';
 export type TemplateButtonKind = 'quick_reply' | 'url' | 'flow';
 
 export type TemplateVariable = { readonly name: string; readonly label: string };
@@ -264,4 +265,5 @@ export const templateButtonKindLabels: Record<TemplateButtonKind, string> = {
 
 export const templateStatusLabels: Record<TemplateStatus, string> = {
   draft: 'Draft: text written in WA-06',
+  approved: 'Approved by Meta',
 };

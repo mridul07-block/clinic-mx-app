@@ -1485,6 +1485,20 @@
       "when": 1793292516769,
       "tag": "20261029164836_audit_event_at_index",
       "breakpoints": true
+    },
+    {
+      "idx": 212,
+      "version": "7",
+      "when": 1793354797988,
+      "tag": "20261030100637_message",
+      "breakpoints": true
+    },
+    {
+      "idx": 213,
+      "version": "7",
+      "when": 1793354799927,
+      "tag": "20261030100639_message_rules",
+      "breakpoints": true
     }
   ]
 }

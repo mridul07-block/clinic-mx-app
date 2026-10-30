@@ -228,6 +228,11 @@ jobs:
       - name: Seed
         run: pnpm db:seed
 
+      # As `pnpm ci:local` does: tests written while Actions was blocked (since 24 October 2026)
+      # read the imported knowledge base (phases, criteria, modalities, questionnaires).
+      - name: Knowledge base
+        run: pnpm kb:import --apply
+
       - name: Database tests
         run: pnpm --filter @clinic-mx/db test:integration
 
