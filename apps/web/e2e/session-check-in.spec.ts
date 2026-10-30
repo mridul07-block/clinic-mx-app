@@ -79,6 +79,8 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
   const paid = await proposedPatient(physio.id, 50);
   // SES-05: the plan includes Radial Shockwave, which warns about the patient's pregnancy.
   await plannedModality(paid.consultationId, 'radial_shockwave');
+  // BIL-04: and Dry needling, whose consent wording is awaited: never prefilled or given.
+  await plannedModality(paid.consultationId, 'dry_needling');
   const unpaid = await proposedPatient(physio.id, 110);
   const desk = await temporaryDesk();
   const hsr = await centreIdByCode('HSR');
@@ -251,6 +253,14 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
       await shockwave
         .getByLabel('Reason it is still given today')
         .fill('Postpartum; cleared by the obstetrician');
+      // BIL-04: Dry needling, planned but not consented (its wording awaited), is not given.
+      const dryNeedling = note.getByRole('checkbox', { name: 'Dry needling' });
+      await expect(dryNeedling).not.toBeChecked();
+      await dryNeedling.check();
+      await expect(note.getByTestId('close-blockers')).toContainText(
+        'Dry needling is not used until the clinic’s consent wording arrives: untick it.',
+      );
+      await dryNeedling.uncheck();
       // Session 1 has no earlier note to copy.
       await expect(note.getByTestId('same-as-last-time')).toHaveCount(0);
       await expect(note.getByTestId('close-blockers')).toHaveCount(0);
