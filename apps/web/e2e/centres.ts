@@ -1,5 +1,5 @@
 import { centre, createDb, systemActor, withActor } from '@clinic-mx/db';
-import { inArray } from 'drizzle-orm';
+import { eq, inArray, isNull } from 'drizzle-orm';
 
 // Centres for end to end tests (SET-01). Tests that change centres hold the `e2e centres` lock,
 // take a snapshot of the centres first and put them back afterwards. A centre a test added is
@@ -39,6 +39,22 @@ export async function restoreCentres(snapshot: CentreSnapshot): Promise<void> {
         .update(centre)
         .set({ name, address, mapLink, reviewLink, phone, colour, active, treadmills })
         .where(inArray(centre.id, [row.id]));
+    }
+  });
+}
+
+/**
+ * Gives each centre without a phone a generated one (WA-07): a booking confirmation needs the front
+ * desk's number, and the seed leaves phones to the Super Admin. The test database only.
+ */
+export async function givePhonesToCentres(): Promise<void> {
+  await withActor(db(), systemActor('tests'), async (tx) => {
+    const phoneless = await tx.select({ id: centre.id }).from(centre).where(isNull(centre.phone));
+    for (const [index, row] of phoneless.entries()) {
+      await tx
+        .update(centre)
+        .set({ phone: `+918000000${String(100 + index)}` })
+        .where(eq(centre.id, row.id));
     }
   });
 }

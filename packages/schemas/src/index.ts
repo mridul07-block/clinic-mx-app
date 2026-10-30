@@ -521,6 +521,8 @@ export {
   messageTemplate,
   messageTemplates,
   metaTemplateName,
+  oldestSendableVersion,
+  renderTemplateBody,
   quickReplyPayload,
   templateApprovalLabels,
   templateApprovalStatuses,
@@ -1344,6 +1346,7 @@ export {
   skipReasons,
   testRecipientsSchema,
   whatsappNumberSchema,
+  withinSessionWindow,
   type InboundKind,
   type MessageDirection,
   type MessageKind,
@@ -1381,6 +1384,11 @@ export {
   type PartBStatementKey,
   type PartBStatus,
 } from './part-b-consent';
+export {
+  confirmationDirections,
+  confirmationFee,
+  confirmationTemplateKey,
+} from './booking-confirmation';
 export {
   APPOINTMENT_CHANGED_TEXT,
   appointmentConfirmedText,

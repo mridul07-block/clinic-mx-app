@@ -247,15 +247,17 @@ test('a patient moves their appointment from the menu, prefilled, and the desk s
     .from(bookingCounter)
     .where(eq(bookingCounter.patientId, patient.id));
   expect(counted?.reschedules).toBe(1);
-  const [confirmation] = await db()
-    .select()
-    .from(message)
-    .where(
-      and(eq(message.toPhone, patient.phone), eq(message.templateKey, 'reschedule_confirmation')),
-    );
-  expect(confirmation?.variables.text).toContain(
-    `Your appointment is moved: ${number} (was ${old.number}).`,
-  );
+  // WA-07: the moved appointment gets the booking confirmation with its new number.
+  await tickUntil(page.request, async () => {
+    const [confirmation] = await db()
+      .select()
+      .from(message)
+      .where(
+        and(eq(message.toPhone, patient.phone), eq(message.templateKey, 'booking_confirmation')),
+      );
+    expect(confirmation?.appointmentId).toBe(now?.id);
+    expect(String(confirmation?.variables.text)).toContain(`your appointment ${number} is booked`);
+  });
 
   // The completed form comes back through the webhook: known by its token, no reply.
   const completion = `wamid.e2e-${crypto.randomUUID()}`;
@@ -287,7 +289,13 @@ test('a patient moves their appointment from the menu, prefilled, and the desk s
     .select({ key: message.templateKey })
     .from(message)
     .where(eq(message.toPhone, patient.phone));
-  expect(replies.map((r) => r.key).sort()).toEqual(['reschedule_confirmation', 'reschedule_flow']);
+  // The old appointment's own front desk confirmation (WA-07) is not a reply to the form.
+  expect(
+    replies
+      .map((r) => r.key)
+      .filter((key) => key !== 'front_desk_booking_confirmation')
+      .sort(),
+  ).toEqual(['booking_confirmation', 'reschedule_flow']);
 
   // The desk sees who moved it, and where.
   const desk = await temporaryWithCode('super_admin');

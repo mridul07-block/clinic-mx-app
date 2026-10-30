@@ -5,6 +5,7 @@ import {
   retryableSendFailure,
   testRecipientsSchema,
   whatsappNumberSchema,
+  withinSessionWindow,
 } from './messaging';
 
 // WA-01: messages go only where they may, and only with an approved template.
@@ -56,5 +57,15 @@ describe('retryableSendFailure', () => {
     expect(retryableSendFailure({ kind: 'http', httpStatus: 503 })).toBe(true);
     expect(retryableSendFailure({ kind: 'http', httpStatus: 400 })).toBe(false);
     expect(retryableSendFailure({ kind: 'http', httpStatus: 401 })).toBe(false);
+  });
+});
+
+// WA-07: a reply that is not a template goes only within 24 hours of their last message.
+describe('withinSessionWindow', () => {
+  const last = new Date('2026-11-01T10:00:00Z');
+  it('is open for 24 hours after their last message', () => {
+    expect(withinSessionWindow(last, new Date('2026-11-02T09:59:59Z'))).toBe(true);
+    expect(withinSessionWindow(last, new Date('2026-11-02T10:00:00Z'))).toBe(false);
+    expect(withinSessionWindow(null, last)).toBe(false);
   });
 });

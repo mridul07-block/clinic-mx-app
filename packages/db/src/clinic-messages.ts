@@ -3,6 +3,7 @@ import { and, asc, desc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { FeedbackSubject } from './feedback';
 import {
   appointment,
+  appointmentType,
   centre,
   consultation,
   document,
@@ -13,7 +14,9 @@ import {
   patientLink,
   patientPackage,
   planBooking,
+  priceItem,
   redFlagAlert,
+  staffUser,
 } from './schema';
 import type { DbOrTransaction } from './versioned';
 
@@ -124,6 +127,38 @@ export async function appointmentForMessage(db: DbOrTransaction, appointmentId: 
       centreName: centre.name,
     })
     .from(appointment)
+    .innerJoin(centre, eq(centre.id, appointment.centreId))
+    .where(eq(appointment.id, appointmentId));
+  return row;
+}
+
+/**
+ * The job the database queues for every booking not in a plan series (WA-07, migration
+ * `booking_confirmation`): `{ appointmentId }`.
+ */
+export const BOOKING_CONFIRMATION_JOB = 'whatsapp.booking_confirmation';
+
+/** What a booking confirmation says (PRD J1.4), with the physio's consultation fee, if any. */
+export async function appointmentForConfirmation(db: DbOrTransaction, appointmentId: string) {
+  const [row] = await db
+    .select({
+      patientId: appointment.patientId,
+      number: appointment.number,
+      status: appointment.status,
+      channel: appointment.channel,
+      startsAt: appointment.startsAt,
+      typeKey: appointmentType.key,
+      physioName: staffUser.name,
+      consultationFeePaise: priceItem.amountPaise,
+      centreName: centre.name,
+      mapLink: centre.mapLink,
+      address: centre.address,
+      centrePhone: centre.phone,
+    })
+    .from(appointment)
+    .innerJoin(appointmentType, eq(appointmentType.id, appointment.appointmentTypeId))
+    .innerJoin(staffUser, eq(staffUser.id, appointment.physioId))
+    .leftJoin(priceItem, eq(priceItem.id, staffUser.consultationPriceItemId))
     .innerJoin(centre, eq(centre.id, appointment.centreId))
     .where(eq(appointment.id, appointmentId));
   return row;

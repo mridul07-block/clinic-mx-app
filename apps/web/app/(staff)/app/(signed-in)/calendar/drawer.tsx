@@ -173,7 +173,7 @@ export function AppointmentDrawer({
         >
           <span className="font-semibold text-active">Booked {appointment.number}</span>
           <span className="text-sm text-ink-secondary">
-            The WhatsApp confirmation starts with the WhatsApp integration.
+            The patient gets the confirmation on WhatsApp.
           </span>
         </div>
       ) : null}

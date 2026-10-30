@@ -44,6 +44,7 @@ as Not sent.
 | `review_request` | discharge (PAT-09) | always; the button opens a `review` link to the centre's Google page; fails visibly without one |
 | `no_show` | No show (ALT-04) | still a no show |
 | `package_expiry_reminder` | package activated (BIL-08) | still active with sessions left |
+| `booking_confirmation`, `front_desk_booking_confirmation` | every appointment booked outside a plan series (WA-07) | not cancelled, moved, a no show or completed; see "The booking confirmation" |
 | `plan_sessions_list` | Book plan sessions (SCH-11) | sessions still Booked or Confirmed |
 | `red_flag_safety_advice` | referral, Monitor with caution (CLN-11) | always, with the centre's phone; fails visibly without one |
 | `consultation_summary` | consultation signed (ALT-06) | signed; the newest summary PDF, the My plan link the patient holds (else a new one) and the visit's feedback link |
@@ -62,6 +63,29 @@ sent, the send job reads the patient's own document from storage (another patien
 "no_document"), uploads it to Meta's media store for this number (`POST /<phone number id>/media`)
 and sends the template with Meta's media id: no document is ever reachable by a public link (user
 decision, 30 October 2026). An upload Meta may get over is retried like a send.
+
+## The booking confirmation (WA-07)
+
+Every appointment booked outside a plan series gets one confirmation (PRD J1.4, J1.5): on WhatsApp,
+at the desk (Book, a new caller, New booking), a walk in, the physio's next session, the automatic
+review booking, and a move by the desk or the reschedule form (for the new appointment). The
+trigger `booking_confirmation` on `appointment` queues `whatsapp.booking_confirmation`; a plan
+series' appointments get the plan sessions list instead.
+
+- **One text, two keys:** `booking_confirmation` for a WhatsApp booking, `front_desk_booking_confirmation`
+  for any other. Both are version 2 with the same text: the appointment ID, date, time, physio,
+  clinic, the fee, arrive 10 minutes early and bring reports, directions, and the front desk number.
+- **The fee:** a consultation shows the physio's consultation fee, "₹1,000, payable at the clinic"
+  ("payable at the clinic" when the physio has none); any other appointment "as per your treatment
+  plan" (user decision, 31 October 2026).
+- **Directions:** the centre's map link, else its address, else "please ask the front desk".
+- **The front desk number:** the centre's phone. A centre without one fails the job visibly; add it
+  on the centre (Centres) and the queue tries again.
+- **Before Meta approves version 2:** the same text goes as a plain reply when the number wrote to
+  us within WhatsApp's 24 hour window (a WhatsApp booking always has), else it is queued as the
+  template and stays Not sent, "not approved" (user decision, 31 October 2026).
+- **Version 1** had other variables, so it is never sent: `sendsFrom: 2` in the registry, and the
+  send job asks only for an approved version from there (`approvedTemplateVersion`'s `minVersion`).
 
 ## The text (WA-06)
 
@@ -119,7 +143,8 @@ another id on Meta than the one recorded"). Raise the version in the registry an
 
 1. Change the entry in `message-templates.ts` and raise its `version`. Meta treats changed text as
    a new template (`<key>_v2`); the approved older version keeps sending until the new one is
-   approved.
+   approved. When the variables change too, set `sendsFrom` to the new version, so the older one
+   is never sent with them.
 2. Adding a template: a new entry with a new snake case key, a source, examples, and version 1.
    Keep it transactional (TAD section 6); marketing messages are out of scope.
 3. Run `pnpm test` (the registry test), update the count in `apps/web/e2e/templates.spec.ts`, then

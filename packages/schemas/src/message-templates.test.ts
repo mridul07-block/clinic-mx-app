@@ -5,6 +5,8 @@ import {
   messageTemplate,
   messageTemplates,
   metaTemplateName,
+  oldestSendableVersion,
+  renderTemplateBody,
   templateCreateBody,
   type TemplateParameters,
   type TemplateVariables,
@@ -166,10 +168,14 @@ describe('message template registry', () => {
   it('types the variables a template needs to be sent', () => {
     expectTypeOf<TemplateVariables<'booking_confirmation'>>().toEqualTypeOf<{
       patient_name: string;
+      appointment_id: string;
       date: string;
       time: string;
-      clinic: string;
       physio: string;
+      clinic: string;
+      fee: string;
+      directions: string;
+      clinic_phone: string;
     }>();
     expectTypeOf<TemplateVariables<'morning_reminder'>>().toEqualTypeOf<{
       patient_name: string;
@@ -182,5 +188,42 @@ describe('message template registry', () => {
         document_name: string;
       }
     >();
+  });
+});
+
+// WA-07: one confirmation for WhatsApp and front desk bookings, with everything PRD J1.4 lists.
+describe('the booking confirmation templates', () => {
+  const variables = {
+    patient_name: 'Asha',
+    appointment_id: 'MVH-00042',
+    date: 'Tue, 3 Nov',
+    time: '10:00 AM',
+    physio: 'Priya Rao',
+    clinic: 'HSR Layout',
+    fee: '₹1,000, payable at the clinic',
+    directions: 'https://maps.app.goo.gl/abc123',
+    clinic_phone: '+91 80 4000 0000',
+  };
+
+  it('say the same for WhatsApp and front desk bookings, from v2 only', () => {
+    const whatsapp = messageTemplate('booking_confirmation');
+    const desk = messageTemplate('front_desk_booking_confirmation');
+    expect(desk.body).toBe(whatsapp.body);
+    expect(desk.variables).toEqual(whatsapp.variables);
+    expect([whatsapp.version, desk.version]).toEqual([2, 2]);
+    expect([oldestSendableVersion(whatsapp), oldestSendableVersion(desk)]).toEqual([2, 2]);
+    expect(oldestSendableVersion(messageTemplate('no_show'))).toBe(1);
+  });
+
+  it('fill the text with the appointment ID, fee, arrive early, reports, directions and front desk', () => {
+    expect(renderTemplateBody(messageTemplate('booking_confirmation'), variables)).toBe(
+      'Hi Asha, your appointment MVH-00042 is booked for Tue, 3 Nov at 10:00 AM with Priya Rao at Movementology HSR Layout. Fee: ₹1,000, payable at the clinic. Please arrive 10 minutes early and bring any reports you have. Directions: https://maps.app.goo.gl/abc123. For any change, call the front desk on +91 80 4000 0000 or reply to this message.',
+    );
+  });
+
+  it('fill nothing for a variable not given', () => {
+    expect(renderTemplateBody(messageTemplate('morning_reminder'), { patient_name: 'Asha' })).toBe(
+      'Hi Asha, a reminder of your appointment today at  at Movementology . See you soon.',
+    );
   });
 });

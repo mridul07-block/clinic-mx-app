@@ -156,10 +156,9 @@ Decisions (user, 30 October 2026):
   `booking.whatsapp_days_ahead` (14) days, then a free time, then a physio free then, each with
   their consultation fee, then who is coming (someone already on this number, or someone new with
   a name), then a summary to confirm.
-- **After confirming:** the last screen shows the appointment ID and the details, and a plain
-  WhatsApp text with them follows (appointment ID, who, clinic, when, physio, fee payable at the
-  clinic, map, arrive 10 minutes early, bring reports, front desk). WA-07 replaces the text with the
-  approved template.
+- **After confirming:** the last screen shows the appointment ID and the details, and the booking
+  confirmation follows (WA-07, `docs/runbooks/whatsapp-templates.md`, "The booking confirmation"):
+  the same message every booking gets.
 
 How it holds and books:
 
@@ -243,8 +242,8 @@ The screens:
    dates with a free start for that physio and type; picking one loads its times. The old time
    counts as free, but is not offered as a move.
 3. **Check and confirm:** from and to.
-4. **Moved:** the new appointment number and what was moved, and a text with the details, map and
-   front desk (`reschedule_confirmation`) follows, until WA-07's template.
+4. **Moved:** the new appointment number and what was moved, and the booking confirmation for the
+   new appointment follows (WA-07). Older rows keep the key `reschedule_confirmation`.
 
 Refused, with the team's contact details instead of dates:
 

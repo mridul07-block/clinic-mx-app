@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { givePhonesToCentres } from './centres';
 import { clearAllRateLimits } from './rate-limits';
 import { accountsWithAuthenticator, addAuthenticator, clearTwoStep, testStaff } from './staff';
 
@@ -9,6 +10,8 @@ import { accountsWithAuthenticator, addAuthenticator, clearTwoStep, testStaff } 
 export default async function globalSetup() {
   // IAM-11: runs close together would otherwise add up to a sign in or reset email limit.
   await clearAllRateLimits();
+  // WA-07: booking confirmations give the front desk's number.
+  await givePhonesToCentres();
   for (const { email } of Object.values(testStaff)) await clearTwoStep(email);
 
   const secrets: Record<string, string> = {};

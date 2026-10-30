@@ -17,14 +17,15 @@ import {
   RESCHEDULE_FLOW_TEXT,
   MENU_BUTTONS,
   MENU_TEXT,
-  SESSION_WINDOW_HOURS,
   TEST_TEMPLATE,
   bodyVariables,
   mayReceive,
   messageTemplates,
+  oldestSendableVersion,
   quickReplyPayload,
   retryableSendFailure,
   skipReasons,
+  withinSessionWindow,
 } from '@clinic-mx/schemas';
 import { z } from 'zod';
 import { serverEnv } from '../../lib/env';
@@ -100,9 +101,8 @@ function sessionContent(message: Message): Omit<SessionSend, 'to'> | undefined {
 }
 
 /** Whether they wrote to us within WhatsApp's window, so a reply that is not a template may go. */
-async function windowOpen(db: Db, phone: string, now = Date.now()): Promise<boolean> {
-  const last = await lastInboundAt(db, phone);
-  return last !== null && now - last.getTime() < SESSION_WINDOW_HOURS * 60 * 60 * 1000;
+async function windowOpen(db: Db, phone: string): Promise<boolean> {
+  return withinSessionWindow(await lastInboundAt(db, phone), new Date());
 }
 
 /**
@@ -206,7 +206,13 @@ export async function sendQueuedMessage(
   if (message.kind === 'test') {
     template = { template: TEST_TEMPLATE.key, parameters: [] };
   } else if (message.kind !== 'session') {
-    const approved = await approvedTemplateVersion(db, templateKey, language);
+    const registered = messageTemplates.find((entry) => entry.key === templateKey);
+    const approved = await approvedTemplateVersion(
+      db,
+      templateKey,
+      language,
+      registered ? oldestSendableVersion(registered) : 1,
+    );
     if (!approved) {
       await record({
         status: 'skipped',
