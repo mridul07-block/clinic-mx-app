@@ -199,6 +199,12 @@ export const settingDefinitions = {
     source: 'PRD section 7: No show allowed from',
     description: 'Minutes after the start time from which an appointment can be marked a no show.',
   },
+  'exercises.video_max_mb': {
+    schema: z.int().positive().max(4),
+    source: 'SET-07: at most 4 MB, the hosted request limit (recommended default, DECISION SET-07)',
+    description:
+      'Largest exercise video the Super Admin can add, in megabytes: a short clip for phones.',
+  },
   'reports.max_file_mb': {
     schema: z.int().positive().max(4),
     source: 'TAD section 9: reports bucket; at most 4 MB, the hosted request limit (INT-02)',

@@ -430,7 +430,7 @@ export const planOfCare = pgTable(
     sessionsPerWeek: integer('sessions_per_week'),
     weeks: integer('weeks'),
     homeProgramme: jsonb('home_programme')
-      .$type<{ exercise: string; dose: string; note: string }[]>()
+      .$type<{ exercise: string; dose: string; note: string; exerciseId?: string }[]>()
       .notNull(),
     reviewDate: date('review_date').notNull(),
     questionnaires: text('questionnaires')

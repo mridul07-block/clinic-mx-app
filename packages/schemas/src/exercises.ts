@@ -1,0 +1,90 @@
+import { z } from 'zod';
+import { DOSE_MAX, EXERCISE_MAX } from './plan';
+
+/**
+ * The exercise library (SET-07; PRD M7 "home programme from the exercise library" and M13
+ * "exercises with videos"; TAD `kb_exercise`: name, video file, default dose; Frontend
+ * Specification "Exercise row: Name, dose, video, done tick"). The clinic's own list, kept by the
+ * Super Admin: each exercise has a name, a default dose and, once the clinic films it, a short
+ * video playable on phones. An exercise never changes once added; replacing it adds a new one and
+ * retires the old, so a plan keeps the exercise it was written with. Recommended defaults chosen
+ * under the user's standing approval, 30 October 2026 (DECISION SET-07;
+ * docs/runbooks/exercise-library.md).
+ */
+
+export const exerciseInputSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, { error: 'Name the exercise.' })
+    .max(EXERCISE_MAX, { error: `Keep the name under ${String(EXERCISE_MAX)} characters.` }),
+  defaultDose: z
+    .string()
+    .trim()
+    .min(1, { error: 'Give the default dose, as "3 × 10, daily".' })
+    .max(DOSE_MAX, { error: `Keep the dose under ${String(DOSE_MAX)} characters.` }),
+});
+export type ExerciseInput = z.infer<typeof exerciseInputSchema>;
+
+/** The video kinds phones play: MP4 (H.264) and WebM. */
+export const exerciseVideoTypes = ['video/mp4', 'video/webm'] as const;
+export type ExerciseVideoType = (typeof exerciseVideoTypes)[number];
+
+export const exerciseVideoExtensions: Record<ExerciseVideoType, string> = {
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+};
+
+/**
+ * What a video file is, from its first bytes (never the name or the browser's word): an MP4 has
+ * `ftyp` at byte 4; a WebM starts with the EBML mark 1A 45 DF A3. Anything else: undefined.
+ */
+export function exerciseVideoType(bytes: Uint8Array): ExerciseVideoType | undefined {
+  if (bytes.length >= 8 && String.fromCharCode(...bytes.subarray(4, 8)) === 'ftyp') {
+    return 'video/mp4';
+  }
+  if (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) {
+    return 'video/webm';
+  }
+  return undefined;
+}
+
+/** Why a video cannot be added, or undefined when it can (`maxMegabytes` from the setting). */
+export function exerciseVideoProblem(bytes: Uint8Array, maxMegabytes: number): string | undefined {
+  if (bytes.length === 0) return undefined;
+  if (bytes.length > maxMegabytes * 1_000_000) {
+    return `Keep the video under ${String(maxMegabytes)} MB: a short clip, filmed for phones.`;
+  }
+  if (!exerciseVideoType(bytes)) return 'Add the video as an MP4 or WebM file.';
+  return undefined;
+}
+
+/**
+ * The byte range a video request asks for (`Range: bytes=a-b`), cut to at most `chunk` bytes so
+ * each answer stays small; the whole file's first chunk without one. Undefined when the range
+ * cannot be served.
+ */
+export function videoRange(
+  header: string | null,
+  size: number,
+  chunk: number,
+): { start: number; end: number; partial: boolean } | undefined {
+  if (size === 0) return undefined;
+  if (!header) return { start: 0, end: Math.min(size, chunk) - 1, partial: size > chunk };
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
+  if (!match) return undefined;
+  const [, from = '', to = ''] = match;
+  let start: number;
+  let end: number;
+  if (from === '') {
+    if (to === '') return undefined;
+    // The last `to` bytes.
+    start = Math.max(0, size - Number(to));
+    end = size - 1;
+  } else {
+    start = Number(from);
+    end = to === '' ? size - 1 : Math.min(Number(to), size - 1);
+  }
+  if (start >= size || end < start) return undefined;
+  return { start, end: Math.min(end, start + chunk - 1), partial: true };
+}

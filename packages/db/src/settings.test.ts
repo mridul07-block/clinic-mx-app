@@ -29,6 +29,7 @@ const stored: Settings = {
   'day.running_late_minutes': 15,
   'day.no_show_allowed_minutes': 25,
   'reports.max_file_mb': 4,
+  'exercises.video_max_mb': 4,
   'documents.summary_prints_category': false,
   'ai.preparation_sheet': { on: false },
   'ai.candidates_min': 15,

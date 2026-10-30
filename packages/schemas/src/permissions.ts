@@ -51,6 +51,9 @@ export const permissionMap = {
   'staff.manage': row(yes, no, no, no, no),
   'templates.manage': row(yes, no, no, no, no),
   'settings.manage': row(yes, no, no, no, no),
+  // Not in the PRD summary: recommended default 30 October 2026 (SET-07), the Super Admin keeps the
+  // exercise library as the knowledge base and templates.
+  'exercises.manage': row(yes, no, no, no, no),
   'support_access.grant': row(yes, no, no, no, no),
   // Not in the PRD summary: user decision 27 October 2026 (SCH-13), the Super Admin enters the
   // opening entries of patients already in treatment before launch.

@@ -216,6 +216,21 @@ export function MyPlanPage({
                       {row.note ? (
                         <span className="text-sm text-ink-secondary">{row.note}</span>
                       ) : null}
+                      {row.exerciseId && plan.videos.includes(row.exerciseId) ? (
+                        <details className="pt-1" data-testid="my-plan-video">
+                          <summary className="cursor-pointer text-accent underline underline-offset-2 pointer-coarse:py-3">
+                            Watch the video
+                          </summary>
+                          <video
+                            controls
+                            playsInline
+                            preload="none"
+                            src={['/p', token, 'exercises', row.exerciseId].join('/')}
+                            aria-label={`Video: ${row.exercise}`}
+                            className="mt-2 w-full max-w-sm rounded-control bg-surface-sunken"
+                          />
+                        </details>
+                      ) : null}
                     </span>
                     <form action={tickExerciseAction}>
                       <input type="hidden" name="token" value={token} />

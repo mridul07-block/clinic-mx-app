@@ -47,6 +47,7 @@ export const navIcons = [
   'figures',
   'kiosk',
   'data-requests',
+  'exercises',
 ] as const;
 export type NavIcon = (typeof navIcons)[number];
 
@@ -153,6 +154,13 @@ const navRules: readonly NavRule[] = [
     icon: 'support',
     section: 'setup',
     may: 'support_access.grant',
+  },
+  {
+    label: 'Exercise library',
+    href: '/app/exercises',
+    icon: 'exercises',
+    section: 'setup',
+    may: 'exercises.manage',
   },
   {
     label: 'Settings',

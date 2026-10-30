@@ -2,6 +2,7 @@ import { addDays, istDate, screeningItems } from '@clinic-mx/schemas';
 import { expect, test, type Page } from '@playwright/test';
 import { removeCalendarRows, startedAppointment } from './calendar';
 import { draftSections, savedConsultation, signedRows, submittedAnswers } from './consultations';
+import { libraryExercise, retireExercises } from './exercises';
 import { pipelineOf, removePipelineRows } from './intake';
 import { runDueJobs, tickUntil } from './jobs';
 import { checkedIn, consultationTypeId, submittedWithAlert } from './my-patients';
@@ -16,7 +17,9 @@ import { signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staf
 
 const physios: string[] = [];
 const visits: string[] = [];
+const libraryExercises: string[] = [];
 test.afterEach(async () => {
+  await retireExercises(libraryExercises.splice(0));
   await removePipelineRows(visits.splice(0));
   if (physios.length) await removeCalendarRows(physios.splice(0));
 });
@@ -477,6 +480,10 @@ test('Assessment takes a knowledge base condition, the suggested irritability an
 test('Plan warns about a modality against the patient’s precautions and keeps the whole plan', async ({
   page,
 }) => {
+  // SET-07: an exercise in the library, to add from it.
+  const fromLibrary = `E2E Wall sit ${crypto.randomUUID().slice(0, 8)}`;
+  const libraryId = await libraryExercise(fromLibrary, '3 × 30 s');
+  libraryExercises.push(libraryId);
   const { physio, patient, visit } = await consultationToday({ submitted: true });
   await submittedAnswers(visit.id, patient.id, {
     region: 'knee',
@@ -528,6 +535,13 @@ test('Plan warns about a modality against the patient’s precautions and keeps 
   const exercise = page.getByTestId('exercise').first();
   await exercise.getByLabel('Exercise', { exact: true }).fill('Spanish squat isometric');
   await exercise.getByLabel('Dose', { exact: true }).fill('5 x 45 s, daily');
+  // SET-07: one from the library, with its default dose.
+  await page.getByLabel('From the exercise library').selectOption(libraryId);
+  await page.getByRole('button', { name: 'Add from library' }).click();
+  const picked = page.getByTestId('exercise').nth(1);
+  await expect(picked.getByLabel('Exercise', { exact: true })).toHaveValue(fromLibrary);
+  await expect(picked.getByLabel('Dose', { exact: true })).toHaveValue('3 × 30 s');
+  await expect(picked.getByTestId('from-library')).toHaveText('From the library');
   const review = addDays(istDate(visit.startsAt), 42);
   await expect(page.getByLabel('Review date')).toHaveValue(review);
   const questionnaires = page.getByTestId('questionnaires');
@@ -547,7 +561,10 @@ test('Plan warns about a modality against the patient’s precautions and keeps 
       modalities: [{ key: 'radial_shockwave', reason: 'Low energy, away from the abdomen' }],
       sessionsPerWeek: 2,
       weeks: 6,
-      homeProgramme: [{ exercise: 'Spanish squat isometric', dose: '5 x 45 s, daily', note: '' }],
+      homeProgramme: [
+        { exercise: 'Spanish squat isometric', dose: '5 x 45 s, daily', note: '' },
+        { exercise: fromLibrary, dose: '3 × 30 s', note: '', exerciseId: libraryId },
+      ],
       reviewDate: '',
       questionnaires: ['visa_p', 'koos'],
       treatingPhysioId: '',

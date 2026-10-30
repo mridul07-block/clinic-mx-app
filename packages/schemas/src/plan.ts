@@ -58,6 +58,16 @@ export interface PlanQuestionnaire {
 export interface PlanCatalog {
   modalities: PlanModality[];
   questionnaires: PlanQuestionnaire[];
+  /** SET-07: the exercise library's active exercises, for the home programme; none when absent. */
+  exercises?: PlanLibraryExercise[];
+}
+
+/** A library exercise as the home programme offers it (SET-07). */
+export interface PlanLibraryExercise {
+  id: string;
+  name: string;
+  defaultDose: string;
+  video: boolean;
 }
 
 const catalogKey = z
@@ -263,6 +273,8 @@ export const planFields = {
         exercise: z.string().max(EXERCISE_MAX),
         dose: z.string().max(DOSE_MAX).default(''),
         note: z.string().max(EXERCISE_NOTE_MAX).default(''),
+        /** SET-07: the library exercise it came from, for its video; none when typed in. */
+        exerciseId: z.guid().optional(),
       }),
     )
     .max(30)
@@ -298,7 +310,7 @@ export interface PlanShape {
   modalities: { key: string; reason: string }[];
   sessionsPerWeek: number | null;
   weeks: number | null;
-  homeProgramme: { exercise: string; dose: string; note: string }[];
+  homeProgramme: { exercise: string; dose: string; note: string; exerciseId?: string }[];
   reviewDate: string;
   questionnaires: string[] | null;
   treatingPhysioId: string;

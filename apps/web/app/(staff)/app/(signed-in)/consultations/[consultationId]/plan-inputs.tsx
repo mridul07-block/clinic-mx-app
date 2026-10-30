@@ -22,7 +22,7 @@ import {
   type PlanDefaults,
   type PrecautionInForce,
 } from '@clinic-mx/schemas';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { secondaryButtonClass } from '../../../../../../components/forms';
 
 type Plan = ConsultationSections['plan'];
@@ -77,6 +77,9 @@ export function PlanInputs({
   };
   const ids = useId();
   const id = (...parts: string[]) => [ids, ...parts].join('-');
+  // SET-07: the exercise library, and the one chosen to add.
+  const library = catalog.exercises ?? [];
+  const [picked, setPicked] = useState('');
   const offered = planQuestionnaires(catalog, region);
   const suggested = suggestedQuestionnaires(offered, condition);
   const chosenQuestionnaires = plan.questionnaires ?? suggested;
@@ -355,6 +358,13 @@ export function PlanInputs({
                   {field('exercise', 'Exercise', EXERCISE_MAX)}
                   {field('dose', 'Dose', DOSE_MAX)}
                   {field('note', 'Note', EXERCISE_NOTE_MAX)}
+                  {row.exerciseId ? (
+                    <p className="text-sm text-ink-muted md:self-center" data-testid="from-library">
+                      {library.find((each) => each.id === row.exerciseId)?.video
+                        ? 'From the library, with its video'
+                        : 'From the library'}
+                    </p>
+                  ) : null}
                   {readOnly ? null : (
                     <button
                       type="button"
@@ -372,6 +382,50 @@ export function PlanInputs({
             })}
           </ul>
         ) : null}
+        {readOnly || library.length === 0 ? null : (
+          <div className="flex flex-col gap-2 md:flex-row md:items-end">
+            <label className="flex min-w-0 flex-1 flex-col gap-1">
+              <span className="text-sm text-ink-secondary">From the exercise library</span>
+              <select
+                value={picked}
+                onChange={(event) => {
+                  setPicked(event.target.value);
+                }}
+                className={input}
+              >
+                <option value="">Choose an exercise</option>
+                {library.map((each) => (
+                  <option key={each.id} value={each.id}>
+                    {each.name} ({each.defaultDose}){each.video ? ', video' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={!picked || plan.homeProgramme.length >= EXERCISES_MAX}
+              onClick={() => {
+                const chosen = library.find((each) => each.id === picked);
+                if (!chosen) return;
+                set({
+                  homeProgramme: [
+                    ...plan.homeProgramme,
+                    {
+                      exercise: chosen.name,
+                      dose: chosen.defaultDose,
+                      note: '',
+                      exerciseId: chosen.id,
+                    },
+                  ],
+                });
+                setPicked('');
+              }}
+              className={`${secondaryButtonClass} self-start md:w-auto`}
+            >
+              Add from library
+            </button>
+          </div>
+        )}
         {readOnly ? null : (
           <button
             type="button"

@@ -18,6 +18,7 @@ const db = vi.hoisted(() => ({
   knowledgeObjective: vi.fn(),
   knowledgeAssessment: vi.fn(),
   knowledgePlan: vi.fn(),
+  activeExercises: vi.fn(),
   treatingPhysios: vi.fn(),
   saveConsultationSections: vi.fn(),
   consultationAddenda: vi.fn(),
@@ -119,6 +120,15 @@ describe('consultation', () => {
     db.knowledgeObjective.mockResolvedValue({ measures: [], specialTests: [] });
     db.knowledgeAssessment.mockResolvedValue({ conditions: [], categories: [] });
     db.knowledgePlan.mockResolvedValue({ modalities: [], questionnaires: [] });
+    db.activeExercises.mockResolvedValue([
+      {
+        id: 'ex-1',
+        name: 'Test Bridge',
+        defaultDose: '3 × 12',
+        video: { type: 'video/mp4', bytes: 1000 },
+        createdAt: new Date(),
+      },
+    ]);
     db.treatingPhysios.mockResolvedValue([{ id: consultant().id, name: 'Test Consultant' }]);
     db.saveConsultationSections.mockResolvedValue({ status: 'saved', version: 4 });
     db.consultationAddenda.mockResolvedValue([]);
@@ -137,6 +147,10 @@ describe('consultation', () => {
     expect(db.knowledgeObjective).toHaveBeenCalledWith(fakeTx, 'kb-version-1');
     expect(view?.assessmentCatalog).toEqual({ conditions: [], categories: [] });
     expect(db.knowledgeAssessment).toHaveBeenCalledWith(fakeTx, 'kb-version-1');
+    // SET-07: the exercise library, for the home programme.
+    expect(view?.planCatalog.exercises).toEqual([
+      { id: 'ex-1', name: 'Test Bridge', defaultDose: '3 × 12', video: true },
+    ]);
     expect(view?.assessmentSettings).toEqual({
       irritabilityHighAbove: 5,
       irritabilityLowBelow: 3,

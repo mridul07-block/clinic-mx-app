@@ -19,6 +19,7 @@ export const settingAreaLabels: Record<string, string> = {
   screening: 'Screening',
   assessment: 'Assessment',
   clinical: 'Clinical',
+  exercises: 'Exercise library',
   patients: 'Patients',
   links: 'Patient links',
   reminders: 'Reminders',

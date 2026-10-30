@@ -660,6 +660,7 @@ export {
   suggestedQuestionnaires,
   type InterventionKind,
   type PlanCatalog,
+  type PlanLibraryExercise,
   type PlanCatalogFile,
   type PlanDefaults,
   type ModalityParameter,
@@ -1391,3 +1392,13 @@ export {
   type ClearanceTexts,
   type ParsedAcknowledgement,
 } from './clearance-acknowledgement';
+export {
+  exerciseInputSchema,
+  exerciseVideoExtensions,
+  exerciseVideoProblem,
+  exerciseVideoType,
+  exerciseVideoTypes,
+  videoRange,
+  type ExerciseInput,
+  type ExerciseVideoType,
+} from './exercises';
