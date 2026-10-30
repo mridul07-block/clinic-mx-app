@@ -123,8 +123,9 @@ usual." (AI-03).
 | `ai.task_rank_diagnoses`, `ai.task_recheck_with_findings` | model none, providers none, prompt v2 (since AI-05), reasoning low, 6000 ms, 800 tokens | Set the model and providers after the blind test (AI-06). Two attempts of 6 seconds stay inside the 15 second target. |
 | `ai.daily_spend_cap_paise` | 20000 | DECISION AI-01: a placeholder for the client. |
 | `ai.usd_rate_paise` | 9650 | Paise per US dollar, from TAD section 11. |
-| `ai.task_write_patient_content` | model none, providers none, prompt `write_patient_content.v1`, reasoning none, 60000 ms, 2500 tokens | Patient content (AI-07): the operator names the model and hosts for each run (`docs/runbooks/patient-content.md`). |
+| `ai.task_write_patient_content` | model none, providers none, prompt `write_patient_content.v1`, reasoning none, 60000 ms (up to 120000 for this task only; the sheet's tasks keep 20000), 2500 tokens | Patient content (AI-07): the operator names the model and hosts for each run (`docs/runbooks/patient-content.md`). |
 | `ai.patient_content_budget_paise` | 350000 | DECISION AI-07: the one-time patient content run's own budget, never the daily cap; a placeholder for the client. |
+| `ai.patient_content_stop_after_failures` | 3 | The patient content run stops after this many calls in a row with no valid answer (a timed out call's cost never comes back). |
 
 ## Prompts
 
