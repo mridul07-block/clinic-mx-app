@@ -11,7 +11,7 @@ import {
 } from '../exercises';
 import type { StaffMember } from '../identity';
 import { insertPatientLink } from '../patient-links';
-import { exercise, planOfCare } from '../schema';
+import { exercise, patientLink, planOfCare } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import { signedPlan } from './fake-plan';
 import { becomeStaff, testPhysio } from './fake-schedule';
@@ -205,6 +205,18 @@ describe('the exercise library', () => {
         await failure(tx, (sp) => sp.select().from(exercise)),
         'the library itself is staff only',
       ).toBe('42501');
+      // A link revoked, or another purpose: nothing.
+      const questionnaire = await link('questionnaire');
+      await asPatient(questionnaire.id, 'questionnaire');
+      expect(await myPlanExerciseVideo(tx, planned), 'another purpose').toBeUndefined();
+      await tx.execute(sql`reset role`);
+      await tx.execute(sql`select set_config('request.jwt.claims', '', true)`);
+      await tx
+        .update(patientLink)
+        .set({ revokedAt: new Date() })
+        .where(eq(patientLink.id, myPlan.id));
+      await asPatient(myPlan.id, 'my_plan');
+      expect(await myPlanExerciseVideo(tx, planned), 'a revoked link').toBeUndefined();
     });
   });
 });

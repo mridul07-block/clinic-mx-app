@@ -29,11 +29,14 @@ export function videoResponse(
     });
   }
   const body = Buffer.from(bytes.subarray(range.start, range.end + 1));
-  if (!range.partial) return new Response(body, { status: 200, headers });
+  const length = { 'Content-Length': String(body.length) };
+  if (!range.partial)
+    return new Response(body, { status: 200, headers: { ...headers, ...length } });
   return new Response(body, {
     status: 206,
     headers: {
       ...headers,
+      ...length,
       'Content-Range': `bytes ${String(range.start)}-${String(range.end)}/${String(bytes.length)}`,
     },
   });

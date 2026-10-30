@@ -60,7 +60,11 @@ export async function storedVideo(
   if (problem) throw new ExerciseError(problem);
   const type = exerciseVideoType(bytes) as ExerciseVideoType;
   const path = `${crypto.randomUUID()}.${exerciseVideoExtensions[type]}`;
-  await store.put(path, bytes, type);
+  try {
+    await store.put(path, bytes, type);
+  } catch {
+    throw new ExerciseError('The video could not be stored. Try again.');
+  }
   return { path, type, bytes: bytes.length };
 }
 

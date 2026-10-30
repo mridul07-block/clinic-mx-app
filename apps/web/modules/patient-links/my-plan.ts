@@ -30,8 +30,14 @@ import {
  * the user's standing approval, 28 October 2026): the episode's working link, or a new one.
  */
 
+/** My plan as the page shows it: with the plan's library exercises that have a video (SET-07). */
+export type MyPlanContent = MyPlan & { videos: string[] };
+
 /** The page's content for an opened My plan link; null when the link no longer reaches one. */
-export async function loadMyPlan(link: PatientLinkAccess, ip?: string): Promise<MyPlan | null> {
+export async function loadMyPlan(
+  link: PatientLinkAccess,
+  ip?: string,
+): Promise<MyPlanContent | null> {
   return asPatient(
     link,
     async (tx) => {

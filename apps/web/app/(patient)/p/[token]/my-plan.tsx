@@ -10,10 +10,10 @@ import {
   planWeek,
   planWeekStart,
   weekStripDays,
-  type MyPlan,
 } from '@clinic-mx/schemas';
 import { ChartTable } from '../../../../components/charts/chart-table';
 import { WeekStrip } from '../../../../components/charts/week-strip';
+import type { MyPlanContent } from '../../../../modules/patient-links/my-plan';
 import { tickExerciseAction } from '../../../../modules/patient-links/actions';
 import { LineChart } from '../../../../components/charts/line-chart';
 
@@ -32,7 +32,7 @@ export function MyPlanPage({
   token,
   changed,
 }: {
-  plan: MyPlan;
+  plan: MyPlanContent;
   now: Date;
   /** The page's own token, which the tick forms post back. */
   token: string;
@@ -207,49 +207,51 @@ export function MyPlanPage({
                 return (
                   <li
                     key={[index, row.exercise].join('-')}
-                    className="flex items-center justify-between gap-3 py-2"
+                    className="flex flex-col gap-1 py-2"
                     data-testid="my-plan-exercise"
                   >
-                    <span className="flex flex-col">
-                      <span className="font-medium text-ink">{row.exercise}</span>
-                      {row.dose ? <span className="text-ink-secondary">{row.dose}</span> : null}
-                      {row.note ? (
-                        <span className="text-sm text-ink-secondary">{row.note}</span>
-                      ) : null}
-                      {row.exerciseId && plan.videos.includes(row.exerciseId) ? (
-                        <details className="pt-1" data-testid="my-plan-video">
-                          <summary className="cursor-pointer text-accent underline underline-offset-2 pointer-coarse:py-3">
-                            Watch the video
-                          </summary>
-                          <video
-                            controls
-                            playsInline
-                            preload="none"
-                            src={['/p', token, 'exercises', row.exerciseId].join('/')}
-                            aria-label={`Video: ${row.exercise}`}
-                            className="mt-2 w-full max-w-sm rounded-control bg-surface-sunken"
-                          />
-                        </details>
-                      ) : null}
-                    </span>
-                    <form action={tickExerciseAction}>
-                      <input type="hidden" name="token" value={token} />
-                      <input type="hidden" name="index" value={String(index)} />
-                      <input type="hidden" name="exercise" value={row.exercise} />
-                      <input type="hidden" name="done" value={done ? 'no' : 'yes'} />
-                      <button
-                        type="submit"
-                        aria-pressed={done}
-                        aria-label={`${row.exercise}: ${done ? 'done today, tap to undo' : 'mark done today'}`}
-                        className={`flex min-h-14 min-w-28 items-center justify-center rounded-control border px-3 font-semibold ${
-                          done
-                            ? 'border-accent bg-accent text-on-accent'
-                            : 'border-line-control bg-surface text-ink'
-                        }`}
-                      >
-                        {done ? 'Done today' : 'Mark done'}
-                      </button>
-                    </form>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex flex-col">
+                        <span className="font-medium text-ink">{row.exercise}</span>
+                        {row.dose ? <span className="text-ink-secondary">{row.dose}</span> : null}
+                        {row.note ? (
+                          <span className="text-sm text-ink-secondary">{row.note}</span>
+                        ) : null}
+                      </span>
+                      <form action={tickExerciseAction}>
+                        <input type="hidden" name="token" value={token} />
+                        <input type="hidden" name="index" value={String(index)} />
+                        <input type="hidden" name="exercise" value={row.exercise} />
+                        <input type="hidden" name="done" value={done ? 'no' : 'yes'} />
+                        <button
+                          type="submit"
+                          aria-pressed={done}
+                          aria-label={`${row.exercise}: ${done ? 'done today, tap to undo' : 'mark done today'}`}
+                          className={`flex min-h-14 min-w-28 items-center justify-center rounded-control border px-3 font-semibold ${
+                            done
+                              ? 'border-accent bg-accent text-on-accent'
+                              : 'border-line-control bg-surface text-ink'
+                          }`}
+                        >
+                          {done ? 'Done today' : 'Mark done'}
+                        </button>
+                      </form>
+                    </div>
+                    {row.exerciseId && plan.videos.includes(row.exerciseId) ? (
+                      <details className="w-full" data-testid="my-plan-video">
+                        <summary className="cursor-pointer text-accent underline underline-offset-2 pointer-coarse:py-3">
+                          Watch the video
+                        </summary>
+                        <video
+                          controls
+                          playsInline
+                          preload="none"
+                          src={['/p', token, 'exercises', row.exerciseId].join('/')}
+                          aria-label={`Video: ${row.exercise}`}
+                          className="mt-2 w-full max-w-sm rounded-control bg-surface-sunken"
+                        />
+                      </details>
+                    ) : null}
                   </li>
                 );
               })}

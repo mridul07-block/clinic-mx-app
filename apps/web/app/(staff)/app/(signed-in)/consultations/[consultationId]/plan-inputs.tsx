@@ -343,7 +343,12 @@ export function PlanInputs({
                     readOnly={readOnly}
                     value={row[key]}
                     onChange={(event) => {
-                      update({ [key]: event.target.value });
+                      // SET-07: a library exercise renamed is no longer that exercise, nor its video.
+                      update(
+                        key === 'exercise'
+                          ? { exercise: event.target.value, exerciseId: undefined }
+                          : { [key]: event.target.value },
+                      );
                     }}
                     className={input}
                   />

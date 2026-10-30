@@ -542,6 +542,12 @@ test('Plan warns about a modality against the patient’s precautions and keeps 
   await expect(picked.getByLabel('Exercise', { exact: true })).toHaveValue(fromLibrary);
   await expect(picked.getByLabel('Dose', { exact: true })).toHaveValue('3 × 30 s');
   await expect(picked.getByTestId('from-library')).toHaveText('From the library');
+  // Renamed, it is no longer that exercise, nor its video.
+  await page.getByLabel('From the exercise library').selectOption(libraryId);
+  await page.getByRole('button', { name: 'Add from library' }).click();
+  const renamed = page.getByTestId('exercise').nth(2);
+  await renamed.getByLabel('Exercise', { exact: true }).fill('Single leg wall sit');
+  await expect(renamed.getByTestId('from-library')).toHaveCount(0);
   const review = addDays(istDate(visit.startsAt), 42);
   await expect(page.getByLabel('Review date')).toHaveValue(review);
   const questionnaires = page.getByTestId('questionnaires');
@@ -564,6 +570,7 @@ test('Plan warns about a modality against the patient’s precautions and keeps 
       homeProgramme: [
         { exercise: 'Spanish squat isometric', dose: '5 x 45 s, daily', note: '' },
         { exercise: fromLibrary, dose: '3 × 30 s', note: '', exerciseId: libraryId },
+        { exercise: 'Single leg wall sit', dose: '3 × 30 s', note: '' },
       ],
       reviewDate: '',
       questionnaires: ['visa_p', 'koos'],
