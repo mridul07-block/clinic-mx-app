@@ -41,6 +41,11 @@ On a phone, the bar at the bottom holds **Overview**, **Alerts**, **Settings** a
 1. Open **Prices**. Use **Add a price**, **Add a package type** or **Add a discount**.
 2. Tap a row to edit or deactivate it. A change applies to new bills only.
 
+### Keep the exercise library
+
+1. Tap **Exercise library**. Under **Add an exercise**, type the **Exercise** and its **Default dose**, choose a **Video** (MP4 or WebM, a short clip, at most 4 MB) and tap **Add to library**.
+2. To change one, tap **Change or remove**, then **Save as a new version**: plans already written keep the old one. **Remove from library** takes it off the list.
+
 ### Change a setting
 
 1. **Appointment types**: tap a type, set **Length in minutes**, tap **Save appointment type**.

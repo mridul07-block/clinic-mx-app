@@ -20,6 +20,8 @@ const expected: Record<Action, Expected> = {
   'staff.manage': ['yes', '-', '-', '-', '-'],
   'templates.manage': ['yes', '-', '-', '-', '-'],
   'settings.manage': ['yes', '-', '-', '-', '-'],
+  // SET-07: not in the PRD summary; recommended default, the Super Admin keeps the library.
+  'exercises.manage': ['yes', '-', '-', '-', '-'],
   'support_access.grant': ['yes', '-', '-', '-', '-'],
   'opening_entries.manage': ['yes', '-', '-', '-', '-'],
   'rosters.manage': ['yes', 'yes', '-', '-', '-'],

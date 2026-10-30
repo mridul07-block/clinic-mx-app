@@ -15,13 +15,21 @@ import { packageState } from './packages';
 const painValue = z.number().int().min(0).max(10).nullable();
 
 export const myPlanSchema = z.object({
+  /** SET-07: the plan's library exercises that have a video; filled by the page's loader. */
+  videos: z.array(z.string()).default([]),
   name: z.string(),
   episodeStatus: z.string(),
   centrePhone: z.string().nullable(),
   plan: z
     .object({
       homeProgramme: z.array(
-        z.object({ exercise: z.string(), dose: z.string(), note: z.string() }),
+        z.object({
+          exercise: z.string(),
+          dose: z.string(),
+          note: z.string(),
+          // SET-07: the library exercise it came from, for its video.
+          exerciseId: z.string().optional(),
+        }),
       ),
       weeks: z.number().int().nullable(),
       sessionsPerWeek: z.number().int().nullable(),

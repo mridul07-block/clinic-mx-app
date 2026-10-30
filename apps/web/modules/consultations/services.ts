@@ -1,5 +1,6 @@
 import 'server-only';
 import {
+  activeExercises,
   addAddendum,
   consultationAddenda,
   consultationIntake,
@@ -117,7 +118,16 @@ async function recordContext(
     detailsReview: intake?.detailsReview ?? null,
     objectiveCatalog: await knowledgeObjective(tx, found.kbVersionId),
     assessmentCatalog: await knowledgeAssessment(tx, found.kbVersionId),
-    planCatalog: await knowledgePlan(tx, found.kbVersionId),
+    planCatalog: {
+      ...(await knowledgePlan(tx, found.kbVersionId)),
+      // SET-07: the exercise library, for the home programme.
+      exercises: (await activeExercises(tx)).map((exercise) => ({
+        id: exercise.id,
+        name: exercise.name,
+        defaultDose: exercise.defaultDose,
+        video: exercise.video !== null,
+      })),
+    },
     // The consultant is the default treating physio even where they are not assigned to the centre.
     treatingPhysios: physios.some((physio) => physio.id === found.physioId)
       ? physios

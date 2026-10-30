@@ -21,7 +21,7 @@ As in the physiotherapist guide. **Knowledge base** also holds **Patient content
 
 ### Write the plan of care
 
-1. On **Plan**, fill **Goals** (**Add as a goal** copies the patient's own), interventions, modalities, **Sessions a week**, **Weeks**, **Home programme** and **Review date**.
+1. On **Plan**, fill **Goals** (**Add as a goal** copies the patient's own), interventions, modalities, **Sessions a week**, **Weeks**, **Home programme** and **Review date**. For the home programme, pick from **From the exercise library** and tap **Add from library**: the patient sees its video on My plan. Or tap **Add an exercise** to type one.
 2. A modality with a precaution needs **Reason to keep it**.
 3. Choose the **Treating physio**.
 

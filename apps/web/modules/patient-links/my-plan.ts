@@ -7,6 +7,7 @@ import {
   tickExercise,
   untickExercise,
   liveMyPlanLink,
+  myPlanExerciseVideo,
   myPlanView,
   type PatientLinkAccess,
 } from '@clinic-mx/db';
@@ -31,8 +32,23 @@ import {
 
 /** The page's content for an opened My plan link; null when the link no longer reaches one. */
 export async function loadMyPlan(link: PatientLinkAccess, ip?: string): Promise<MyPlan | null> {
-  const raw = await asPatient(link, (tx) => myPlanView(tx), ip);
-  return raw === null ? null : myPlanSchema.parse(raw);
+  return asPatient(
+    link,
+    async (tx) => {
+      const raw = await myPlanView(tx);
+      if (raw === null) return null;
+      const plan = myPlanSchema.parse(raw);
+      // SET-07: which of the plan's library exercises have a video to watch.
+      const videos: string[] = [];
+      for (const row of plan.plan?.homeProgramme ?? []) {
+        if (row.exerciseId && !videos.includes(row.exerciseId)) {
+          if (await myPlanExerciseVideo(tx, row.exerciseId)) videos.push(row.exerciseId);
+        }
+      }
+      return { ...plan, videos };
+    },
+    ip,
+  );
 }
 
 /** Show My plan QR: the episode's working My plan link, issued when it has none; audited. */

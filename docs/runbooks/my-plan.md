@@ -3,8 +3,8 @@
 PAT-01: "My plan" page. Done when: the next session with Reschedule and Map, the exercises with
 videos, a gold package meter, and the pain line with a sentence. Sources: PRD J5.7 and M10, Frontend
 Specification (patient pages), TAD section 5 (the My plan link). Built in part: Reschedule waits for
-WhatsApp (WA-05) and the exercise videos for the video library (SET-07); the plain words diagnosis
-came with CLN-08. Recommended defaults chosen under the user's standing approval, 28 October 2026
+WhatsApp (WA-05); the exercise videos came with the exercise library (SET-07,
+`docs/runbooks/exercise-library.md`) and the plain words diagnosis with CLN-08. Recommended defaults chosen under the user's standing approval, 28 October 2026
 (DECISION PAT-01).
 
 ## What the patient sees
@@ -20,7 +20,8 @@ phone and signed out:
   with the type, the physio and the centre, the centre's Map link, and "To change it, call the
   clinic" (a `tel:` link when the centre has a phone). No visit: "No visit is booked yet", and "Call
   the clinic to book". Links are 48 px tall.
-- **Your exercises:** the plan's home programme (exercise, dose, note), without videos for now.
+- **Your exercises:** the plan's home programme (exercise, dose, note); an exercise from the library
+  with a video shows **Watch the video** (SET-07).
   Each has a 56 px "Mark done" button for today (PAT-02); once ticked it reads "Done today" and
   undoes the tick when tapped again. Under them, the week strip: the seven days of the plan's
   current week (counted from the day the plan was made, IST), done, missed or still to come.
@@ -92,8 +93,7 @@ up visit, so these are recommended defaults chosen under the user's standing app
 - **About your condition (CLN-08):** the explanation a consultant who treats patients approved for
   the episode's diagnosis (AI-07; the confirmed diagnosis, else the newest signed one), as written;
   nothing while none is approved, never a draft (`aboutCondition` in `internal.my_plan()`).
-- **Waiting:** library exercises with videos
-  (SET-07), self booking (WA-04), a check up visit type and price (the client), a link lasting
+- **Waiting:** self booking (WA-04), a check up visit type and price (the client), a link lasting
   beyond `links.my_plan_days` (the client).
 
 ## How it works

@@ -766,3 +766,12 @@ export {
   markFlowBooked,
   saveFlowState,
 } from './whatsapp-flows';
+export {
+  activeExercises,
+  exerciseRecord,
+  insertExercise,
+  myPlanExerciseVideo,
+  retireExercise,
+  type ExerciseVideo,
+  type LibraryExercise,
+} from './exercises';

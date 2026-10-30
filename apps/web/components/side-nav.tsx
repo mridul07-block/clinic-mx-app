@@ -16,6 +16,7 @@ import {
   ChartLine,
   ClipboardList,
   Clock,
+  Dumbbell,
   FileLock,
   FileText,
   History,
@@ -23,6 +24,7 @@ import {
   KeyRound,
   LayoutDashboard,
   ListChecks,
+  type LucideIcon,
   MessageSquareText,
   Package,
   Receipt,
@@ -35,7 +37,6 @@ import {
   UserCog,
   Users,
   UsersRound,
-  type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -75,6 +76,7 @@ const icons: Record<NavIcon, LucideIcon> = {
   figures: ChartColumn,
   kiosk: Tablet,
   'data-requests': FileLock,
+  exercises: Dumbbell,
 };
 
 export function SideNav({

@@ -35,3 +35,4 @@ export * from './data-requests';
 export * from './messages';
 export * from './whatsapp-events';
 export * from './whatsapp-flows';
+export * from './exercises';
