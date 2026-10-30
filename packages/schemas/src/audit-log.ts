@@ -55,6 +55,8 @@ const clinicalTables = [
   'patient_link',
   'feedback',
   'follow_up_schedule',
+  // WA-01: a WhatsApp message to a patient, with their number and its details.
+  'message',
 ] as const;
 
 /** Anything holding money. */
