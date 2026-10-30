@@ -113,6 +113,7 @@ describe('the first treatment check', () => {
         variables: { patient_name: 'Test' },
         createdBy: 'system:whatsapp',
         patientLinkId: ids.other,
+        appointmentId: null,
         sourceKey,
       },
     ]);

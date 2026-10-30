@@ -226,6 +226,7 @@ export async function repliedMessage(db: DbOrTransaction, waMessageId: string) {
       templateKey: message.templateKey,
       patientId: message.patientId,
       patientLinkId: message.patientLinkId,
+      appointmentId: message.appointmentId,
     })
     .from(message)
     .where(and(eq(message.waMessageId, waMessageId), ne(message.direction, 'inbound')));

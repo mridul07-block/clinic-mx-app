@@ -47,6 +47,8 @@ as Not sent.
 | `plan_sessions_list` | Book plan sessions (SCH-11) | sessions still Booked or Confirmed |
 | `red_flag_safety_advice` | referral, Monitor with caution (CLN-11) | always, with the centre's phone; fails visibly without one |
 | `consultation_summary` | consultation signed (ALT-06) | signed; the newest summary PDF, the My plan link the patient holds (else a new one) and the visit's feedback link |
+| `day_before_reminder` | the evening run, `reminders.day_before_time` (WA-08) | each Booked or Confirmed appointment of the next day not started, with its appointment (for Confirm) and a reschedule session naming it (for Reschedule); not once the day has begun |
+| `morning_reminder` | the morning run, `reminders.morning_time` (WA-08) | each Booked or Confirmed appointment of the day not yet started, to every patient |
 | `discharge_report` | discharge with a signed consultation (OUT-11) | discharged; the newest report PDF and the discharge feedback link |
 | `receipt` | each payment (BIL-09) | not undone; the newest invoice and receipt PDF, the amount and the bill |
 

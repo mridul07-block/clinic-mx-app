@@ -16,6 +16,7 @@ import {
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { appointment } from './appointments';
 import { patientLink } from './patient-links';
 import { patient } from './patients';
 
@@ -89,6 +90,13 @@ export const message = pgTable(
     patientLinkId: uuid('patient_link_id').references(() => patientLink.id),
     /** WA-06: the job that queued it, so a job that runs again queues nothing more. */
     sourceKey: text('source_key').unique(),
+    /**
+     * WA-08: the appointment a reminder is about, so a tap on its Confirm confirms that one (a
+     * family on one number gets one reminder per appointment).
+     */
+    appointmentId: uuid('appointment_id').references(() => appointment.id, {
+      onDelete: 'set null',
+    }),
   },
   (table) => [
     index('message_created_at_idx').on(table.createdAt),
@@ -96,6 +104,9 @@ export const message = pgTable(
     index('message_patient_link_idx')
       .on(table.patientLinkId)
       .where(sql`${table.patientLinkId} is not null`),
+    index('message_appointment_idx')
+      .on(table.appointmentId)
+      .where(sql`${table.appointmentId} is not null`),
     // WA-03: when a number last wrote to us, for WhatsApp's 24 hour window.
     index('message_inbound_phone_idx')
       .on(table.fromPhone, table.sentAt)

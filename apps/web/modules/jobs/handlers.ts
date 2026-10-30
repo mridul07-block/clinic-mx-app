@@ -23,6 +23,8 @@ import {
   THINK_ABOUT_IT_FOLLOW_UP_JOB,
   THINK_ABOUT_IT_MESSAGE_JOB,
   UNSIGNED_NOTES_FLAG_JOB,
+  DAY_BEFORE_REMINDERS_JOB,
+  MORNING_REMINDERS_JOB,
   defineJob,
   type JobHandlers,
 } from '@clinic-mx/db';
@@ -41,6 +43,7 @@ import {
   sendReviewRequest,
   sendSession3Check,
 } from '../messaging/clinic-messages';
+import { runDayBeforeReminders, runMorningReminders } from '../messaging/reminders';
 import { WHATSAPP_SEND_JOB, sendQueuedMessage } from '../messaging/send';
 import { WHATSAPP_ROUTE_JOB, routeInboundMessage } from '../messaging/router';
 import { WHATSAPP_EVENT_JOB, handleWhatsappEvent } from '../messaging/webhook';
@@ -239,6 +242,27 @@ export const jobHandlers: JobHandlers = {
     payload: z.object({ date: z.iso.date() }),
     run: async ({ date }, { db }) => {
       await runUnsignedNotesFlag(db, { date });
+    },
+  }),
+  /**
+   * The day before reminders (WA-08; PRD J1.6; TAD section 8): every evening at
+   * `reminders.day_before_time` IST for the next day's appointments, with Confirm and Reschedule.
+   * Each run queues the next evening's first.
+   */
+  [DAY_BEFORE_REMINDERS_JOB]: defineJob({
+    payload: z.object({ date: z.iso.date() }),
+    run: async ({ date }, { db }) => {
+      await runDayBeforeReminders(db, { date });
+    },
+  }),
+  /**
+   * The reminders on the day (WA-08): every morning at `reminders.morning_time` IST (8:00 AM) for
+   * the day's appointments not yet started, to every patient. Each run queues the next morning's.
+   */
+  [MORNING_REMINDERS_JOB]: defineJob({
+    payload: z.object({ date: z.iso.date() }),
+    run: async ({ date }, { db }) => {
+      await runMorningReminders(db, { date });
     },
   }),
   /**

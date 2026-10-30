@@ -709,6 +709,11 @@ export const settingDefinitions = {
     source: 'TAD section 8: Day before reminder',
     description: 'Time of day (IST) the day before reminder is sent.',
   },
+  'reminders.morning_time': {
+    schema: timeOfDay,
+    source: 'PRD J1.6 and TAD section 8: 8:00 AM on the day, to every patient (WA-08)',
+    description: 'Time of day (IST) the reminder on the day of the appointment is sent.',
+  },
   // DECISION ADM-03: the days to answer a data request are the client's lawyer's to confirm.
   'privacy.request_response_days': {
     schema: days,

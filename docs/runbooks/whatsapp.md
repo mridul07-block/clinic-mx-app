@@ -117,7 +117,7 @@ shares a mobile, so nobody is guessed).
 | The menu's Book appointment | Book appointment | WA-04 (live) | The booking form (the team's contact details where it is not set up) |
 | The menu's Reschedule or cancel, or the reminder's Reschedule | Reschedule or cancel | WA-05 (live) | The reschedule form (the team's contact details where it is not set up) |
 | The menu's Talk to our team | Talk to our team | WA-09 (live) | The team's contact details |
-| The day before reminder's Confirm | Confirm | WA-08 | The team's contact details |
+| The day before reminder's Confirm | Confirm | WA-08 (live) | None: the handler confirms the appointment and thanks them (see "Reminders") |
 | A booking form completed | Booking form | WA-04 (live) | None: the form sent the confirmation when it booked |
 | A reschedule form completed | Reschedule form | WA-05 (live) | None: the form sent the confirmation when it moved the appointment |
 | Anything else (a photo, a voice note, an old button) | Menu | WA-03 (live) | The three button menu |
@@ -268,6 +268,41 @@ How it moves:
 - A time taken meanwhile sends them back to the date screen with "This slot was just booked. Pick
   another time." and the times still free. A second confirm (Meta retries) returns the same move.
 
+## Reminders
+
+The appointment reminders (WA-08; PRD J1.6; TAD section 8). Decisions (user, 31 October 2026):
+
+- **When:** every evening at `reminders.day_before_time` (6:00 PM IST) for the next day's
+  appointments, and every morning at `reminders.morning_time` (8:00 AM IST) for the day's. A
+  booking made after the evening's run gets no day before reminder; the morning one still reaches
+  it.
+- **Who:** every Booked or Confirmed appointment of the date not started yet, of every type, one
+  message per appointment (a family on one number gets one each). The morning reminder goes to
+  every patient, confirmed or not.
+- **Confirm** answers "Thank you, your appointment on <day> at <time> is confirmed." (the same once
+  confirmed already). One moved, cancelled or started since gets "This appointment has changed, so
+  it cannot be confirmed here." with the team's contact details.
+
+How it works:
+
+- Two daily jobs, `whatsapp.day_before_reminders` and `whatsapp.morning_reminders`, keyed by the
+  appointments' IST date (`docs/runbooks/jobs.md`). Each run first queues the next, at the setting's
+  time as it is then (a changed time applies from the next run), then queues the day's reminders.
+  A run late after downtime catches up to the next one, never every missed day; a day before run
+  held up past midnight sends nothing, leaving the day to the morning reminder.
+- Each reminder is queued once per appointment (`source_key`
+  `whatsapp.day_before_reminder:<appointment id>` or `whatsapp.morning_reminder:<appointment id>`) and
+  records its appointment (`message.appointment_id`). The day before reminder carries a reschedule
+  session naming the appointment, lasting until it starts (`rescheduleFlowToken`, "The reschedule
+  Flow"), which its Reschedule button opens.
+- **Confirm** comes back as the quick reply `day_before_reminder.confirm` with Meta's id of the
+  reminder it answers: the router finds that reminder (`repliedMessage`) and its appointment, and
+  `confirmAppointment` makes a Booked one Confirmed with when (`confirmed_at`), as `system:whatsapp`,
+  audited. The desk's sheet shows "Confirmed: On WhatsApp, <date> <time>". A Confirm on any other
+  message gets the menu.
+- Until Meta approves the two templates they are kept as Not sent, "not approved".
+
+## Statuses
 
 | Status | Meaning |
 | --- | --- |
@@ -356,11 +391,18 @@ already Sent, Failed or Not sent is never sent again, so a job that runs twice c
 | `apps/web/modules/messaging/meta-flows.test.ts` | `pnpm whatsapp:flows`: created with its endpoint, JSON uploaded, validation errors returned, updated by id; the token never in a URL; https only |
 | `packages/db/src/integration/whatsapp-flows.integration.test.ts` (reschedule) | Reschedule sessions; the number's upcoming appointments, everyone on it, soonest first; the patient's own move with no staff member, counted; any other change needs a staff member, a reason never without one; no signed in person claims WhatsApp; a package session uses its reschedule, then is refused |
 | `apps/web/e2e/reschedule-flow.spec.ts` | At 360 px and desktop, as Meta: Reschedule or cancel opens the form; the appointment, prefilled clinic and physio, reschedules left, dates, times, confirm; moved as by the patient on WhatsApp, counted, confirmed by text; a second confirm moves nothing more; the completed form routed by its token with no reply; the desk's sheet says "By the patient, on WhatsApp". From the reminder's session: the Zero Gravity Treadmill, a used up package and a blocked patient refused; a time taken meanwhile sends them back |
+| `packages/schemas/src/reminders.test.ts` | The next evening's and morning's run at the setting's time, catching up after downtime; the day before run only before its day; the Confirm answers |
+| `apps/web/modules/messaging/reminders.test.ts` | One reminder per appointment with its appointment and a reschedule session; nothing twice, no session for one queued already; nothing once the day has begun; the morning one to every patient; the next run queued first at the setting's time |
+| `apps/web/modules/messaging/router.test.ts` (Confirm) | Confirm confirms the reminder's appointment and thanks them with its day and time, the same once confirmed; changed since: the centre's contact details; Confirm on another message: the menu |
+| `packages/db/src/integration/reminders.integration.test.ts` | The date's Booked and Confirmed appointments not started, soonest first; Confirm only for a Booked one not started; a reminder names its appointment, is queued once, and outlives a removed appointment; the next run queued once per date |
+| `apps/web/e2e/reminders.spec.ts` | At 360 px and desktop: the evening's run reaches every appointment of the day (a family on one number one each, a cancelled one left out), once; its Reschedule opens the form on that appointment; Confirm through the signed webhook confirms only that one and thanks them; the morning's run reaches every patient; the desk sees "On WhatsApp" |
 | `apps/web/e2e/booking-flow.spec.ts` | At 360 px and desktop, as Meta: Book appointment opens the form; clinic, dates, times, a physio with fee, someone new, confirm; a second confirm books nothing more; the booking on the staff calendar; a slot held by someone else refused, and one taken before confirming sends them back to the free times |
 
 Without the test list check in `sendQueuedMessage`, the unit test "keeps a clinic message to a
 number off the test list as Not sent" fails. Without the signature check in the webhook route, the
-route test "refuses a wrong, missing or other body's signature" fails. Without the Zero Gravity
+route test "refuses a wrong, missing or other body's signature" fails. Without the status check in
+`confirmAppointment`, the database test "confirms a Booked appointment once ... a changed or
+started one is not" fails. Without the Zero Gravity
 Treadmill check in `selfRescheduleCheck`, the end to end test "the reminder's form refuses a Zero
 Gravity Treadmill session" fails. Without the taken slot
 handling in the booking Flow's confirm, the end to end test "a slot taken meanwhile sends the

@@ -33,6 +33,7 @@ export function reviveDay(json: CalendarDayJson): CalendarDay {
         ...a,
         ...span(a),
         changedAt: a.changedAt ? new Date(a.changedAt) : null,
+        confirmedAt: a.confirmedAt ? new Date(a.confirmedAt) : null,
         noShowAt: a.noShowAt ? new Date(a.noShowAt) : null,
       })),
     })),

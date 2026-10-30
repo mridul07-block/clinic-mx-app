@@ -1,6 +1,7 @@
 import 'server-only';
 import {
   centreContacts,
+  confirmAppointment,
   createFlowSession,
   flowSessionRecord,
   inboundToRoute,
@@ -12,14 +13,18 @@ import {
   type DbOrTransaction,
 } from '@clinic-mx/db';
 import {
+  APPOINTMENT_CHANGED_TEXT,
   CHECK_ANSWER_ALREADY,
   CHECK_ANSWER_THANKS,
   SESSION_REPLY_VERSION,
   TEMPLATE_LANGUAGE,
+  appointmentConfirmedText,
   checkAnswerOf,
   contactText,
+  documentTime,
   flowReplies,
   inboundKinds,
+  istDate,
   routeHandlers,
   routeInbound,
   type InboundKind,
@@ -31,6 +36,7 @@ import { z } from 'zod';
 import { serverEnv } from '../../lib/env';
 import { systemService } from '../access/service';
 import { getSetting } from '../settings/settings';
+import { flowDate } from './booking-flow';
 import { recordCheckAnswerIn } from './clinic-messages';
 
 /**
@@ -102,6 +108,32 @@ async function answerCheck(
   return { text: outcome === 'recorded' ? CHECK_ANSWER_THANKS : CHECK_ANSWER_ALREADY };
 }
 
+/**
+ * A tap on the day before reminder's Confirm (WA-08; PRD J1.6): the reminder's appointment becomes
+ * Confirmed and they are thanked, with its day and time; one confirmed already is thanked the same.
+ * One moved, cancelled or started since gets the team's contact details (user decision,
+ * 31 October 2026). A tap on a message we cannot match gets the menu.
+ */
+async function confirmReminder(
+  tx: DbOrTransaction,
+  inbound: { contextWaId: string | null },
+  email: string,
+): Promise<'menu' | { text: string }> {
+  const ours = inbound.contextWaId ? await repliedMessage(tx, inbound.contextWaId) : undefined;
+  if (!ours?.appointmentId || ours.templateKey !== 'day_before_reminder') return 'menu';
+  const result = await confirmAppointment(tx, ours.appointmentId, new Date());
+  if (result.outcome === 'changed' || !result.startsAt) {
+    const centres = await centreContacts(tx, result.centreId);
+    return { text: `${APPOINTMENT_CHANGED_TEXT} ${contactText({ centres, email })}` };
+  }
+  return {
+    text: appointmentConfirmedText({
+      date: flowDate(istDate(result.startsAt)),
+      time: documentTime(result.startsAt),
+    }),
+  };
+}
+
 const route = systemService({
   component: 'whatsapp',
   input: z.object({ messageId: z.guid() }),
@@ -123,13 +155,17 @@ const route = systemService({
     );
     await recordRoute(tx, message.id, chosen, owner?.id ?? null);
 
-    if (chosen === 'check_answer') {
-      const answered = await answerCheck(tx, message);
+    if (chosen === 'check_answer' || chosen === 'confirm') {
+      const answered =
+        chosen === 'check_answer'
+          ? await answerCheck(tx, message)
+          : await confirmReminder(tx, message, email);
+      const answerKey = chosen === 'check_answer' ? 'check_answer' : 'appointment_confirmed';
       await queueMessage(tx, {
         patientId: owner?.id ?? null,
         toPhone: message.fromPhone,
         kind: 'session',
-        templateKey: answered === 'menu' ? 'menu' : 'check_answer',
+        templateKey: answered === 'menu' ? 'menu' : answerKey,
         templateVersion: SESSION_REPLY_VERSION,
         language: TEMPLATE_LANGUAGE,
         variables: answered === 'menu' ? {} : answered,

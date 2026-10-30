@@ -1382,6 +1382,13 @@ export {
   type PartBStatus,
 } from './part-b-consent';
 export {
+  APPOINTMENT_CHANGED_TEXT,
+  appointmentConfirmedText,
+  dayBeforeRunDue,
+  nextDayBeforeRun,
+  nextMorningRun,
+} from './reminders';
+export {
   rescheduleRefusalMessages,
   selfRescheduleCheck,
   type SelfRescheduleCheck,
