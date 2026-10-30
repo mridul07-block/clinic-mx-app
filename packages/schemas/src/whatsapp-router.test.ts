@@ -77,17 +77,34 @@ describe('handlers', () => {
   it('name every route, live or falling back to a reply the router can send', () => {
     for (const each of inboundRoutes) {
       expect(routeHandlers[each].ticket, each).toMatch(/^WA-\d\d$/);
-      expect(['menu', 'contact'], each).toContain(routeHandlers[each].reply);
+      expect(['menu', 'contact', 'booking_flow', 'none'], each).toContain(
+        routeHandlers[each].reply,
+      );
     }
     expect(routeHandlers.menu).toMatchObject({ live: true, reply: 'menu' });
     expect(routeHandlers.talk).toMatchObject({ live: true, reply: 'contact' });
   });
 
   it('give the team’s contact details until a handler is live, the menu for typed text', () => {
-    for (const each of ['emergency', 'book', 'reschedule', 'confirm', 'booking_flow'] as const) {
+    for (const each of ['emergency', 'reschedule', 'confirm', 'reschedule_flow'] as const) {
       expect(routeHandlers[each]).toMatchObject({ live: false, reply: 'contact' });
     }
     expect(routeHandlers.assistant).toMatchObject({ live: false, reply: 'menu' });
+  });
+
+  // WA-04: Book appointment opens the booking form; its completion needs no reply (the form
+  // already sent the confirmation text).
+  it('open the booking form for Book appointment, and say nothing more when it is completed', () => {
+    expect(routeHandlers.book).toMatchObject({
+      ticket: 'WA-04',
+      live: true,
+      reply: 'booking_flow',
+    });
+    expect(routeHandlers.booking_flow).toMatchObject({
+      ticket: 'WA-04',
+      live: true,
+      reply: 'none',
+    });
   });
 
   it('keep the menu within Meta’s 3 reply buttons of 20 characters', () => {

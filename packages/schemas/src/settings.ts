@@ -61,6 +61,12 @@ export const settingDefinitions = {
     description:
       'How long a picked slot is held for the person booking it before others can take it.',
   },
+  'booking.whatsapp_days_ahead': {
+    schema: days.max(90),
+    source: 'PRD J1.1 (only days with free slots); WA-04, user decision 30 October 2026',
+    description:
+      'How many days ahead, from today, patients may book themselves through the WhatsApp booking form.',
+  },
   'live.refresh_seconds': {
     schema: z.int().positive(),
     source:

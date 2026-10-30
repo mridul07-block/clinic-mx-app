@@ -35,29 +35,43 @@ export const inboundRouteLabels: Record<InboundRoute, string> = {
   assistant: 'Typed message',
 };
 
-/** The replies the router sends itself, inside WhatsApp's 24 hour window. */
-export const sessionReplies = ['menu', 'contact'] as const;
+/**
+ * The replies sent inside WhatsApp's 24 hour window: the router's own (the menu, the contact
+ * details, the booking Flow, WA-04) and the booking confirmation text the Flow sends (until WA-07).
+ */
+export const sessionReplies = ['menu', 'contact', 'booking_flow', 'booking_confirmation'] as const;
 export type SessionReply = (typeof sessionReplies)[number];
 
 export const sessionReplyLabels: Record<SessionReply, string> = {
   menu: 'Menu',
   contact: 'Contact details',
+  booking_flow: 'Booking form',
+  booking_confirmation: 'Booking confirmation',
 };
+
+/** What the router answers a route with; `none` when the handler has answered already. */
+export type RouteReply = Exclude<SessionReply, 'booking_confirmation'> | 'none';
+
+/** The booking Flow message (WA-04): its text and the button that opens the form. */
+export const BOOKING_FLOW_TEXT = 'Book your appointment in a few taps.';
+export const BOOKING_FLOW_CTA = 'Book appointment';
 
 /** Who handles each route, and what is sent until that handler is live. */
 export const routeHandlers: Record<
   InboundRoute,
-  { ticket: string; live: boolean; reply: SessionReply }
+  { ticket: string; live: boolean; reply: RouteReply }
 > = {
   // DECISION WA-03: emergency advice wording is WA-10's, from the clinic; until then the front
   // desk details, never a booking (PRD J1.9).
   emergency: { ticket: 'WA-10', live: false, reply: 'contact' },
   menu: { ticket: 'WA-03', live: true, reply: 'menu' },
   talk: { ticket: 'WA-09', live: true, reply: 'contact' },
-  book: { ticket: 'WA-04', live: false, reply: 'contact' },
+  // WA-04: the booking Flow; the router falls back to the contact details where it is not set up.
+  book: { ticket: 'WA-04', live: true, reply: 'booking_flow' },
   reschedule: { ticket: 'WA-05', live: false, reply: 'contact' },
   confirm: { ticket: 'WA-08', live: false, reply: 'contact' },
-  booking_flow: { ticket: 'WA-04', live: false, reply: 'contact' },
+  // The form already booked and sent the confirmation text; nothing more to say.
+  booking_flow: { ticket: 'WA-04', live: true, reply: 'none' },
   reschedule_flow: { ticket: 'WA-05', live: false, reply: 'contact' },
   assistant: { ticket: 'WA-11', live: false, reply: 'menu' },
 };

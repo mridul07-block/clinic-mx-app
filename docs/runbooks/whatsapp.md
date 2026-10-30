@@ -114,11 +114,12 @@ shares a mobile, so nobody is guessed).
 | --- | --- | --- | --- |
 | Typed text with an emergency phrase (checked first) | Emergency | WA-10 | The team's contact details |
 | Other typed text | Typed message | WA-11 (assistant) | The three button menu |
-| The menu's Book appointment | Book appointment | WA-04 | The team's contact details |
+| The menu's Book appointment | Book appointment | WA-04 (live) | The booking form (the team's contact details where it is not set up) |
 | The menu's Reschedule or cancel, or the reminder's Reschedule | Reschedule or cancel | WA-05 | The team's contact details |
 | The menu's Talk to our team | Talk to our team | WA-09 (live) | The team's contact details |
 | The day before reminder's Confirm | Confirm | WA-08 | The team's contact details |
-| A booking or reschedule form completed | Booking form, Reschedule form | WA-04, WA-05 | The team's contact details |
+| A booking form completed | Booking form | WA-04 (live) | None: the form sent the confirmation when it booked |
+| A reschedule form completed | Reschedule form | WA-05 | The team's contact details |
 | Anything else (a photo, a voice note, an old button) | Menu | WA-03 (live) | The three button menu |
 
 When a ticket makes its handler live it changes one line of `routeHandlers`
@@ -136,6 +137,72 @@ When a ticket makes its handler live it changes one line of `routeHandlers`
 - **The 24 hour window:** a reply that is not a template goes only within 24 hours of the person's
   last message to us (Meta's rule); later it is kept as Not sent. The test list applies too.
 - **One reply, one message** (TAD section 6, Rules).
+
+## The booking Flow
+
+"Book appointment" opens a WhatsApp Flow (WA-04; PRD J1.1 to J1.3, J1.8; TAD section 6). The
+router sends it with a new session (`whatsapp_flow_session`) as the Flow token; every screen Meta
+posts to `/api/flows/booking` carries the token, so the server knows whose number it serves
+without trusting the form, and keeps what was picked on the session.
+
+Decisions (user, 30 October 2026):
+
+- **Screens:** a clinic, then a date with a free consultation in the next
+  `booking.whatsapp_days_ahead` (14) days, then a free time, then a physio free then, each with
+  their consultation fee, then who is coming (someone already on this number, or someone new with
+  a name), then a summary to confirm.
+- **After confirming:** the last screen shows the appointment ID and the details, and a plain
+  WhatsApp text with them follows (appointment ID, who, clinic, when, physio, fee payable at the
+  clinic, map, arrive 10 minutes early, bring reports, front desk). WA-07 replaces the text with the
+  approved template.
+
+How it holds and books:
+
+- Picking a time and physio holds the slot for `booking.slot_hold_minutes` (holder
+  `flow:<session>`), the same hold the front desk gets.
+- Confirm books it as the system (`system:whatsapp`, channel WhatsApp, no booked by), with the
+  same checks as every booking (`bookAppointment`, `docs/runbooks/slots.md`). A new person is
+  added as a patient registered at the chosen clinic.
+- A slot taken meanwhile (the hold ran out and someone booked it) sends them back to the time
+  screen, with "This slot was just booked. Pick another time." and the times still free.
+- A patient whose self booking is blocked (2 reschedules or 2 no shows, SCH-09), or a number that
+  is not Indian, gets a screen with the team's contact details instead.
+- A second confirm (Meta retries) returns the same booking. A session lasts 24 hours and is
+  deleted with the webhook copies, after `whatsapp.event_retention_days`.
+
+The endpoint:
+
+| Request | Answer |
+| --- | --- |
+| Signed with the app secret, sealed with our public key | The next screen, sealed with the request's key and the IV flipped, as Base64 text |
+| Meta's health check (`ping`) | `{"data":{"status":"active"}}`, sealed |
+| Meta's notice of an error it showed | Acknowledged, sealed |
+| A wrong or missing signature | 432, counted against `limits.webhook_failures_per_network` |
+| Cannot be opened (another key, changed on the way) | 421: Meta fetches our public key again and retries |
+| A Flow token we do not know, or older than 24 hours | 427 |
+| No private key or app secret on the server | 503 |
+
+### Setting the Flow up (done for the test number, 30 October 2026)
+
+1. **Key pair:** a 2048 bit RSA pair. The private key goes straight into `apps/web/.env.local` as
+   `WHATSAPP_FLOW_PRIVATE_KEY` (Base64 of the PEM), never printed; the public key is uploaded with
+   `POST /{phone-number-id}/whatsapp_business_encryption` (`business_public_key`). Meta signs it;
+   `GET` on the same path shows `VALID`.
+2. **The Flow:** created on the WhatsApp Business Account with `POST /{waba-id}/flows` (name
+   "Clinic Mx booking", category Appointment booking), and its JSON
+   (`apps/web/modules/messaging/flows/booking-flow.json`) uploaded with
+   `POST /{flow-id}/assets`; Meta lists any validation errors. Its endpoint is set to
+   `https://<host>/api/flows/booking`. On the test number it stays a draft, sent with
+   `mode: draft`.
+3. **Vercel:** `WHATSAPP_FLOW_PRIVATE_KEY`, `WHATSAPP_BOOKING_FLOW_ID` and `WHATSAPP_FLOW_MODE`
+   (`draft` on staging), printing names only, then redeploy.
+
+**Changing the Flow:** edit the JSON, upload it again (step 2), and change the screens' code in
+`apps/web/modules/messaging/booking-flow.ts` with it. A published Flow cannot be edited: publish a
+new one and change `WHATSAPP_BOOKING_FLOW_ID`.
+
+**Rotating the key:** make a new pair, upload the public key, then replace the private key on
+Vercel and redeploy; requests sealed for the old key get 421 and Meta retries with the new one.
 
 ## Statuses
 
@@ -189,7 +256,10 @@ already Sent, Failed or Not sent is never sent again, so a job that runs twice c
 2. Submit the templates and Flows on that number, and mark each registry entry `approved` once
    Meta approves it.
 3. Replace the four `WHATSAPP_*` values on Vercel with the client's, and redeploy.
-4. Switch `whatsapp.test_recipients_only` off on Settings.
+4. Set up the booking Flow on that number as in "Setting the Flow up": a new key pair uploaded to
+   the number, the Flow created on the client's account and published once Meta approves it,
+   `WHATSAPP_FLOW_MODE=published`.
+5. Switch `whatsapp.test_recipients_only` off on Settings.
 
 ## Checking it
 
@@ -212,8 +282,15 @@ already Sent, Failed or Not sent is never sent again, so a job that runs twice c
 | `apps/web/modules/messaging/send.test.ts` (router replies) | The menu with its buttons and the contact details as text; Not sent after 24 hours or with no message from them; the test list |
 | `packages/db/src/integration/whatsapp-router.integration.test.ts` | The route job queued once; routed once, inbound only; replies are outbound and queue their send; a number linked only when one patient's; the last message time; centre contacts |
 | `apps/web/e2e/whatsapp-router.spec.ts` | At 360 px and desktop, with bodies signed by the test secret: typed text, Talk to our team and an emergency phrase each routed and answered once; Recent messages shows the routes and replies, never the text |
+| `apps/web/modules/messaging/flow-crypto.test.ts` | Meta's sealing both ways with a key pair made for the test; another key or changed data refused |
+| `apps/web/app/api/flows/booking/route.test.ts` | The health check and a screen sealed as Meta expects; Meta's error notice acknowledged; 432, 421, 427, 503, 429 |
+| `apps/web/modules/messaging/router.test.ts` (booking) | Book appointment sends the form with a new session, or the contact details where it is not set up; a completed form gets no reply |
+| `packages/db/src/integration/whatsapp-flows.integration.test.ts` | Sessions keep what was picked, are the server's alone, need a number with its country code, and go after the retention days; consultation fees |
+| `apps/web/e2e/booking-flow.spec.ts` | At 360 px and desktop, as Meta: Book appointment opens the form; clinic, dates, times, a physio with fee, someone new, confirm; a second confirm books nothing more; the booking on the staff calendar; a slot held by someone else refused, and one taken before confirming sends them back to the free times |
 
 Without the test list check in `sendQueuedMessage`, the unit test "keeps a clinic message to a
 number off the test list as Not sent" fails. Without the signature check in the webhook route, the
-route test "refuses a wrong, missing or other body's signature" fails. With the emergency check after the
+route test "refuses a wrong, missing or other body's signature" fails. Without the taken slot
+handling in the booking Flow's confirm, the end to end test "a slot taken meanwhile sends the
+person back to the next free times" fails. With the emergency check after the
 typed-text route, the router test "come before anything else a typed message would get" fails.

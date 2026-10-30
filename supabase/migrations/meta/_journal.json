@@ -1611,6 +1611,20 @@
       "when": 1793367416210,
       "tag": "20261030133656_clearance_acknowledgement_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 230,
+      "version": "7",
+      "when": 1793368906418,
+      "tag": "20261030140146_whatsapp_flow_session",
+      "breakpoints": true
+    },
+    {
+      "idx": 231,
+      "version": "7",
+      "when": 1793368908512,
+      "tag": "20261030140148_whatsapp_flow_session_rules",
+      "breakpoints": true
     }
   ]
 }

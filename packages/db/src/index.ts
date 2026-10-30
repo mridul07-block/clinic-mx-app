@@ -759,3 +759,10 @@ export {
   type AcknowledgedClearanceRecord,
   type ClearanceAckContext,
 } from './clearance-acknowledgement';
+export {
+  consultationFees,
+  createFlowSession,
+  flowSessionRecord,
+  markFlowBooked,
+  saveFlowState,
+} from './whatsapp-flows';

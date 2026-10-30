@@ -1351,6 +1351,8 @@ export {
   type PartBStatus,
 } from './part-b-consent';
 export {
+  BOOKING_FLOW_CTA,
+  BOOKING_FLOW_TEXT,
   MENU_BUTTONS,
   MENU_TEXT,
   SESSION_REPLY_VERSION,
@@ -1367,6 +1369,7 @@ export {
   type CentreContact,
   type InboundRoute,
   type RoutableMessage,
+  type RouteReply,
   type SessionReply,
 } from './whatsapp-router';
 export {

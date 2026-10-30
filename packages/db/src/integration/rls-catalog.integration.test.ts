@@ -15,7 +15,8 @@ afterAll(close);
 // job (the queue) runs on the server, never as a staff member; its one policy lets a patient's
 // health form submit queue its own pipeline (INT-10).
 // whatsapp_event: Meta's raw webhook bodies, stored and handled by the server (WA-02).
-const serverOnly = ['centre_sequence', 'rate_limit', 'whatsapp_event'];
+// whatsapp_flow_session: an open WhatsApp Flow, read and written by the data endpoint (WA-04).
+const serverOnly = ['centre_sequence', 'rate_limit', 'whatsapp_event', 'whatsapp_flow_session'];
 
 const names = async (query: ReturnType<typeof sql>) =>
   (await db.execute<{ name: string }>(query)).map((r) => r.name);
