@@ -588,6 +588,12 @@ export const settingDefinitions = {
     source: 'User decision, 22 October 2026 (IAM-09)',
     description: 'Hours a consent link stays valid (opened from a QR at the clinic).',
   },
+  'links.clearance_hours': {
+    schema: hours,
+    source: 'OUT-09: a day to read it at home (recommended default, DECISION OUT-09)',
+    description:
+      'Hours a clearance acknowledgement link stays valid (opened from a QR at the review).',
+  },
   'links.questionnaire_days': {
     schema: days,
     source: 'User decision, 22 October 2026 (IAM-09)',

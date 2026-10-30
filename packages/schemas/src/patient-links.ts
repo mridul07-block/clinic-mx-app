@@ -13,6 +13,7 @@ export const patientLinkPurposes = [
   'feedback',
   'my_plan',
   'follow_up',
+  'clearance',
 ] as const;
 
 export type PatientLinkPurpose = (typeof patientLinkPurposes)[number];
@@ -74,6 +75,14 @@ export const patientLinkDefinitions = {
     subject: 'episode',
     singleUse: true,
     lifetime: { setting: 'links.follow_up_days', unit: 'days' },
+    reissuedFromWhatsApp: false,
+  },
+  // OUT-09: the patient's acknowledgement of a Return to training or sport clearance.
+  clearance: {
+    title: 'Your clearance',
+    subject: 'episode',
+    singleUse: true,
+    lifetime: { setting: 'links.clearance_hours', unit: 'hours' },
     reissuedFromWhatsApp: false,
   },
 } as const satisfies Record<PatientLinkPurpose, PatientLinkPurposeDefinition>;

@@ -1,5 +1,6 @@
 import {
   addDays,
+  clearanceTick,
   earlierToday,
   istDate,
   istInstant,
@@ -9,7 +10,10 @@ import {
 } from '@clinic-mx/schemas';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { systemActor, withActor } from '../audit';
+import { patientActor, setAuditContext, systemActor, withActor } from '../audit';
+import { clearanceAckForEpisode, clearanceAckForLink } from '../clearance-acknowledgement';
+import { insertConsentRecords } from '../consent';
+import { completePatientLinkRow, insertPatientLink } from '../patient-links';
 import { createDb } from '../client';
 import {
   applyDiscount,
@@ -3117,6 +3121,12 @@ describe('counter payments', () => {
       const pain = 'knee.marker.primary_task_pain_nrs_0_10'; // gitleaks:allow
       const hamstrings = 'knee.lsi.hamstrings'; // gitleaks:allow
       const valgus = 'knee.readiness.no_dynamic_valgus_on_single_leg_tasks_and_landing'; // gitleaks:allow
+      /** What the patient acknowledges (OUT-09), as a consultant writes it. Generated text. */
+      const patientTexts = {
+        plan: 'Full team training, then matches from next month.',
+        warningSigns: 'Swelling after training, or the knee giving way.',
+        residualRisk: 'A small risk of injuring the knee again remains.',
+      };
       /** An Active knee episode and the newest version with knee criteria. */
       const treated = async (tx: Tx) => {
         const fixture = await chosenPackage(tx, 12);
@@ -3289,6 +3299,10 @@ describe('counter payments', () => {
             status: 'rehabilitation_complete' | 'return_to_training' | 'return_to_sport',
             by: StaffMember = fixture.consultant,
             kept = snapshot,
+            texts: Parameters<typeof signClearance>[1]['texts'] | null = status ===
+            'rehabilitation_complete'
+              ? undefined
+              : patientTexts,
           ) =>
             as(tx, by, (sp) =>
               signClearance(sp, {
@@ -3298,6 +3312,7 @@ describe('counter payments', () => {
                 kbVersionId,
                 criteria: kept,
                 by: by.id,
+                texts: texts ?? undefined,
               }),
             );
           expect(await sign('return_to_training'), 'in order').toBe('23514');
@@ -3328,6 +3343,18 @@ describe('counter payments', () => {
           expect(await sign('rehabilitation_complete')).toBeUndefined();
           expect(await sign('rehabilitation_complete'), 'once').toBe('23505');
           expect(await sign('return_to_sport'), 'still in order').toBe('23514');
+          // OUT-09: Return to training and Return to sport carry what the patient acknowledges.
+          expect(
+            await sign('return_to_training', fixture.consultant, snapshot, null),
+            'without the patient’s sections',
+          ).toBe('23514');
+          expect(
+            await sign('return_to_training', fixture.consultant, snapshot, {
+              ...patientTexts,
+              residualRisk: ' ',
+            }),
+            'a section blank',
+          ).toBe('23514');
           expect(await sign('return_to_training')).toBeUndefined();
           expect(await sign('return_to_sport')).toBeUndefined();
 
@@ -3352,6 +3379,148 @@ describe('counter payments', () => {
             ),
             'never changed, not even by the owner',
           ).toBe('23514');
+        });
+      });
+
+      // OUT-09 done when: the patient ticks and signs the plan, the warning signs and the residual
+      // risk. Through the episode's clearance link, which a consultant issues.
+      it('takes the patient’s acknowledgement of Return to training through their clearance link', async () => {
+        await rolledBack(async (tx) => {
+          const fixture = await treated(tx);
+          const { episodeId, kbVersionId, criteria } = fixture;
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.consultant);
+          for (const criterion of criteria) {
+            await addReadinessMark(tx, {
+              episodeId,
+              kbVersionId,
+              criterionKey: criterion.key,
+              by: fixture.consultant.id,
+              kind: 'override',
+              reason: 'Not tested; agreed with the patient.',
+            });
+          }
+          const kept: ClearanceCriterion[] = criteria.map((c) => ({
+            key: c.key,
+            text: c.text,
+            result: 'not_assessed' as const,
+            reading: null,
+            override: 'Not tested; agreed with the patient.',
+          }));
+          for (const status of ['rehabilitation_complete', 'return_to_training'] as const) {
+            await signClearance(tx, {
+              episodeId,
+              status,
+              region: 'knee',
+              kbVersionId,
+              criteria: kept,
+              by: fixture.consultant.id,
+              ...(status === 'return_to_training' ? { texts: patientTexts } : {}),
+            });
+          }
+          const expiresAt = new Date(Date.now() + 3_600_000);
+          const issue = async (by: StaffMember) => {
+            await asOwner(tx);
+            await becomeStaff(tx, by);
+            return failure(tx, (sp) =>
+              insertPatientLink(sp, {
+                patientId: fixture.patientId,
+                episodeId,
+                purpose: 'clearance',
+                expiresAt,
+              }),
+            );
+          };
+          expect(await issue(deskHsr), 'the desk').toBe('42501');
+          expect(await issue(fixture.colleague), 'a physio who is not a consultant').toBe('42501');
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.consultant);
+          const link = await insertPatientLink(tx, {
+            patientId: fixture.patientId,
+            episodeId,
+            purpose: 'clearance',
+            expiresAt,
+          });
+          expect((await clearanceAckForEpisode(tx, episodeId))?.clearances).toMatchObject([
+            { status: 'return_to_training', plan: patientTexts.plan, acknowledgedAt: null },
+          ]);
+
+          // The patient, through the link.
+          await asOwner(tx);
+          await setAuditContext(tx, { actor: patientActor(fixture.patientId) });
+          const claims = JSON.stringify({
+            role: 'clinic_patient',
+            patient_link: { id: link.id, patient_id: fixture.patientId, purpose: 'clearance' },
+          });
+          await tx.execute(sql`select set_config('request.jwt.claims', ${claims}, true)`);
+          await tx.execute(sql`set local role clinic_patient`);
+          expect((await clearanceAckForLink(tx))?.clearances[0]?.warningSigns).toBe(
+            patientTexts.warningSigns,
+          );
+          const section = (
+            key: string,
+            shownText: string,
+            extra: Partial<Parameters<typeof insertConsentRecords>[1][number]> = {},
+          ) => ({
+            patientId: fixture.patientId,
+            episodeId,
+            patientLinkId: link.id,
+            stage: 'C' as const,
+            statementKey: key,
+            // The database's tick version is the app's (internal.clearance_ack_core).
+            statementVersion: clearanceTick.version,
+            shownText,
+            accepted: true,
+            signer: 'patient' as const,
+            signatureKind: 'typed' as const,
+            typedName: 'Test Patient',
+            ...extra,
+          });
+          for (const [forged, why] of [
+            [section('clearance.return_to_training.plan', 'Something else'), 'other words'],
+            [
+              section('clearance.return_to_sport.plan', patientTexts.plan),
+              'a clearance not signed',
+            ],
+            [
+              section('clearance.return_to_training.plan', patientTexts.plan, {
+                statementVersion: clearanceTick.version + 1,
+              }),
+              'another version',
+            ],
+            [
+              section('clearance.return_to_training.plan', patientTexts.plan, {
+                accepted: false,
+                signatureKind: null,
+                typedName: null,
+              }),
+              'declined',
+            ],
+          ] as const) {
+            expect(await failure(tx, (sp) => insertConsentRecords(sp, [forged])), why).toBe(
+              '42501',
+            );
+          }
+          expect(
+            await failure(tx, (sp) => completePatientLinkRow(sp, link.id)),
+            'used only once something is recorded',
+          ).toBe('42501');
+          await insertConsentRecords(tx, [
+            section('clearance.return_to_training.plan', patientTexts.plan),
+            section('clearance.return_to_training.warning_signs', patientTexts.warningSigns),
+            section('clearance.return_to_training.residual_risk', patientTexts.residualRisk),
+          ]);
+          expect(await completePatientLinkRow(tx, link.id)).toBe(true);
+
+          await asOwner(tx);
+          await becomeStaff(tx, fixture.consultant);
+          const [acknowledged] = (await clearanceAckForEpisode(tx, episodeId))?.clearances ?? [];
+          expect(acknowledged?.acknowledgedAt).toBeInstanceOf(Date);
+          expect(acknowledged?.signer).toBe('patient');
+          // The desk reads nothing clinical.
+          await asOwner(tx);
+          await becomeStaff(tx, deskHsr);
+          expect(await clearanceAckForEpisode(tx, episodeId)).toBeUndefined();
         });
       });
 

@@ -147,7 +147,20 @@ export async function signClearanceAction(
 ): Promise<ReadinessFormState> {
   const episodeId = text(form, 'episodeId');
   return readinessWrite(episodeId, async () =>
-    signReadinessClearance(await serviceContext(), { episodeId, status: text(form, 'status') }),
+    signReadinessClearance(await serviceContext(), {
+      episodeId,
+      status: text(form, 'status'),
+      // OUT-09: what the patient acknowledges, for Return to training and Return to sport.
+      ...(form.has('plan')
+        ? {
+            texts: {
+              plan: text(form, 'plan'),
+              warningSigns: text(form, 'warningSigns'),
+              residualRisk: text(form, 'residualRisk'),
+            },
+          }
+        : {}),
+    }),
   );
 }
 

@@ -8,6 +8,7 @@ import { serviceContext } from '../access/staff-db';
 import { clientIp } from '../auth/session';
 import { signatureStore } from '../intake/signature-store';
 import { PatientLinkError } from '../patient-links/services';
+import { saveClearanceAcknowledgement, showClearanceAcknowledgement } from './clearance';
 import { openPartBOnTablet, savePartB, showPartBConsent } from './part-b';
 
 /** What the Part B page shows after a post that needs answers (BIL-03). */
@@ -112,6 +113,60 @@ export async function openPartBOnTabletAction(
     revalidatePath(['/app/plans', field(form, 'episodeId')].join('/'));
     return { done: `Opening on ${tabletName}.` };
   } catch (error) {
+    return { error: refusal(error) };
+  }
+}
+
+/**
+ * "Done" on the clearance acknowledgement (OUT-09): records it, then the link's page thanks the
+ * patient; ticks or the signature missing, the same page with messages.
+ */
+export async function saveClearanceAction(
+  state: PartBFormState,
+  form: FormData,
+): Promise<PartBFormState> {
+  const token = form.get('token');
+  if (typeof token !== 'string' || !tokenPattern.test(token)) redirect('/');
+  const posted: Record<string, string | string[]> = {};
+  for (const key of new Set(form.keys())) {
+    if (key === 'token' || key.startsWith('$')) continue;
+    const values = form.getAll(key).filter((value): value is string => typeof value === 'string');
+    posted[key] = values.length === 1 ? (values[0] ?? '') : values;
+  }
+  const page = `/p/${token}`;
+  let result: Awaited<ReturnType<typeof saveClearanceAcknowledgement>>;
+  try {
+    result = await saveClearanceAcknowledgement(token, posted, {
+      ip: await clientIp(),
+      store: signatureStore(),
+    });
+  } catch (error) {
+    // Sent twice at once: the link's page says it is done.
+    const code = (error as { cause?: { code?: string } }).cause?.code;
+    if (error instanceof PatientLinkError || code === '42501') redirect(page);
+    throw error;
+  }
+  if (result.status === 'invalid') {
+    return { errors: result.errors, values: posted, attempt: (state.attempt ?? 0) + 1 };
+  }
+  if (result.status === 'guardian_needed') redirect(`${page}?guardian=needed`);
+  redirect(page);
+}
+
+/** "Show clearance QR" on Review and discharge (OUT-09). */
+export async function showClearanceAcknowledgementAction(
+  _state: PartBQrState,
+  form: FormData,
+): Promise<PartBQrState> {
+  try {
+    const shown = await showClearanceAcknowledgement(await serviceContext(), {
+      episodeId: field(form, 'episodeId'),
+    });
+    return { path: shown.path, expiresAt: shown.expiresAt.toISOString() };
+  } catch (error) {
+    if (error instanceof NotAllowedError) {
+      return { error: 'Only a consultant with the Treats patients tick shows this QR.' };
+    }
     return { error: refusal(error) };
   }
 }

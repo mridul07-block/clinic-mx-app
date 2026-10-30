@@ -496,6 +496,57 @@ assessed, the three statuses are signed, and an override takes a reason (PRD J6.
 - **Who:** marking, recording, overriding and signing need the Consultant and Treats patients ticks
   now, on an Active or Under review episode. Clinical readers read it all at any centre.
 
+## Clearance acknowledgement (OUT-09)
+
+Done when the patient ticks and signs the plan, the warning signs and the residual risk (PRD J6.5
+"Patients acknowledge clearance and warning signs on their phone"; SOP 14.2 "Patient/athlete consent
+and acknowledgment of residual risk"; Frontend Specification "Clearance acknowledgement: Plan, warning
+signs to stop, residual risk; tick and sign"). No document gives the words, so these are recommended
+defaults chosen under the user's standing approval, 30 October 2026 (DECISION OUT-09), for the client
+to confirm:
+
+- **The words are the consultant's.** Signing Return to training or Return to sport asks for three
+  sections for the patient, under the Frontend Specification's headings: **Plan** ("What the patient
+  does from here."), **Warning signs to stop** ("When the patient stops and contacts the clinic.") and
+  **Residual risk**, each up to 2,000 characters. Rehabilitation complete asks none. They are kept on
+  the clearance (`patient_plan`, `warning_signs`, `residual_risk`; the database refuses Return to
+  training or Return to sport without them, `clearance_texts`). Clearances signed before OUT-09 have
+  none and ask nothing.
+- **The ticks' words are a placeholder:** "I have read and understood this." (`clearanceTick`,
+  version 1, marked as a placeholder) until the clinic gives its own; new wording is a new version.
+- **Asking:** under the signed clearance, "Not acknowledged by the patient yet." and **Show clearance
+  QR** (a consultant with the Treats patients tick; QR only, at the review). The QR asks the newest
+  clearance not yet acknowledged; the older one is asked next, on its own link. The link is the
+  episode's `clearance` link, single use, valid `links.clearance_hours` (24, a day to read it at home).
+- **The patient's page:** "Your clearance: Return to sport", each section in the consultant's words with
+  a tick, then the signature (drawn, or a typed full name); a guardian on file signs for a patient
+  under `patients.adult_age_years` (INT-07). Every tick is needed ("Tick this once you have read it.
+  If anything is unclear, ask first."): nothing is declined, the patient asks first. Afterwards: "Thank
+  you. Your acknowledgement is with the clinic."
+- **Recorded:** one `consent_record` row per section (stage C, key `clearance.<status>.<section>`, the
+  tick's version, the words shown, the signature and signer), never changed, audited; the clearance then
+  reads "Acknowledged by the patient on …" (or "by the patient's guardian").
+- **In the database:** `internal.clearance_ack_for_link()` (the patient's link) and
+  `internal.clearance_ack_for_episode(episode)` (clinical readers at its centre; not the desk) read each
+  signed Return to training or Return to sport, its sections and its acknowledgement. The patient adds
+  rows only through their open clearance link, for its episode, ticked, on the current version, with
+  exactly the words the clearance holds (`internal.clearance_section_is`), and their own guardian; a
+  consultant with the Treats patients tick at the centre issues and reads clearance links; the link is
+  used once something is recorded through it.
+
+| Piece | Where |
+| --- | --- |
+| Sections, tick, parsing | `packages/schemas/src/clearance-acknowledgement.ts` |
+| The page, the save, the QR | `apps/web/modules/consent/clearance.ts`, `app/(patient)/p/[token]/clearance-form.tsx`, the review screen's `readiness-panel.tsx` |
+| Rules | `supabase/migrations/20261030124625_clearance_acknowledgement_rules.sql` |
+| `packages/schemas/src/clearance-acknowledgement.test.ts` | which clearances ask; the sections needed to sign; every tick and the signature |
+| `apps/web/modules/reviews/readiness.test.ts` | the sections kept with Return to training; where the acknowledgement stands, and which is next |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (readiness and clearances) | Return to training refused without the sections or with one blank; the desk and a physio cannot issue the link; other words, a clearance not signed, another version or a decline refused; the link used only once something is recorded; the desk reads nothing |
+| `apps/web/e2e/readiness.spec.ts` | 360 px and desktop: the sections written at signing; the QR on the newest; the phone's ticks and signature; acknowledged |
+
+**Negative check:** drop `coalesce` from the `clearance_texts` check, and the database test fails
+("without the patient's sections"): a CHECK passes on NULL.
+
 | Piece | Where |
 | --- | --- |
 | Reading the workbooks | `packages/db/src/knowledge/readiness.ts`, called by `buildObjective`; the report's "Readiness criteria" |
@@ -512,7 +563,7 @@ assessed, the three statuses are signed, and an override takes a reason (PRD J6.
 | `packages/schemas/src/readiness.test.ts` | each rule kind, Not assessed without readings; the blocker copy; the order; the override and reading inputs |
 | `apps/web/modules/reviews/readiness.test.ts` | the panel's results and sources; blocked until each is Met or overridden; the clearance's kept criteria; refusals; marks, overrides and readings |
 | `packages/db/src/integration/clinical-record.integration.test.ts` (readiness and clearances) | the knee criteria; marks, overrides and readings by a consultant with both ticks only; read at any centre, not by the desk or support; never changed; clearances in order, once, refused with a criterion missing, unmet without a reason or a reason not on record; not while Plan proposed |
-| `apps/web/e2e/readiness.spec.ts` | 360 px and desktop: thirteen knee criteria; a reading recorded, lines marked, two overrides; the three statuses signed in order |
+| `apps/web/e2e/readiness.spec.ts` | 360 px and desktop: thirteen knee criteria; a reading recorded, lines marked, two overrides; the three statuses signed in order (OUT-09 below) |
 
 **Negative check:** drop the "each Met or overridden" check from `internal.clearance_guard`, and the
 database test fails ("not assessed without an override").

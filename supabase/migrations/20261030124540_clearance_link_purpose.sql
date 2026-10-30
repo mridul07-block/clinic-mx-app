@@ -1,0 +1,1 @@
+ALTER TYPE "public"."patient_link_purpose" ADD VALUE 'clearance';

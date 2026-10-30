@@ -16,6 +16,7 @@ const db = vi.hoisted(() => ({
   withStaffAccess: vi.fn(),
   addReadinessMark: vi.fn(),
   clearancesOf: vi.fn(),
+  clearanceAckForEpisode: vi.fn(),
   episodeReadings: vi.fn(),
   episodeRecord: vi.fn(),
   knowledgeObjective: vi.fn(),
@@ -118,6 +119,7 @@ describe('the readiness panel', () => {
     );
     db.readinessMarks.mockResolvedValue(new Map());
     db.clearancesOf.mockResolvedValue([]);
+    db.clearanceAckForEpisode.mockResolvedValue(undefined);
     db.staffTreatsNow.mockResolvedValue(true);
   });
 
@@ -186,14 +188,72 @@ describe('the readiness panel', () => {
     });
   });
 
+  it('keeps what the patient acknowledges with Return to training, and shows where it stands (OUT-09)', async () => {
+    db.readinessMarks.mockResolvedValue(
+      new Map([
+        [valgus.key, { check: { result: 'met', by: consultant.name, at: new Date() } }],
+        [
+          hamstrings.key,
+          { override: { reason: 'Not tested.', by: consultant.name, at: new Date() } },
+        ],
+      ]),
+    );
+    const signedAt = new Date();
+    db.clearancesOf.mockResolvedValue([
+      { status: 'rehabilitation_complete', criteria: [], signedByName: 'Test', signedAt },
+    ]);
+    const texts = { plan: 'Full training', warningSigns: 'Swelling', residualRisk: 'Some risk' };
+    await expect(
+      signReadinessClearance(context(consultant), {
+        episodeId,
+        status: 'return_to_training',
+        texts,
+      }),
+    ).resolves.toEqual({ status: 'signed' });
+    expect(db.signClearance).toHaveBeenLastCalledWith(
+      fakeTx,
+      expect.objectContaining({ status: 'return_to_training', texts }),
+    );
+    db.clearancesOf.mockResolvedValue([
+      { status: 'rehabilitation_complete', criteria: [], signedByName: 'Test', signedAt },
+      { status: 'return_to_training', criteria: [], signedByName: 'Test', signedAt },
+    ]);
+    db.clearanceAckForEpisode.mockResolvedValue({
+      episodeId,
+      clearances: [
+        {
+          status: 'return_to_training',
+          signedAt,
+          ...texts,
+          acknowledgedAt: null,
+          signer: null,
+        },
+      ],
+    });
+    const view = await readinessView(fakeTx as never, episodeId);
+    expect(view?.clearances.map((c) => ({ ack: c.acknowledgement, asks: c.asksTexts }))).toEqual([
+      { ack: null, asks: false },
+      { ack: { at: null, byGuardian: false, next: true }, asks: true },
+      { ack: null, asks: true },
+    ]);
+  });
+
   it('refuses a blocked or out of order clearance, a physio, no tick, an untreated episode and support', async () => {
     const sign = (actor: StaffMember, status = 'rehabilitation_complete') =>
       signReadinessClearance(context(actor), { episodeId, status });
     await expect(sign(consultant)).rejects.toThrow(
       new ReviewError('2 tests not assessed. Record them or add an override reason.'),
     );
-    await expect(sign(consultant, 'return_to_sport')).rejects.toThrow(
-      'Sign Return to training first.',
+    await expect(
+      signReadinessClearance(context(consultant), {
+        episodeId,
+        status: 'return_to_sport',
+        texts: { plan: 'Plan', warningSigns: 'Swelling', residualRisk: 'Some' },
+      }),
+    ).rejects.toThrow('Sign Return to training first.');
+    // OUT-09: Return to training and Return to sport carry what the patient acknowledges.
+    await expect(sign(consultant, 'return_to_training')).rejects.toThrow(
+      'Write the plan, the warning signs to stop and the residual risk for the patient.',
     );
     await expect(sign(physio)).rejects.toThrow(NotAllowedError);
     db.staffTreatsNow.mockResolvedValueOnce(false);

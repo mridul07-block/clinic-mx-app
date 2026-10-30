@@ -2,6 +2,10 @@
 
 import {
   OVERRIDE_REASON_MAX,
+  clearanceSectionFields,
+  clearanceSectionHints,
+  clearanceSectionTitles,
+  clearanceSections,
   criterionResultLabels,
   criterionResults,
   formatIstDateTime,
@@ -11,7 +15,9 @@ import {
 import type { Tone } from '@clinic-mx/ui';
 import { useActionState } from 'react';
 import { primaryButtonClass, secondaryButtonClass } from '../../../../../../../components/forms';
+import { PatientLinkQr } from '../../../../../../../components/patient-link-qr';
 import { Tag } from '../../../../../../../components/tag';
+import { showClearanceAcknowledgementAction } from '../../../../../../../modules/consent/actions';
 import {
   markReadinessCheckAction,
   overrideReadinessAction,
@@ -227,14 +233,91 @@ function CriterionRow({
   );
 }
 
+/** The three sections a consultant writes for the patient (OUT-09), on the signing form. */
+function ClearanceTexts() {
+  return (
+    <fieldset className="flex flex-col gap-3" data-testid="clearance-texts">
+      <legend className="mb-1 text-sm text-ink-secondary">
+        For the patient to read and acknowledge on their phone.
+      </legend>
+      {clearanceSections.map((section) => {
+        const name = clearanceSectionFields[section];
+        const id = ['clearance', section].join('-');
+        return (
+          <div key={section} className="flex flex-col gap-1">
+            <label htmlFor={id} className="text-sm font-medium text-ink">
+              {clearanceSectionTitles[section]}
+            </label>
+            <p id={`${id}-hint`} className="text-sm text-ink-muted">
+              {clearanceSectionHints[section]}
+            </p>
+            <textarea
+              id={id}
+              name={name}
+              required
+              maxLength={2000}
+              rows={3}
+              aria-describedby={`${id}-hint`}
+              className={textarea}
+            />
+          </div>
+        );
+      })}
+    </fieldset>
+  );
+}
+
+/** Where the patient's acknowledgement stands (OUT-09), and the QR that asks for it. */
+function Acknowledgement({
+  episodeId,
+  acknowledgement,
+  showsQr,
+  origin,
+}: {
+  episodeId: string;
+  acknowledgement: NonNullable<ReadinessClearance['acknowledgement']>;
+  showsQr: boolean;
+  origin: string;
+}) {
+  if (acknowledgement.at) {
+    return (
+      <p className="text-sm text-ink-secondary" data-testid="clearance-acknowledged">
+        Acknowledged by the {acknowledgement.byGuardian ? 'patient’s guardian' : 'patient'} on{' '}
+        {formatIstDateTime(acknowledgement.at)}.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2" data-testid="clearance-acknowledgement">
+      <p className="text-sm text-waiting-strong">Not acknowledged by the patient yet.</p>
+      {showsQr && acknowledgement.next ? (
+        <PatientLinkQr
+          id="clearance"
+          title="Clearance acknowledgement for the patient"
+          description="The plan, the warning signs to stop and the residual risk you wrote. The patient ticks each and signs. They scan it with their phone camera."
+          buttonLabel="Show clearance QR"
+          alt="QR code for the patient’s clearance acknowledgement"
+          action={showClearanceAcknowledgementAction}
+          fields={{ episodeId }}
+          origin={origin}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function ClearanceRow({
   episodeId,
   clearance,
   works,
+  showsQr,
+  origin,
 }: {
   episodeId: string;
   clearance: ReadinessClearance;
   works: boolean;
+  showsQr: boolean;
+  origin: string;
 }) {
   const [state, action, pending] = useActionState(signClearanceAction, initialState);
   return (
@@ -250,9 +333,19 @@ function ClearanceRow({
         </Tag>
       </span>
       {clearance.signed ? (
-        <p className="text-sm text-ink-secondary">
-          Signed by {clearance.signed.by} on {formatIstDateTime(clearance.signed.at)}.
-        </p>
+        <>
+          <p className="text-sm text-ink-secondary">
+            Signed by {clearance.signed.by} on {formatIstDateTime(clearance.signed.at)}.
+          </p>
+          {clearance.acknowledgement ? (
+            <Acknowledgement
+              episodeId={episodeId}
+              acknowledgement={clearance.acknowledgement}
+              showsQr={showsQr}
+              origin={origin}
+            />
+          ) : null}
+        </>
       ) : (
         <>
           {clearance.refusal ? (
@@ -264,6 +357,7 @@ function ClearanceRow({
             <form action={action} className="flex flex-col gap-1.5">
               <input type="hidden" name="episodeId" value={episodeId} />
               <input type="hidden" name="status" value={clearance.status} />
+              {clearance.asksTexts && clearance.refusal === undefined ? <ClearanceTexts /> : null}
               <button
                 type="submit"
                 disabled={pending || clearance.refusal !== undefined}
@@ -290,10 +384,15 @@ export function ReadinessPanel({
   episodeId,
   view,
   works,
+  showsClearanceQr,
+  origin,
 }: {
   episodeId: string;
   view: ReadinessView;
   works: boolean;
+  /** A consultant with the Treats patients tick shows the clearance QR (OUT-09). */
+  showsClearanceQr: boolean;
+  origin: string;
 }) {
   const sections = [...new Set(view.rows.map((row) => row.criterion.section))];
   return (
@@ -339,6 +438,8 @@ export function ReadinessPanel({
               episodeId={episodeId}
               clearance={clearance}
               works={works}
+              showsQr={showsClearanceQr}
+              origin={origin}
             />
           ))}
         </ul>

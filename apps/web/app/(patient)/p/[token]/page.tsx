@@ -20,6 +20,10 @@ import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { clientIp } from '../../../../modules/auth/session';
 import { loadHealthFormVisit, type HealthFormWelcome } from '../../../../modules/intake/visit';
+import {
+  loadClearanceAcknowledgement,
+  type ClearancePage,
+} from '../../../../modules/consent/clearance';
 import { loadPartB, type PartBPage } from '../../../../modules/consent/part-b';
 import { kioskBrowser } from '../../../../modules/kiosk/device';
 import {
@@ -49,6 +53,7 @@ import { FeedbackForm } from './feedback-form';
 import { FirstTreatmentForm } from './first-treatment-form';
 import { FollowUpForm } from './follow-up-form';
 import { PartBConsentForm } from './part-b-form';
+import { ClearanceAcknowledgementForm } from './clearance-form';
 import { QuestionnaireForm } from './questionnaire-form';
 import { HealthFormScreenForm } from './health-form';
 import { KioskShell } from './kiosk-shell';
@@ -114,7 +119,9 @@ function message(opened: Shown): { title: string; body: string } {
             ? 'Your plan cannot be shown. Please ask the clinic.'
             : opened.purpose === 'consent'
               ? 'There is nothing to sign here now. Please ask the front desk.'
-              : 'This form is no longer open. Please ask the front desk.',
+              : opened.purpose === 'clearance'
+                ? 'There is nothing to acknowledge here now. Please ask your physiotherapist.'
+                : 'This form is no longer open. Please ask the front desk.',
       };
     case 'used':
       return {
@@ -124,11 +131,13 @@ function message(opened: Shown): { title: string; body: string } {
             ? 'Thank you. Your answers are with your physiotherapist.'
             : opened.purpose === 'consent'
               ? 'Thank you. Your consent is with the clinic.'
-              : opened.purpose === 'feedback' || opened.purpose === 'follow_up'
-                ? 'Thank you. Your feedback has reached the clinic.'
-                : opened.purpose === 'questionnaire'
-                  ? 'Thank you. Your answers are with your physiotherapist.'
-                  : 'You have already sent this. Thank you.',
+              : opened.purpose === 'clearance'
+                ? 'Thank you. Your acknowledgement is with the clinic.'
+                : opened.purpose === 'feedback' || opened.purpose === 'follow_up'
+                  ? 'Thank you. Your feedback has reached the clinic.'
+                  : opened.purpose === 'questionnaire'
+                    ? 'Thank you. Your answers are with your physiotherapist.'
+                    : 'You have already sent this. Thank you.',
       };
     case 'expired':
     case 'revoked':
@@ -412,6 +421,17 @@ export default async function PatientPage({
           : { status: 'closed', purpose: 'consent' };
     }
   }
+  // OUT-09: the clearance acknowledgement, through the episode's clearance link.
+  let clearance: ClearancePage | undefined;
+  if (link.status === 'valid' && link.link.purpose === 'clearance') {
+    clearance = await loadClearanceAcknowledgement(link.link, ip);
+    if (!clearance.open) {
+      opened =
+        clearance.reason === 'done'
+          ? { status: 'used', purpose: 'clearance' }
+          : { status: 'closed', purpose: 'clearance' };
+    }
+  }
   const shown = kiosk ? kioskMessage(opened) : message(opened);
   const { title } = shown;
   // Something declined on Part B: the desk speaks to the patient.
@@ -436,6 +456,17 @@ export default async function PatientPage({
     <FirstTreatmentForm token={token} />
   ) : followUp ? (
     <FollowUpForm token={token} followUp={followUp} />
+  ) : clearance?.open ? (
+    <ClearanceAcknowledgementForm
+      token={token}
+      firstName={clearance.firstName}
+      status={clearance.status}
+      title={clearance.title}
+      sections={clearance.sections}
+      tick={clearance.tick}
+      signing={clearance.signing}
+      guardianNeeded={guardian === 'needed'}
+    />
   ) : partB?.open ? (
     <PartBConsentForm
       token={token}

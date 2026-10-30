@@ -300,6 +300,13 @@ export const clearance = pgTable(
       .notNull()
       .references(() => staffUser.id),
     signedAt: timestamp('signed_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * What the patient acknowledges (OUT-09), in the consultant's words: Return to training and
+     * Return to sport only (`clearance_texts`, for clearances signed from OUT-09 on).
+     */
+    patientPlan: text('patient_plan'),
+    warningSigns: text('warning_signs'),
+    residualRisk: text('residual_risk'),
   },
   (table) => [unique('clearance_episode_status').on(table.episodeId, table.status)],
 ).enableRLS();

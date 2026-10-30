@@ -7,7 +7,8 @@ import { ageOn, needsGuardian } from './patients';
  * (after the consultation) comes with the plan of care.
  */
 
-export const consentStages = ['A', 'B'] as const;
+// C: the patient's clearance acknowledgement (OUT-09).
+export const consentStages = ['A', 'B', 'C'] as const;
 export type ConsentStage = (typeof consentStages)[number];
 
 export const consentSigners = ['patient', 'guardian'] as const;

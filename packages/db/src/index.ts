@@ -747,7 +747,15 @@ export {
 } from './messaging';
 export {
   liveConsentLink,
+  liveEpisodeLink,
   partBForEpisode,
   partBForLink,
   type PartBContext,
 } from './part-b-consent';
+export {
+  clearanceAckForEpisode,
+  clearanceAckForLink,
+  clearanceToAcknowledge,
+  type AcknowledgedClearanceRecord,
+  type ClearanceAckContext,
+} from './clearance-acknowledgement';

@@ -1,6 +1,7 @@
 import 'server-only';
 import {
   addReadinessMark,
+  clearanceAckForEpisode,
   clearancesOf,
   episodeReadings,
   episodeRecord,
@@ -20,7 +21,8 @@ import {
   baselineReadingText,
   can,
   clearanceRefusal,
-  clearanceSignSchema,
+  clearanceSignWithTextsSchema,
+  isAcknowledgedClearance,
   clearanceStatusLabels,
   clearanceStatuses,
   formatIstDate,
@@ -78,6 +80,14 @@ export interface ReadinessClearance {
   signed: { by: string; at: Date } | null;
   /** Why it cannot be signed yet; undefined when it can. */
   refusal: string | undefined;
+  /**
+   * The patient's acknowledgement (OUT-09) of a signed Return to training or Return to sport
+   * with its sections: when, and whether a guardian signed; `at` null while it waits; `next` for
+   * the one the clearance QR asks now (the newest waiting). Null where none is asked.
+   */
+  acknowledgement: { at: Date | null; byGuardian: boolean; next: boolean } | null;
+  /** Signing asks for the sections the patient acknowledges (OUT-09). */
+  asksTexts: boolean;
 }
 
 export interface ReadinessView {
@@ -137,6 +147,8 @@ export async function readinessView(
     override: row.result === 'met' ? null : (row.override?.reason ?? null),
   }));
   const signedStatuses = signed.map((c) => c.status);
+  const acknowledged = (await clearanceAckForEpisode(tx, episodeId))?.clearances ?? [];
+  const next = acknowledged.filter((each) => each.acknowledgedAt === null).at(-1)?.status;
   return {
     region,
     kbVersionId,
@@ -148,6 +160,17 @@ export async function readinessView(
         label: clearanceStatusLabels[status],
         signed: record ? { by: record.signedByName, at: record.signedAt } : null,
         refusal: record ? undefined : clearanceRefusal(status, signedStatuses, states),
+        acknowledgement: (() => {
+          const ack = acknowledged.find((each) => each.status === status);
+          return ack
+            ? {
+                at: ack.acknowledgedAt,
+                byGuardian: ack.signer === 'guardian',
+                next: ack.status === next,
+              }
+            : null;
+        })(),
+        asksTexts: isAcknowledgedClearance(status),
       };
     }),
   };
@@ -253,7 +276,7 @@ export const recordReadinessMeasure = staffService({
 /** Signs one clearance, in order, keeping every criterion as it stands. */
 export const signReadinessClearance = staffService({
   action: 'consultant_records.sign',
-  input: clearanceSignSchema,
+  input: clearanceSignWithTextsSchema,
   run: async (tx, input, actor): Promise<{ status: 'signed' }> => {
     const { region, kbVersionId } = await writable(tx, actor, input.episodeId);
     const view = await readinessView(tx, input.episodeId);
@@ -275,6 +298,8 @@ export const signReadinessClearance = staffService({
       kbVersionId,
       criteria,
       by: actor.id,
+      // OUT-09: what the patient acknowledges; Rehabilitation complete has none.
+      ...(input.texts && isAcknowledgedClearance(input.status) ? { texts: input.texts } : {}),
     });
     return { status: 'signed' };
   },
