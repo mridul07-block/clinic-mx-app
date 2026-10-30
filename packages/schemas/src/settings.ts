@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { aiSheetSettingSchema } from './ai';
 import { aiTaskConfigSchema } from './ai-gateway';
 import { redFlagTiers } from './knowledge';
+import { testRecipientsSchema } from './messaging';
 
 /**
  * Business rules that the Super Admin changes without a code release (rule 6, PRD section 7).
@@ -681,6 +682,20 @@ export const settingDefinitions = {
     source:
       'PRD section 2 (Audit log and data export); ADM-04, recommended default, 29 October 2026',
     description: 'The most events one audit log download holds; a larger one is refused.',
+  },
+  'whatsapp.test_recipients_only': {
+    schema: z.boolean(),
+    source:
+      'TAD section 6 (a test number until the client chooses the production number); WA-01, user decision 30 October 2026',
+    description:
+      'While on, WhatsApp messages go only to the numbers on the test list; every other one is kept as Not sent. Switched off with the production number (WA-12).',
+  },
+  'whatsapp.test_recipients': {
+    schema: testRecipientsSchema,
+    source:
+      'Meta test numbers deliver only to up to 5 verified numbers; WA-01, user decision 30 October 2026',
+    description:
+      'The phone numbers, with country code, verified on the Meta test number, for example ["+919845012345"]. At most 5.',
   },
 } as const satisfies Record<string, SettingDefinition>;
 

@@ -32,3 +32,4 @@ export * from './ai';
 export * from './questionnaire-results';
 export * from './patient-content';
 export * from './data-requests';
+export * from './messages';

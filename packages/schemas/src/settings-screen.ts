@@ -36,6 +36,7 @@ export const settingAreaLabels: Record<string, string> = {
   privacy: 'Privacy',
   audit: 'Audit log',
   launch: 'Launch',
+  whatsapp: 'WhatsApp',
 };
 
 export function settingArea(key: string): string {

@@ -1296,3 +1296,22 @@ export {
   type DataRequestKind,
   type DataRequestStatus,
 } from './data-requests';
+export {
+  TEMPLATE_LANGUAGE,
+  TEST_TEMPLATE,
+  maskNumber,
+  mayReceive,
+  messageDirections,
+  messageKinds,
+  messageStatusLabels,
+  messageStatuses,
+  retryableSendFailure,
+  sendTestMessageSchema,
+  skipReasons,
+  templateSendable,
+  testRecipientsSchema,
+  whatsappNumberSchema,
+  type MessageDirection,
+  type MessageKind,
+  type MessageStatus,
+} from './messaging';

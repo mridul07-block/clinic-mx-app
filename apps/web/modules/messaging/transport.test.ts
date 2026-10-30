@@ -1,0 +1,83 @@
+import { describe, expect, it, vi } from 'vitest';
+import { cloudApiTransport, templateBody } from './transport';
+
+vi.mock('server-only', () => ({}));
+
+const config = {
+  accessToken: 'fake',
+  phoneNumberId: '111',
+  graphVersion: 'v25.0',
+};
+const hello = { to: '+919845012345', template: 'hello_world', language: 'en_US', parameters: [] };
+const signal = () => new AbortController().signal;
+const json = (status: number, body: unknown) =>
+  Promise.resolve(new Response(JSON.stringify(body), { status }));
+
+// WA-01: the Cloud API call, and nothing of the message or the token in a failure.
+describe('cloudApiTransport', () => {
+  it('posts the template to the number’s messages endpoint and reads Meta’s id', async () => {
+    const send = vi.fn(() => json(200, { messages: [{ id: 'wamid.1' }] }));
+    const result = await cloudApiTransport(config, send).sendTemplate(hello, signal());
+    expect(result).toEqual({ ok: true, waMessageId: 'wamid.1' });
+    expect(send).toHaveBeenCalledWith(
+      'https://graph.facebook.com/v25.0/111/messages',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    const [, init] = send.mock.calls[0] as unknown as [string, RequestInit];
+    expect(new Headers(init.headers).get('authorization')).toBe(`Bearer ${config.accessToken}`);
+    expect(JSON.parse(init.body as string)).toMatchObject({ to: '919845012345', type: 'template' });
+  });
+
+  it('puts template variables in the body, in order', () => {
+    expect(
+      templateBody({ ...hello, template: 'receipt', language: 'en', parameters: ['A', 'B'] })
+        .template,
+    ).toEqual({
+      name: 'receipt',
+      language: { code: 'en' },
+      components: [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: 'A' },
+            { type: 'text', text: 'B' },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('gives Meta’s code and short title on a refusal, never its message', async () => {
+    const send = vi.fn(() =>
+      json(400, {
+        error: {
+          code: 131030,
+          message: 'Recipient +919845012345 not in allowed list',
+          error_user_title: 'Recipient not allowed',
+        },
+      }),
+    );
+    const result = await cloudApiTransport(config, send).sendTemplate(hello, signal());
+    expect(result).toEqual({
+      ok: false,
+      kind: 'http',
+      httpStatus: 400,
+      code: '131030',
+      title: 'Recipient not allowed',
+    });
+    expect(JSON.stringify(result)).not.toContain('9845012345');
+  });
+
+  it('tells a network failure from a timeout', async () => {
+    const down = vi.fn(() => Promise.reject(new TypeError('fetch failed')));
+    expect(await cloudApiTransport(config, down).sendTemplate(hello, signal())).toEqual({
+      ok: false,
+      kind: 'network',
+    });
+    const slow = vi.fn(() => Promise.reject(new DOMException('timed out', 'TimeoutError')));
+    expect(await cloudApiTransport(config, slow).sendTemplate(hello, signal())).toEqual({
+      ok: false,
+      kind: 'timeout',
+    });
+  });
+});

@@ -49,6 +49,8 @@ const stored: Settings = {
   'ai.sheet_also_consider_count': 2,
   'ai.sheet_retry_after_seconds': 60,
   'ai.blocked_providers': ['deepseek'],
+  'whatsapp.test_recipients_only': true,
+  'whatsapp.test_recipients': [],
   'ai.blind_test_budget_paise': 200000,
   'ai.blind_test_cases_min': 30,
   'ai.blind_test_cases_max': 50,

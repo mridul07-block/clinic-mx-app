@@ -28,6 +28,7 @@ import {
 } from '@clinic-mx/db';
 import { z } from 'zod';
 import { followUpThinkAboutIt } from '../billing/plan-choice';
+import { WHATSAPP_SEND_JOB, sendQueuedMessage } from '../messaging/send';
 import { generateConsultationSummary } from '../documents/consultation-summary';
 import { generateDischargeReport } from '../documents/discharge-report';
 import { generateInvoice } from '../documents/invoice';
@@ -48,6 +49,15 @@ import { runUnsignedNotesFlag } from '../tasks/unsigned-notes';
 export const jobHandlers: JobHandlers = {
   /** Does nothing: proves the queue end to end on an environment (docs/runbooks/jobs.md). */
   'system.ping': { payload: z.object({}), run: () => Promise.resolve() },
+  /**
+   * Sends one WhatsApp message (WA-01), queued with its row by the `message_queue_send` trigger.
+   * A failure Meta may get over is thrown, so the queue tries again with its backoff.
+   */
+  [WHATSAPP_SEND_JOB]: defineJob({
+    payload: z.object({ messageId: z.guid() }),
+    run: ({ messageId }, { db, job }) =>
+      sendQueuedMessage(db, messageId, { attempt: job.attempts }),
+  }),
   /** A submitted health form's pipeline (INT-10); a form already done is left as it is. */
   [INTAKE_SUBMITTED_JOB]: defineJob({
     payload: z.object({ appointmentId: z.guid() }),
