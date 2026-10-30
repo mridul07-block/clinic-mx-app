@@ -15,8 +15,6 @@ import { packageState } from './packages';
 const painValue = z.number().int().min(0).max(10).nullable();
 
 export const myPlanSchema = z.object({
-  /** SET-07: the plan's library exercises that have a video; filled by the page's loader. */
-  videos: z.array(z.string()).default([]),
   name: z.string(),
   episodeStatus: z.string(),
   centrePhone: z.string().nullable(),

@@ -30,6 +30,9 @@ describe('the exercise library', () => {
     expect(exerciseVideoType(mp4)).toBe('video/mp4');
     expect(exerciseVideoType(webm)).toBe('video/webm');
     expect(exerciseVideoType(new TextEncoder().encode('<html>video</html>'))).toBeUndefined();
+    // An `ftyp` box with an image's or QuickTime's brand: not a video phones play.
+    const heic = new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63]);
+    expect(exerciseVideoType(heic)).toBeUndefined();
     expect(exerciseVideoProblem(mp4, 4)).toBeUndefined();
     expect(exerciseVideoProblem(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]), 4)).toBe(
       'Add the video as an MP4 or WebM file.',
@@ -58,8 +61,11 @@ describe('the exercise library', () => {
       end: 9_999,
       partial: true,
     });
-    expect(videoRange('bytes=10000-', size, chunk)).toBeUndefined();
-    expect(videoRange('bytes=5-2', size, chunk)).toBeUndefined();
-    expect(videoRange('items=0-1', size, chunk)).toBeUndefined();
+    expect(videoRange('bytes=10000-', size, chunk), 'past the end: 416').toBeUndefined();
+    // Not served, so ignored (RFC 9110): as without a Range.
+    const whole = { start: 0, end: 3_999, partial: true };
+    expect(videoRange('bytes=5-2', size, chunk)).toEqual(whole);
+    expect(videoRange('items=0-1', size, chunk)).toEqual(whole);
+    expect(videoRange('bytes=0-1,4-5', size, chunk)).toEqual(whole);
   });
 });

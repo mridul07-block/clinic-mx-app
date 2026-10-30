@@ -20,7 +20,7 @@ Every choice below is a recommended default chosen under the user's standing app
   Everyone signed in reads it (the plan editor); a Velyx support login changes nothing.
 - **An exercise:** a name, a default dose as the plan shows it ("3 × 10, daily", up to 120 characters
   each) and, once the clinic films it, a video.
-- **The video:** MP4 or WebM, recognised by its first bytes (never by the file's name), at most
+- **The video:** MP4 or WebM, recognised by its first bytes (never by the file's name; an MP4 by its brand, so HEIC and AVIF images and QuickTime files are refused), at most
   `exercises.video_max_mb` (4 MB: the hosted request limit). A short clip filmed for phones. It is kept
   in the private `exercise-media` bucket; only our server reaches it (rule 9).
 - **Never changed:** **Change or remove**, then **Save as a new version**, adds a new exercise. Without
@@ -33,7 +33,7 @@ Every choice below is a recommended default chosen under the user's standing app
 On the consultation's **Plan**, **From the exercise library** lists the active exercises (with
 ", video" where filmed). **Add from library** adds a row with the exercise's name and default dose,
 both editable, and remembers the exercise (`exerciseId` on the row), marked "From the library" (or
-"From the library, with its video"). Typed exercises work as before.
+"From the library, with its video"). Renaming such a row drops the link: it is no longer that exercise, nor its video. Typed exercises work as before.
 
 ## My plan
 
@@ -41,7 +41,7 @@ both editable, and remembers the exercise (`exerciseId` on the row), marked "Fro
   page (`/p/<token>/exercises/<exercise>`, nothing loaded until played).
 - **Who may watch:** the patient reaches a video only for an exercise in their own plan, through their
   working My plan link (`internal.my_plan_exercise_video`); anything else is "Not found".
-- **Phones:** the video is served in byte ranges (`206`), as phones' players ask; staff watch the same
+- **Phones:** the video is served in byte ranges (`206`), as phones' players ask, with its length; a Range not served (another unit, several ranges) is ignored and the clip sent as without one; staff watch the same
   on the library screen (`/app/exercises/<exercise>/video`, signed in).
 
 ## Tests

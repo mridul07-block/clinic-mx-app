@@ -39,13 +39,13 @@ import {
   take,
 } from '../../../../modules/rate-limits/limits';
 import { loadFeedback } from '../../../../modules/feedback/services';
-import { loadMyPlan } from '../../../../modules/patient-links/my-plan';
+import { loadMyPlan, type MyPlanContent } from '../../../../modules/patient-links/my-plan';
 import {
   loadQuestionnaireStep,
   type QuestionnaireStep,
 } from '../../../../modules/questionnaires/services';
 import { getSetting } from '../../../../modules/settings/settings';
-import type { FeedbackSurvey, FeedbackSurveyKey, MyPlan } from '@clinic-mx/schemas';
+import type { FeedbackSurvey, FeedbackSurveyKey } from '@clinic-mx/schemas';
 import { ChangesReview } from './changes-review';
 import { CheckAndSubmit } from './check-submit';
 import { ConsentScreenForm } from './consent-form';
@@ -378,7 +378,7 @@ export default async function PatientPage({
   const link = await openLimited(token, ip);
   let opened: Shown = link;
   let welcome: HealthFormWelcome | undefined;
-  let myPlan: MyPlan | null = null;
+  let myPlan: MyPlanContent | null = null;
   if (link.status === 'valid' && link.link.purpose === 'health_form') {
     welcome = await loadHealthFormVisit(link.link, ip);
     if (!welcome.open) opened = { status: 'closed', purpose: 'health_form' };
