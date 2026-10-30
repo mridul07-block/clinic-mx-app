@@ -107,29 +107,31 @@ const dollars = (value: unknown) =>
 
 /**
  * The key's own credit limit, the only hard stop on spending: a timed out attempt is billed but
- * its cost never comes back, so the daily cap cannot count it (AI-01). Null when it cannot be read.
+ * its cost never comes back, so the daily cap cannot count it (AI-01). When it cannot be read: the
+ * HTTP status OpenRouter refused with, or null when no usable answer came back.
  */
 export async function openRouterKeyStatus(
   apiKey: string,
   send: typeof fetch = fetch,
-): Promise<AiKeyStatus | null> {
+): Promise<({ ok: true } & AiKeyStatus) | { ok: false; httpStatus: number | null }> {
   try {
     const response = await send(OPENROUTER_KEY_URL, {
       headers: { authorization: `Bearer ${apiKey}` },
       cache: 'no-store',
       signal: AbortSignal.timeout(10_000),
     });
-    if (!response.ok) return null;
+    if (!response.ok) return { ok: false, httpStatus: response.status };
     const data = ((await response.json()) as { data?: Record<string, unknown> }).data ?? {};
     const usageUsd = dollars(data.usage);
-    if (usageUsd === null) return null;
+    if (usageUsd === null) return { ok: false, httpStatus: null };
     return {
+      ok: true,
       limitUsd: dollars(data.limit),
       usageUsd,
       remainingUsd: dollars(data.limit_remaining),
     };
   } catch {
-    return null;
+    return { ok: false, httpStatus: null };
   }
 }
 

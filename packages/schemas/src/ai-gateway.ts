@@ -26,14 +26,16 @@ export const clinicalAiTasks: readonly AiTask[] = ['rank_diagnoses', 'recheck_wi
 
 /**
  * Whether any pinned host is a blocked provider (`ai.blocked_providers`). OpenRouter pins a host by
- * its name or by a tag on it ("deepseek" or "deepseek/fp8"): the name before the slash decides.
+ * its name or by a tag on it ("deepseek" or "deepseek/fp8"): the name before the slash decides, on
+ * both sides, so blocking "deepseek/fp8" blocks DeepSeek whatever tag pins it.
  */
 export function namesBlockedProvider(
   providers: readonly string[],
   blocked: readonly string[],
 ): boolean {
-  const names = new Set(blocked.map((provider) => provider.trim().toLowerCase()));
-  return providers.some((provider) => names.has(provider.trim().toLowerCase().split('/')[0] ?? ''));
+  const host = (provider: string) => provider.trim().toLowerCase().split('/')[0] ?? '';
+  const names = new Set(blocked.map(host));
+  return providers.some((provider) => names.has(host(provider)));
 }
 
 /** How a run ended; anything but `ok` shows "Suggestions unavailable" on the sheet. */

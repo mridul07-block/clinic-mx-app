@@ -50,11 +50,20 @@ export interface AiCheckResult {
   httpStatus?: number;
 }
 
-/** "Sail Research" answered for the pinned "sail-research/us": the part before the slash. */
+const letters = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/**
+ * Whether the host that answered is a pinned one, from its display name ("Sail Research", "Z.AI",
+ * "NovitaAI") against the part of each tag before the slash ("sail-research", "z-ai", "novita"),
+ * letters and digits only. The region of a tag ("/us") is not in the answer, so it is not checked.
+ */
 export function answeredByPinned(provider: string | null, pinned: readonly string[]): boolean {
-  if (!provider) return false;
-  const name = provider.trim().toLowerCase().replace(/\s+/g, '-');
-  return pinned.some((tag) => tag.toLowerCase().split('/')[0] === name);
+  const name = letters(provider ?? '');
+  if (!name) return false;
+  return pinned.some((tag) => {
+    const host = letters(tag.split('/')[0] ?? '');
+    return host !== '' && name.startsWith(host);
+  });
 }
 
 export async function checkTask(
@@ -62,6 +71,7 @@ export async function checkTask(
   config: AiTaskConfig & { model: string },
   options: { transport: AiTransport; blockedProviders: readonly string[] },
 ): Promise<AiCheckResult> {
+  if (config.providers.length === 0) throw new Error('A check needs the pinned hosts.');
   if (namesBlockedProvider(config.providers, options.blockedProviders)) {
     return { status: 'blocked_provider', provider: null, latencyMs: 0, costMicroUsd: null };
   }
@@ -79,7 +89,7 @@ export async function checkTask(
     };
   }
   const answered = { provider: result.provider, latencyMs, costMicroUsd: result.costMicroUsd };
-  if (config.providers.length > 0 && !answeredByPinned(result.provider, config.providers)) {
+  if (!answeredByPinned(result.provider, config.providers)) {
     return { status: 'not_pinned', ...answered };
   }
   let output: unknown;

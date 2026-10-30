@@ -78,9 +78,17 @@ describe('the live check', () => {
     expect(await check(fake(503).transport)).toMatchObject({ status: 'failed', httpStatus: 503 });
   });
 
-  it('never calls a blocked provider, by name or by tag', async () => {
+  it('never calls a blocked provider, by name or by tag, and needs pinned hosts', async () => {
     const { transport, sent } = fake({});
     expect(await check(transport, ['host-a'])).toMatchObject({ status: 'blocked_provider' });
+    expect(await check(transport, ['HOST-B/eu'])).toMatchObject({ status: 'blocked_provider' });
+    await expect(
+      checkTask(
+        'rank_diagnoses',
+        { ...config, providers: [] },
+        { transport, blockedProviders: [] },
+      ),
+    ).rejects.toThrow('pinned hosts');
     expect(sent).toHaveLength(0);
   });
 
@@ -88,31 +96,48 @@ describe('the live check', () => {
     expect(answeredByPinned('Sail Research', ['sail-research/us'])).toBe(true);
     expect(answeredByPinned('Wafer', ['wafer/us', 'sail-research/us'])).toBe(true);
     expect(answeredByPinned('Wafer', ['sail-research/us'])).toBe(false);
+    // Display names that are not their tag's words: letters and digits only, the tag first.
+    expect(answeredByPinned('Z.AI', ['z-ai'])).toBe(true);
+    expect(answeredByPinned('NovitaAI', ['novita/fp8'])).toBe(true);
+    expect(answeredByPinned('Nebius AI Studio', ['nebius'])).toBe(true);
+    expect(answeredByPinned('Moonshot AI', ['moonshotai'])).toBe(true);
+    expect(answeredByPinned('Nebius', ['nebius-ai-studio'])).toBe(false);
     expect(answeredByPinned(null, ['wafer'])).toBe(false);
+    expect(answeredByPinned('Wafer', ['/us'])).toBe(false);
   });
 });
 
 describe('the key status', () => {
-  it('reads the key’s limit and use, and nothing when it cannot', async () => {
+  it('reads the key’s limit and use, or why it could not', async () => {
     const send = vi.fn(() =>
       Promise.resolve(
         Response.json({ data: { limit: 5, usage: 0.59, limit_remaining: 4.41, label: 'x' } }),
       ),
     );
     expect(await openRouterKeyStatus('k'.repeat(40), send)).toEqual({
+      ok: true,
       limitUsd: 5,
       usageUsd: 0.59,
       remainingUsd: 4.41,
     });
     const noLimit = () => Promise.resolve(Response.json({ data: { limit: null, usage: 1 } }));
     expect(await openRouterKeyStatus('k'.repeat(40), noLimit)).toEqual({
+      ok: true,
       limitUsd: null,
       usageUsd: 1,
       remainingUsd: null,
     });
     const refused = () => Promise.resolve(new Response('no', { status: 401 }));
-    expect(await openRouterKeyStatus('k'.repeat(40), refused)).toBeNull();
+    expect(await openRouterKeyStatus('k'.repeat(40), refused)).toEqual({
+      ok: false,
+      httpStatus: 401,
+    });
     const down = () => Promise.reject(new TypeError('fetch failed'));
-    expect(await openRouterKeyStatus('k'.repeat(40), down)).toBeNull();
+    expect(await openRouterKeyStatus('k'.repeat(40), down)).toEqual({
+      ok: false,
+      httpStatus: null,
+    });
+    const odd = () => Promise.resolve(Response.json({ data: {} }));
+    expect(await openRouterKeyStatus('k'.repeat(40), odd)).toEqual({ ok: false, httpStatus: null });
   });
 });
