@@ -1,4 +1,5 @@
 import {
+  appointment,
   consentRecord,
   createDb,
   planModality,
@@ -8,6 +9,13 @@ import {
 } from '@clinic-mx/db';
 import { partBStatementsFor } from '@clinic-mx/schemas';
 import { desc, eq, sql } from 'drizzle-orm';
+import { removeCalendarRows, startedAppointment } from './calendar';
+import { signedConsultation } from './consultations';
+import { removePipelineRows } from './intake';
+import { consultationTypeId, submittedWithAlert } from './my-patients';
+import { testLink, type TestLink } from './patient-links';
+import { testPatient } from './patients';
+import { temporaryWithCode } from './staff';
 
 // Part B consent for end to end tests (BIL-03, BIL-12): every statement the episode's Part B asks,
 // agreed by the patient with a typed name, as if signed on their phone. Generated test data only.
@@ -82,4 +90,41 @@ export async function laterPlanAdding(episodeId: string, modalityKey: string): P
       })),
     );
   });
+}
+
+/**
+ * A consent link that opens Part B (BIL-03), for any test that needs a link whose page opens: a
+ * generated patient's episode with a plan signed by a temporary consultant. `remove` takes its
+ * rows away again.
+ */
+export async function openConsentLink(): Promise<TestLink & { remove: () => Promise<void> }> {
+  const physio = await temporaryWithCode('physiotherapist', ['HSR Layout'], { consultant: true });
+  const patient = await testPatient();
+  const visit = await startedAppointment(physio.id, patient.id, 50, {
+    minutes: 45,
+    values: {
+      appointmentTypeId: await consultationTypeId(),
+      status: 'completed',
+      completedAt: new Date(),
+    },
+  });
+  await submittedWithAlert(visit.id, patient.id);
+  await signedConsultation(visit.id, physio.id);
+  const [row] = await db()
+    .select({ episodeId: appointment.episodeId })
+    .from(appointment)
+    .where(eq(appointment.id, visit.id));
+  if (!row?.episodeId) throw new Error('The visit has no episode.');
+  const link = await testLink({
+    purpose: 'consent',
+    patientId: patient.id,
+    episodeId: row.episodeId,
+  });
+  return {
+    ...link,
+    remove: async () => {
+      await removePipelineRows([visit.id]);
+      await removeCalendarRows([physio.id]);
+    },
+  };
 }

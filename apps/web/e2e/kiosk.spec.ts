@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { formOnTablet, sendToTablet, tabletNamed } from './kiosk';
+import { openConsentLink } from './part-b';
 import { submitLink, testLink } from './patient-links';
 import { signIn, temporaryDesk } from './staff';
 
@@ -10,6 +11,11 @@ import { signIn, temporaryDesk } from './staff';
 
 const status = (page: Page) => page.getByTestId('patient-link-status');
 const welcome = (page: Page) => page.getByTestId('kiosk-welcome');
+const partB = (page: Page) => page.getByRole('heading', { name: 'Your consent before treatment' });
+const opened: { remove: () => Promise<void> }[] = [];
+test.afterEach(async () => {
+  for (const link of opened.splice(0)) await link.remove();
+});
 /** The tablet reset: it took the form off (a server action, slower under load), then went back. */
 const backToWelcome = (page: Page) => expect(page).toHaveURL(/\/kiosk$/, { timeout: 15_000 });
 const shell = (page: Page) => page.locator('[data-kiosk]');
@@ -75,7 +81,8 @@ async function waitForForm(page: Page) {
       { timeout: 15_000, intervals: [100] },
     )
     .toMatch(/^\/p\//);
-  await expect(status(page)).toBeVisible();
+  // The form's page, or its message.
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await armed(page);
 }
 
@@ -102,13 +109,15 @@ test('a set up tablet is locked to the form sent to it, and resets after 2 minut
   await expect(welcome(page)).toBeVisible();
 
   // The front desk sends a form; the tablet opens it.
-  const form = await testLink({ purpose: 'consent' });
+  // A consent link opens Part B (BIL-03).
+  const form = await openConsentLink();
+  opened.push(form);
   await sendToTablet(kioskId, form.id);
   await waitForForm(page);
   await expect(page).toHaveURL(form.path);
-  await expect(page.getByRole('heading', { name: 'Your consent' })).toBeVisible();
-  await expect(status(page)).toHaveAttribute('data-status', 'valid');
-  expect(await status(page).evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px');
+  await expect(partB(page)).toBeVisible();
+  const card = page.getByTestId('part-b-card').first();
+  expect(await card.evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px');
 
   // Untouched, it resets 2 minutes after it opened.
   await page.clock.runFor(119_000);
@@ -123,12 +132,14 @@ test('a set up tablet is locked to the form sent to it, and resets after 2 minut
   await expect(page).toHaveURL(/\/kiosk$/);
   const phone = await anotherBrowser(browser);
   await phone.goto(form.path);
-  await expect(phone.getByTestId('patient-link-status')).toHaveAttribute('data-status', 'valid');
+  await expect(partB(phone)).toBeVisible();
   await phone.context().close();
 
   // Touching the tablet keeps the next form: it resets 2 minutes after the last touch. (A form
-  // that opens: a questionnaire link needs a plan with one to fill since OUT-02.)
-  const next = await testLink({ purpose: 'consent' });
+  // that opens: a questionnaire link needs a plan with one to fill since OUT-02, a consent link a
+  // signed plan since BIL-03.)
+  const next = await openConsentLink();
+  opened.push(next);
   await sendToTablet(kioskId, next.id);
   await waitForForm(page);
   await page.clock.runFor(60_000);
