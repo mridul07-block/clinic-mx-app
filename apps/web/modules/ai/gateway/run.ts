@@ -67,7 +67,7 @@ export type AiResult<T> =
   | { status: 'unavailable'; reason: Exclude<AiRunStatus, 'ok'>; runId: string };
 
 /** The input without what its prompt is not told about: similar cases (AI-05), a row limit. */
-function forPrompt(input: unknown, promptVersion: AiPromptVersion): unknown {
+export function forPrompt(input: unknown, promptVersion: AiPromptVersion): unknown {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
   const dropped = new Set([
     ...(aiPromptsWithSimilarCases.includes(promptVersion) ? [] : ['similar']),
@@ -76,11 +76,15 @@ function forPrompt(input: unknown, promptVersion: AiPromptVersion): unknown {
   return Object.fromEntries(Object.entries(input).filter(([key]) => !dropped.has(key)));
 }
 
-/** JSON with keys in order, so the same input always hashes the same. */
+/**
+ * JSON with keys in order, so the same input always hashes the same. A field that is undefined is
+ * left out, as `JSON.stringify` does, never written as `undefined`.
+ */
 export function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value && typeof value === 'object') {
     return `{${Object.keys(value)
+      .filter((key) => (value as Record<string, unknown>)[key] !== undefined)
       .sort()
       .map(
         (key) => `${JSON.stringify(key)}:${canonicalJson((value as Record<string, unknown>)[key])}`,
@@ -234,6 +238,13 @@ export async function runTask<K extends GatewayTask>(
   };
 
   if (!parsed.success) return finish('blocked');
+  // A prompt told about a row limit is never sent without one: it would rank every row (AI-03).
+  if (
+    aiPromptsWithLimit.includes(config.promptVersion) &&
+    (parsed.data as { limit?: number }).limit === undefined
+  ) {
+    return finish('blocked');
+  }
   const transport = options.transport === undefined ? defaultTransport() : options.transport;
   const model = config.model;
   if (!transport || !model || (pinnedAiTasks.includes(task) && config.providers.length === 0)) {

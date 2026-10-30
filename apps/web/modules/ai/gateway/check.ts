@@ -1,6 +1,6 @@
 import 'server-only';
 import { aiRankOutputSchema, namesBlockedProvider, type AiTaskConfig } from '@clinic-mx/schemas';
-import { buildRequest, canonicalJson, type GatewayTask } from './run';
+import { buildRequest, canonicalJson, forPrompt, type GatewayTask } from './run';
 import type { AiTransport } from './transport';
 
 /**
@@ -31,11 +31,11 @@ const checkRows = [1, 2, 3].map((n) => ({
   symptoms: n === 1 ? 'Check symptom one, check symptom two' : `Check symptom ${String(n + 1)}`,
 }));
 
-/** The made-up input each task is checked with. */
+/** The made-up input each task is checked with; the gateway drops what a prompt is not told about. */
 export function checkInput(task: GatewayTask): unknown {
   return task === 'recheck_with_findings'
-    ? { case: checkCase, rows: checkRows, findings: ['Check finding'], similar: [] }
-    : { case: checkCase, rows: checkRows, similar: [] };
+    ? { case: checkCase, rows: checkRows, findings: ['Check finding'], similar: [], limit: 2 }
+    : { case: checkCase, rows: checkRows, similar: [], limit: 2 };
 }
 
 export type AiCheckStatus =
@@ -75,7 +75,8 @@ export async function checkTask(
   if (namesBlockedProvider(config.providers, options.blockedProviders)) {
     return { status: 'blocked_provider', provider: null, latencyMs: 0, costMicroUsd: null };
   }
-  const request = buildRequest(task, config, canonicalJson(checkInput(task)));
+  const input = forPrompt(checkInput(task), config.promptVersion);
+  const request = buildRequest(task, config, canonicalJson(input));
   const started = Date.now();
   const result = await options.transport.complete(request, AbortSignal.timeout(config.timeoutMs));
   const latencyMs = Date.now() - started;

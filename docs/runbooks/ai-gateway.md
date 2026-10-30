@@ -194,6 +194,10 @@ prompt in `aiPromptsWithSimilarCases`; a v1 prompt never gets it
 - **Latency varies with the hosts' load.** Measured on 30 October 2026, the time to an answer for
   the same model ran from 2 to 13 seconds within an hour. Two attempts of 6 seconds failed often for
   every candidate (`docs/runbooks/ai-blind-test.md`).
+- **"Reasoning none" leaves the field out.** OpenRouter then uses the host's default, so a model
+  that reasons by default may still reason and run out of tokens. The blind test's candidates did
+  not (GLM 5.3 and DeepSeek V4 Pro answered in about 200 to 600 tokens); `pnpm ai:check --model`
+  shows it for any other candidate before it is adopted.
 - **Name check:** a name typed in free text is caught only if the caller passes the patient's name
   words (AI-03).
 - **Unpriced runs:** a run whose provider reports no cost counts as nothing against the cap.

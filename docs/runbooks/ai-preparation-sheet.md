@@ -46,7 +46,11 @@ desktop submitted a back health form, and tapped the recheck on a knee case. Gen
   seconds (the target is 15) with five suggestions, and both rechecks were ready, reranked by the
   findings, with reasons that cite the similar confirmed cases (AI-05).
 - **Settings:** a migration moved both clinical tasks to the v3 prompts with reasoning off, only
-  while no model is set (a model adopted after a blind test keeps what it was tested with).
+  while no model is set and they were still on v2 (a model adopted after a blind test, or a prompt
+  the Super Admin chose, keeps what it has), stamping the change so a settings form opened before it
+  is refused as changed.
+- **Never without the limit:** the gateway refuses a v3 call that has no limit (`blocked`, nothing
+  sent), since it would rank every row again; `pnpm ai:check` sends one too.
 
 These are recommended defaults, chosen under the user's standing approval of 28 October 2026, and
 recorded as DECISION AI-03 and decision 3 in `docs/PROGRESS.md`.
