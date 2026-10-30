@@ -728,12 +728,17 @@ export {
 } from './data-requests';
 export {
   applyDeliveryUpdate,
+  centreContacts,
+  inboundToRoute,
+  lastInboundAt,
   markWhatsappEventProcessed,
   messageRecord,
   queueMessage,
   recentMessages,
   recordInboundMessage,
   recordMessageOutcome,
+  recordRoute,
+  solePatientByPhone,
   storeWhatsappEvent,
   whatsappEventRecord,
   type MessageEntry,

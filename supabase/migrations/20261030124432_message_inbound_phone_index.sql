@@ -1,0 +1,2 @@
+-- WA-03: when a number last wrote to us (the 24 hour window), from the database review.
+CREATE INDEX "message_inbound_phone_idx" ON "message" USING btree ("from_phone","sent_at") WHERE "message"."direction" = 'inbound';

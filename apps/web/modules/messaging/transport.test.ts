@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { cloudApiTransport, templateBody } from './transport';
+import { cloudApiTransport, sessionBody, templateBody } from './transport';
 
 vi.mock('server-only', () => ({}));
 
@@ -45,6 +45,39 @@ describe('cloudApiTransport', () => {
         },
       ],
     });
+  });
+
+  // WA-03: the router's replies, inside WhatsApp's 24 hour window.
+  it('sends a reply as text, or as text with reply buttons', async () => {
+    expect(sessionBody({ to: '+919845012345', text: 'Call 080.' })).toEqual({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: '919845012345',
+      type: 'text',
+      text: { preview_url: false, body: 'Call 080.' },
+    });
+    expect(
+      sessionBody({
+        to: '+919845012345',
+        text: 'How can we help you today?',
+        buttons: [{ id: 'menu.talk', title: 'Talk to our team' }],
+      }),
+    ).toMatchObject({
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        body: { text: 'How can we help you today?' },
+        action: {
+          buttons: [{ type: 'reply', reply: { id: 'menu.talk', title: 'Talk to our team' } }],
+        },
+      },
+    });
+    const send = vi.fn(() => json(200, { messages: [{ id: 'wamid.2' }] }));
+    const result = await cloudApiTransport(config, send).sendSession(
+      { to: '+919845012345', text: 'Hi' },
+      signal(),
+    );
+    expect(result).toEqual({ ok: true, waMessageId: 'wamid.2' });
   });
 
   it('gives Meta’s code and short title on a refusal, never its message', async () => {

@@ -48,6 +48,8 @@ export interface EventOutcome {
   updated: number;
   /** Messages sent to us, stored. */
   received: number;
+  /** Their ids, for the router (WA-03). */
+  receivedIds: string[];
   /** Already handled, or deleted. */
   skipped: boolean;
 }
@@ -57,8 +59,10 @@ const handle = systemService({
   input: z.object({ eventId: z.guid(), now: z.date() }),
   run: async (tx, { eventId, now }): Promise<EventOutcome> => {
     const event = await whatsappEventRecord(tx, eventId, { lock: true });
-    if (!event || event.processedAt) return { updated: 0, received: 0, skipped: true };
-    const outcome: EventOutcome = { updated: 0, received: 0, skipped: false };
+    if (!event || event.processedAt) {
+      return { updated: 0, received: 0, receivedIds: [], skipped: true };
+    }
+    const outcome: EventOutcome = { updated: 0, received: 0, receivedIds: [], skipped: false };
     // The route stored only bodies that passed this schema; one that no longer does is closed.
     const parsed = whatsappWebhookSchema.safeParse(event.payload);
     if (parsed.success) {
@@ -77,8 +81,10 @@ const handle = systemService({
         );
       }
       for (const inbound of messages) {
-        if (await recordInboundMessage(tx, inbound)) outcome.received++;
+        const id = await recordInboundMessage(tx, inbound);
+        if (id) outcome.receivedIds.push(id);
       }
+      outcome.received = outcome.receivedIds.length;
     }
     await markWhatsappEventProcessed(tx, eventId);
     return outcome;
