@@ -4,6 +4,7 @@ import {
   modalityStatement,
   parsePartB,
   partBGate,
+  partBModalityConsent,
   partBStatements,
   partBStatementsFor,
   partBStatus,
@@ -133,5 +134,16 @@ describe('Part B consent', () => {
       met: false,
       message: 'Consent for a newly planned treatment is needed before this session.',
     });
+  });
+
+  it('reads each treatment’s own consent: only an agreed one is given (BIL-04)', () => {
+    const latest = { 'part_b.modality.laser': true, 'part_b.modality.pemf': false };
+    expect(partBModalityConsent('laser', latest)).toBe('agreed');
+    expect(partBModalityConsent('pemf', latest)).toBe('declined');
+    expect(partBModalityConsent('electrotherapy', latest)).toBe('needed');
+    expect(partBModalityConsent('dry_needling', { 'part_b.modality.dry_needling': true })).toBe(
+      'awaiting',
+    );
+    expect(partBModalityConsent('not_in_part_b', latest)).toBe('needed');
   });
 });

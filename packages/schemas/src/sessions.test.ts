@@ -330,6 +330,22 @@ describe('modality parameters', () => {
     nextSession: { plan: 'progress', note: '' },
   });
 
+  it('gives a ticked treatment only with the patient’s Part B consent to it (BIL-04)', () => {
+    const consented = (consent: SessionModality['consent']) => [{ ...shockwave, consent }];
+    expect(sessionNoteBlockers(ready(), consented('agreed'))).toEqual([]);
+    // An episode consented on paper (an opening entry): not checked.
+    expect(sessionNoteBlockers(ready(), consented(undefined))).toEqual([]);
+    expect(sessionNoteBlockers(ready(), consented('declined'))).toEqual([
+      'The patient declined Radial Shockwave (RSW) in Part B consent: untick it.',
+    ]);
+    expect(sessionNoteBlockers(ready(), consented('awaiting'))).toEqual([
+      'Radial Shockwave (RSW) is not used until the clinic’s consent wording arrives: untick it.',
+    ]);
+    expect(sessionNoteBlockers(ready(), consented('needed'))).toEqual([
+      'Radial Shockwave (RSW) needs the patient’s Part B consent first: ask the front desk for the consent QR, or untick it.',
+    ]);
+  });
+
   it('needs each ticked modality’s parameters, as numbers where they are numbers', () => {
     expect(sessionNoteBlockers(ready(), [shockwave, laser])).toEqual([]);
     const blank = ready();

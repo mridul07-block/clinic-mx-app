@@ -9,7 +9,11 @@ import {
 import { recordVersionSchema } from './drafts';
 import { episodeStatusLabels, type EpisodeStatus } from './episodes';
 import { interventionKinds, type InterventionKind, type ModalityParameter } from './plan';
-import { partBGateMessage, type PartBGateReason } from './part-b-consent';
+import {
+  partBGateMessage,
+  type PartBGateReason,
+  type PartBModalityConsent,
+} from './part-b-consent';
 import { addendumTextSchema } from './signed-record';
 
 /**
@@ -255,7 +259,20 @@ export interface SessionModality {
   name: string;
   parameters: ModalityParameter[];
   warnings: { label: string; source: string }[];
+  /**
+   * The patient's Part B consent to it (BIL-04); absent where Part B does not apply (an episode
+   * entered with an opening entry, consented on paper).
+   */
+  consent?: PartBModalityConsent;
 }
+
+/** Why a ticked treatment cannot be given yet, from its Part B consent (BIL-04; PRD J4.5). */
+const consentBlockers: Record<Exclude<PartBModalityConsent, 'agreed'>, (name: string) => string> = {
+  declined: (name) => `The patient declined ${name} in Part B consent: untick it.`,
+  awaiting: (name) => `${name} is not used until the clinic’s consent wording arrives: untick it.`,
+  needed: (name) =>
+    `${name} needs the patient’s Part B consent first: ask the front desk for the consent QR, or untick it.`,
+};
 
 /** Whether a parameter holds a value of its kind. */
 function parameterFilled(field: ModalityParameter, value: string | undefined): boolean {
@@ -411,6 +428,9 @@ export function sessionNoteBlockers(
     const values = note.treatment.parameters[key];
     if (modality.parameters.some((field) => !parameterFilled(field, values?.[field.key]))) {
       blockers.push(`Fill the parameters for ${modality.name}.`);
+    }
+    if (modality.consent && modality.consent !== 'agreed') {
+      blockers.push(consentBlockers[modality.consent](modality.name));
     }
     if (modality.warnings.length > 0 && (note.treatment.reasons[key] ?? '').trim() === '') {
       blockers.push(

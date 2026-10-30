@@ -9,6 +9,7 @@ import {
   newestPlanOfCareId,
   nextVisitOf,
   openSession,
+  partBForEpisode,
   patientAlertHistory,
   planForSession,
   recordBaseline,
@@ -37,6 +38,7 @@ import {
   closeSessionSchema,
   coversSessionsAt,
   modalityWarnings,
+  partBModalityConsent,
   prefilledSessionNote,
   readSessionNote,
   saveSessionNoteSchema,
@@ -47,6 +49,7 @@ import {
   type AdherenceSnapshot,
   type DraftSaveResponse,
   type InterventionKind,
+  type PartBModalityConsent,
   type SessionModality,
   type SessionNote,
   type SessionView,
@@ -160,6 +163,7 @@ async function noteModalities(
     ...precaution,
     by: 'clinician' as const,
   }));
+  const consentOf = await treatmentConsent(tx, episodeId);
   return (await sessionModalities(tx, kbVersionId)).map((modality) => ({
     key: modality.key,
     name: modality.name,
@@ -168,7 +172,21 @@ async function noteModalities(
       label: warning.label,
       source: warning.source,
     })),
+    consent: consentOf(modality.key),
   }));
+}
+
+/**
+ * Each treatment's Part B consent in the episode (BIL-04): undefined without a signed plan (an
+ * opening entry, consented on paper); 'needed' throughout when Part B cannot be read here.
+ */
+async function treatmentConsent(
+  tx: DbOrTransaction,
+  episodeId: string,
+): Promise<(modality: string) => PartBModalityConsent | undefined> {
+  const partB = await partBForEpisode(tx, episodeId);
+  if (partB && !partB.planned) return () => undefined;
+  return (modality) => partBModalityConsent(modality, partB?.latest ?? {});
 }
 
 /**
@@ -202,11 +220,21 @@ export async function openSessionNote(
       };
     }
   }
+  // Only treatments the patient agreed to in Part B carry over (BIL-04; PRD J4.5).
+  const note = prefilledSessionNote(from);
+  const consentOf = await treatmentConsent(tx, visit.episodeId);
+  const given = note.treatment.modalities.filter(
+    (key) => (consentOf(key) ?? 'agreed') === 'agreed',
+  );
+  note.treatment.modalities = given;
+  note.treatment.parameters = Object.fromEntries(
+    Object.entries(note.treatment.parameters).filter(([key]) => given.includes(key)),
+  );
   return openSession(tx, {
     appointmentId: visit.id,
     physioId: visit.physioId,
     kbVersionId: version.id,
-    note: prefilledSessionNote(from),
+    note,
   });
 }
 
