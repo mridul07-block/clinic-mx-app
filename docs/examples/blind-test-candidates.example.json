@@ -5,7 +5,7 @@
       "config": {
         "model": "z-ai/glm-5.3",
         "providers": ["wafer/us", "sail-research/us"],
-        "promptVersion": "rank_diagnoses.v2",
+        "promptVersion": "rank_diagnoses.v3",
         "reasoningEffort": "none",
         "timeoutMs": 12000,
         "maxTokens": 800
@@ -16,7 +16,7 @@
       "config": {
         "model": "deepseek/deepseek-v4-pro-0813",
         "providers": ["sail-research/us"],
-        "promptVersion": "rank_diagnoses.v2",
+        "promptVersion": "rank_diagnoses.v3",
         "reasoningEffort": "none",
         "timeoutMs": 12000,
         "maxTokens": 800
@@ -27,7 +27,7 @@
       "config": {
         "model": "openai/gpt-6.1-sol",
         "providers": ["azure/eu"],
-        "promptVersion": "rank_diagnoses.v2",
+        "promptVersion": "rank_diagnoses.v3",
         "reasoningEffort": "none",
         "timeoutMs": 12000,
         "maxTokens": 800

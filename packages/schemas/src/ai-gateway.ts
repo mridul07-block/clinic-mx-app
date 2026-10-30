@@ -67,6 +67,8 @@ export const aiPromptVersions = [
   'rank_diagnoses.v2',
   'recheck_with_findings.v2',
   'write_patient_content.v1',
+  'rank_diagnoses.v3',
+  'recheck_with_findings.v3',
 ] as const;
 export type AiPromptVersion = (typeof aiPromptVersions)[number];
 
@@ -74,7 +76,22 @@ export type AiPromptVersion = (typeof aiPromptVersions)[number];
 export const aiPromptsWithSimilarCases: readonly AiPromptVersion[] = [
   'rank_diagnoses.v2',
   'recheck_with_findings.v2',
+  'rank_diagnoses.v3',
+  'recheck_with_findings.v3',
 ];
+
+/**
+ * The prompts that are told how many rows to return (AI-03 live, 31 October 2026): the sheet shows
+ * only its top and also consider rows, and ranking every row ran out of tokens on a long
+ * shortlist. The others are never sent the number.
+ */
+export const aiPromptsWithLimit: readonly AiPromptVersion[] = [
+  'rank_diagnoses.v3',
+  'recheck_with_findings.v3',
+];
+
+/** The most rows a ranking may be asked for: the longest shortlist sent. */
+export const AI_RANK_LIMIT_MAX = 60;
 
 /** The most similar confirmed cases a clinical task may send (TAD section 7 step 4: 3 to 5). */
 export const AI_SIMILAR_MAX = 5;
@@ -164,6 +181,8 @@ export const aiRankInputSchema = z.strictObject({
   rows: z.array(aiRankRowSchema).min(1).max(60),
   /** Only for a prompt that is told about them (`aiPromptsWithSimilarCases`). */
   similar: z.array(aiSimilarCaseSchema).max(AI_SIMILAR_MAX).optional(),
+  /** How many rows to return; only for a prompt told about it (`aiPromptsWithLimit`). */
+  limit: z.int().min(1).max(AI_RANK_LIMIT_MAX).optional(),
 });
 export type AiRankInput = z.infer<typeof aiRankInputSchema>;
 
@@ -173,6 +192,7 @@ export const aiRecheckInputSchema = z.strictObject({
   rows: z.array(aiRankRowSchema).min(1).max(60),
   findings: z.array(shortText).max(AI_FINDINGS_MAX),
   similar: z.array(aiSimilarCaseSchema).max(AI_SIMILAR_MAX).optional(),
+  limit: z.int().min(1).max(AI_RANK_LIMIT_MAX).optional(),
 });
 export type AiRecheckInput = z.infer<typeof aiRecheckInputSchema>;
 

@@ -18,13 +18,35 @@
 
 ## Status: partly done
 
-The sheet, validation, storage, screen and marker are built. There is no OpenRouter key, and no
-model has been chosen (AI-01, AI-06), so every real sheet today is unavailable (not configured):
+The sheet, validation, storage, screen and marker are built. No model is set on staging or
+production yet (the blind test chooses it, AI-06), so every real sheet there is unavailable (not
+configured):
 - it still shows Must rule out, Safety and What the patient told us;
 - in the place of suggestions it shows "Suggestions unavailable right now. Continue the
   consultation as usual."
 
-Ranked sheets are proven with a fake model in unit tests and with a seeded sheet end to end.
+Ranked sheets are proven with a fake model in unit tests and with a seeded sheet end to end, and
+were run live on 31 October 2026 (below).
+
+## Live run (31 October 2026)
+
+With a development key, the AI gate switched on locally and GLM 5.3 pinned to `wafer/us` then
+`sail-research/us` (the blind test's recommendation), a temporary end to end run at 360 px and
+desktop submitted a back health form, and tapped the recheck on a knee case. Generated patients only.
+
+- **What failed first:** the prompts asked the model to rank every row of the shortlist, up to about
+  25 for a back case, each with a reason. The answer ran out of its 800 tokens and was cut off, so
+  the desktop sheet was unavailable (`invalid_output`) after about 10 seconds. The sheet only ever
+  shows its top 3 and 2 "also consider" rows.
+- **The fix, prompts v3:** the clinical prompts are sent a `limit`, the sheet's
+  `ai.sheet_top_count` plus `ai.sheet_also_consider_count`, and return only that many rows, most
+  likely first. Older prompts are never sent it (`aiPromptsWithLimit`), as with similar cases. The
+  same input then gave a valid answer 3 times in 3, in about 2 seconds, 200 tokens and $0.0004.
+- **After the fix,** at the task settings' 6 seconds a call: both sheets were ready in 2.3 and 2.6
+  seconds (the target is 15) with five suggestions, and both rechecks were ready, reranked by the
+  findings, with reasons that cite the similar confirmed cases (AI-05).
+- **Settings:** a migration moved both clinical tasks to the v3 prompts with reasoning off, only
+  while no model is set (a model adopted after a blind test keeps what it was tested with).
 
 These are recommended defaults, chosen under the user's standing approval of 28 October 2026, and
 recorded as DECISION AI-03 and decision 3 in `docs/PROGRESS.md`.
@@ -219,7 +241,7 @@ approval, 29 October 2026 (DECISION AI-04).
 ## Similar confirmed cases (AI-05)
 
 The sheet also stores and shows 3 to 5 similar confirmed cases, and sends them to the model with
-the v2 prompts; the recheck sends the same ones again. See `docs/runbooks/ai-similar-cases.md`.
+the v2 and v3 prompts; the recheck sends the same ones again. See `docs/runbooks/ai-similar-cases.md`.
 
 ## Later
 

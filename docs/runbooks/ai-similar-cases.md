@@ -20,7 +20,7 @@ Every choice below is a recommended default chosen under the user's standing app
 ## Status: partly done
 
 - Built and tested: confirming the diagnosis, choosing the cases, storing and showing them, and
-  sending them to the model with the v2 prompts.
+  sending them to the model with the v2 and v3 prompts.
 - Waits for the OpenRouter key, like every ranked sheet (AI-01, AI-03): until then the cases are
   chosen and shown, and the model is not called.
 - Waits for consultants to confirm diagnoses: until 3 confirmed cases of a region exist, its
@@ -96,18 +96,18 @@ Pure and deterministic, like the candidate filter (AI-02). Nothing is weighted.
 - **The sheet:** chosen before the sheet is claimed, stored as sent in
   `ai_preparation_sheet.similar` (null on sheets made before AI-05), and shown as "Similar confirmed
   cases" after Load and biomechanics: read only, no Keep or Dismiss.
-- **The model:** sent with `rank_diagnoses.v2`, which says the cases are context only and that only
-  the shortlist's rows are ranked. A v1 prompt is never sent them. The settings migration moved both
-  clinical tasks to v2 unless the Super Admin had chosen another.
-- **The recheck (AI-04):** sends the sheet's own cases again with `recheck_with_findings.v2`; it
-  never fetches again.
+- **The model:** sent with `rank_diagnoses.v2` or `.v3`, which say the cases are context only and
+  that only the shortlist's rows are ranked. A v1 prompt is never sent them. The settings migration
+  moved both clinical tasks to v2, and AI-03's live run to v3 (only the rows the sheet shows).
+- **The recheck (AI-04):** sends the sheet's own cases again with `recheck_with_findings.v2` or
+  `.v3`; it never fetches again.
 - **The blind test (AI-06):** each case's similar cases are the file's other cases, by the same rule,
   never itself. `report.json` records each prompt version's hash.
 
 ## Before the AI gate is switched on
 
-The prompts changed, so the blind test runs again on v2 (TAD section 7) before the Super Admin
-records the pass.
+The prompts changed, so the blind test runs again on the prompts in the task settings, v3 since
+31 October 2026 (TAD section 7), before the Super Admin records the pass.
 
 ## Tests
 

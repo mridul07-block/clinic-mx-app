@@ -196,10 +196,12 @@ describe('the blind test tool', { timeout: 30_000 }, () => {
     await f.run();
     const calls = gateway.rankForBlindTest.mock.calls as [
       unknown,
-      { case: { symptoms: string[] }; similar: { confirmed: string }[] },
+      { case: { symptoms: string[] }; similar: { confirmed: string }[]; limit: number },
     ][];
     expect(calls).toHaveLength(8);
     for (const [, call] of calls) {
+      // As the sheet asks: only its top and also consider rows (AI-03).
+      expect(call.limit).toBe(5);
       const own = Number(/\d+$/.exec(call.case.symptoms[0] ?? '')?.[0] ?? 1);
       expect(call.similar).toHaveLength(3);
       expect(call.similar.map((s) => s.confirmed)).not.toContain(listing(own).name);

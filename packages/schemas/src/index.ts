@@ -1080,6 +1080,7 @@ export {
   AI_TEXT_MAX,
   aiCaseSchema,
   aiPromptVersions,
+  aiPromptsWithLimit,
   aiPromptsWithSimilarCases,
   aiSimilarCaseSchema,
   aiRankInputSchema,

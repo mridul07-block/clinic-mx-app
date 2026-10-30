@@ -40,8 +40,8 @@ They are recorded as DECISION 23 in `docs/PROGRESS.md`, and the client's lawyer 
     says the blind test reruns whenever the knowledge base changes.
   - The model and prompt that passed the blind test join the same comparison when the winner is
     adopted (AI-06, `docs/runbooks/ai-blind-test.md`).
-  - The prompts are v2 since AI-05 (similar confirmed cases): the blind test runs on v2 before the
-    pass is recorded.
+  - The prompts are v3 since 31 October 2026 (AI-05's similar cases, and only the rows the sheet
+    shows): the blind test runs on v3 before the pass is recorded.
 - **Read fresh, fails closed:** `aiSheetGate` (`packages/db/src/ai-gate.ts`) reads the row each
   time, not the 60 second settings cache, so switching off takes effect everywhere at once. A
   missing or unreadable value counts as off. The pure logic is `aiSheetGateState`.

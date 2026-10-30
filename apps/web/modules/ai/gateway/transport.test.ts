@@ -90,8 +90,10 @@ describe('the prompts', () => {
       {
         "rank_diagnoses.v1": "2e601ca02ca0e9e9",
         "rank_diagnoses.v2": "06028c23ada12f90",
+        "rank_diagnoses.v3": "3aae13901ef9d59b",
         "recheck_with_findings.v1": "f7417437d9deda88",
         "recheck_with_findings.v2": "11d57daf16d6f880",
+        "recheck_with_findings.v3": "7605af75e9ba25e1",
         "write_patient_content.v1": "08b610b53cd12aa9",
       }
     `);
