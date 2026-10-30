@@ -348,6 +348,9 @@ the code location.
   blind test's model are set.
 - 28 October 2026 (AI-03): the preparation sheet is made straight after the health form; the
   consultant keeps or dismisses each suggestion and must rule out always shows, by rule.
+- 30 October 2026 (FND-01): CI's end to end suite runs as 3 shards per screen size on separate
+  machines at once, bringing a pull request's checks from about 11 to about 6 minutes
+  (`docs/runbooks/checks.md`).
 - 30 October 2026 (WA-03): until each handler exists, a WhatsApp button, form or emergency
   phrase gets the front desk's contact details and typed text the three button menu; a drafted
   emergency phrase list waits for the clinical director; the patient's own centre's phone when
