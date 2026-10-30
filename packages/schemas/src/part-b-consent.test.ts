@@ -121,4 +121,17 @@ describe('Part B consent', () => {
     expect(status).toMatchObject({ complete: true, modalitiesAwaiting: ['dry_needling'] });
     expect(partBGate(status, { package: false }).met).toBe(true);
   });
+
+  it('asks only a treatment added later, holding the session until it is consented (BIL-04)', () => {
+    const before = partBStatementsFor({ package: false, modalities: ['laser'] });
+    const latest = Object.fromEntries(before.map((statement) => [statement.key, true]));
+    const after = partBStatementsFor({ package: false, modalities: ['laser', 'pemf'] });
+    expect(partBToAsk(after, latest).map((statement) => statement.key)).toEqual([
+      'part_b.modality.pemf',
+    ]);
+    expect(partBGate(partBStatus(after, latest), { package: false })).toEqual({
+      met: false,
+      message: 'Consent for a newly planned treatment is needed before this session.',
+    });
+  });
 });

@@ -7,7 +7,7 @@ import { insertConsentRecords } from '../consent';
 import type { StaffMember } from '../identity';
 import { partBForEpisode, partBForLink } from '../part-b-consent';
 import { insertPatientLink } from '../patient-links';
-import { patientLink } from '../schema';
+import { patientLink, planModality, planOfCare } from '../schema';
 import { centreIds, seedStaff, seedStaffCentres } from '../seed/data';
 import { signedPlan } from './fake-plan';
 import { becomeStaff, testPhysio } from './fake-schedule';
@@ -299,6 +299,59 @@ describe('the Part B gate', () => {
         }),
       ]);
       expect(await gate()).toBe('general_declined');
+    });
+  });
+
+  it('holds the session for a treatment added to the plan later, asking only its card (BIL-04)', async () => {
+    await rolledBack(async (tx) => {
+      const plan = await setUp(tx);
+      const gate = async () => {
+        await asOwner(tx);
+        const [row] = await tx.execute<{ gate: string }>(
+          sql`select internal.part_b_gate(${plan.episodeId}::uuid) as gate`,
+        );
+        return row?.gate;
+      };
+      await asLink(tx, plan.link);
+      await insertConsentRecords(tx, [
+        decision(plan, 'part_b.plan', true),
+        decision(plan, 'part_b.right_to_decline', true),
+        decision(plan, 'part_b.modality.laser', true, { modality: 'laser' }),
+      ]);
+      expect(await gate()).toBe('met');
+      // A later plan version adds PEMF.
+      const [later] = await tx
+        .insert(planOfCare)
+        .values({
+          episodeId: plan.episodeId,
+          consultationId: plan.consultationId,
+          version: 2,
+          goals: [],
+          interventions: ['exercise'],
+          homeProgramme: [],
+          reviewDate: '2026-12-05',
+          treatingPhysioId: superAdmin.id,
+          createdBy: superAdmin.id,
+        })
+        .returning({ id: planOfCare.id });
+      await tx.insert(planModality).values([
+        { planOfCareId: later?.id ?? '', modalityKey: 'laser', reason: '' },
+        { planOfCareId: later?.id ?? '', modalityKey: 'pemf', reason: '' },
+      ]);
+      expect(await gate()).toBe('missing_modality');
+      // The patient's next link reads PEMF undecided, and the rest as agreed.
+      await asLink(tx, plan.link);
+      const now = await partBForLink(tx);
+      expect(now?.modalities.map((m) => m.key)).toContain('pemf');
+      expect(now?.latest).toEqual({
+        'part_b.plan': true,
+        'part_b.right_to_decline': true,
+        'part_b.modality.laser': true,
+      });
+      await insertConsentRecords(tx, [
+        decision(plan, 'part_b.modality.pemf', true, { modality: 'pemf' }),
+      ]);
+      expect(await gate()).toBe('met');
     });
   });
 
