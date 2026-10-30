@@ -93,6 +93,46 @@ export function openRouterTransport(apiKey: string, send: typeof fetch = fetch):
   };
 }
 
+export const OPENROUTER_KEY_URL = 'https://openrouter.ai/api/v1/key';
+
+/** The key's credit limit and use, in US dollars (`limitUsd` null: the key has no limit). */
+export interface AiKeyStatus {
+  limitUsd: number | null;
+  usageUsd: number;
+  remainingUsd: number | null;
+}
+
+const dollars = (value: unknown) =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+
+/**
+ * The key's own credit limit, the only hard stop on spending: a timed out attempt is billed but
+ * its cost never comes back, so the daily cap cannot count it (AI-01). Null when it cannot be read.
+ */
+export async function openRouterKeyStatus(
+  apiKey: string,
+  send: typeof fetch = fetch,
+): Promise<AiKeyStatus | null> {
+  try {
+    const response = await send(OPENROUTER_KEY_URL, {
+      headers: { authorization: `Bearer ${apiKey}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return null;
+    const data = ((await response.json()) as { data?: Record<string, unknown> }).data ?? {};
+    const usageUsd = dollars(data.usage);
+    if (usageUsd === null) return null;
+    return {
+      limitUsd: dollars(data.limit),
+      usageUsd,
+      remainingUsd: dollars(data.limit_remaining),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** OpenRouter with the server's key; null without one (locally and in CI): nothing is called. */
 export function defaultTransport(): AiTransport | null {
   const key = serverEnv().OPENROUTER_API_KEY;

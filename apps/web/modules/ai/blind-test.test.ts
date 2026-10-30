@@ -221,6 +221,7 @@ describe('the blind test tool', { timeout: 30_000 }, () => {
         'not in this knowledge base',
       ],
       [[theCase(1), theCase(2)], [config('a'), config('b', ['DeepSeek'])], 'blocked provider'],
+      [[theCase(1), theCase(2)], [config('a'), config('b', ['deepseek/fp8'])], 'blocked provider'],
       [[theCase(1)], [config('a'), config('b')], 'runs 2 to 50 cases'],
     ] as const) {
       await expect((await folder([...cases], [...candidates])).run()).rejects.toThrow(message);

@@ -1080,6 +1080,7 @@ export {
   aiTasks,
   clinicalAiTasks,
   microUsdToPaise,
+  namesBlockedProvider,
   usdToMicroUsd,
   type AiCase,
   type AiPromptVersion,

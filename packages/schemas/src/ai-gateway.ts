@@ -24,6 +24,18 @@ export type AiTask = (typeof aiTasks)[number];
 /** Tasks that suggest diagnoses: behind the AI gate (AI-09), on pinned providers only. */
 export const clinicalAiTasks: readonly AiTask[] = ['rank_diagnoses', 'recheck_with_findings'];
 
+/**
+ * Whether any pinned host is a blocked provider (`ai.blocked_providers`). OpenRouter pins a host by
+ * its name or by a tag on it ("deepseek" or "deepseek/fp8"): the name before the slash decides.
+ */
+export function namesBlockedProvider(
+  providers: readonly string[],
+  blocked: readonly string[],
+): boolean {
+  const names = new Set(blocked.map((provider) => provider.trim().toLowerCase()));
+  return providers.some((provider) => names.has(provider.trim().toLowerCase().split('/')[0] ?? ''));
+}
+
 /** How a run ended; anything but `ok` shows "Suggestions unavailable" on the sheet. */
 export const aiRunStatuses = [
   'ok',
