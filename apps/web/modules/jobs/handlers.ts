@@ -29,11 +29,14 @@ import {
 import { z } from 'zod';
 import { followUpThinkAboutIt } from '../billing/plan-choice';
 import {
+  sendConsultationSummary,
+  sendDischargeReport,
   sendFirstTreatmentCheck,
   sendFollowUpCheck,
   sendNoShow,
   sendPackageExpiryReminder,
   sendPlanSessionsList,
+  sendReceipt,
   sendRedFlagSafetyAdvice,
   sendReviewRequest,
   sendSession3Check,
@@ -199,13 +202,18 @@ export const jobHandlers: JobHandlers = {
   }),
   /**
    * The bundled message (ALT-06, PRD J4.1): the summary with "Open My plan" and "Rate your visit"
-   * buttons, queued on signing. Nothing is sent yet: WA-06 fills this in, sending the newest
-   * summary with the `consultation_summary` template once it exists (and retrying until it
-   * does). Until then the job completes without sending.
+   * buttons, queued on signing: the newest summary with the `consultation_summary` template,
+   * uploaded to Meta when sent; until the PDF is made the job fails and the queue tries again
+   * (WA-06 part 2).
    */
   [CONSULTATION_SUMMARY_MESSAGE_JOB]: defineJob({
     payload: z.object({ consultationId: z.guid() }),
-    run: () => Promise.resolve(),
+    run: async ({ consultationId }, { db, job }) => {
+      await sendConsultationSummary(db, {
+        sourceKey: job.idempotencyKey ?? [job.kind, job.id].join(':'),
+        consultationId,
+      });
+    },
   }),
   /**
    * The plan sessions list (SCH-11, PRD J4.8), queued by the database once per series booked with
@@ -248,13 +256,18 @@ export const jobHandlers: JobHandlers = {
     },
   }),
   /**
-   * The discharge report on WhatsApp (OUT-11, PRD J6.7), queued with it. Nothing is sent yet: the
-   * WhatsApp tickets fill this in, sending the newest discharge report with its template once it
-   * exists (and retrying until it does). Until then the job completes without sending.
+   * The discharge report on WhatsApp (OUT-11, PRD J6.7), queued with it: the newest report with
+   * the `discharge_report` template and its feedback link; until the PDF is made the job fails
+   * and the queue tries again (WA-06 part 2).
    */
   [DISCHARGE_REPORT_MESSAGE_JOB]: defineJob({
     payload: z.object({ episodeId: z.guid() }),
-    run: () => Promise.resolve(),
+    run: async ({ episodeId }, { db, job }) => {
+      await sendDischargeReport(db, {
+        sourceKey: job.idempotencyKey ?? [job.kind, job.id].join(':'),
+        episodeId,
+      });
+    },
   }),
   /**
    * The lost to follow up check (OUT-10), every morning at 6:00 AM IST: it queues the next day,
@@ -371,14 +384,18 @@ export const jobHandlers: JobHandlers = {
     },
   }),
   /**
-   * The WhatsApp receipt (BIL-09, PRD J4.7), queued with each payment. Nothing is sent yet: the
-   * WhatsApp tickets fill this in, and the sender must skip a payment since undone, then send the
-   * newest invoice with the `receipt` template (retrying until it is made). Until then the job
-   * completes without sending.
+   * The WhatsApp receipt (BIL-09, PRD J4.7), queued with each payment: the newest invoice with
+   * the `receipt` template, never for a payment since undone; until the PDF is made the job fails
+   * and the queue tries again (WA-06 part 2).
    */
   [RECEIPT_JOB]: defineJob({
     payload: z.object({ paymentId: z.guid() }),
-    run: () => Promise.resolve(),
+    run: async ({ paymentId }, { db, job }) => {
+      await sendReceipt(db, {
+        sourceKey: job.idempotencyKey ?? [job.kind, job.id].join(':'),
+        paymentId,
+      });
+    },
   }),
   /**
    * The package expiry reminder (BIL-08, PRD section 7), queued by the database when a package is

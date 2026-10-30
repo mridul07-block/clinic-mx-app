@@ -325,13 +325,13 @@ export type TemplateVariables<K extends MessageTemplateKey> = {
 
 /**
  * Everything a message row must carry to send the template: its variables, and for a document
- * header the PDF's link and file name.
+ * header the PDF (our `document` row, uploaded to Meta when sent) and the file name.
  */
 export type TemplateParameters<K extends MessageTemplateKey> = Extract<
   MessageTemplate,
   { key: K }
 >['header'] extends 'document'
-  ? TemplateVariables<K> & { document_link: string; document_name: string }
+  ? TemplateVariables<K> & { document_id: string; document_name: string }
   : TemplateVariables<K>;
 
 export function messageTemplate<K extends MessageTemplateKey>(

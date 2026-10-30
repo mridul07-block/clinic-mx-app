@@ -25,8 +25,11 @@ export interface TemplateSend {
   language: string;
   /** Body parameters, in the template's order. */
   parameters: string[];
-  /** A document header (WA-06): the PDF's link and the file name the patient sees. */
-  document?: { link: string; filename: string };
+  /**
+   * A document header (WA-06): the PDF uploaded to Meta just before (`uploadMedia`), by Meta's
+   * media id, never a public link; and the file name the patient sees.
+   */
+  document?: { id: string; filename: string };
   buttons?: readonly TemplateButtonParameter[];
 }
 
@@ -52,9 +55,17 @@ export type SendResult =
       title?: string;
     };
 
+/** An upload to Meta's media store; `waMessageId` here is the media id. */
+export type UploadResult = SendResult;
+
 export interface WhatsAppTransport {
   sendTemplate(message: TemplateSend, signal: AbortSignal): Promise<SendResult>;
   sendSession(message: SessionSend, signal: AbortSignal): Promise<SendResult>;
+  /** A PDF for a template's document header (WA-06), kept by Meta for the send. */
+  uploadMedia(
+    file: { bytes: Uint8Array<ArrayBuffer>; filename: string },
+    signal: AbortSignal,
+  ): Promise<UploadResult>;
 }
 
 const isTimeout = (error: unknown) =>
@@ -155,17 +166,26 @@ export function cloudApiTransport(
   config: WhatsAppConfig,
   send: typeof fetch = fetch,
 ): WhatsAppTransport {
-  const url = `https://graph.facebook.com/${config.graphVersion}/${config.phoneNumberId}/messages`;
-  async function post(payload: unknown, signal: AbortSignal): Promise<SendResult> {
+  const base = `https://graph.facebook.com/${config.graphVersion}/${config.phoneNumberId}`;
+  const post = (payload: unknown, signal: AbortSignal) =>
+    call(
+      `${base}/messages`,
+      { 'content-type': 'application/json' },
+      JSON.stringify(payload),
+      signal,
+    );
+  async function call(
+    url: string,
+    headers: Record<string, string>,
+    content: string | FormData,
+    signal: AbortSignal,
+  ): Promise<SendResult> {
     let response: Response;
     try {
       response = await send(url, {
         method: 'POST',
-        headers: {
-          authorization: `Bearer ${config.accessToken}`,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+        headers: { authorization: `Bearer ${config.accessToken}`, ...headers },
+        body: content,
         cache: 'no-store',
         signal,
       });
@@ -179,6 +199,7 @@ export function cloudApiTransport(
       if (signal.aborted || isTimeout(error)) return { ok: false, kind: 'timeout' };
     }
     const answer = (body ?? {}) as {
+      id?: unknown;
       messages?: { id?: unknown }[];
       error?: {
         code?: unknown;
@@ -187,7 +208,8 @@ export function cloudApiTransport(
         error_user_title?: unknown;
       };
     };
-    const id = text(answer.messages?.[0]?.id);
+    // A message's id, or an uploaded file's.
+    const id = text(answer.messages?.[0]?.id) ?? text(answer.id);
     if (response.ok && id) return { ok: true, waMessageId: id };
     return {
       ok: false,
@@ -200,6 +222,13 @@ export function cloudApiTransport(
   }
   return {
     sendTemplate: (message, signal) => post(templateBody(message), signal),
+    uploadMedia: ({ bytes, filename }, signal) => {
+      const form = new FormData();
+      form.append('messaging_product', 'whatsapp');
+      form.append('type', 'application/pdf');
+      form.append('file', new Blob([bytes], { type: 'application/pdf' }), filename);
+      return call(`${base}/media`, {}, form, signal);
+    },
     sendSession: (message, signal) => post(sessionBody(message), signal),
   };
 }

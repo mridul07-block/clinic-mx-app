@@ -2,6 +2,10 @@ import type { Db } from '@clinic-mx/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ClinicMessageError,
+  DocumentNotReadyError,
+  sendConsultationSummary,
+  sendDischargeReport,
+  sendReceipt,
   followUpPeriod,
   recordCheckAnswerIn,
   sendFirstTreatmentCheck,
@@ -19,15 +23,20 @@ const db = vi.hoisted(() => ({
   alertForMessage: vi.fn(),
   appointmentForMessage: vi.fn(),
   completePatientLinkRow: vi.fn(),
+  consultationForMessage: vi.fn(),
   episodeForMessage: vi.fn(),
   feedbackSubjectOfLink: vi.fn(),
   firstTreatmentAnswered: vi.fn(),
   followUpDue: vi.fn(),
   insertFeedback: vi.fn(),
+  invoiceFacts: vi.fn(),
+  liveDischargeFeedbackLink: vi.fn(),
   liveFeedbackLink: vi.fn(),
   liveMessageLink: vi.fn(),
+  liveMyPlanLink: vi.fn(),
   messagePatient: vi.fn(),
   newerOpenEpisode: vi.fn(),
+  newestDocument: vi.fn(),
   packageForMessage: vi.fn(),
   planSeriesForMessage: vi.fn(),
   queueMessageOnce: vi.fn(),
@@ -349,5 +358,105 @@ describe('a check’s answer from WhatsApp', () => {
     db.completePatientLinkRow.mockResolvedValue(false);
     expect(await answer('first_treatment_check', 'better')).toBe('closed');
     expect(db.insertFeedback).not.toHaveBeenCalled();
+  });
+});
+
+// WA-06 part 2: the PDF messages carry the newest PDF and their links, and wait for the PDF.
+describe('the PDF messages', () => {
+  const pdf = { id: '00000000-0000-4000-8000-000000000a06', patientId: ids.patient };
+
+  it('consultation summary: the PDF, the My plan link the patient holds and the visit’s rating link', async () => {
+    db.consultationForMessage.mockResolvedValue({
+      status: 'signed',
+      appointmentId: ids.appointment,
+      episodeId: ids.episode,
+      patientId: ids.patient,
+    });
+    db.newestDocument.mockResolvedValue(pdf);
+    db.liveMyPlanLink.mockResolvedValue({ id: ids.other, expiresAt: new Date() });
+    db.liveFeedbackLink.mockResolvedValue(undefined);
+    const send = () => sendConsultationSummary({} as Db, { sourceKey, consultationId: ids.other });
+    expect(await send()).toBe('queued');
+    expect(db.newestDocument).toHaveBeenCalledWith('system-tx', 'consultation_summary', ids.other);
+    // A new My plan link stops older ones: the working one is reused, never replaced.
+    expect(links.issuePatientLink).toHaveBeenCalledTimes(1);
+    expect(links.issuePatientLink).toHaveBeenCalledWith('system-tx', {
+      patientId: ids.patient,
+      appointmentId: ids.appointment,
+      purpose: 'feedback',
+    });
+    expect(queued()[0]).toMatchObject({
+      templateKey: 'consultation_summary',
+      variables: {
+        patient_name: 'Test',
+        plan_link: 'live-token',
+        feedback_link: 'new-token',
+        document_id: pdf.id,
+        document_name: 'Consultation summary.pdf',
+      },
+    });
+  });
+
+  it('waits for the PDF, and sends nothing for a consultation not signed', async () => {
+    db.consultationForMessage.mockResolvedValue({ status: 'signed', episodeId: ids.episode });
+    db.newestDocument.mockResolvedValue(undefined);
+    await expect(
+      sendConsultationSummary({} as Db, { sourceKey, consultationId: ids.other }),
+    ).rejects.toThrow(DocumentNotReadyError);
+    db.consultationForMessage.mockResolvedValue({ status: 'draft' });
+    expect(await sendConsultationSummary({} as Db, { sourceKey, consultationId: ids.other })).toBe(
+      'skipped:not signed',
+    );
+    expect(db.queueMessageOnce).not.toHaveBeenCalled();
+  });
+
+  it('discharge report: the PDF and the discharge feedback link', async () => {
+    db.newestDocument.mockResolvedValue(pdf);
+    db.liveDischargeFeedbackLink.mockResolvedValue({ id: ids.other, expiresAt: new Date() });
+    expect(await sendDischargeReport({} as Db, { sourceKey, episodeId: ids.episode })).toBe(
+      'queued',
+    );
+    expect(queued()[0]).toMatchObject({
+      templateKey: 'discharge_report',
+      variables: {
+        patient_name: 'Test',
+        feedback_link: 'live-token',
+        document_id: pdf.id,
+        document_name: 'Discharge report.pdf',
+      },
+    });
+    db.episodeForMessage.mockResolvedValue({ ...episode, status: 'active' });
+    expect(await sendDischargeReport({} as Db, { sourceKey, episodeId: ids.episode })).toBe(
+      'skipped:not discharged',
+    );
+  });
+
+  it('receipt: the amount and bill, never for a payment undone', async () => {
+    const paid = {
+      patientId: ids.patient,
+      totalPaise: 150_000,
+      billNumber: 'MVH-B-00042',
+      invoiceNumber: 'MVH-INV-00007',
+      undone: null,
+    };
+    db.invoiceFacts.mockResolvedValue(paid);
+    db.newestDocument.mockResolvedValue(pdf);
+    const send = () => sendReceipt({} as Db, { sourceKey, paymentId: ids.other });
+    expect(await send()).toBe('queued');
+    expect(db.newestDocument).toHaveBeenCalledWith('system-tx', 'invoice_receipt', ids.other);
+    expect(queued()[0]?.variables).toEqual({
+      patient_name: 'Test',
+      amount: '₹1,500',
+      bill_number: 'MVH-B-00042',
+      document_id: pdf.id,
+      document_name: 'Receipt MVH-INV-00007.pdf',
+    });
+    db.queueMessageOnce.mockClear();
+    db.invoiceFacts.mockResolvedValue({
+      ...paid,
+      undone: { at: new Date(), reason: 'Wrong bill' },
+    });
+    expect(await send()).toBe('skipped:undone');
+    expect(db.queueMessageOnce).not.toHaveBeenCalled();
   });
 });

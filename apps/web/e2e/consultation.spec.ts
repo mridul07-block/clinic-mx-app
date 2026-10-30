@@ -1,5 +1,14 @@
+import {
+  createDb,
+  document as documentRow,
+  job,
+  message,
+  systemActor,
+  withActor,
+} from '@clinic-mx/db';
 import { addDays, istDate, screeningItems } from '@clinic-mx/schemas';
 import { expect, test, type Page } from '@playwright/test';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { removeCalendarRows, startedAppointment } from './calendar';
 import { draftSections, savedConsultation, signedRows, submittedAnswers } from './consultations';
 import { libraryExercise, retireExercises } from './exercises';
@@ -692,8 +701,19 @@ test('Sign and finish locks the consultation, completes the visit, and colleague
   await context.close();
 });
 
+let database: ReturnType<typeof createDb> | undefined;
+const db = () => {
+  const url = process.env.DIRECT_DATABASE_URL;
+  if (!url) throw new Error('DIRECT_DATABASE_URL is not set.');
+  database ??= createDb(url, { max: 1 });
+  return database.db;
+};
+test.afterAll(async () => {
+  await database?.close();
+});
+
 // ALT-06 done when: signing generates the summary PDF on the centre's letterhead (its message is
-// queued for the WhatsApp tickets); an addendum generates the next version. Decisions (user, 25
+// queued for WhatsApp: WA-06 part 2); an addendum generates the next version. Decisions (user, 25
 // October 2026): Investigations advised and Referral advised on Plan, printed when filled; the
 // coded category stays off; each addendum a new version that prints it.
 test('signing generates the consultation summary, and an addendum its next version', async ({
@@ -765,6 +785,59 @@ test('signing generates the consultation summary, and an addendum its next versi
     'inline; filename="consultation-summary-v1.pdf"',
   );
   expect((await opened.body()).toString('latin1')).toMatch(/\/BaseFont \/[A-Z]{6}\+IBMPlexSans/);
+
+  // WA-06 part 2: the bundled WhatsApp message carries this PDF and the patient's links (Not sent
+  // here, without a WhatsApp token). Its job may have run before the PDF was made and be waiting
+  // for its retry: brought forward to now.
+  await withActor(db(), systemActor('tests'), (tx) =>
+    tx
+      .update(job)
+      .set({ runAt: sql`now()` })
+      .where(and(eq(job.kind, 'whatsapp.consultation_summary'), eq(job.status, 'queued'))),
+  );
+  let bundled: typeof message.$inferSelect | undefined;
+  await tickUntil(page.request, async () => {
+    [bundled] = await db()
+      .select()
+      .from(message)
+      .where(
+        and(eq(message.patientId, patient.id), eq(message.templateKey, 'consultation_summary')),
+      );
+    expect(bundled).toBeTruthy();
+  });
+  const [pdf] = await db()
+    .select({ id: documentRow.id })
+    .from(documentRow)
+    .where(and(eq(documentRow.patientId, patient.id), eq(documentRow.version, 1)));
+  expect(bundled?.variables).toMatchObject({
+    document_id: pdf?.id,
+    document_name: 'Consultation summary.pdf',
+  });
+  expect(bundled?.variables.plan_link).toBeTruthy();
+  expect(bundled?.variables.feedback_link).toBeTruthy();
+  // "Open My plan" opens the patient's plan.
+  const phone = await browser.newContext(test.info().project.use);
+  const theirs = await phone.newPage();
+  await theirs.goto(`/p/${bundled?.variables.plan_link ?? ''}`);
+  await expect(theirs.getByRole('region', { name: 'Your exercises' })).toBeVisible();
+  expect(
+    await theirs.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBe(true);
+  await theirs.screenshot({ path: test.info().outputPath('summary-my-plan.png'), fullPage: true });
+  await phone.close();
+  await withActor(db(), systemActor('tests'), async (tx) => {
+    const ids = (
+      await tx.select({ id: message.id }).from(message).where(eq(message.patientId, patient.id))
+    ).map((row) => row.id);
+    if (ids.length === 0) return;
+    await tx.delete(job).where(
+      inArray(
+        job.idempotencyKey,
+        ids.map((id) => ['whatsapp.send', id].join(':')),
+      ),
+    );
+    await tx.delete(message).where(inArray(message.id, ids));
+  });
 
   // An addendum: the next version, the first kept under it.
   await page.goto(`${path}?section=sign`);

@@ -55,7 +55,7 @@ describe('cloudApiTransport', () => {
         template: 'consultation_summary_v1',
         language: 'en',
         parameters: ['A'],
-        document: { link: 'https://clinic.example/d/1.pdf', filename: 'Summary.pdf' },
+        document: { id: 'media-1', filename: 'Summary.pdf' },
         buttons: [
           { index: 0, kind: 'url', suffix: 'token-1' },
           { index: 1, kind: 'quick_reply', payload: 'key.better' },
@@ -68,7 +68,7 @@ describe('cloudApiTransport', () => {
         parameters: [
           {
             type: 'document',
-            document: { link: 'https://clinic.example/d/1.pdf', filename: 'Summary.pdf' },
+            document: { id: 'media-1', filename: 'Summary.pdf' },
           },
         ],
       },
@@ -96,6 +96,26 @@ describe('cloudApiTransport', () => {
       name: 'hello_world',
       language: { code: 'en_US' },
     });
+  });
+
+  // WA-06 part 2: a PDF goes to Meta's media store first, as a form, and comes back as an id.
+  it('uploads a PDF to the number’s media endpoint and reads Meta’s id', async () => {
+    const send = vi.fn(() => json(200, { id: 'media-9' }));
+    const bytes = new Uint8Array([37, 80, 68, 70]);
+    const result = await cloudApiTransport(config, send).uploadMedia(
+      { bytes, filename: 'Receipt MVH-INV-00001.pdf' },
+      signal(),
+    );
+    expect(result).toEqual({ ok: true, waMessageId: 'media-9' });
+    const [url, init] = send.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('https://graph.facebook.com/v25.0/111/media');
+    expect(new Headers(init.headers).get('authorization')).toBe(`Bearer ${config.accessToken}`);
+    const form = init.body as FormData;
+    expect(form.get('messaging_product')).toBe('whatsapp');
+    expect(form.get('type')).toBe('application/pdf');
+    const file = form.get('file') as File;
+    expect(file.name).toBe('Receipt MVH-INV-00001.pdf');
+    expect(new Uint8Array(await file.arrayBuffer())).toEqual(bytes);
   });
 
   // WA-03: the router's replies, inside WhatsApp's 24 hour window.

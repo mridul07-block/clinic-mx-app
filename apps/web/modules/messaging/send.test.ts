@@ -7,11 +7,14 @@ vi.mock('server-only', () => ({}));
 const db = vi.hoisted(() => ({
   MAX_JOB_ATTEMPTS: 5,
   approvedTemplateVersion: vi.fn(),
+  documentForMessage: vi.fn(),
   lastInboundAt: vi.fn(),
   messageRecord: vi.fn(),
   recordMessageOutcome: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
+const store = vi.hoisted(() => ({ get: vi.fn() }));
+vi.mock('../documents/document-store', () => ({ documentStore: () => store }));
 vi.mock('../access/service', () => ({
   systemService:
     (definition: { run: (tx: unknown, input: unknown) => unknown }) =>
@@ -42,6 +45,12 @@ const queued = (extra: Record<string, unknown> = {}) => ({
 const transport = (result: Awaited<ReturnType<WhatsAppTransport['sendTemplate']>>) => ({
   sendTemplate: vi.fn(() => Promise.resolve(result)),
   sendSession: vi.fn(() => Promise.resolve(result)),
+  uploadMedia: vi.fn(() =>
+    Promise.resolve<Awaited<ReturnType<WhatsAppTransport['uploadMedia']>>>({
+      ok: true,
+      waMessageId: 'media-1',
+    }),
+  ),
 });
 const send = (options: { attempt?: number; transport?: WhatsAppTransport } = {}) =>
   sendQueuedMessage({} as Db, messageId, { attempt: 1, ...options });
@@ -136,31 +145,42 @@ describe('sending a queued WhatsApp message', () => {
     ]);
   });
 
-  it('sends a document header, link tokens and quick reply payloads from the message', async () => {
+  // WA-06 part 2: the patient's own PDF, uploaded to Meta for the send, sent by its media id.
+  const patientId = '00000000-0000-4000-8000-000000000b01';
+  const documentId = '00000000-0000-4000-8000-000000000b02';
+  const summary = () =>
+    clinicMessage({
+      patientId,
+      templateKey: 'consultation_summary',
+      variables: {
+        patient_name: 'Test Patient',
+        plan_link: 'plan-token',
+        feedback_link: 'feedback-token',
+        document_id: documentId,
+        document_name: 'Consultation summary.pdf',
+      },
+    });
+
+  it('uploads the patient’s PDF, then sends it by Meta’s id with the link tokens', async () => {
     const meta = transport({ ok: true, waMessageId: 'wamid.6' });
-    db.messageRecord.mockResolvedValue(
-      clinicMessage({
-        templateKey: 'consultation_summary',
-        variables: {
-          patient_name: 'Test Patient',
-          plan_link: 'plan-token',
-          feedback_link: 'feedback-token',
-          document_link: 'https://clinic.example/d/1.pdf',
-          document_name: 'Consultation summary.pdf',
-        },
-      }),
-    );
+    const pdf = new Uint8Array([37, 80, 68, 70]);
+    db.documentForMessage.mockResolvedValue({ patientId, filePath: 'p/d.pdf' });
+    store.get.mockResolvedValue(pdf);
+    db.messageRecord.mockResolvedValue(summary());
     await send({ transport: meta });
+    expect(db.documentForMessage).toHaveBeenCalledWith({}, documentId);
+    expect(store.get).toHaveBeenCalledWith('p/d.pdf');
+    expect(meta.uploadMedia).toHaveBeenCalledWith(
+      { bytes: pdf, filename: 'Consultation summary.pdf' },
+      expect.any(AbortSignal),
+    );
     expect(meta.sendTemplate).toHaveBeenCalledWith(
       {
         to: onList,
         template: 'consultation_summary_v2',
         language: 'en',
         parameters: ['Test Patient'],
-        document: {
-          link: 'https://clinic.example/d/1.pdf',
-          filename: 'Consultation summary.pdf',
-        },
+        document: { id: 'media-1', filename: 'Consultation summary.pdf' },
         buttons: [
           { index: 0, kind: 'url', suffix: 'plan-token' },
           { index: 1, kind: 'url', suffix: 'feedback-token' },
@@ -168,6 +188,29 @@ describe('sending a queued WhatsApp message', () => {
       },
       expect.any(AbortSignal),
     );
+    expect(outcome()).toEqual([{ status: 'sent', waMessageId: 'wamid.6' }]);
+  });
+
+  it('never sends another patient’s PDF, and retries an upload Meta may get over', async () => {
+    const meta = transport({ ok: true, waMessageId: 'wamid.7' });
+    db.messageRecord.mockResolvedValue(summary());
+    db.documentForMessage.mockResolvedValue({ patientId: 'someone-else', filePath: 'x/y.pdf' });
+    await send({ transport: meta });
+    expect(meta.uploadMedia).not.toHaveBeenCalled();
+    expect(outcome()).toEqual([
+      expect.objectContaining({ status: 'failed', errorCode: 'no_document' }),
+    ]);
+
+    db.recordMessageOutcome.mockClear();
+    db.documentForMessage.mockResolvedValue({ patientId, filePath: 'p/d.pdf' });
+    store.get.mockResolvedValue(new Uint8Array([1]));
+    meta.uploadMedia.mockResolvedValue({ ok: false, kind: 'http', httpStatus: 503 } as never);
+    await expect(send({ transport: meta })).rejects.toThrow(RetrySendError);
+    expect(meta.sendTemplate).not.toHaveBeenCalled();
+  });
+
+  it('sends quick reply payloads naming the template and button', async () => {
+    const meta = transport({ ok: true, waMessageId: 'wamid.8' });
     db.messageRecord.mockResolvedValue(
       clinicMessage({ templateKey: 'first_treatment_check', variables: { patient_name: 'T' } }),
     );

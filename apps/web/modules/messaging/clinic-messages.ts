@@ -3,15 +3,20 @@ import {
   alertForMessage,
   appointmentForMessage,
   completePatientLinkRow,
+  consultationForMessage,
   episodeForMessage,
   feedbackSubjectOfLink,
   firstTreatmentAnswered,
   followUpDue,
   insertFeedback,
+  invoiceFacts,
+  liveDischargeFeedbackLink,
   liveFeedbackLink,
   liveMessageLink,
+  liveMyPlanLink,
   messagePatient,
   newerOpenEpisode,
+  newestDocument,
   packageForMessage,
   planSeriesForMessage,
   queueMessageOnce,
@@ -27,6 +32,7 @@ import {
   firstName,
   firstTreatmentCheck,
   followUpCheck,
+  formatRupees,
   istDate,
   messageTemplate,
   packageState,
@@ -87,6 +93,26 @@ async function queueFor<K extends MessageTemplateKey>(
 /** The token at the end of a link's page, `/p/<token>`: what a template's link button carries. */
 function tokenOf(path: string): string {
   return path.slice('/p/'.length);
+}
+
+/**
+ * A working link of the patient's, else a new one; the token their message's button carries.
+ * Reused first: a new My plan link stops the patient's older ones.
+ */
+async function linkToken(
+  tx: DbOrTransaction,
+  live: { id: string; expiresAt: Date } | undefined,
+  issue: Parameters<typeof issuePatientLink>[1] & {
+    purpose: 'my_plan' | 'feedback';
+  },
+): Promise<string> {
+  const path = live && patientLinkPath({ ...live, purpose: issue.purpose });
+  return tokenOf(path || (await issuePatientLink(tx, issue)).path);
+}
+
+/** The PDF a message carries is made by its own job: until it is, this one waits and retries. */
+export class DocumentNotReadyError extends Error {
+  override name = 'DocumentNotReadyError';
 }
 
 /** A working link the patient may already hold for the episode, else a new one. */
@@ -309,6 +335,102 @@ export const sendRedFlagSafetyAdvice = systemService({
       patientId: episode.patientId,
       sourceKey: input.sourceKey,
       variables: (name) => ({ patient_name: name, clinic_phone: phone }),
+    });
+  },
+});
+
+/**
+ * The consultation summary (ALT-06, PRD J4.1), once when the consultation is signed: its PDF, with
+ * "Open My plan" and "Rate your visit" (WA-06 part 2). Waits for the PDF.
+ */
+export const sendConsultationSummary = systemService({
+  component: 'whatsapp',
+  input: z.object({ ...job, consultationId: z.guid() }),
+  run: async (tx, input): Promise<SendOutcome> => {
+    const held = await consultationForMessage(tx, input.consultationId);
+    if (held?.status !== 'signed') return 'skipped:not signed';
+    const pdf = await newestDocument(tx, 'consultation_summary', input.consultationId);
+    if (!pdf) throw new DocumentNotReadyError('The consultation summary is not made yet.');
+    const plan = await linkToken(tx, await liveMyPlanLink(tx, held.episodeId), {
+      patientId: held.patientId,
+      episodeId: held.episodeId,
+      purpose: 'my_plan',
+    });
+    const rating = await linkToken(tx, await liveFeedbackLink(tx, held.appointmentId), {
+      patientId: held.patientId,
+      appointmentId: held.appointmentId,
+      purpose: 'feedback',
+    });
+    return queueFor(tx, {
+      key: 'consultation_summary',
+      patientId: held.patientId,
+      sourceKey: input.sourceKey,
+      variables: (name) => ({
+        patient_name: name,
+        plan_link: plan,
+        feedback_link: rating,
+        document_id: pdf.id,
+        document_name: 'Consultation summary.pdf',
+      }),
+    });
+  },
+});
+
+/**
+ * The discharge report (OUT-11, PRD J6.7), once at discharge: its PDF, with "Give feedback" on the
+ * discharge feedback link (WA-06 part 2). Waits for the PDF.
+ */
+export const sendDischargeReport = systemService({
+  component: 'whatsapp',
+  input: z.object({ ...job, episodeId: z.guid() }),
+  run: async (tx, input): Promise<SendOutcome> => {
+    const episode = await episodeForMessage(tx, input.episodeId);
+    if (episode?.status !== 'discharged') return 'skipped:not discharged';
+    const pdf = await newestDocument(tx, 'discharge_report', input.episodeId);
+    if (!pdf) throw new DocumentNotReadyError('The discharge report is not made yet.');
+    const feedbackLink = await linkToken(tx, await liveDischargeFeedbackLink(tx, input.episodeId), {
+      patientId: episode.patientId,
+      episodeId: input.episodeId,
+      purpose: 'feedback',
+    });
+    return queueFor(tx, {
+      key: 'discharge_report',
+      patientId: episode.patientId,
+      sourceKey: input.sourceKey,
+      variables: (name) => ({
+        patient_name: name,
+        feedback_link: feedbackLink,
+        document_id: pdf.id,
+        document_name: 'Discharge report.pdf',
+      }),
+    });
+  },
+});
+
+/**
+ * The receipt (BIL-09, PRD J4.7), once per payment: the invoice and receipt PDF, never for a
+ * payment undone since (WA-06 part 2). Waits for the PDF.
+ */
+export const sendReceipt = systemService({
+  component: 'whatsapp',
+  input: z.object({ ...job, paymentId: z.guid() }),
+  run: async (tx, input): Promise<SendOutcome> => {
+    const paid = await invoiceFacts(tx, input.paymentId);
+    if (!paid) return 'skipped:no payment';
+    if (paid.undone) return 'skipped:undone';
+    const pdf = await newestDocument(tx, 'invoice_receipt', input.paymentId);
+    if (!pdf) throw new DocumentNotReadyError('The receipt is not made yet.');
+    return queueFor(tx, {
+      key: 'receipt',
+      patientId: paid.patientId,
+      sourceKey: input.sourceKey,
+      variables: (name) => ({
+        patient_name: name,
+        amount: formatRupees(paid.totalPaise),
+        bill_number: paid.billNumber,
+        document_id: pdf.id,
+        document_name: `Receipt ${paid.invoiceNumber}.pdf`,
+      }),
     });
   },
 });

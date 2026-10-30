@@ -94,8 +94,10 @@ overwrite). The database queues both (`internal.consultation_summary_jobs`,
 `internal.addendum_summary_job`), as staff cannot add jobs. Each job's key is recorded on the version
 it makes (`document.generation_key`), so a job that runs again makes nothing. The bundled WhatsApp
 message (`whatsapp.consultation_summary`, "Open My plan" and "Rate your visit") is queued on signing
-and sends nothing until WA-06. Its two links are the My plan link (PAT-01) and the visit's feedback
-link (PAT-04, `docs/runbooks/feedback.md`); until then the desk shows both as QR codes.
+and sends the newest summary by WhatsApp (WA-06 part 2), uploaded to Meta when sent. Its two links
+are the My plan link (PAT-01; a working one reused, as a new one stops the older) and the visit's
+feedback link (PAT-04, `docs/runbooks/feedback.md`); the desk's QR codes give the same links. An
+addendum's new version sends no new message.
 
 **What it prints**, in the specification's order; a section with nothing in it is left out
 (`summarySections` in `apps/web/modules/documents/consultation-summary.tsx`):
@@ -175,8 +177,9 @@ Recommendations (PAT-03), only when written. Its "Give feedback" link is the epi
 | Ongoing needs, Recommendations | As written at discharge |
 | Sign off | The discharging consultant's name, credentials and the discharge time |
 
-Questionnaire scores join with OUT-02. The WhatsApp message does nothing until the WhatsApp
-tickets; "My plan" maintenance mode is PAT-03.
+Questionnaire scores join with OUT-02. The WhatsApp message (`whatsapp.discharge_report`) sends the
+newest report with "Give feedback" on the discharge feedback link (WA-06 part 2); "My plan"
+maintenance mode is PAT-03.
 
 **Negative check:** let the trigger queue the report without a signed consultation, and the
 database test fails ("only after a signed consultation").
