@@ -117,8 +117,8 @@ The prompts changed, so the blind test runs again on the prompts in the task set
 - `apps/web/modules/ai/similar-cases.test.ts`: each case read at its own form's date, the patient's
   own excluded, a case the guard refuses left out, none when that leaves too few.
 - `apps/web/modules/ai/preparation-sheet.test.ts`, `recheck.test.ts`, `gateway/run.test.ts`,
-  `blind-test.test.ts`: claimed and sent as chosen; the recheck reuses them; only v2 prompts get
-  them and an extra field is refused; leave-one-out in the blind test.
+  `blind-test.test.ts`: claimed and sent as chosen; the recheck reuses them; only v2 and v3
+  prompts get them and an extra field is refused; leave-one-out in the blind test.
 - `apps/web/modules/reviews/confirm-diagnosis.test.ts`: confirm or change; the refusals; the panel.
 - `packages/db/src/integration/confirmed-diagnosis.integration.test.ts`: who confirms, stamped and
   audited, never changed; At discharge after discharge; refused against anything but the latest

@@ -1,10 +1,15 @@
 import type { Db } from '@clinic-mx/db';
-import { patientContentInput, type AiRankInput, type AiTaskConfig } from '@clinic-mx/schemas';
+import {
+  patientContentInput,
+  type AiPromptVersion,
+  type AiRankInput,
+  type AiTaskConfig,
+} from '@clinic-mx/schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { z } from 'zod';
 import { rankDiagnoses, rankForBlindTest, recheckWithFindings, writePatientContent } from './index';
 import { PROMPTS } from './prompts';
-import { buildRequest, runTask } from './run';
+import { buildRequest, canonicalJson, runTask } from './run';
 import type { AiRequest, AiTransport, AiTransportResult } from './transport';
 
 const db = vi.hoisted(() => ({
@@ -329,53 +334,63 @@ describe('the clinical tasks', () => {
     expect(sent[0]?.messages[0]?.content).toBe(PROMPTS['recheck_with_findings.v1']);
     expect(sent[0]?.messages[1]?.content).toContain('Positive patellar grind');
   });
-  // AI-03 live: the number of rows the sheet shows goes only to a prompt told about it.
-  it('asks a v3 prompt for only the rows the sheet shows, and never an older one', async () => {
-    const v2 = fake();
-    settings['ai.task_rank_diagnoses'] = { ...config, promptVersion: 'rank_diagnoses.v2' };
-    await rankDiagnoses({} as Db, pass, {
-      case: theCase,
-      rows,
-      limit: 5,
-      episodeId,
-      transport: v2.transport,
-    });
-    expect(JSON.parse(v2.sent[0]?.messages[1]?.content ?? '{}')).not.toHaveProperty('limit');
-    expect(recorded()[0]?.input).not.toHaveProperty('limit');
+  it('writes canonical JSON in key order, leaving undefined fields out', () => {
+    const json = canonicalJson({ b: 1, a: undefined, c: [{ z: undefined, y: 2 }, null] });
+    expect(json).toBe('{"b":1,"c":[{"y":2},null]}');
+    expect(JSON.parse(json)).toEqual({ b: 1, c: [{ y: 2 }, null] });
+  });
 
-    for (const [task, promptVersion] of [
-      ['ai.task_rank_diagnoses', 'rank_diagnoses.v3'],
-      ['ai.task_recheck_with_findings', 'recheck_with_findings.v3'],
-    ] as const) {
-      settings[task] = { ...config, promptVersion };
-    }
-    const v3 = fake();
-    await rankDiagnoses({} as Db, pass, {
-      case: theCase,
-      rows,
-      limit: 5,
-      episodeId,
-      transport: v3.transport,
-    });
-    await recheckWithFindings({} as Db, pass, {
-      case: theCase,
-      rows,
-      limit: 4,
-      episodeId,
-      findings: ['Positive patellar grind'],
-      transport: v3.transport,
-    });
-    expect(v3.sent[0]?.messages[0]?.content).toBe(PROMPTS['rank_diagnoses.v3']);
-    expect(JSON.parse(v3.sent[0]?.messages[1]?.content ?? '{}')).toMatchObject({ limit: 5 });
-    expect(v3.sent[1]?.messages[0]?.content).toBe(PROMPTS['recheck_with_findings.v3']);
-    expect(JSON.parse(v3.sent[1]?.messages[1]?.content ?? '{}')).toMatchObject({ limit: 4 });
-    expect(recorded()[1]?.input).toMatchObject({ limit: 5 });
-    // This block does not reset the settings: put back the first versions for the next test.
-    settings['ai.task_rank_diagnoses'] = config;
-    settings['ai.task_recheck_with_findings'] = {
-      ...config,
-      promptVersion: 'recheck_with_findings.v1',
+  // AI-03 live: the number of rows the sheet shows goes only to a prompt told about it, and a
+  // prompt told about it is never sent without one.
+  it('asks a v3 prompt for only the rows the sheet shows, and never an older one', async () => {
+    const sentWith = async (
+      promptVersions: [AiPromptVersion, AiPromptVersion],
+      limit: number | undefined,
+    ) => {
+      settings['ai.task_rank_diagnoses'] = { ...config, promptVersion: promptVersions[0] };
+      settings['ai.task_recheck_with_findings'] = { ...config, promptVersion: promptVersions[1] };
+      const { transport, sent } = fake();
+      const call = { case: theCase, rows, limit: limit as number, episodeId, transport };
+      const ranked = await rankDiagnoses({} as Db, pass, call);
+      const rechecked = await recheckWithFindings({} as Db, pass, {
+        ...call,
+        findings: ['Positive patellar grind'],
+      });
+      return {
+        results: [ranked.status, rechecked.status],
+        inputs: sent.map((request) => JSON.parse(request.messages[1]?.content ?? '{}') as object),
+        prompts: sent.map((request) => request.messages[0]?.content),
+      };
     };
+    try {
+      for (const older of [
+        ['rank_diagnoses.v1', 'recheck_with_findings.v1'],
+        ['rank_diagnoses.v2', 'recheck_with_findings.v2'],
+      ] as const) {
+        const { inputs } = await sentWith([...older], 5);
+        expect(inputs).toHaveLength(2);
+        for (const input of inputs) expect(input).not.toHaveProperty('limit');
+      }
+      const v3 = await sentWith(['rank_diagnoses.v3', 'recheck_with_findings.v3'], 5);
+      expect(v3.prompts).toEqual([
+        PROMPTS['rank_diagnoses.v3'],
+        PROMPTS['recheck_with_findings.v3'],
+      ]);
+      for (const input of v3.inputs) expect(input).toMatchObject({ limit: 5 });
+      expect(recorded().at(-1)?.input).toMatchObject({ limit: 5 });
+      // Without a limit a v3 prompt would rank every row: refused before any call.
+      const none = await sentWith(['rank_diagnoses.v3', 'recheck_with_findings.v3'], undefined);
+      expect(none.results).toEqual(['unavailable', 'unavailable']);
+      expect(none.inputs).toHaveLength(0);
+      expect(recorded().at(-1)).toMatchObject({ status: 'blocked' });
+    } finally {
+      // This block does not reset the settings: put back the first versions for the next test.
+      settings['ai.task_rank_diagnoses'] = config;
+      settings['ai.task_recheck_with_findings'] = {
+        ...config,
+        promptVersion: 'recheck_with_findings.v1',
+      };
+    }
   });
 
   // AI-05: similar confirmed cases go only to a prompt that is told about them.

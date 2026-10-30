@@ -59,6 +59,15 @@ describe('the live check', () => {
       allow_fallbacks: false,
     });
     expect(sent[0]?.response_format.json_schema.strict).toBe(true);
+    // As the gateway sends it: a row limit only to a prompt told about it (AI-03).
+    expect(JSON.parse(sent[0]?.messages[1]?.content ?? '{}')).not.toHaveProperty('limit');
+    const v3 = fake({});
+    await checkTask(
+      'rank_diagnoses',
+      { ...config, promptVersion: 'rank_diagnoses.v3' },
+      { transport: v3.transport, blockedProviders: [] },
+    );
+    expect(JSON.parse(v3.sent[0]?.messages[1]?.content ?? '{}')).toMatchObject({ limit: 2 });
   });
 
   it('says when another host answered, the answer was wrong, or the call failed', async () => {
