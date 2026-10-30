@@ -16,6 +16,7 @@ import {
   clinicalAiTasks,
   istDate,
   microUsdToPaise,
+  namesBlockedProvider,
   startOfIstDay,
   type AiRunStatus,
   type AiTaskConfig,
@@ -214,12 +215,9 @@ export async function runTask<K extends GatewayTask>(
     return finish('not_configured');
   }
   // Never a blocked provider for a clinical call (PRD: DeepSeek's own API never gets patient data).
-  const blocked = new Set(
-    (await getSetting('ai.blocked_providers')).map((provider) => provider.toLowerCase()),
-  );
   if (
     clinicalAiTasks.includes(task) &&
-    config.providers.some((provider) => blocked.has(provider.toLowerCase()))
+    namesBlockedProvider(config.providers, await getSetting('ai.blocked_providers'))
   ) {
     return finish('not_configured');
   }

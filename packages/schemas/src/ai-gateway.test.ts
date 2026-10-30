@@ -4,6 +4,7 @@ import {
   aiRankOutputSchema,
   aiTaskConfigSchema,
   microUsdToPaise,
+  namesBlockedProvider,
   usdToMicroUsd,
 } from './ai-gateway';
 
@@ -22,6 +23,27 @@ describe('the AI gateway schemas', () => {
     expect(aiCaseSchema.parse(theCase)).toEqual(theCase);
     for (const extra of [{ name: 'A' }, { phone: '1' }, { patientId: 'x' }, { dateOfBirth: 'x' }]) {
       expect(aiCaseSchema.safeParse({ ...theCase, ...extra }).success).toBe(false);
+    }
+  });
+
+  it('blocks a provider by its name, whatever tag pins it', () => {
+    const blocked = ['deepseek'];
+    for (const pinned of [
+      ['deepseek'],
+      ['DeepSeek'],
+      ['wafer/us', 'deepseek/fp8'],
+      [' deepseek/us '],
+    ]) {
+      expect(namesBlockedProvider(pinned, blocked)).toBe(true);
+    }
+    for (const pinned of [
+      [],
+      ['wafer/us'],
+      ['sail-research/us'],
+      ['deepseekish'],
+      ['us/deepseek'],
+    ]) {
+      expect(namesBlockedProvider(pinned, blocked)).toBe(false);
     }
   });
 

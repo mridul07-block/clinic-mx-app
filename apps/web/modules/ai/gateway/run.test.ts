@@ -440,6 +440,12 @@ describe('the blind test', () => {
     });
     settings['ai.task_rank_diagnoses'] = { ...config, providers: ['deepseek'] };
     expect(await run(transport)).toMatchObject({ reason: 'not_configured' });
+    // A tag on the host ("deepseek/fp8") pins the same host, so it is blocked too.
+    settings['ai.task_rank_diagnoses'] = { ...config, providers: ['host-a', 'DeepSeek/fp8'] };
+    expect(await run(transport)).toMatchObject({ reason: 'not_configured' });
+    expect(await blind(transport, { providers: ['deepseek/us'] })).toMatchObject({
+      reason: 'not_configured',
+    });
     expect(sent).toHaveLength(0);
   });
 

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   assignLabels,
@@ -10,6 +12,7 @@ import {
   type BlindTestCase,
   type BlindTestOutput,
 } from './blind-test';
+import { namesBlockedProvider } from './ai-gateway';
 import { toCsv } from './finance';
 
 // AI-06 done when: runs 30 to 50 anonymised cases through candidate models; clinicians score
@@ -76,6 +79,26 @@ describe('the blind test files', () => {
       },
     ]) {
       expect(blindTestCandidateFileSchema.safeParse(bad).success).toBe(false);
+    }
+  });
+
+  it('accepts the recommended candidate file, with reasoning off and no blocked host', () => {
+    const text = readFileSync(
+      join(
+        import.meta.dirname,
+        '..',
+        '..',
+        '..',
+        'docs',
+        'examples',
+        'blind-test-candidates.example.json',
+      ),
+      'utf8',
+    );
+    const file = JSON.parse(text) as unknown;
+    for (const { config } of blindTestCandidateFileSchema.parse(file).candidates) {
+      expect(config.reasoningEffort).toBe('none');
+      expect(namesBlockedProvider(config.providers, ['deepseek'])).toBe(false);
     }
   });
 });

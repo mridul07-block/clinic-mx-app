@@ -14,13 +14,57 @@
 
 ## Status: partly done
 
-The tool is built and tested on generated cases. A real run waits for three things:
-- the client's anonymised cases;
-- the OpenRouter key (`docs/runbooks/ai-gateway.md`);
-- the candidates' OpenRouter model names and US or EU providers.
+The tool is built, and it has run live on cases generated from the knowledge base (below). The
+real run, the one the clinicians score and the AI gate cites, waits for the client's 30 to 50
+anonymised cases.
 
 These are recommended defaults, chosen under the user's standing approval of 28 October 2026, and
 recorded as DECISION AI-06 in `docs/PROGRESS.md`.
+
+## First live run on generated cases (30 October 2026)
+
+**What ran:**
+- 30 cases built from knowledge base version 1, outside the repository. Each case is one
+  listing's own age, sex, onset, activities and symptom words, labelled with that listing's
+  condition: no patient and no invented clinical text. Bone Stress has no health form region, so
+  it was left out; high risk rows were left out because they are always on the sheet.
+- 3 candidates, the PRD's two test candidates and one premium model as a yardstick, each pinned to
+  a zero data retention host, with reasoning off, prompt `rank_diagnoses.v2`, 800 tokens and
+  12 seconds a call.
+
+**What it showed** (`ok` is a valid ranking within the time; p50 and p95 are the time to an
+answer, including a retry):
+
+| Candidate | Pinned host | ok | p50 | p95 | Cost of a sheet |
+| --- | --- | --- | --- | --- | --- |
+| `z-ai/glm-5.3` | `wafer/us` | 28 of 30 | 4.9 s | 12.6 s | about $0.001 |
+| `deepseek/deepseek-v4-pro-0813` | `sail-research/us` | 26 of 30 | 5.5 s | 18.1 s | about $0.001 |
+| `openai/gpt-6.1-sol` | `azure/eu` | 14 of 30 | 10.8 s | 23.6 s | about $0.007 |
+
+**What it means:**
+- **Accuracy is not measured here.** A generated case repeats its row's own words, so every valid
+  ranking put the labelled condition in the top 3. That needs the client's real cases and the
+  clinicians' scores. This run is not a pass and gives no reference for the AI gate.
+- **Reliability, speed and cost are measured,** and they separate the candidates. GLM 5.3 was the
+  most reliable, the fastest and the cheapest. GPT 6.1 Sol was too slow for the sheet's 15 second
+  target. Gemini 3.1 Pro was probed and left out: it reasons before every answer, even a one word
+  one (278 tokens and 4.9 seconds), so it is the slowest and dearest per call.
+- **Reasoning must be off** (`reasoningEffort: "none"`). With `low`, DeepSeek V4 Pro spent all
+  800 tokens reasoning and its answers were cut off.
+- **6 seconds a call is too short.** The task settings' placeholder of two calls of 6 seconds
+  failed often for every candidate. The winner's timeout is set from its measured p50 and p95 when
+  it is adopted.
+- **Model names have moved on** since the TAD: GPT 6 Sol is now GPT 6.1 Sol, and DeepSeek V4 Pro's
+  current build is `deepseek-v4-pro-0813`. The real run uses the names current on its day.
+
+**Recommended for the real run** (DECISION AI-06, for the client to confirm): GLM 5.3 pinned to
+`wafer/us` then `sail-research/us`, DeepSeek V4 Pro pinned to `sail-research/us`, both US hosts with
+zero data retention, and GPT 6.1 Sol as the yardstick if the clinicians want one.
+`docs/examples/blind-test-candidates.example.json` holds this file, with 12 seconds a call.
+
+**What it cost:** $0.59 on the development key, of which about $0.28 went on calls that timed out,
+whose cost never comes back (`docs/runbooks/ai-gateway.md`, Open risks). A real run of 50 cases
+with these candidates costs about $0.50 to $0.75.
 
 ## What the operator does
 
@@ -60,7 +104,7 @@ The file is refused when:
 - one to three pinned providers;
 - the prompt version, reasoning effort, timeout and token limit.
 
-`docs/examples/blind-test-candidates.example.json` shows the shape with made-up names. A provider
+`docs/examples/blind-test-candidates.example.json` is the recommended file (above). A provider
 in `ai.blocked_providers` (DeepSeek) is refused.
 
 ### 3. Run
