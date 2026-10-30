@@ -178,7 +178,16 @@ describe('the audit trail', () => {
     // audit_event: the trail itself.
     // centre_sequence: the last number issued (SCH-01); the patient row it numbers is the event.
     // slot_hold: a picked slot held for minutes (SCH-04); the appointment booked is the event.
-    const exempt = ['audit_event', 'centre_sequence', 'job', 'rate_limit', 'slot_hold'];
+    // whatsapp_event: Meta's raw webhook body (WA-02), deleted after days; the messages it becomes are
+    // the audited events, and a copy in the trail would outlive the deletion.
+    const exempt = [
+      'audit_event',
+      'centre_sequence',
+      'job',
+      'rate_limit',
+      'slot_hold',
+      'whatsapp_event',
+    ];
     const rows = await db.execute<{ table: string }>(sql`
       select c.relname as table
       from pg_class c join pg_namespace n on n.oid = c.relnamespace

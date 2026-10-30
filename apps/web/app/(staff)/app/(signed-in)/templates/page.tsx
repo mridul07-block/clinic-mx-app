@@ -1,12 +1,14 @@
 import type { MessageEntry } from '@clinic-mx/db';
 import {
   formatIstDateTime,
+  inboundKindLabels,
   maskNumber,
   messageStatusLabels,
   messageTemplates,
   templateButtonKindLabels,
   templateHeaderLabels,
   templateStatusLabels,
+  type InboundKind,
   type MessageStatus,
   type MessageTemplate,
 } from '@clinic-mx/schemas';
@@ -28,7 +30,18 @@ const statusTone: Record<MessageStatus, Tone> = {
   sent: 'active',
   failed: 'waiting',
   skipped: 'neutral',
+  delivered: 'active',
+  read: 'done',
+  received: 'info',
 };
+
+/** What a message is, never what an inbound one says (user decision, 30 October 2026). */
+function messageName(entry: MessageEntry): string {
+  if (entry.direction === 'inbound') {
+    return `Incoming · ${inboundKindLabels[entry.kind as InboundKind]}`;
+  }
+  return entry.kind === 'test' ? 'Test message' : (entry.templateKey ?? '');
+}
 
 function RecentMessages({ messages }: { messages: MessageEntry[] }) {
   if (messages.length === 0) return <p className="text-ink-muted">No messages yet.</p>;
@@ -39,16 +52,15 @@ function RecentMessages({ messages }: { messages: MessageEntry[] }) {
           key={entry.id}
           data-testid="recent-message"
           data-status={entry.status}
+          data-direction={entry.direction}
           className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-3"
         >
           <span className="flex flex-wrap items-center justify-between gap-2">
-            <span className="font-medium text-ink">
-              {entry.kind === 'test' ? 'Test message' : entry.templateKey}
-            </span>
+            <span className="font-medium text-ink">{messageName(entry)}</span>
             <Tag tone={statusTone[entry.status]}>{messageStatusLabels[entry.status]}</Tag>
           </span>
           <span className="text-sm text-ink-secondary tabular-nums">
-            {maskNumber(entry.toPhone)} · {formatIstDateTime(entry.createdAt)}
+            {maskNumber(entry.phone)} · {formatIstDateTime(entry.createdAt)}
             {entry.attempts > 1 ? ` · ${String(entry.attempts)} attempts` : null}
           </span>
           {entry.errorTitle ? (

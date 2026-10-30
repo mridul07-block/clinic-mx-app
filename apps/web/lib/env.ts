@@ -49,6 +49,13 @@ const serverEnvSchema = z.object({
   WHATSAPP_ACCESS_TOKEN: z.string().min(20).optional(),
   WHATSAPP_PHONE_NUMBER_ID: z.string().regex(/^\d+$/).optional(),
   WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().regex(/^\d+$/).optional(),
+  /**
+   * The webhook (WA-02): the Meta app's secret, which signs every body Meta posts, and the token
+   * we chose that Meta repeats when the callback URL is verified. Without the secret every webhook
+   * is refused (503).
+   */
+  WHATSAPP_APP_SECRET: z.string().min(16).optional(),
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().min(16).optional(),
   /** The Graph API version the Cloud API is called at, for example v25.0. */
   WHATSAPP_GRAPH_VERSION: z
     .string()

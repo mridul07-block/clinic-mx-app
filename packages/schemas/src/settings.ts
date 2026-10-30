@@ -697,6 +697,12 @@ export const settingDefinitions = {
     description:
       'The phone numbers, with country code, verified on the Meta test number, for example ["+919845012345"]. At most 5.',
   },
+  'whatsapp.event_retention_days': {
+    schema: days.max(90),
+    source: 'WA-02, user decision 30 October 2026',
+    description:
+      'Days a raw webhook copy from Meta is kept once handled, for looking into a problem; the messages themselves stay.',
+  },
 } as const satisfies Record<string, SettingDefinition>;
 
 export type SettingKey = keyof typeof settingDefinitions;

@@ -29,6 +29,7 @@ import {
 import { z } from 'zod';
 import { followUpThinkAboutIt } from '../billing/plan-choice';
 import { WHATSAPP_SEND_JOB, sendQueuedMessage } from '../messaging/send';
+import { WHATSAPP_EVENT_JOB, handleWhatsappEvent } from '../messaging/webhook';
 import { generateConsultationSummary } from '../documents/consultation-summary';
 import { generateDischargeReport } from '../documents/discharge-report';
 import { generateInvoice } from '../documents/invoice';
@@ -57,6 +58,13 @@ export const jobHandlers: JobHandlers = {
     payload: z.object({ messageId: z.guid() }),
     run: ({ messageId }, { db, job }) =>
       sendQueuedMessage(db, messageId, { attempt: job.attempts }),
+  }),
+  /** A webhook body from Meta (WA-02); usually handled already, straight after it came. */
+  [WHATSAPP_EVENT_JOB]: defineJob({
+    payload: z.object({ eventId: z.guid() }),
+    run: async ({ eventId }, { db }) => {
+      await handleWhatsappEvent(db, eventId);
+    },
   }),
   /** A submitted health form's pipeline (INT-10); a form already done is left as it is. */
   [INTAKE_SUBMITTED_JOB]: defineJob({

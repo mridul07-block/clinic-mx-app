@@ -14,7 +14,8 @@ afterAll(close);
 // centre_sequence: OP numbers and the like, advanced only by a database function (SCH-01).
 // job (the queue) runs on the server, never as a staff member; its one policy lets a patient's
 // health form submit queue its own pipeline (INT-10).
-const serverOnly = ['centre_sequence', 'rate_limit'];
+// whatsapp_event: Meta's raw webhook bodies, stored and handled by the server (WA-02).
+const serverOnly = ['centre_sequence', 'rate_limit', 'whatsapp_event'];
 
 const names = async (query: ReturnType<typeof sql>) =>
   (await db.execute<{ name: string }>(query)).map((r) => r.name);

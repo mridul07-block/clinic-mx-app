@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { TEST_JOBS_SECRET } from './e2e/jobs';
+import { TEST_WHATSAPP_APP_SECRET, TEST_WHATSAPP_VERIFY_TOKEN } from './e2e/whatsapp';
 
 const PORT = 3000;
 const isCI = Boolean(process.env.CI);
@@ -44,10 +45,15 @@ export default defineConfig({
     // A stand-in browser DSN (FND-12): pages report errors to /monitoring, which the monitoring
     // test catches; organisation 0 does not exist, so anything else sent is refused by Sentry.
     // A test value for the job tick (ALT-06: e2e/jobs.ts runs the queue); over any in .env.local.
+    // WhatsApp (WA-01, WA-02): never the real token, so nothing leaves even when .env.local has
+    // one; test values for the webhook, so tests sign bodies as Meta would.
     env: {
       CLINIC_MX_TEST_HARNESS: '1',
       JOBS_SECRET: TEST_JOBS_SECRET,
       NEXT_PUBLIC_SENTRY_DSN: 'https://public@o0.ingest.de.sentry.io/0',
+      WHATSAPP_ACCESS_TOKEN: '',
+      WHATSAPP_APP_SECRET: TEST_WHATSAPP_APP_SECRET,
+      WHATSAPP_WEBHOOK_VERIFY_TOKEN: TEST_WHATSAPP_VERIFY_TOKEN,
     },
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: !isCI,

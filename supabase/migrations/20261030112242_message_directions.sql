@@ -1,0 +1,6 @@
+-- WA-02: what a message must hold, by direction and status. Outbound as before; inbound has the
+-- sender, Meta's id and its time, and is Received. Sent, Delivered and Read have Meta's id.
+ALTER TABLE "message" ADD CONSTRAINT "message_accepted" CHECK ("message"."status" not in ('sent', 'delivered', 'read') or ("message"."wa_message_id" is not null and "message"."sent_at" is not null));--> statement-breakpoint
+ALTER TABLE "message" ADD CONSTRAINT "message_not_sent" CHECK ("message"."status" not in ('queued', 'skipped') or "message"."wa_message_id" is null);--> statement-breakpoint
+ALTER TABLE "message" ADD CONSTRAINT "message_outbound" CHECK ("message"."direction" <> 'outbound' or ("message"."to_phone" is not null and "message"."from_phone" is null and "message"."template_key" is not null and "message"."template_version" is not null and "message"."language" is not null and "message"."kind" in ('template', 'test') and "message"."status" <> 'received'));--> statement-breakpoint
+ALTER TABLE "message" ADD CONSTRAINT "message_inbound" CHECK ("message"."direction" <> 'inbound' or ("message"."from_phone" is not null and "message"."to_phone" is null and "message"."wa_message_id" is not null and "message"."sent_at" is not null and "message"."kind" in ('text', 'reply', 'flow', 'other') and "message"."status" = 'received'));

@@ -2,8 +2,10 @@
 
 Sending WhatsApp messages through Meta's Cloud API (WA-01; TAD section 6). Every message is a row
 in `message` first, Queued; inserting it queues the `whatsapp.send` job in the same transaction,
-and the job sends it and records what came of it. The webhook (delivered, read, incoming messages)
-is WA-02; the clinic's templates are written and approved in WA-06.
+and the job sends it and records what came of it. Meta's webhook (WA-02) tells us when a message
+is Delivered or Read, or failed after Meta took it, and brings the messages patients send; the
+conversation router that answers them is WA-03. The clinic's templates are written and approved
+in WA-06.
 
 Decisions (user, 30 October 2026):
 
@@ -17,6 +19,14 @@ Decisions (user, 30 October 2026):
   queue receipts, reminders and so on are connected to the sender ticket by ticket, as their
   templates are approved.
 - **Token:** a permanent System User token, never the 24-hour one from the test page.
+
+Decisions (user, 30 October 2026, WA-02):
+
+- **Speed:** a webhook is handled within seconds of arriving, not at the next job tick.
+- **Raw copies:** Meta's bodies are kept `whatsapp.event_retention_days` (7) for looking into a
+  problem, then deleted.
+- **What staff see:** Recent messages shows an incoming message by kind (Text, Reply, Flow,
+  Other), never its text, until WA-03 and WA-13 decide who reads replies.
 
 ## The test number
 
@@ -51,6 +61,47 @@ number by configuration only.
    for example `["+919845012345"]`. Settings reach every server within a minute.
 6. **Send a test message:** WhatsApp templates → Test message. It is sent at the next job tick,
    within a minute, and arrives as Meta's "Hello World".
+7. **Connect the webhook** (WA-02), once per Meta app:
+   1. Copy the app secret into `apps/web/.env.local` as `WHATSAPP_APP_SECRET`: App settings →
+      Basic → App secret → Show (Meta asks for the account password).
+   2. Generate a random `WHATSAPP_WEBHOOK_VERIFY_TOKEN` straight into `.env.local` (at least 16
+      characters), never printing it.
+   3. Copy both to Vercel (Production) the same way as the token, and redeploy.
+   4. In the Meta app: WhatsApp → Configuration → Webhook → Edit. Callback URL
+      `https://<staging or production host>/api/whatsapp/webhook`; verify token: paste it from
+      `.env.local`. Choose Verify and save: Meta calls the GET check and our answer repeats its
+      challenge.
+   5. Under Webhook fields, subscribe to `messages`.
+   6. Check it: send a test message, open it on the phone, reply "hi". Recent messages shows it
+      Delivered, then Read, and the reply as Incoming · Text, Received.
+
+## The webhook
+
+`/api/whatsapp/webhook` (WA-02; TAD sections 5 and 6):
+
+| Request | Answer |
+| --- | --- |
+| GET with `hub.mode=subscribe` and our verify token | Meta's `hub.challenge`, as text |
+| GET with anything else | 403, counted against the limit |
+| POST signed with the app secret (`X-Hub-Signature-256`) | Stored, 200 at once, handled straight after |
+| POST unsigned or signed wrongly | 401, counted against the limit; nothing stored |
+| POST signed, but not a WhatsApp Business Account body | 200, nothing kept (Meta must not retry it) |
+| More than 10 refused calls a minute from one network (`limits.webhook_failures_per_network`) | 429 with Retry-After |
+| No `WHATSAPP_APP_SECRET` on the server | 503 |
+| A body over 1 MB | 413 |
+
+A stored body (`whatsapp_event`) queues its `whatsapp.event` job. The route handles it straight
+after answering; the job is the fallback when that fails or the server stops, and a body already
+handled is skipped. Meta retries a body we did not answer 200 for, for up to 7 days; a body it sends
+twice changes nothing (statuses only move forward, a message is stored once by Meta's id).
+
+A status can arrive before the send job has recorded Meta's id for the message. Such a body stays
+unhandled and its job tries again (1, 2, 4 minutes); after 10 minutes a status for an id we never
+sent (one sent from Meta's dashboard, say) is let go.
+
+Handled bodies are deleted hourly (pg_cron `whatsapp-event-prune`) once older than
+`whatsapp.event_retention_days`; a body never handled goes the same number of days after it came
+(its job gave up long before and left the Super Admin a task).
 
 ## Statuses
 
@@ -58,10 +109,13 @@ number by configuration only.
 | --- | --- |
 | Queued | Waiting for the job, or for another try after a failure Meta may get over |
 | Sent | Meta took it and gave its message id (`wa_message_id`) |
-| Failed | Meta refused it, with its code and title (for example 131030, recipient not allowed), or it still failed at the last of 5 tries |
+| Delivered | On the patient's phone (Meta's webhook) |
+| Read | Opened by the patient; a Read before its Delivered counts as both |
+| Failed | Meta refused it, with its code and title (for example 131030, recipient not allowed), or it still failed at the last of 5 tries, or Meta took it and then could not deliver it (for example 131026) |
 | Not sent | Off the test list, or WhatsApp is not configured on this server (local and CI) |
+| Received | A message sent to the clinic's number: a text, a button or list reply, a Flow's answers, or anything else (kept by type only) |
 
-Delivered and Read arrive with WA-02.
+Statuses only move forward: a late or repeated one changes nothing.
 
 ## Retries
 
@@ -79,7 +133,14 @@ already Sent, Failed or Not sent is never sent again, so a job that runs twice c
 | The Super Admin queues only a test send, as themselves, Queued, to no patient | Policy `message_test_send` |
 | Nobody signed in changes or deletes a message; the server records outcomes as `system:whatsapp` | No update or delete policy; grants revoked |
 | A message is Sent exactly when it has Meta's id and a sent time | Check `message_sent` |
-| Every change is audited | `audit_change` |
+| Every change is audited, in the clinical part of the audit log (ADM-01) | `audit_change`, `internal.audit_category` |
+| Messages are in a patient's data copy, nothing hidden (ADM-03) | `internal.patient_export_tables` |
+| Sent, Delivered and Read have Meta's id and the time Meta took it; Queued and Not sent have no id | Checks `message_accepted`, `message_not_sent` |
+| An outbound message has its recipient and template; an inbound one its sender, Meta's id and time, an inbound kind, and is Received | Checks `message_outbound`, `message_inbound` |
+| A webhook body is taken only with the app secret's signature over its exact bytes | `validWebhookSignature` (`apps/web/modules/messaging/webhook-signature.ts`) |
+| Raw webhook bodies are the server's alone: no policy, no rights for any signed in role, not audited (the messages are) | `whatsapp_event`, `20261030112245_whatsapp_webhook_rules.sql` |
+| A stored body queues its job, once | Trigger `whatsapp_event_queue` |
+| Statuses only move forward | `deliveryChange` (`packages/schemas/src/whatsapp-webhook.ts`), `applyDeliveryUpdate` |
 | Off the test list while it is on: Not sent; a test send is checked against the list when queued | `sendQueuedMessage` (`apps/web/modules/messaging/send.ts`), `sendTestMessageService` |
 | Only an approved template is sent | `templateSendable` (`packages/schemas/src/messaging.ts`) |
 
@@ -102,6 +163,13 @@ already Sent, Failed or Not sent is never sent again, so a job that runs twice c
 | `apps/web/modules/messaging/services.test.ts` | The test send by the Super Admin only, to a listed number; recent messages for the Super Admin only |
 | `packages/db/src/integration/messaging.integration.test.ts` | Under row level security: the send job queued with the message; the Super Admin's test send, audited as them; clinic messages by the system only; nobody else reads or queues; nobody signed in updates or deletes; outcomes recorded once; Sent needs Meta's id |
 | `apps/web/e2e/whatsapp-test-message.spec.ts` | At 360 px and desktop: the Super Admin adds a number on Settings and sends a test message, kept as Not sent "not configured" in tests; the desk has no page |
+| `packages/schemas/src/whatsapp-webhook.test.ts` | Meta's body: statuses with failure reasons; text, button, list, Flow and other messages; odd items counted, not dropped; delivery only moving forward |
+| `apps/web/modules/messaging/webhook-signature.test.ts` | Meta's HMAC over the exact bytes; another body, secret, scheme or none refused; the verify token |
+| `apps/web/app/api/whatsapp/webhook/route.test.ts` | Stored and answered 200, handled straight after; 401, 429, 503, 413; a body not about WhatsApp kept nowhere; the subscribe check |
+| `apps/web/modules/messaging/webhook.test.ts` | Delivered and Read applied under a lock, then marked handled; a message stored once; a handled body skipped; a status ahead of its send waited on, then let go |
+| `packages/db/src/integration/whatsapp-webhook.integration.test.ts` | Under row level security: a body queues its job and nobody signed in reads or writes it; pruning; Delivered then Read, never back; Failed after Sent keeps the id; inbound stored once and read by the Super Admin only; the new checks |
+| `apps/web/e2e/whatsapp-webhook.spec.ts` | At 360 px and desktop, with bodies signed by the test secret: a sent message moves to Delivered, then Read; a reply shows as Incoming · Text, Received, never its text; unsigned refused; the subscribe check |
 
 Without the test list check in `sendQueuedMessage`, the unit test "keeps a clinic message to a
-number off the test list as Not sent" fails.
+number off the test list as Not sent" fails. Without the signature check in the webhook route, the
+route test "refuses a wrong, missing or other body's signature" fails.

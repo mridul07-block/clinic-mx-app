@@ -726,10 +726,15 @@ export {
   type DataRequestEntry,
 } from './data-requests';
 export {
+  applyDeliveryUpdate,
+  markWhatsappEventProcessed,
   messageRecord,
   queueMessage,
   recentMessages,
+  recordInboundMessage,
   recordMessageOutcome,
+  storeWhatsappEvent,
+  whatsappEventRecord,
   type MessageEntry,
   type MessageOutcome,
   type NewMessage,
