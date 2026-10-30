@@ -272,6 +272,20 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
         path: test.info().outputPath('session-note.png'),
         fullPage: true,
       });
+      // Scrolled to the end, the Close session bar (fixed on phones) covers nothing: the last
+      // button on the page, the next session panel's Show times, is the one under its centre.
+      await physioPage.evaluate(() => {
+        window.scrollTo(0, document.documentElement.scrollHeight);
+      });
+      const showTimes = physioPage.getByRole('button', { name: 'Show times' });
+      const box = await showTimes.boundingBox();
+      if (!box) throw new Error('Show times is not on screen.');
+      expect(
+        await physioPage.evaluate(
+          ({ x, y }) => document.elementFromPoint(x, y)?.closest('button')?.textContent,
+          { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+        ),
+      ).toBe('Show times');
 
       // Autosaved: a reload keeps it.
       await physioPage.reload();

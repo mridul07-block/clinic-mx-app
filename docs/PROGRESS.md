@@ -368,6 +368,10 @@ the code location.
   physio kept; cancelling stays with the clinic until decision 11; it shows the package's and the
   online reschedules left; dates from today as booking. A patient's own move is recorded with no
   staff member, on WhatsApp.
+- 31 October 2026 (SES-03, DSH-04): a review of every screen at 360 px found the session screen's
+  fixed Close session bar covering the next session panel's Show times at the end of the page (the
+  room for the bar sat on the note, above the panel, leaving a gap there); the page now ends with
+  the room; bill and OP numbers on Finance's unpaid bills stay on one line.
 - 31 October 2026 (OPS-06): before the independent penetration test, an internal static review of the
   exposed boundaries found nothing to fix but missing security headers, now sent on every response.
 - 31 October 2026 (AI-03): the preparation sheet asks the model for only the rows it shows, the top
