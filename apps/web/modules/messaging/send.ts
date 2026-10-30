@@ -1,6 +1,7 @@
 import 'server-only';
 import {
   MAX_JOB_ATTEMPTS,
+  lastInboundAt,
   messageRecord,
   recordMessageOutcome,
   type Db,
@@ -8,6 +9,9 @@ import {
   type MessageOutcome,
 } from '@clinic-mx/db';
 import {
+  MENU_BUTTONS,
+  MENU_TEXT,
+  SESSION_WINDOW_HOURS,
   TEST_TEMPLATE,
   mayReceive,
   messageTemplates,
@@ -18,11 +22,12 @@ import { z } from 'zod';
 import { serverEnv } from '../../lib/env';
 import { systemService } from '../access/service';
 import { getSetting } from '../settings/settings';
-import { cloudApiTransport, type WhatsAppTransport } from './transport';
+import { cloudApiTransport, type SendResult, type WhatsAppTransport } from './transport';
 
 /**
  * Sends one queued WhatsApp message (WA-01), as the `whatsapp.send` job queued with it. Only a
- * message still Queued is touched, so a job that runs again changes nothing. A clinic message to
+ * message still Queued is touched, so a job that runs again changes nothing. A router reply (WA-03)
+ * goes only within 24 hours of their last message to us, else it is Not sent. A clinic message to
  * a number off the test list while it is on, or any message with WhatsApp not configured on this
  * server (local and CI), is kept as Not sent. A failure Meta may get over (no answer, a rate limit, a fault on its side) is thrown,
  * so the job queue tries again with its backoff; at the last attempt, and on any other refusal,
@@ -43,6 +48,20 @@ const recordOutcome = systemService({
 
 export class RetrySendError extends Error {
   override name = 'RetrySendError';
+}
+
+/** A router reply's text and buttons (WA-03): the menu, or the text stored when it was queued. */
+function sessionContent(message: Message): { text: string; buttons?: typeof MENU_BUTTONS } {
+  if (message.templateKey === 'menu') return { text: MENU_TEXT, buttons: MENU_BUTTONS };
+  const text = message.variables.text;
+  if (!text) throw new Error(`Router reply ${message.id} has no text`);
+  return { text };
+}
+
+/** Whether they wrote to us within WhatsApp's window, so a reply that is not a template may go. */
+async function windowOpen(db: Db, phone: string, now = Date.now()): Promise<boolean> {
+  const last = await lastInboundAt(db, phone);
+  return last !== null && now - last.getTime() < SESSION_WINDOW_HOURS * 60 * 60 * 1000;
 }
 
 /** The template's body parameters in its registry order; none for Meta's test sample. */
@@ -84,11 +103,19 @@ export async function sendQueuedMessage(
   ]);
   // A test send was checked against the list when queued (sendTestMessageService); this server's
   // settings may be up to a minute older than that check (docs/runbooks/settings.md).
-  if (message.kind === 'template' && !mayReceive(toPhone, { testRecipientsOnly, testRecipients })) {
+  if (message.kind !== 'test' && !mayReceive(toPhone, { testRecipientsOnly, testRecipients })) {
     await record({
       status: 'skipped',
       errorCode: 'not_on_test_list',
       errorTitle: skipReasons.notOnTestList,
+    });
+    return;
+  }
+  if (message.kind === 'session' && !(await windowOpen(db, toPhone))) {
+    await record({
+      status: 'skipped',
+      errorCode: 'window_closed',
+      errorTitle: skipReasons.windowClosed,
     });
     return;
   }
@@ -101,15 +128,19 @@ export async function sendQueuedMessage(
     return;
   }
 
-  const result = await transport.sendTemplate(
-    {
-      to: toPhone,
-      template: message.kind === 'test' ? TEST_TEMPLATE.key : templateKey,
-      language,
-      parameters: parametersOf(message),
-    },
-    AbortSignal.timeout(SEND_TIMEOUT_MS),
-  );
+  const signal = AbortSignal.timeout(SEND_TIMEOUT_MS);
+  const result: SendResult =
+    message.kind === 'session'
+      ? await transport.sendSession({ to: toPhone, ...sessionContent(message) }, signal)
+      : await transport.sendTemplate(
+          {
+            to: toPhone,
+            template: message.kind === 'test' ? TEST_TEMPLATE.key : templateKey,
+            language,
+            parameters: parametersOf(message),
+          },
+          signal,
+        );
   if (result.ok) {
     await record({ status: 'sent', waMessageId: result.waMessageId });
     return;

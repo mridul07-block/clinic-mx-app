@@ -1,4 +1,9 @@
-import { messageDirections, messageKinds, messageStatuses } from '@clinic-mx/schemas';
+import {
+  inboundRoutes,
+  messageDirections,
+  messageKinds,
+  messageStatuses,
+} from '@clinic-mx/schemas';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -16,6 +21,7 @@ import { patient } from './patients';
 export const messageKind = pgEnum('message_kind', messageKinds);
 export const messageDirection = pgEnum('message_direction', messageDirections);
 export const messageStatus = pgEnum('message_status', messageStatuses);
+export const messageRoute = pgEnum('message_route', inboundRoutes);
 
 /**
  * A WhatsApp message (WA-01; TAD section 4 `message`: template_key, direction, status,
@@ -52,8 +58,14 @@ export const message = pgTable(
     replyId: text('reply_id'),
     /** Inbound: a Flow's answers. */
     replyPayload: jsonb('reply_payload').$type<Record<string, unknown>>(),
-    /** Inbound: Meta's id of the message of ours it replies to. */
+    /**
+     * Inbound: Meta's id of the message of ours it replies to. Outbound (a router reply, WA-03):
+     * the id of the message it answers.
+     */
     contextWaId: text('context_wa_id'),
+    /** Inbound: where the conversation router sent it (WA-03), and when. */
+    route: messageRoute('route'),
+    routedAt: timestamp('routed_at', { withTimezone: true }),
     status: messageStatus('status').notNull().default('queued'),
     /** Meta's message id, once sent. */
     waMessageId: text('wa_message_id').unique(),
@@ -73,6 +85,10 @@ export const message = pgTable(
   (table) => [
     index('message_created_at_idx').on(table.createdAt),
     index('message_patient_idx').on(table.patientId),
+    // WA-03: when a number last wrote to us, for WhatsApp's 24 hour window.
+    index('message_inbound_phone_idx')
+      .on(table.fromPhone, table.sentAt)
+      .where(sql`${table.direction} = 'inbound'`),
     check('message_to_phone', sql`${table.toPhone} ~ '^\\+[1-9][0-9]{7,14}$'`),
     check('message_from_phone', sql`${table.fromPhone} ~ '^\\+[1-9][0-9]{7,14}$'`),
     // Sent, Delivered and Read have Meta's id and the time Meta took it; a message never sent has
@@ -87,7 +103,12 @@ export const message = pgTable(
     ),
     check(
       'message_outbound',
-      sql`${table.direction} <> 'outbound' or (${table.toPhone} is not null and ${table.fromPhone} is null and ${table.templateKey} is not null and ${table.templateVersion} is not null and ${table.language} is not null and ${table.kind} in ('template', 'test') and ${table.status} <> 'received')`,
+      sql`${table.direction} <> 'outbound' or (${table.toPhone} is not null and ${table.fromPhone} is null and ${table.templateKey} is not null and ${table.templateVersion} is not null and ${table.language} is not null and ${table.kind} in ('template', 'test', 'session') and ${table.status} <> 'received')`,
+    ),
+    // WA-03: only an inbound message is routed, and a route has its time.
+    check(
+      'message_route',
+      sql`(${table.route} is null) = (${table.routedAt} is null) and (${table.route} is null or ${table.direction} = 'inbound')`,
     ),
     check(
       'message_inbound',

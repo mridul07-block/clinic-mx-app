@@ -121,8 +121,9 @@ test('statuses from Meta move a sent message on, and a reply to us shows as Rece
 
     await page.reload();
     await expect(sent).toHaveAttribute('data-status', 'read');
+    // WA-03 answers it too: the incoming row, not the router's reply to it.
     const incoming = page
-      .getByTestId('recent-message')
+      .locator('[data-testid="recent-message"][data-direction="inbound"]')
       .filter({ hasText: from.slice(-4) })
       .first();
     await expect(incoming).toHaveAttribute('data-direction', 'inbound');
@@ -143,7 +144,14 @@ test('statuses from Meta move a sent message on, and a reply to us shows as Rece
         await tx
           .select({ id: message.id })
           .from(message)
-          .where(or(eq(message.id, messageId), eq(message.waMessageId, inWa)))
+          .where(
+            or(
+              eq(message.id, messageId),
+              eq(message.waMessageId, inWa),
+              // The router's reply to it (WA-03).
+              eq(message.toPhone, from),
+            ),
+          )
       ).map((row) => row.id);
       const events = (
         await tx
@@ -157,7 +165,7 @@ test('statuses from Meta move a sent message on, and a reply to us shows as Rece
           )
       ).map((row) => row.id);
       const keys = [
-        ...ids.map((id) => `whatsapp.send:${id}`),
+        ...ids.flatMap((id) => [`whatsapp.send:${id}`, `whatsapp.route:${id}`]),
         ...events.map((id) => `whatsapp.event:${id}`),
       ];
       if (keys.length > 0) await tx.delete(job).where(inArray(job.idempotencyKey, keys));

@@ -2,15 +2,18 @@ import type { MessageEntry } from '@clinic-mx/db';
 import {
   formatIstDateTime,
   inboundKindLabels,
+  inboundRouteLabels,
   maskNumber,
   messageStatusLabels,
   messageTemplates,
+  sessionReplyLabels,
   templateButtonKindLabels,
   templateHeaderLabels,
   templateStatusLabels,
   type InboundKind,
   type MessageStatus,
   type MessageTemplate,
+  type SessionReply,
 } from '@clinic-mx/schemas';
 import type { Tone } from '@clinic-mx/ui';
 import type { Metadata } from 'next';
@@ -35,10 +38,17 @@ const statusTone: Record<MessageStatus, Tone> = {
   received: 'info',
 };
 
-/** What a message is, never what an inbound one says (user decision, 30 October 2026). */
+/**
+ * What a message is, never what an inbound one says (user decision, 30 October 2026): an incoming
+ * one with where the router sent it (WA-03), a router reply by what it was.
+ */
 function messageName(entry: MessageEntry): string {
   if (entry.direction === 'inbound') {
-    return `Incoming · ${inboundKindLabels[entry.kind as InboundKind]}`;
+    const kind = `Incoming · ${inboundKindLabels[entry.kind as InboundKind]}`;
+    return entry.route ? `${kind} → ${inboundRouteLabels[entry.route]}` : kind;
+  }
+  if (entry.kind === 'session') {
+    return `Reply · ${sessionReplyLabels[entry.templateKey as SessionReply]}`;
   }
   return entry.kind === 'test' ? 'Test message' : (entry.templateKey ?? '');
 }

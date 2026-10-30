@@ -1,7 +1,8 @@
 import 'server-only';
 
 /**
- * The one way out to WhatsApp (WA-01; TAD section 6): a template message through the Cloud API's
+ * The one way out to WhatsApp (WA-01; TAD section 6): a template message, or a router reply inside
+ * the 24 hour window (WA-03: text, or text with reply buttons), through the Cloud API's
  * `/<phone number id>/messages`. It only sends and reads Meta's answer; nothing of the message or
  * the answer goes into an error, and the token is never logged.
  */
@@ -20,6 +21,13 @@ export interface TemplateSend {
   parameters: string[];
 }
 
+/** A reply inside WhatsApp's 24 hour window: text, with up to 3 reply buttons. */
+export interface SessionSend {
+  to: string;
+  text: string;
+  buttons?: readonly { id: string; title: string }[];
+}
+
 export type SendResult =
   | { ok: true; waMessageId: string }
   | {
@@ -33,6 +41,7 @@ export type SendResult =
 
 export interface WhatsAppTransport {
   sendTemplate(message: TemplateSend, signal: AbortSignal): Promise<SendResult>;
+  sendSession(message: SessionSend, signal: AbortSignal): Promise<SendResult>;
 }
 
 const isTimeout = (error: unknown) =>
@@ -65,53 +74,81 @@ export function templateBody(message: TemplateSend) {
   };
 }
 
+/** The request body for a router reply: plain text, or an interactive message with buttons. */
+export function sessionBody(message: SessionSend) {
+  const common = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: message.to.replace(/^\+/, ''),
+  };
+  if (!message.buttons?.length) {
+    return { ...common, type: 'text', text: { preview_url: false, body: message.text } };
+  }
+  return {
+    ...common,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: { text: message.text },
+      action: {
+        buttons: message.buttons.map((button) => ({
+          type: 'reply',
+          reply: { id: button.id, title: button.title },
+        })),
+      },
+    },
+  };
+}
+
 export function cloudApiTransport(
   config: WhatsAppConfig,
   send: typeof fetch = fetch,
 ): WhatsAppTransport {
   const url = `https://graph.facebook.com/${config.graphVersion}/${config.phoneNumberId}/messages`;
+  async function post(payload: unknown, signal: AbortSignal): Promise<SendResult> {
+    let response: Response;
+    try {
+      response = await send(url, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${config.accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        signal,
+      });
+    } catch (error) {
+      return { ok: false, kind: isTimeout(error) ? 'timeout' : 'network' };
+    }
+    let body: unknown = null;
+    try {
+      body = await response.json();
+    } catch (error) {
+      if (signal.aborted || isTimeout(error)) return { ok: false, kind: 'timeout' };
+    }
+    const answer = (body ?? {}) as {
+      messages?: { id?: unknown }[];
+      error?: {
+        code?: unknown;
+        error_subcode?: unknown;
+        message?: unknown;
+        error_user_title?: unknown;
+      };
+    };
+    const id = text(answer.messages?.[0]?.id);
+    if (response.ok && id) return { ok: true, waMessageId: id };
+    return {
+      ok: false,
+      kind: 'http',
+      httpStatus: response.status,
+      code: text(answer.error?.code),
+      // Meta's short title, never the whole message, which can repeat the number.
+      title: text(answer.error?.error_user_title) ?? `HTTP ${String(response.status)}`,
+    };
+  }
   return {
-    async sendTemplate(message, signal) {
-      let response: Response;
-      try {
-        response = await send(url, {
-          method: 'POST',
-          headers: {
-            authorization: `Bearer ${config.accessToken}`,
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify(templateBody(message)),
-          cache: 'no-store',
-          signal,
-        });
-      } catch (error) {
-        return { ok: false, kind: isTimeout(error) ? 'timeout' : 'network' };
-      }
-      let body: unknown = null;
-      try {
-        body = await response.json();
-      } catch (error) {
-        if (signal.aborted || isTimeout(error)) return { ok: false, kind: 'timeout' };
-      }
-      const answer = (body ?? {}) as {
-        messages?: { id?: unknown }[];
-        error?: {
-          code?: unknown;
-          error_subcode?: unknown;
-          message?: unknown;
-          error_user_title?: unknown;
-        };
-      };
-      const id = text(answer.messages?.[0]?.id);
-      if (response.ok && id) return { ok: true, waMessageId: id };
-      return {
-        ok: false,
-        kind: 'http',
-        httpStatus: response.status,
-        code: text(answer.error?.code),
-        // Meta's short title, never the whole message, which can repeat the number.
-        title: text(answer.error?.error_user_title) ?? `HTTP ${String(response.status)}`,
-      };
-    },
+    sendTemplate: (message, signal) => post(templateBody(message), signal),
+    sendSession: (message, signal) => post(sessionBody(message), signal),
   };
 }

@@ -103,6 +103,40 @@ Handled bodies are deleted hourly (pg_cron `whatsapp-event-prune`) once older th
 `whatsapp.event_retention_days`; a body never handled goes the same number of days after it came
 (its job gave up long before and left the Super Admin a task).
 
+## The conversation router
+
+Every message sent to the clinic's number gets one route and one reply (WA-03; TAD section 6). The
+webhook routes it straight after storing it; the `whatsapp.route` job queued with the message is
+the fallback. The patient is linked to the message when the number is theirs alone (a family
+shares a mobile, so nobody is guessed).
+
+| They send | Route | Handler | Reply now |
+| --- | --- | --- | --- |
+| Typed text with an emergency phrase (checked first) | Emergency | WA-10 | The team's contact details |
+| Other typed text | Typed message | WA-11 (assistant) | The three button menu |
+| The menu's Book appointment | Book appointment | WA-04 | The team's contact details |
+| The menu's Reschedule or cancel, or the reminder's Reschedule | Reschedule or cancel | WA-05 | The team's contact details |
+| The menu's Talk to our team | Talk to our team | WA-09 (live) | The team's contact details |
+| The day before reminder's Confirm | Confirm | WA-08 | The team's contact details |
+| A booking or reschedule form completed | Booking form, Reschedule form | WA-04, WA-05 | The team's contact details |
+| Anything else (a photo, a voice note, an old button) | Menu | WA-03 (live) | The three button menu |
+
+When a ticket makes its handler live it changes one line of `routeHandlers`
+(`packages/schemas/src/whatsapp-router.ts`).
+
+- **The menu** (PRD J1.2): "How can we help you today?" with Book appointment, Reschedule or
+  cancel, Talk to our team.
+- **The team's contact details** (WA-09): the phone of the patient's centre when the number is
+  theirs alone, otherwise every active centre's phone by name, and `whatsapp.front_desk_email`.
+  Phones come from each centre's setup. What is not set is left out; with nothing set the reply
+  asks them to call the clinic they visit.
+- **Emergency phrases** (`whatsapp.emergency_phrases`, DECISION WA-03): matched as whole words in
+  any case, apostrophes ignored ("can't breathe" = "cant breathe"). The list is a draft for the
+  clinical director; change it on Settings. Only typed text is checked, never a tapped button.
+- **The 24 hour window:** a reply that is not a template goes only within 24 hours of the person's
+  last message to us (Meta's rule); later it is kept as Not sent. The test list applies too.
+- **One reply, one message** (TAD section 6, Rules).
+
 ## Statuses
 
 | Status | Meaning |
@@ -141,6 +175,10 @@ already Sent, Failed or Not sent is never sent again, so a job that runs twice c
 | Raw webhook bodies are the server's alone: no policy, no rights for any signed in role, not audited (the messages are) | `whatsapp_event`, `20261030112245_whatsapp_webhook_rules.sql` |
 | A stored body queues its job, once | Trigger `whatsapp_event_queue` |
 | Statuses only move forward | `deliveryChange` (`packages/schemas/src/whatsapp-webhook.ts`), `applyDeliveryUpdate` |
+| Every message sent to us queues its route job, once, and is routed once | Trigger `message_queue_route`; `inboundToRoute` (row lock), `recordRoute` |
+| Only an inbound message has a route, always with its time | Check `message_route` |
+| A router reply is an outbound message of kind `session`, sent only within 24 hours of their last message | Check `message_outbound`; `sendQueuedMessage` |
+| Emergency phrases come before any other route | `routeInbound` |
 | Off the test list while it is on: Not sent; a test send is checked against the list when queued | `sendQueuedMessage` (`apps/web/modules/messaging/send.ts`), `sendTestMessageService` |
 | Only an approved template is sent | `templateSendable` (`packages/schemas/src/messaging.ts`) |
 
@@ -169,7 +207,13 @@ already Sent, Failed or Not sent is never sent again, so a job that runs twice c
 | `apps/web/modules/messaging/webhook.test.ts` | Delivered and Read applied under a lock, then marked handled; a message stored once; a handled body skipped; a status ahead of its send waited on, then let go |
 | `packages/db/src/integration/whatsapp-webhook.integration.test.ts` | Under row level security: a body queues its job and nobody signed in reads or writes it; pruning; Delivered then Read, never back; Failed after Sent keeps the id; inbound stored once and read by the Super Admin only; the new checks |
 | `apps/web/e2e/whatsapp-webhook.spec.ts` | At 360 px and desktop, with bodies signed by the test secret: a sent message moves to Delivered, then Read; a reply shows as Incoming · Text, Received, never its text; unsigned refused; the subscribe check |
+| `packages/schemas/src/whatsapp-router.test.ts` | Emergency phrases (case, punctuation, apostrophes, whole words) first; every button, reminder reply and Flow to its route; every route's handler and fallback; the menu within Meta's limits; the contact details with nothing invented |
+| `apps/web/modules/messaging/router.test.ts` | Typed text gets the menu as a reply to it; Talk to our team from an unknown number lists every centre; a known patient is linked and gets their centre; an emergency is routed first; routed once |
+| `apps/web/modules/messaging/send.test.ts` (router replies) | The menu with its buttons and the contact details as text; Not sent after 24 hours or with no message from them; the test list |
+| `packages/db/src/integration/whatsapp-router.integration.test.ts` | The route job queued once; routed once, inbound only; replies are outbound and queue their send; a number linked only when one patient's; the last message time; centre contacts |
+| `apps/web/e2e/whatsapp-router.spec.ts` | At 360 px and desktop, with bodies signed by the test secret: typed text, Talk to our team and an emergency phrase each routed and answered once; Recent messages shows the routes and replies, never the text |
 
 Without the test list check in `sendQueuedMessage`, the unit test "keeps a clinic message to a
 number off the test list as Not sent" fails. Without the signature check in the webhook route, the
-route test "refuses a wrong, missing or other body's signature" fails.
+route test "refuses a wrong, missing or other body's signature" fails. With the emergency check after the
+typed-text route, the router test "come before anything else a typed message would get" fails.

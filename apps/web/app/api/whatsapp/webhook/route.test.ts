@@ -14,6 +14,8 @@ const webhook = vi.hoisted(() => ({
   handleWhatsappEvent: vi.fn(),
 }));
 vi.mock('../../../../modules/messaging/webhook', () => webhook);
+const router = vi.hoisted(() => ({ routeInboundMessage: vi.fn() }));
+vi.mock('../../../../modules/messaging/router', () => router);
 const later = vi.hoisted(() => ({ tasks: [] as (() => Promise<void>)[] }));
 vi.mock('next/server', () => ({
   after: (task: () => Promise<void>) => later.tasks.push(task),
@@ -72,7 +74,13 @@ describe('POST /api/whatsapp/webhook', () => {
     webhook.receiveWhatsappWebhook.mockReset();
     webhook.receiveWhatsappWebhook.mockResolvedValue(eventId);
     webhook.handleWhatsappEvent.mockReset();
-    webhook.handleWhatsappEvent.mockResolvedValue({ updated: 1, received: 0, skipped: false });
+    webhook.handleWhatsappEvent.mockResolvedValue({
+      updated: 1,
+      received: 0,
+      receivedIds: [],
+      skipped: false,
+    });
+    router.routeInboundMessage.mockReset();
     later.tasks = [];
   });
 
@@ -87,7 +95,23 @@ describe('POST /api/whatsapp/webhook', () => {
     expect(later.tasks).toHaveLength(1);
     await later.tasks[0]?.();
     expect(webhook.handleWhatsappEvent).toHaveBeenCalledWith({}, eventId);
+    expect(router.routeInboundMessage).not.toHaveBeenCalled();
     expect(limits.count).not.toHaveBeenCalled();
+  });
+
+  it('routes each message sent to us straight after storing it (WA-03)', async () => {
+    webhook.handleWhatsappEvent.mockResolvedValue({
+      updated: 0,
+      received: 2,
+      receivedIds: ['message-1', 'message-2'],
+      skipped: false,
+    });
+    expect((await post(statusBody, sign(statusBody))).status).toBe(200);
+    await later.tasks[0]?.();
+    expect(router.routeInboundMessage.mock.calls).toEqual([
+      [{}, 'message-1'],
+      [{}, 'message-2'],
+    ]);
   });
 
   it('leaves a failed handling to the job, still answering 200', async () => {

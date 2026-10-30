@@ -3,6 +3,7 @@ import { aiSheetSettingSchema } from './ai';
 import { aiTaskConfigSchema } from './ai-gateway';
 import { redFlagTiers } from './knowledge';
 import { testRecipientsSchema } from './messaging';
+import { emergencyPhrasesSchema, frontDeskEmailSchema } from './whatsapp-router';
 
 /**
  * Business rules that the Super Admin changes without a code release (rule 6, PRD section 7).
@@ -702,6 +703,22 @@ export const settingDefinitions = {
     source: 'WA-02, user decision 30 October 2026',
     description:
       'Days a raw webhook copy from Meta is kept once handled, for looking into a problem; the messages themselves stay.',
+  },
+  // DECISION WA-03: a draft list for the clinical director to confirm; edited on Settings.
+  'whatsapp.emergency_phrases': {
+    schema: emergencyPhrasesSchema,
+    source:
+      'PRD J1.9 and TAD section 6 (emergency phrases go to the emergency reply first); WA-03 draft, user decision 30 October 2026, for the clinical director to confirm',
+    description:
+      'Words and short phrases that mark a WhatsApp message as an emergency, matched as whole words in any case, for example "chest pain". Checked before anything else.',
+  },
+  // DECISION WA-03: the clinic's front desk email, set by the Super Admin.
+  'whatsapp.front_desk_email': {
+    schema: frontDeskEmailSchema,
+    source:
+      'PRD J1.2 and TAD section 6 ("Talk to our team" returns the front desk phone and email); WA-03',
+    description:
+      'The front desk email "Talk to our team" gives on WhatsApp, with the centre phones. Empty leaves it out.',
   },
 } as const satisfies Record<string, SettingDefinition>;
 

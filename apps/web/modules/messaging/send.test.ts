@@ -6,6 +6,7 @@ import type { WhatsAppTransport } from './transport';
 vi.mock('server-only', () => ({}));
 const db = vi.hoisted(() => ({
   MAX_JOB_ATTEMPTS: 5,
+  lastInboundAt: vi.fn(),
   messageRecord: vi.fn(),
   recordMessageOutcome: vi.fn(),
 }));
@@ -39,6 +40,7 @@ const queued = (extra: Record<string, unknown> = {}) => ({
 });
 const transport = (result: Awaited<ReturnType<WhatsAppTransport['sendTemplate']>>) => ({
   sendTemplate: vi.fn(() => Promise.resolve(result)),
+  sendSession: vi.fn(() => Promise.resolve(result)),
 });
 const send = (options: { attempt?: number; transport?: WhatsAppTransport } = {}) =>
   sendQueuedMessage({} as Db, messageId, { attempt: 1, ...options });
@@ -158,5 +160,72 @@ describe('sending a queued WhatsApp message', () => {
     await send({ transport: meta });
     expect(meta.sendTemplate).not.toHaveBeenCalled();
     expect(db.recordMessageOutcome).not.toHaveBeenCalled();
+  });
+});
+
+// WA-03: the router's replies go as plain messages, only inside WhatsApp's 24 hour window.
+describe('sending a router reply', () => {
+  const reply = (templateKey: string, variables: Record<string, string> = {}) =>
+    queued({ kind: 'session', templateKey, language: 'en', variables });
+  beforeEach(() => {
+    db.messageRecord.mockReset();
+    db.recordMessageOutcome.mockReset().mockResolvedValue(true);
+    db.lastInboundAt.mockReset().mockResolvedValue(new Date(Date.now() - 60_000));
+    settings.values = {
+      'whatsapp.test_recipients_only': true,
+      'whatsapp.test_recipients': [onList],
+    };
+  });
+
+  it('sends the menu with its three buttons, and the contact details as text', async () => {
+    db.messageRecord.mockResolvedValue(reply('menu'));
+    const meta = transport({ ok: true, waMessageId: 'wamid.menu' });
+    await send({ transport: meta });
+    expect(meta.sendTemplate).not.toHaveBeenCalled();
+    expect(meta.sendSession).toHaveBeenCalledWith(
+      {
+        to: onList,
+        text: 'How can we help you today?',
+        buttons: [
+          { id: 'menu.book', title: 'Book appointment' },
+          { id: 'menu.reschedule', title: 'Reschedule or cancel' },
+          { id: 'menu.talk', title: 'Talk to our team' },
+        ],
+      },
+      expect.any(AbortSignal),
+    );
+    db.messageRecord.mockResolvedValue(
+      reply('contact', { text: 'To talk to our team, call 080.' }),
+    );
+    await send({ transport: meta });
+    expect(meta.sendSession).toHaveBeenLastCalledWith(
+      { to: onList, text: 'To talk to our team, call 080.' },
+      expect.any(AbortSignal),
+    );
+    expect(outcome().map((o) => o.status)).toEqual(['sent', 'sent']);
+  });
+
+  it('keeps it as Not sent once 24 hours have passed since they wrote, or if they never did', async () => {
+    db.messageRecord.mockResolvedValue(reply('menu'));
+    const meta = transport({ ok: true, waMessageId: 'wamid.late' });
+    db.lastInboundAt.mockResolvedValue(new Date(Date.now() - 24 * 60 * 60 * 1000 - 1000));
+    await send({ transport: meta });
+    db.lastInboundAt.mockResolvedValue(null);
+    await send({ transport: meta });
+    expect(meta.sendSession).not.toHaveBeenCalled();
+    expect(outcome()).toEqual([
+      expect.objectContaining({ status: 'skipped', errorCode: 'window_closed' }),
+      expect.objectContaining({ status: 'skipped', errorCode: 'window_closed' }),
+    ]);
+  });
+
+  it('keeps a reply to a number off the test list as Not sent while the list is on', async () => {
+    db.messageRecord.mockResolvedValue(
+      queued({ kind: 'session', templateKey: 'menu', toPhone: '+919999999999' }),
+    );
+    const meta = transport({ ok: true, waMessageId: 'wamid.off' });
+    await send({ transport: meta });
+    expect(meta.sendSession).not.toHaveBeenCalled();
+    expect(outcome()).toEqual([expect.objectContaining({ errorCode: 'not_on_test_list' })]);
   });
 });

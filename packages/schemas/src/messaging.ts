@@ -10,8 +10,11 @@ import { messageTemplate, type MessageTemplateKey, type TemplateStatus } from '.
  * `hello_world` sample until WA-06 has the clinic's templates approved.
  */
 
-/** What we send (a template, or a test of Meta's sample); what arrives (WA-02). */
-export const outboundKinds = ['template', 'test'] as const;
+/**
+ * What we send (a template, a test of Meta's sample, or a router reply inside WhatsApp's 24 hour
+ * window, WA-03); what arrives (WA-02).
+ */
+export const outboundKinds = ['template', 'test', 'session'] as const;
 export const inboundKinds = ['text', 'reply', 'flow', 'other'] as const;
 export type InboundKind = (typeof inboundKinds)[number];
 export const messageKinds = [...outboundKinds, ...inboundKinds] as const;
@@ -74,7 +77,11 @@ export const testRecipientsSchema = z.array(whatsappNumberSchema).max(5);
 export const skipReasons = {
   notOnTestList: 'Not on the WhatsApp test list.',
   notConfigured: 'WhatsApp is not configured on this server.',
+  windowClosed: 'More than 24 hours since they last wrote; only a template may go now.',
 } as const;
+
+/** Meta's customer service window: a reply that is not a template goes only within it. */
+export const SESSION_WINDOW_HOURS = 24;
 
 /** Whether a message may go to this number now: anyone, or only the test list while it is on. */
 export function mayReceive(

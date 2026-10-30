@@ -1,0 +1,4 @@
+-- WA-03: a router reply (`session`) is outbound like a template; only inbound messages are routed.
+ALTER TABLE "message" DROP CONSTRAINT "message_outbound";--> statement-breakpoint
+ALTER TABLE "message" ADD CONSTRAINT "message_route" CHECK (("message"."route" is null) = ("message"."routed_at" is null) and ("message"."route" is null or "message"."direction" = 'inbound'));--> statement-breakpoint
+ALTER TABLE "message" ADD CONSTRAINT "message_outbound" CHECK ("message"."direction" <> 'outbound' or ("message"."to_phone" is not null and "message"."from_phone" is null and "message"."template_key" is not null and "message"."template_version" is not null and "message"."language" is not null and "message"."kind" in ('template', 'test', 'session') and "message"."status" <> 'received'));

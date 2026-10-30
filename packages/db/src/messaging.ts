@@ -1,13 +1,21 @@
 import {
   deliveryChange,
   type DeliveryUpdate,
+  type InboundRoute,
   type InboundMessage,
   type MessageDirection,
   type MessageKind,
   type MessageStatus,
 } from '@clinic-mx/schemas';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
-import { message, whatsappEvent, type Message, type WhatsappEvent } from './schema';
+import { and, asc, desc, eq, isNull, max, sql } from 'drizzle-orm';
+import {
+  centre,
+  message,
+  patient,
+  whatsappEvent,
+  type Message,
+  type WhatsappEvent,
+} from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /**
@@ -27,6 +35,8 @@ export interface NewMessage {
   language: string;
   variables: Record<string, string>;
   createdBy: string;
+  /** A router reply (WA-03): Meta's id of the message it answers. */
+  contextWaId?: string | null;
 }
 
 /** Queues a message; its send job is queued with it. Returns the message id. */
@@ -86,6 +96,7 @@ export async function recordMessageOutcome(
 export interface MessageEntry {
   id: string;
   direction: MessageDirection;
+  route: InboundRoute | null;
   /** The patient's number: who it went to, or who sent it. */
   phone: string;
   kind: MessageKind;
@@ -106,6 +117,7 @@ export function recentMessages(db: DbOrTransaction, limit: number): Promise<Mess
     .select({
       id: message.id,
       direction: message.direction,
+      route: message.route,
       phone: sql<string>`coalesce(${message.toPhone}, ${message.fromPhone})`,
       kind: message.kind,
       templateKey: message.templateKey,
@@ -185,11 +197,14 @@ export async function applyDeliveryUpdate(
   return 'changed';
 }
 
-/** Stores a message sent to us, Received; one Meta sends again is ignored. Returns if stored. */
+/**
+ * Stores a message sent to us, Received; its route job is queued with it (WA-03). One Meta sends
+ * again is ignored. Returns its id, or null when it was already stored.
+ */
 export async function recordInboundMessage(
   tx: DbOrTransaction,
   inbound: InboundMessage,
-): Promise<boolean> {
+): Promise<string | null> {
   const rows = await tx
     .insert(message)
     .values({
@@ -208,5 +223,70 @@ export async function recordInboundMessage(
     })
     .onConflictDoNothing({ target: message.waMessageId })
     .returning({ id: message.id });
+  return rows[0]?.id ?? null;
+}
+
+/** An inbound message waiting for its route (WA-03), locked until the transaction ends. */
+export async function inboundToRoute(
+  tx: DbOrTransaction,
+  id: string,
+): Promise<Message | undefined> {
+  const [row] = await tx
+    .select()
+    .from(message)
+    .where(and(eq(message.id, id), eq(message.direction, 'inbound')))
+    .for('update');
+  return row;
+}
+
+/** Records where the router sent a message, and the patient when the number is theirs alone. */
+export async function recordRoute(
+  tx: DbOrTransaction,
+  id: string,
+  route: InboundRoute,
+  patientId: string | null,
+): Promise<boolean> {
+  const rows = await tx
+    .update(message)
+    .set({ route, routedAt: new Date(), patientId })
+    .where(and(eq(message.id, id), isNull(message.route)))
+    .returning({ id: message.id });
   return rows.length > 0;
+}
+
+/**
+ * The one patient with this number, or undefined when none or several (a family shares a mobile,
+ * so nobody is guessed).
+ */
+export async function solePatientByPhone(
+  db: DbOrTransaction,
+  phone: string,
+): Promise<{ id: string; centreId: string } | undefined> {
+  const rows = await db
+    .select({ id: patient.id, centreId: patient.registeredCentreId })
+    .from(patient)
+    .where(eq(patient.phone, phone))
+    .limit(2);
+  return rows.length === 1 ? rows[0] : undefined;
+}
+
+/** The centres' names and phones for "Talk to our team": one centre, or every active one. */
+export function centreContacts(
+  db: DbOrTransaction,
+  centreId?: string,
+): Promise<{ name: string; phone: string | null }[]> {
+  return db
+    .select({ name: centre.name, phone: centre.phone })
+    .from(centre)
+    .where(centreId ? eq(centre.id, centreId) : eq(centre.active, true))
+    .orderBy(asc(centre.name));
+}
+
+/** When this number last wrote to us, for WhatsApp's 24 hour window. */
+export async function lastInboundAt(db: DbOrTransaction, phone: string): Promise<Date | null> {
+  const [row] = await db
+    .select({ at: max(message.sentAt) })
+    .from(message)
+    .where(and(eq(message.fromPhone, phone), eq(message.direction, 'inbound')));
+  return row?.at ?? null;
 }

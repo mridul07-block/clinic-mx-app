@@ -57,13 +57,13 @@ describe('handling a webhook body', () => {
   beforeEach(() => {
     for (const fn of Object.values(db)) fn.mockReset();
     db.applyDeliveryUpdate.mockResolvedValue('changed');
-    db.recordInboundMessage.mockResolvedValue(true);
+    db.recordInboundMessage.mockResolvedValue('message-1');
   });
 
   it('applies Delivered and Read (never Sent again), locked, then marks it handled', async () => {
     db.whatsappEventRecord.mockResolvedValue(event(statuses));
     const outcome = await handleWhatsappEvent({} as Db, eventId, soon);
-    expect(outcome).toEqual({ updated: 2, received: 0, skipped: false });
+    expect(outcome).toEqual({ updated: 2, received: 0, receivedIds: [], skipped: false });
     expect(db.whatsappEventRecord).toHaveBeenCalledWith('system-tx', eventId, { lock: true });
     const applied = db.applyDeliveryUpdate.mock.calls as [unknown, { status: string }][];
     expect(applied.map(([, update]) => update.status)).toEqual(['delivered', 'read']);
@@ -72,10 +72,11 @@ describe('handling a webhook body', () => {
 
   it('stores what was sent to us, counting a repeat only once', async () => {
     db.whatsappEventRecord.mockResolvedValue(event(inbound));
-    db.recordInboundMessage.mockResolvedValueOnce(true);
+    db.recordInboundMessage.mockResolvedValueOnce('message-1');
     expect(await handleWhatsappEvent({} as Db, eventId, soon)).toEqual({
       updated: 0,
       received: 1,
+      receivedIds: ['message-1'],
       skipped: false,
     });
     expect(db.recordInboundMessage).toHaveBeenCalledWith(
@@ -86,7 +87,7 @@ describe('handling a webhook body', () => {
         kind: 'text',
       }),
     );
-    db.recordInboundMessage.mockResolvedValueOnce(false);
+    db.recordInboundMessage.mockResolvedValueOnce(null);
     expect((await handleWhatsappEvent({} as Db, eventId, soon)).received).toBe(0);
   });
 
@@ -109,6 +110,7 @@ describe('handling a webhook body', () => {
     expect(await handleWhatsappEvent({} as Db, eventId, muchLater)).toEqual({
       updated: 0,
       received: 0,
+      receivedIds: [],
       skipped: false,
     });
     expect(db.markWhatsappEventProcessed).toHaveBeenCalledTimes(1);

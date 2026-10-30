@@ -278,8 +278,8 @@ describe('messages sent to us', () => {
   it('are stored once, Received, by the system, and only the Super Admin reads them', async () => {
     await rolledBack(async (tx) => {
       const wa = waId();
-      expect(await recordInboundMessage(tx, inbound(wa))).toBe(true);
-      expect(await recordInboundMessage(tx, inbound(wa))).toBe(false);
+      expect(await recordInboundMessage(tx, inbound(wa))).toEqual(expect.any(String));
+      expect(await recordInboundMessage(tx, inbound(wa))).toBeNull();
       const rows = await tx.select().from(message).where(eq(message.waMessageId, wa));
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({

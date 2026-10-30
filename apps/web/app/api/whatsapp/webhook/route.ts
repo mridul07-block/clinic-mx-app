@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { appDb } from '../../../../lib/db';
 import { serverEnv } from '../../../../lib/env';
 import { requestAddress } from '../../../../lib/network';
+import { routeInboundMessage } from '../../../../modules/messaging/router';
 import { handleWhatsappEvent, receiveWhatsappWebhook } from '../../../../modules/messaging/webhook';
 import {
   validVerifyToken,
@@ -13,7 +14,8 @@ import { count, limited, networkKey } from '../../../../modules/rate-limits/limi
 // Meta's WhatsApp webhook (WA-02; TAD sections 5 and 6, docs/runbooks/whatsapp.md). GET answers
 // Meta's subscribe check; POST takes delivery statuses and inbound messages. A body is accepted
 // only with the app secret's signature over its exact bytes; it is stored, which queues its job,
-// and answered at once, then handled straight after (the job is the fallback). Wrong signatures
+// and answered at once, then handled and its messages routed straight after (the jobs are the
+// fallback). Wrong signatures
 // and verify tokens are limited per network like the job tick (IAM-11). Nothing of a body is ever
 // logged.
 export const dynamic = 'force-dynamic';
@@ -78,9 +80,12 @@ export async function POST(request: Request): Promise<Response> {
   const eventId = await receiveWhatsappWebhook(db, { payload });
   after(async () => {
     try {
-      await handleWhatsappEvent(db, eventId);
+      const handled = await handleWhatsappEvent(db, eventId);
+      // WA-03: each message sent to us gets its route and reply now, not at the next tick.
+      for (const messageId of handled.receivedIds) await routeInboundMessage(db, messageId);
     } catch {
-      // Its `whatsapp.event` job handles it at the next tick, and tries again after a failure.
+      // Its `whatsapp.event` and `whatsapp.route` jobs handle it at the next tick, and try again
+      // after a failure.
     }
   });
   return Response.json({ received: true }, { headers: { 'Cache-Control': 'no-store' } });
