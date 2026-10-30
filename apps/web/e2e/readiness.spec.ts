@@ -204,10 +204,10 @@ test('the readiness panel judges each criterion, and the three clearances are si
   await expect(clearance('return_to_sport').getByTestId('clearance-acknowledged')).toContainText(
     'Acknowledged by the patient on',
   );
-  // Return to training waits for its own, now asked next.
-  await expect(
-    clearance('return_to_training').getByRole('button', { name: 'Show clearance QR' }),
-  ).toBeVisible();
+  // Return to sport supersedes Return to training's acknowledgement (DECISION OUT-09).
+  await expect(clearance('return_to_training').getByTestId('clearance-acknowledgement')).toHaveText(
+    'Not asked: the patient acknowledges Return to sport instead.',
+  );
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );

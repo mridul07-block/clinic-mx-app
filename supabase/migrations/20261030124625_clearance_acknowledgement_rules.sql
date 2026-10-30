@@ -88,7 +88,8 @@ $$;--> statement-breakpoint
 REVOKE ALL ON FUNCTION internal.clearance_ack_for_episode(uuid) FROM PUBLIC, anon;--> statement-breakpoint
 GRANT EXECUTE ON FUNCTION internal.clearance_ack_for_episode(uuid) TO authenticated;--> statement-breakpoint
 
--- Whether `shown` is exactly the section `of_key` names of the episode's signed clearance.
+-- Whether `shown` is exactly the section `of_key` names of the episode's signed clearance; for the
+-- patient's own link's episode only.
 CREATE FUNCTION internal.clearance_section_is(of_episode uuid, of_key text, shown text)
 RETURNS boolean
 LANGUAGE sql
@@ -98,6 +99,8 @@ SET search_path = ''
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.clearance c
+    JOIN public.patient_link l ON l.id = internal.jwt_patient_link_id()
+      AND l.episode_id = c.episode_id
     WHERE c.episode_id = of_episode
       AND c.status IN ('return_to_training', 'return_to_sport')
       AND CASE of_key

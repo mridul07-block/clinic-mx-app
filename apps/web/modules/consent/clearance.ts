@@ -133,21 +133,24 @@ const recordSchema = z.object({
 
 export type ClearanceResult =
   | { status: 'saved' }
+  /** The clearance asked now is not the one the page showed: the page shows the new one. */
+  | { status: 'newer' }
   | { status: 'invalid'; errors: Record<string, string> }
   | { status: 'guardian_needed' }
   | { status: 'link' };
 
 /**
  * Records the acknowledgement as the patient, in one transaction: each section, ticked and signed,
- * with the words it showed and the tick's version; then the link is used. The clearance asked
- * now is no longer the one shown (acknowledged since): the link's page says so.
+ * with the words it showed and the tick's version; then the link is used. A newer clearance
+ * signed since the page was shown: 'newer', and the page shows it with a note.
  */
 const recordClearanceAcknowledgement = patientService({
   input: recordSchema,
   run: async (tx, { status, signer, signature }, link): Promise<ClearanceResult> => {
     const found = await clearanceAckForLink(tx);
     const asked = found ? clearanceToAcknowledge(found) : undefined;
-    if (!found || asked?.status !== status) return { status: 'link' };
+    if (!found) return { status: 'link' };
+    if (asked?.status !== status) return { status: asked ? 'newer' : 'link' };
     await insertConsentRecords(
       tx,
       sectionsOf(asked).map((card) => ({
@@ -183,7 +186,8 @@ export async function saveClearanceAcknowledgement(
   const opened = await verifyPatientLink(token);
   if (opened.status !== 'valid' || opened.link.purpose !== 'clearance') return { status: 'link' };
   const page = await loadClearanceAcknowledgement(opened.link, options.ip);
-  if (!page.open || posted.status !== page.status) return { status: 'link' };
+  if (!page.open) return { status: 'link' };
+  if (posted.status !== page.status) return { status: 'newer' };
   const signer = parseSigner(
     {
       status: page.signing.status,

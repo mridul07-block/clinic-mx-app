@@ -516,7 +516,10 @@ to confirm:
   version 1, marked as a placeholder) until the clinic gives its own; new wording is a new version.
 - **Asking:** under the signed clearance, "Not acknowledged by the patient yet." and **Show clearance
   QR** (a consultant with the Treats patients tick; QR only, at the review). The QR asks the newest
-  clearance not yet acknowledged; the older one is asked next, on its own link. The link is the
+  signed clearance. A newer clearance supersedes an older one's acknowledgement: a patient cleared
+  for sport is not then asked to accept the training plan before it ("Not asked: the patient
+  acknowledges Return to sport instead."). Signed after the patient opened the page, the newer one
+  replaces it there with a note. The link is the
   episode's `clearance` link, single use, valid `links.clearance_hours` (24, a day to read it at home).
 - **The patient's page:** "Your clearance: Return to sport", each section in the consultant's words with
   a tick, then the signature (drawn, or a typed full name); a guardian on file signs for a patient
@@ -540,8 +543,8 @@ to confirm:
 | The page, the save, the QR | `apps/web/modules/consent/clearance.ts`, `app/(patient)/p/[token]/clearance-form.tsx`, the review screen's `readiness-panel.tsx` |
 | Rules | `supabase/migrations/20261030124625_clearance_acknowledgement_rules.sql` |
 | `packages/schemas/src/clearance-acknowledgement.test.ts` | which clearances ask; the sections needed to sign; every tick and the signature |
-| `apps/web/modules/reviews/readiness.test.ts` | the sections kept with Return to training; where the acknowledgement stands, and which is next |
-| `packages/db/src/integration/clinical-record.integration.test.ts` (readiness and clearances) | Return to training refused without the sections or with one blank; the desk and a physio cannot issue the link; other words, a clearance not signed, another version or a decline refused; the link used only once something is recorded; the desk reads nothing |
+| `apps/web/modules/reviews/readiness.test.ts` | the sections kept with Return to training; where the acknowledgement stands |
+| `packages/db/src/integration/clinical-record.integration.test.ts` (readiness and clearances) | Return to training refused without the sections or with one blank; the desk and a physio cannot issue or read the link; other words, a clearance not signed, another version, a decline, another patient or a used link refused; the link used only once something is recorded; the desk reads nothing |
 | `apps/web/e2e/readiness.spec.ts` | 360 px and desktop: the sections written at signing; the QR on the newest; the phone's ticks and signature; acknowledged |
 
 **Negative check:** drop `coalesce` from the `clearance_texts` check, and the database test fails

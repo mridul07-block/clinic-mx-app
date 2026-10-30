@@ -19,6 +19,8 @@ describe('kiosk', () => {
       'questionnaire',
       'feedback',
       'follow_up',
+      // OUT-09: the clearance acknowledgement, signed at the review.
+      'clearance',
     ]);
     expect(opensOnKiosk('health_form')).toBe(true);
     expect(opensOnKiosk('my_plan')).toBe(false);

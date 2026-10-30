@@ -77,6 +77,7 @@ import { planChoicesOf, recordPlanChoice, thinkAboutItFollowUp } from '../plan-c
 import { planForPricing } from '../plan-sheet';
 import { referralLetterFacts } from '../referral-letter';
 import {
+  patientLink,
   addendum,
   appointment,
   auditEvent,
@@ -3431,6 +3432,8 @@ describe('counter payments', () => {
               }),
             );
           };
+          await asOwner(tx);
+          const otherPatient = await testPatient(tx);
           expect(await issue(deskHsr), 'the desk').toBe('42501');
           expect(await issue(fixture.colleague), 'a physio who is not a consultant').toBe('42501');
           await asOwner(tx);
@@ -3505,19 +3508,49 @@ describe('counter payments', () => {
             await failure(tx, (sp) => completePatientLinkRow(sp, link.id)),
             'used only once something is recorded',
           ).toBe('42501');
+          expect(
+            await failure(tx, (sp) =>
+              insertConsentRecords(sp, [
+                section('clearance.return_to_training.plan', patientTexts.plan, {
+                  patientId: otherPatient,
+                }),
+              ]),
+            ),
+            'for another patient',
+          ).toBe('42501');
           await insertConsentRecords(tx, [
             section('clearance.return_to_training.plan', patientTexts.plan),
             section('clearance.return_to_training.warning_signs', patientTexts.warningSigns),
             section('clearance.return_to_training.residual_risk', patientTexts.residualRisk),
           ]);
           expect(await completePatientLinkRow(tx, link.id)).toBe(true);
+          expect(
+            await failure(tx, (sp) =>
+              insertConsentRecords(sp, [
+                section('clearance.return_to_training.plan', patientTexts.plan),
+              ]),
+            ),
+            'once the link is used',
+          ).toBe('42501');
 
           await asOwner(tx);
           await becomeStaff(tx, fixture.consultant);
           const [acknowledged] = (await clearanceAckForEpisode(tx, episodeId))?.clearances ?? [];
           expect(acknowledged?.acknowledgedAt).toBeInstanceOf(Date);
           expect(acknowledged?.signer).toBe('patient');
-          // The desk reads nothing clinical.
+          // The desk reads nothing clinical, nor the link; nor does a physio without the tick.
+          for (const [reader, who] of [
+            [deskHsr, 'the desk'],
+            [fixture.colleague, 'a physio who is not a consultant'],
+          ] as const) {
+            await asOwner(tx);
+            await becomeStaff(tx, reader);
+            const links = await tx
+              .select({ id: patientLink.id })
+              .from(patientLink)
+              .where(eq(patientLink.id, link.id));
+            expect(links, who).toEqual([]);
+          }
           await asOwner(tx);
           await becomeStaff(tx, deskHsr);
           expect(await clearanceAckForEpisode(tx, episodeId)).toBeUndefined();

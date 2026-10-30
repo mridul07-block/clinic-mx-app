@@ -361,10 +361,11 @@ export default async function PatientPage({
     guardian?: string;
     changed?: string;
     declined?: string;
+    newer?: string;
   }>;
 }) {
   const { token } = await params;
-  const { screen: screenKey, change, guardian, changed, declined } = await searchParams;
+  const { screen: screenKey, change, guardian, changed, declined, newer } = await searchParams;
   const browser = await kioskBrowser();
   if (browser.status !== 'none') {
     const linkId = patientLinkIdFromToken(token);
@@ -466,6 +467,7 @@ export default async function PatientPage({
       tick={clearance.tick}
       signing={clearance.signing}
       guardianNeeded={guardian === 'needed'}
+      newer={newer === '1'}
     />
   ) : partB?.open ? (
     <PartBConsentForm

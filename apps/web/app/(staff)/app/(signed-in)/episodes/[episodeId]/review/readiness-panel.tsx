@@ -13,7 +13,7 @@ import {
   type CriterionResult,
 } from '@clinic-mx/schemas';
 import type { Tone } from '@clinic-mx/ui';
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { primaryButtonClass, secondaryButtonClass } from '../../../../../../../components/forms';
 import { PatientLinkQr } from '../../../../../../../components/patient-link-qr';
 import { Tag } from '../../../../../../../components/tag';
@@ -233,8 +233,12 @@ function CriterionRow({
   );
 }
 
-/** The three sections a consultant writes for the patient (OUT-09), on the signing form. */
+/**
+ * The three sections a consultant writes for the patient (OUT-09), on the signing form; held here
+ * so a refused signing keeps them.
+ */
 function ClearanceTexts() {
+  const [texts, setTexts] = useState<Record<string, string>>({});
   return (
     <fieldset className="flex flex-col gap-3" data-testid="clearance-texts">
       <legend className="mb-1 text-sm text-ink-secondary">
@@ -254,6 +258,10 @@ function ClearanceTexts() {
             <textarea
               id={id}
               name={name}
+              value={texts[name] ?? ''}
+              onChange={(event) => {
+                setTexts({ ...texts, [name]: event.target.value });
+              }}
               required
               maxLength={2000}
               rows={3}
@@ -279,7 +287,7 @@ function Acknowledgement({
   showsQr: boolean;
   origin: string;
 }) {
-  if (acknowledgement.at) {
+  if (acknowledgement.state === 'acknowledged') {
     return (
       <p className="text-sm text-ink-secondary" data-testid="clearance-acknowledged">
         Acknowledged by the {acknowledgement.byGuardian ? 'patient’s guardian' : 'patient'} on{' '}
@@ -287,10 +295,17 @@ function Acknowledgement({
       </p>
     );
   }
+  if (acknowledgement.state === 'superseded') {
+    return (
+      <p className="text-sm text-ink-secondary" data-testid="clearance-acknowledgement">
+        Not asked: the patient acknowledges {acknowledgement.by} instead.
+      </p>
+    );
+  }
   return (
     <div className="flex flex-col gap-2" data-testid="clearance-acknowledgement">
       <p className="text-sm text-waiting-strong">Not acknowledged by the patient yet.</p>
-      {showsQr && acknowledgement.next ? (
+      {showsQr ? (
         <PatientLinkQr
           id="clearance"
           title="Clearance acknowledgement for the patient"
