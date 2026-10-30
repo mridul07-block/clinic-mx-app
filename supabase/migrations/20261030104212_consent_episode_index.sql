@@ -1,1 +1,0 @@
-CREATE INDEX "consent_record_episode_idx" ON "consent_record" USING btree ("episode_id","stage","statement_key");

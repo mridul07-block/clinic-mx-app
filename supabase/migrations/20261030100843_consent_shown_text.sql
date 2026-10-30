@@ -1,1 +1,0 @@
-ALTER TABLE "consent_record" ADD COLUMN "shown_text" text;

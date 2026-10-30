@@ -1,6 +1,6 @@
 {
-  "id": "99ce9f92-98aa-4a16-923f-bb18aabd2199",
-  "prevId": "3caa99a4-9094-4eae-9833-6690ff624e99",
+  "id": "b2838aad-4aa1-429e-8c08-0ec994ad5d9c",
+  "prevId": "aff68ff3-e151-467f-b086-dace69d41feb",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -12681,6 +12681,320 @@
         }
       },
       "isRLSEnabled": true
+    },
+    "public.message": {
+      "name": "message",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_phone": {
+          "name": "to_phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "from_phone": {
+          "name": "from_phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "message_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "direction": {
+          "name": "direction",
+          "type": "message_direction",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'outbound'"
+        },
+        "template_key": {
+          "name": "template_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "template_version": {
+          "name": "template_version",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "language": {
+          "name": "language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "variables": {
+          "name": "variables",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reply_id": {
+          "name": "reply_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reply_payload": {
+          "name": "reply_payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "context_wa_id": {
+          "name": "context_wa_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "message_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'queued'"
+        },
+        "wa_message_id": {
+          "name": "wa_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_title": {
+          "name": "error_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "sent_at": {
+          "name": "sent_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "delivered_at": {
+          "name": "delivered_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status_at": {
+          "name": "status_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "message_created_at_idx": {
+          "name": "message_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "message_patient_idx": {
+          "name": "message_patient_idx",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "message_patient_id_patient_id_fk": {
+          "name": "message_patient_id_patient_id_fk",
+          "tableFrom": "message",
+          "columnsFrom": [
+            "patient_id"
+          ],
+          "tableTo": "patient",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "message_wa_message_id_unique": {
+          "name": "message_wa_message_id_unique",
+          "columns": [
+            "wa_message_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "message_to_phone": {
+          "name": "message_to_phone",
+          "value": "\"message\".\"to_phone\" ~ '^\\+[1-9][0-9]{7,14}$'"
+        },
+        "message_from_phone": {
+          "name": "message_from_phone",
+          "value": "\"message\".\"from_phone\" ~ '^\\+[1-9][0-9]{7,14}$'"
+        },
+        "message_accepted": {
+          "name": "message_accepted",
+          "value": "\"message\".\"status\" not in ('sent', 'delivered', 'read') or (\"message\".\"wa_message_id\" is not null and \"message\".\"sent_at\" is not null)"
+        },
+        "message_not_sent": {
+          "name": "message_not_sent",
+          "value": "\"message\".\"status\" not in ('queued', 'skipped') or \"message\".\"wa_message_id\" is null"
+        },
+        "message_outbound": {
+          "name": "message_outbound",
+          "value": "\"message\".\"direction\" <> 'outbound' or (\"message\".\"to_phone\" is not null and \"message\".\"from_phone\" is null and \"message\".\"template_key\" is not null and \"message\".\"template_version\" is not null and \"message\".\"language\" is not null and \"message\".\"kind\" in ('template', 'test') and \"message\".\"status\" <> 'received')"
+        },
+        "message_inbound": {
+          "name": "message_inbound",
+          "value": "\"message\".\"direction\" <> 'inbound' or (\"message\".\"from_phone\" is not null and \"message\".\"to_phone\" is null and \"message\".\"wa_message_id\" is not null and \"message\".\"sent_at\" is not null and \"message\".\"kind\" in ('text', 'reply', 'flow', 'other') and \"message\".\"status\" = 'received')"
+        },
+        "message_test": {
+          "name": "message_test",
+          "value": "\"message\".\"kind\" <> 'test' or \"message\".\"patient_id\" is null"
+        },
+        "message_attempts": {
+          "name": "message_attempts",
+          "value": "\"message\".\"attempts\" >= 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.whatsapp_event": {
+      "name": "whatsapp_event",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "processed_at": {
+          "name": "processed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "whatsapp_event_processed_at_idx": {
+          "name": "whatsapp_event_processed_at_idx",
+          "columns": [
+            {
+              "expression": "processed_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
     }
   },
   "enums": {
@@ -13266,6 +13580,39 @@
         "open",
         "done",
         "declined"
+      ]
+    },
+    "public.message_direction": {
+      "name": "message_direction",
+      "schema": "public",
+      "values": [
+        "outbound",
+        "inbound"
+      ]
+    },
+    "public.message_kind": {
+      "name": "message_kind",
+      "schema": "public",
+      "values": [
+        "template",
+        "test",
+        "text",
+        "reply",
+        "flow",
+        "other"
+      ]
+    },
+    "public.message_status": {
+      "name": "message_status",
+      "schema": "public",
+      "values": [
+        "queued",
+        "sent",
+        "failed",
+        "skipped",
+        "delivered",
+        "read",
+        "received"
       ]
     }
   },
