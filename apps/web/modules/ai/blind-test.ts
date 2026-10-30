@@ -21,6 +21,7 @@ import {
   durationLabel,
   fromCsv,
   microUsdToPaise,
+  namesBlockedProvider,
   seededRandom,
   shortlistCandidates,
   similarCases,
@@ -145,9 +146,9 @@ export async function runBlindTest(
     );
   }
   const candidates = parsedCandidates.data.candidates;
-  const blocked = (await getSetting('ai.blocked_providers')).map((p) => p.toLowerCase());
+  const blocked = await getSetting('ai.blocked_providers');
   for (const candidate of candidates) {
-    if (candidate.config.providers.some((p) => blocked.includes(p.toLowerCase()))) {
+    if (namesBlockedProvider(candidate.config.providers, blocked)) {
       throw new BlindTestError(`${candidate.id} names a blocked provider.`);
     }
   }
