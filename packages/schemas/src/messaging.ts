@@ -10,14 +10,34 @@ import { messageTemplate, type MessageTemplateKey, type TemplateStatus } from '.
  * `hello_world` sample until WA-06 has the clinic's templates approved.
  */
 
-export const messageKinds = ['template', 'test'] as const;
+/** What we send (a template, or a test of Meta's sample); what arrives (WA-02). */
+export const outboundKinds = ['template', 'test'] as const;
+export const inboundKinds = ['text', 'reply', 'flow', 'other'] as const;
+export type InboundKind = (typeof inboundKinds)[number];
+export const messageKinds = [...outboundKinds, ...inboundKinds] as const;
 export type MessageKind = (typeof messageKinds)[number];
 
-export const messageDirections = ['outbound'] as const;
+/** What a received message is, as the Recent messages list shows it (never its text). */
+export const inboundKindLabels: Record<InboundKind, string> = {
+  text: 'Text',
+  reply: 'Reply',
+  flow: 'Flow',
+  other: 'Other',
+};
+
+export const messageDirections = ['outbound', 'inbound'] as const;
 export type MessageDirection = (typeof messageDirections)[number];
 
-/** Delivered and Read arrive with the webhook (WA-02). */
-export const messageStatuses = ['queued', 'sent', 'failed', 'skipped'] as const;
+/** Delivered and Read come through the webhook (WA-02), as does Received for an inbound one. */
+export const messageStatuses = [
+  'queued',
+  'sent',
+  'failed',
+  'skipped',
+  'delivered',
+  'read',
+  'received',
+] as const;
 export type MessageStatus = (typeof messageStatuses)[number];
 
 export const messageStatusLabels: Record<MessageStatus, string> = {
@@ -25,6 +45,9 @@ export const messageStatusLabels: Record<MessageStatus, string> = {
   sent: 'Sent',
   failed: 'Failed',
   skipped: 'Not sent',
+  delivered: 'Delivered',
+  read: 'Read',
+  received: 'Received',
 };
 
 /** Meta's sample template, approved on every test number; used only for test sends. */

@@ -73,6 +73,9 @@ export async function sendQueuedMessage(
 ): Promise<void> {
   const message = await messageRecord(db, messageId);
   if (message?.status !== 'queued') return;
+  // Only outbound messages are queued, and they have these (check `message_outbound`).
+  const { toPhone, templateKey, language } = message;
+  if (!toPhone || !templateKey || !language) return;
   const record = (outcome: MessageOutcome) => recordOutcome(db, { messageId: message.id, outcome });
 
   const [testRecipientsOnly, testRecipients] = await Promise.all([
@@ -81,10 +84,7 @@ export async function sendQueuedMessage(
   ]);
   // A test send was checked against the list when queued (sendTestMessageService); this server's
   // settings may be up to a minute older than that check (docs/runbooks/settings.md).
-  if (
-    message.kind === 'template' &&
-    !mayReceive(message.toPhone, { testRecipientsOnly, testRecipients })
-  ) {
+  if (message.kind === 'template' && !mayReceive(toPhone, { testRecipientsOnly, testRecipients })) {
     await record({
       status: 'skipped',
       errorCode: 'not_on_test_list',
@@ -103,9 +103,9 @@ export async function sendQueuedMessage(
 
   const result = await transport.sendTemplate(
     {
-      to: message.toPhone,
-      template: message.kind === 'test' ? TEST_TEMPLATE.key : message.templateKey,
-      language: message.language,
+      to: toPhone,
+      template: message.kind === 'test' ? TEST_TEMPLATE.key : templateKey,
+      language,
       parameters: parametersOf(message),
     },
     AbortSignal.timeout(SEND_TIMEOUT_MS),

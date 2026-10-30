@@ -51,6 +51,7 @@ const stored: Settings = {
   'ai.blocked_providers': ['deepseek'],
   'whatsapp.test_recipients_only': true,
   'whatsapp.test_recipients': [],
+  'whatsapp.event_retention_days': 7,
   'ai.blind_test_budget_paise': 200000,
   'ai.blind_test_cases_min': 30,
   'ai.blind_test_cases_max': 50,
