@@ -41,7 +41,7 @@ Run it after setting the key in an environment, and before and after adopting a 
 
 ```
 pnpm ai:check
-pnpm ai:check --model z-ai/glm-5.3 --provider wafer/us --provider sail-research/us [--timeout-ms 12000]
+pnpm ai:check --model z-ai/glm-5.3 --provider wafer/us --provider sail-research/us
 ```
 
 - **The key:** what it has used, its credit limit and what is left. It warns when the key has no
@@ -50,9 +50,19 @@ pnpm ai:check --model z-ai/glm-5.3 --provider wafer/us --provider sail-research/
   made-up case (`apps/web/modules/ai/gateway/check.ts`), built by the gateway's own
   `buildRequest`, so zero data retention, no data collection, pinning and the strict schema are
   the ones the sheet uses.
+- **A named candidate** runs as the blind test measured it: reasoning off and 12 seconds, unless
+  `--reasoning` or `--timeout-ms` says otherwise; its prompt and token limit are the ranking
+  task's. With no model named and no task configured (staging and production until a model is
+  adopted), nothing is called and it says so.
 - **The outcome:** `ok`, `not_pinned` (a host outside the pinned list answered), `invalid_output`,
   `timed_out`, `failed` (with the HTTP status) or `blocked_provider` (never called); the host that
-  answered, the time and the cost. It exits 2 unless every check is `ok`.
+  answered, the time and the cost.
+  - Whether a pinned host answered is read from the host's name in the answer ("Sail Research"
+    for `sail-research/us`), letters and digits only. The region in a tag (`/us`) is not in the
+    answer, so it is not checked here; OpenRouter itself never routes outside the pinned list.
+- **Exit codes:** 0 when every check called is `ok` (or nothing was called); 2 when any is not;
+  1 when it cannot check at all (no key, a refused key with its HTTP status, OpenRouter out of
+  reach, or a wrong option, which prints the usage).
 - No patient data and no knowledge base text is sent, and nothing is written: the check runs no
   task, so it is not an `ai_run`. A check costs a fraction of a cent.
 
@@ -170,7 +180,8 @@ prompt in `aiPromptsWithSimilarCases`; a v1 prompt never gets it
 
 - **Timed out attempts are billed, but their cost never comes back.** The request is abandoned, so
   OpenRouter's answer, which carries the cost, is never read; the daily cap cannot count it. In the
-  first blind test (30 October 2026) about $0.28 of $0.44 spent was on timed out calls. The key's
+  first blind test's full run (30 October 2026, `docs/runbooks/ai-blind-test.md`) about $0.28 of
+  the $0.44 it cost was on timed out calls. The key's
   own credit limit on OpenRouter is therefore the hard stop: give every environment's key a
   monthly limit, and choose timeouts from measured latency so that timeouts stay rare.
 - **Latency varies with the hosts' load.** Measured on 30 October 2026, the time to an answer for
