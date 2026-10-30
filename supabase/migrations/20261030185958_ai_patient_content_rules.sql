@@ -8,6 +8,8 @@ INSERT INTO public.setting (key, value, updated_by) VALUES
     '{"model": null, "providers": [], "promptVersion": "write_patient_content.v1", "reasoningEffort": "none", "timeoutMs": 60000, "maxTokens": 2500}',
     'system:migration'),
   -- DECISION AI-07: the one-time patient content budget is the client's; 3,500 rupees is a placeholder.
-  ('ai.patient_content_budget_paise', '350000', 'system:migration')
+  ('ai.patient_content_budget_paise', '350000', 'system:migration'),
+  -- A timed out call is billed without its cost coming back: stop after 3 failed calls in a row.
+  ('ai.patient_content_stop_after_failures', '3', 'system:migration')
 ON CONFLICT (key) DO NOTHING;--> statement-breakpoint
 SELECT set_config('audit.actor', '', false);

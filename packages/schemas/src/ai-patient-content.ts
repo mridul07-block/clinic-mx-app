@@ -63,6 +63,35 @@ export const aiPatientContentOutputSchema = z.strictObject({
 });
 export type AiPatientContentOutput = z.infer<typeof aiPatientContentOutputSchema>;
 
+/** What a part says when the knowledge base gives it nothing to say: never the model's words. */
+export const PATIENT_CONTENT_HANDOFF = 'Your physiotherapist will go through this with you.';
+
+/** The knowledge base fields each part is written from (the prompt names the same). */
+const partSources: Record<
+  keyof AiPatientContentOutput,
+  (input: AiPatientContentInput) => unknown[]
+> = {
+  explanation: (input) => [input.knowledge.symptoms, input.knowledge.cause],
+  roadmap: (input) => [
+    ...input.phases.map((phase) => phase.name),
+    input.knowledge.timeline,
+    input.knowledge.loadingStage,
+  ],
+  homeAdvice: (input) => [
+    input.knowledge.corrections,
+    input.knowledge.managementEmphasis,
+    input.knowledge.loadingStage,
+  ],
+  warningSigns: (input) => [input.knowledge.redFlags, input.knowledge.referralTrigger],
+};
+
+/** The parts whose knowledge base sources are all empty: they get `PATIENT_CONTENT_HANDOFF`. */
+export function partsWithoutSource(input: AiPatientContentInput): (keyof AiPatientContentOutput)[] {
+  return (Object.keys(partSources) as (keyof AiPatientContentOutput)[]).filter((part) =>
+    partSources[part](input).every((source) => source === null || source === ''),
+  );
+}
+
 /** A condition's knowledge base text, as `conditionsWithoutPatientContent` reads it. */
 export interface ConditionKnowledge {
   conditionId: string;

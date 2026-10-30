@@ -7,9 +7,11 @@ import {
   type Db,
 } from '@clinic-mx/db';
 import {
+  aiLongTaskConfigSchema,
   aiPatientContentInputSchema,
-  aiTaskConfigSchema,
   namesBlockedProvider,
+  PATIENT_CONTENT_HANDOFF,
+  partsWithoutSource,
   patientContentDraftSchema,
   patientContentInput,
 } from '@clinic-mx/schemas';
@@ -28,9 +30,13 @@ import type { AiTransport } from './gateway/transport';
  * call, sent only that condition's own knowledge base text and its region's phases; a valid answer
  * becomes a draft written by the server (source `ai`), which a consultant who treats patients
  * reads, edits and approves before any patient sees it. Nothing a clinician wrote is ever touched.
+ * A part whose knowledge base sources are all empty says only `PATIENT_CONTENT_HANDOFF`, whatever
+ * the model wrote, so no safety advice is ever made up.
  * Every call goes through the gateway: zero data retention, pinning, the identifier guard, logged
  * to `ai_run`, counted against its own budget (`ai.patient_content_budget_paise`), never the daily
- * cap; at the budget the run stops, and running again carries on with what is left.
+ * cap; at the budget the run stops, and running again carries on with what is left. A timed out
+ * call is billed without its cost coming back, so the run also stops after
+ * `ai.patient_content_stop_after_failures` calls in a row with no valid answer.
  */
 export class PatientContentGenerationError extends Error {
   override name = 'PatientContentGenerationError';
@@ -60,11 +66,13 @@ export interface GenerationResult {
   skipped: number;
   /** The budget was reached and the run stopped. */
   capped: boolean;
+  /** Too many calls in a row gave no valid answer, and the run stopped. */
+  failing: boolean;
 }
 
 const saveDraft = systemService({
   component: 'ai',
-  input: patientContentDraftSchema,
+  input: patientContentDraftSchema.extend({ kbVersionId: z.guid() }),
   run: (tx, draft) => insertAiPatientContentDraft(tx, draft),
 });
 
@@ -74,7 +82,7 @@ export async function generatePatientContent(
 ): Promise<GenerationResult> {
   const kbVersionId = await liveKbVersionId(db);
   if (!kbVersionId) throw new PatientContentGenerationError('No knowledge base is imported yet.');
-  const config = aiTaskConfigSchema
+  const config = aiLongTaskConfigSchema
     .extend({ model: z.string(), providers: z.array(z.string().min(1)).min(1).max(3) })
     .safeParse({
       ...(await getSetting('ai.task_write_patient_content')),
@@ -106,11 +114,16 @@ export async function generatePatientContent(
     unavailable: 0,
     skipped: 0,
     capped: false,
+    failing: false,
   };
   const phases = await regionPhases(db, kbVersionId);
   const log = options.log ?? (() => undefined);
+  const stopAfter = await getSetting('ai.patient_content_stop_after_failures');
+  const todo = conditions.slice(0, options.limit ?? conditions.length);
+  let failedInARow = 0;
 
-  for (const condition of conditions.slice(0, options.limit ?? conditions.length)) {
+  for (const [index, condition] of todo.entries()) {
+    log(`${String(index + 1)} of ${String(todo.length)}`);
     const input = patientContentInput(condition, phases[condition.region] ?? []);
     if (options.dryRun) {
       const sendable =
@@ -134,14 +147,23 @@ export async function generatePatientContent(
       if (answer.reason === 'not_configured') {
         throw new PatientContentGenerationError('Set OPENROUTER_API_KEY first.');
       }
+      failedInARow += 1;
+      if (failedInARow >= stopAfter) {
+        result.failing = true;
+        break;
+      }
       continue;
     }
-    const saved = await saveDraft(db, { conditionId: condition.conditionId, ...answer.output });
+    failedInARow = 0;
+    const parts = { ...answer.output };
+    for (const part of partsWithoutSource(input)) parts[part] = PATIENT_CONTENT_HANDOFF;
+    const saved = await saveDraft(db, {
+      conditionId: condition.conditionId,
+      kbVersionId,
+      ...parts,
+    });
     if (saved) result.written += 1;
     else result.skipped += 1;
-    log(
-      `${String(result.written + result.unavailable + result.skipped)} of ${String(result.needed)}`,
-    );
   }
   return result;
 }

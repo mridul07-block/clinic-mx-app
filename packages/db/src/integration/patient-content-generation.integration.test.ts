@@ -97,6 +97,7 @@ describe('patient content written by AI', () => {
       await asOwner(tx);
       const aiDraft = await insertAiPatientContentDraft(tx, {
         conditionId: second.conditionId,
+        kbVersionId,
         ...text('ai'),
       });
       expect(aiDraft).toBeDefined();
@@ -116,7 +117,11 @@ describe('patient content written by AI', () => {
 
       // An AI draft never replaces the consultant's.
       expect(
-        await insertAiPatientContentDraft(tx, { conditionId: first.conditionId, ...text('late') }),
+        await insertAiPatientContentDraft(tx, {
+          conditionId: first.conditionId,
+          kbVersionId,
+          ...text('late'),
+        }),
       ).toBeUndefined();
       expect((await patientContentOf(tx, first.conditionId)).draft).toMatchObject({
         source: 'clinician',

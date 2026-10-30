@@ -90,10 +90,18 @@ export const aiTaskConfigSchema = z.strictObject({
   providers: z.array(z.string().min(1)).max(3),
   promptVersion: z.enum(aiPromptVersions),
   reasoningEffort: z.enum(['none', 'low', 'medium', 'high']),
-  timeoutMs: z.int().min(1000).max(120000),
+  timeoutMs: z.int().min(1000).max(20000),
   maxTokens: z.int().min(1).max(4000),
 });
 export type AiTaskConfig = z.infer<typeof aiTaskConfigSchema>;
+
+/**
+ * A task that writes at length (patient content, AI-07): up to 2 minutes for its four parts. The
+ * live sheet's tasks keep their 20 second bound.
+ */
+export const aiLongTaskConfigSchema = aiTaskConfigSchema.extend({
+  timeoutMs: z.int().min(1000).max(120000),
+});
 
 /** The longest text a case or finding may send, and the most findings in a recheck. */
 export const AI_TEXT_MAX = 200;
