@@ -64,12 +64,16 @@ export function AssessmentInputs({
   const mapped = condition?.categoryCode
     ? catalog.categories.find((category) => category.code === condition.categoryCode)
     : undefined;
+  // A draft from before SET-12's mapping has none chosen: the suggestion shows, as signing uses it.
+  const shownCategory = assessment.categoryCode || (mapped?.code ?? '');
   const choose = (next: AssessmentCondition) => {
-    // A category coded from the previous condition goes with it; one the clinician picked stays.
-    const coded = condition?.categoryCode === assessment.categoryCode;
+    // A category suggested by the previous condition (or none) gives way to the new condition's
+    // suggestion; one the clinician picked stays.
+    const picked =
+      assessment.categoryCode !== '' && assessment.categoryCode !== condition?.categoryCode;
     set({
       conditionId: next.conditionId,
-      categoryCode: next.categoryCode ?? (coded ? '' : assessment.categoryCode),
+      categoryCode: picked ? assessment.categoryCode : (next.categoryCode ?? ''),
     });
   };
   const movementId = useId();
@@ -186,36 +190,35 @@ export function AssessmentInputs({
         </p>
       </fieldset>
 
-      {mapped ? (
-        <div data-testid="category" className="flex flex-col gap-1">
-          <span className="font-medium">Diagnosis category</span>
-          <p>{mapped.name}</p>
-          <p className="text-sm text-ink-muted">Coded from the condition.</p>
-        </div>
-      ) : (
-        <label data-testid="category" className="flex flex-col gap-1.5 md:w-96">
-          <span className="font-medium">Diagnosis category</span>
-          <select
-            value={assessment.categoryCode}
-            disabled={readOnly}
-            onChange={(event) => {
-              set({ categoryCode: event.target.value });
-            }}
-            className={`${input} disabled:bg-surface-sunken`}
-          >
-            <option value="">Choose the category</option>
-            {catalog.categories.map((category) => (
-              <option key={category.code} value={category.code}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-          {/* DECISION CLN-06: the client maps conditions to categories (SET-12). */}
-          <span className="text-sm text-ink-muted">
-            Coded from the condition once the clinic maps its conditions to categories.
-          </span>
-        </label>
-      )}
+      <label data-testid="category" className="flex flex-col gap-1.5 md:w-96">
+        <span className="font-medium">Diagnosis category</span>
+        <select
+          value={shownCategory}
+          disabled={readOnly}
+          onChange={(event) => {
+            set({ categoryCode: event.target.value });
+          }}
+          className={`${input} disabled:bg-surface-sunken`}
+        >
+          <option value="">Choose the category</option>
+          {catalog.categories.map((category) => (
+            <option key={category.code} value={category.code}>
+              {category.name}
+            </option>
+          ))}
+        </select>
+        {/* DECISION SET-12: the mapping is a draft for the clinic to confirm, so the category
+              it gives is a suggestion the clinician can change (after surgery, for example). */}
+        <span data-testid="category-hint" className="text-sm text-ink-muted">
+          {mapped
+            ? mapped.code === shownCategory
+              ? 'Suggested from the condition. Change it if another fits better.'
+              : `Suggested from the condition: ${mapped.name}.`
+            : condition
+              ? 'No category is suggested for this condition; choose the one that fits.'
+              : 'Suggested from the condition once one is chosen.'}
+        </span>
+      </label>
 
       <label className="flex items-center gap-2">
         <input

@@ -51,31 +51,40 @@ const problemsOf = (run: () => unknown): string[] => {
 };
 
 describe('the knowledge base import', () => {
-  it('reads every row of the nine workbooks into 345 conditions', () => {
+  it('reads every row of the nine workbooks into 332 conditions', () => {
     const built = buildKnowledge(workbooks, ids);
     expect(workbooks.map((w) => w.rows.length)).toEqual([40, 38, 39, 38, 40, 41, 41, 38, 39]);
     expect(built.listings).toHaveLength(354);
-    expect(built.conditions).toHaveLength(345);
+    expect(built.conditions).toHaveLength(332);
     expect(built.assigned).toEqual([]);
     expect(built.unmatched).toEqual([]);
   });
 
-  it('merges the conditions two workbooks share, keeping both texts', () => {
+  it('merges the conditions workbooks share, keeping each text', () => {
     const built = buildKnowledge(workbooks, ids);
     const merged = built.conditions
-      .filter((c) => built.listings.filter((l) => l.conditionId === c.conditionId).length === 2)
+      .filter((c) => built.listings.filter((l) => l.conditionId === c.conditionId).length > 1)
       .map((c) => c.name);
-    expect(merged).toEqual([
-      'Pronator Syndrome (Median Nerve at the Elbow)',
-      'Acute Compartment Syndrome of the Forearm',
-      'Meralgia Paraesthetica (Lateral Femoral Cutaneous Nerve)',
-      'Sacroiliac Joint Pain',
-      'Axial Spondyloarthritis',
-      'Meniscal Root Tear',
-      'Discoid Meniscus',
-      'Cervical Radiculopathy',
-      'Thoracic Outlet Syndrome',
-    ]);
+    // The nine named alike in two workbooks, and the eleven OPS-02 gave one ID in the ID file.
+    expect(merged).toHaveLength(20);
+    expect(merged).toEqual(
+      expect.arrayContaining([
+        'Pronator Syndrome (Median Nerve at the Elbow)',
+        'Acute Compartment Syndrome of the Forearm',
+        'Meralgia Paraesthetica (Lateral Femoral Cutaneous Nerve)',
+        'Sacroiliac Joint Pain',
+        'Axial Spondyloarthritis',
+        'Meniscal Root Tear',
+        'Discoid Meniscus',
+        'Cervical Radiculopathy',
+        'Thoracic Outlet Syndrome',
+        'Sacral Stress Fracture',
+        'Navicular Stress Fracture',
+        'Bucket Handle Meniscus Tear',
+      ]),
+    );
+    const sacral = built.listings.filter((l) => l.conditionId === 'HIP-025');
+    expect(sacral.map((l) => l.region)).toEqual(['hip', 'lumbar_sij', 'bone_stress']);
     const radiculopathy = built.listings.filter(
       (l) => l.conditionId === ids['shoulder|Cervical Radiculopathy'],
     );

@@ -121,8 +121,9 @@ export function signedRecord(
     (known) => known.conditionId === assessment.conditionId,
   );
   if (!condition) missing('Condition', assessment.conditionId);
-  // A condition mapped to a category codes it; otherwise the clinician's choice stands.
-  const categoryCode = condition?.categoryCode ?? (assessment.categoryCode || null);
+  // The clinician's category stands; without one, the condition's suggested category (SET-12),
+  // which Assessment shows as chosen.
+  const categoryCode = assessment.categoryCode || condition?.categoryCode || null;
   if (categoryCode && !context.assessmentCatalog.categories.some((c) => c.code === categoryCode)) {
     missing('Diagnosis category', categoryCode);
   }

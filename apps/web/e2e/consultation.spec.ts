@@ -400,7 +400,7 @@ test('Objective takes the region’s measures with live LSI, a 0 to 3 rating and
 
 // CLN-06 done when: condition search from the knowledge base; movement diagnosis; irritability
 // suggested; stage from duration; category coded. Decisions (user, 24 October 2026): irritability
-// from the worse pain score; the client's categories picked until SET-12 maps them; the
+// from the worse pain score; the category suggested from SET-12's mapping, changeable; the
 // workbook's biomechanical cause beside the movement diagnosis; one knowledge base condition.
 test('Assessment takes a knowledge base condition, the suggested irritability and stage, and the category', async ({
   page,
@@ -448,8 +448,16 @@ test('Assessment takes a knowledge base condition, the suggested irritability an
   await expect(stage.getByRole('radio', { checked: true })).toHaveCount(0);
   await stage.locator('label').filter({ hasText: 'Subacute' }).click();
 
-  // The client's category, picked until its mapping arrives (SET-12).
-  await page.getByLabel('Diagnosis category').selectOption({ label: 'Knee - PFPS' });
+  // The category suggested from the condition (SET-12's draft mapping); the clinician changes it.
+  const category = page.getByLabel('Diagnosis category');
+  await expect(category).toHaveValue('knee_others');
+  await expect(page.getByTestId('category-hint')).toHaveText(
+    'Suggested from the condition. Change it if another fits better.',
+  );
+  await category.selectOption({ label: 'Knee - PFPS' });
+  await expect(page.getByTestId('category-hint')).toHaveText(
+    'Suggested from the condition: Knee- Others.',
+  );
   await expect(page.getByLabel('Provisional diagnosis')).toBeChecked();
   await expect(page.getByText('Saved', { exact: true })).toBeVisible();
   await expect
@@ -473,6 +481,16 @@ test('Assessment takes a knowledge base condition, the suggested irritability an
   await page.getByRole('combobox', { name: 'Tissue diagnosis' }).fill('no such condition');
   await expect(page.getByText('No condition matches.')).toBeVisible();
   await page.getByRole('button', { name: 'Keep Patellar Tendinopathy' }).click();
+  await expect(page.getByTestId('chosen-condition')).toContainText('Patellar Tendinopathy');
+  // Another condition keeps the category the clinician picked over its own suggestion.
+  await page.getByRole('button', { name: 'Change' }).click();
+  await page.getByRole('combobox', { name: 'Tissue diagnosis' }).fill('it band');
+  await page.getByRole('combobox', { name: 'Tissue diagnosis' }).press('Enter');
+  await expect(page.getByTestId('chosen-condition')).toContainText('IT Band Syndrome');
+  await expect(page.getByLabel('Diagnosis category')).toHaveValue('knee_pfps');
+  await page.getByRole('button', { name: 'Change' }).click();
+  await page.getByRole('combobox', { name: 'Tissue diagnosis' }).fill('patellar tend');
+  await page.getByRole('combobox', { name: 'Tissue diagnosis' }).press('Enter');
   await expect(page.getByTestId('chosen-condition')).toContainText('Patellar Tendinopathy');
 
   await page.goto(`${new URL(page.url()).pathname}?section=sign`);

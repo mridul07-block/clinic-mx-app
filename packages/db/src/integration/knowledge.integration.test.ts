@@ -250,7 +250,7 @@ describe('the knowledge base import', () => {
         status: 'draft',
         approvedAt: null,
       });
-      expect(await knowledgeConditions(tx, version.id)).toHaveLength(345);
+      expect(await knowledgeConditions(tx, version.id)).toHaveLength(332);
       const listings = await knowledgeListings(tx, version.id);
       expect(listings).toHaveLength(354);
       expect(listings.filter((l) => l.conditionId === 'SHO-026').map((l) => l.region)).toEqual([
@@ -262,7 +262,7 @@ describe('the knowledge base import', () => {
         .from(kbVersion)
         .where(eq(kbVersion.id, version.id));
       expect(row?.createdBy).toBe(KB_IMPORT_ACTOR);
-      expect(row?.report).toMatchObject({ totals: { listings: 354, conditions: 345, merged: 9 } });
+      expect(row?.report).toMatchObject({ totals: { listings: 354, conditions: 332, merged: 20 } });
 
       const audited = await tx
         .select({ entity: auditEvent.entity, n: sql<number>`count(*)::int` })
@@ -277,7 +277,7 @@ describe('the knowledge base import', () => {
         .groupBy(auditEvent.entity)
         .orderBy(auditEvent.entity);
       expect(audited).toEqual([
-        { entity: 'kb_condition', n: 345 },
+        { entity: 'kb_condition', n: 332 },
         { entity: 'kb_condition_listing', n: 354 },
         { entity: 'kb_diagnosis_category', n: 44 },
         { entity: 'kb_measure', n: 143 },
@@ -356,7 +356,7 @@ describe('the knowledge base import', () => {
       );
       for (const reader of [superAdmin, manager, physio, support]) {
         await becomes(tx, reader);
-        expect((await knowledgeConditions(tx, id)).length, reader.email).toBe(345);
+        expect((await knowledgeConditions(tx, id)).length, reader.email).toBe(332);
         expect((await knowledgeListings(tx, id)).length, reader.email).toBe(354);
         expect((await redFlagRules(tx, id)).length, reader.email).toBe(20);
         expect((await redFlagPresentations(tx, id)).length, reader.email).toBe(136);
@@ -366,7 +366,7 @@ describe('the knowledge base import', () => {
         expect(read.specialTests.length, reader.email).toBe(244);
         // CLN-06: the Assessment's conditions, with each workbook's row, and the categories.
         const assessment = await knowledgeAssessment(tx, id);
-        expect(assessment.conditions.length, reader.email).toBe(345);
+        expect(assessment.conditions.length, reader.email).toBe(332);
         expect(assessment.categories.length, reader.email).toBe(44);
         expect(
           assessment.conditions

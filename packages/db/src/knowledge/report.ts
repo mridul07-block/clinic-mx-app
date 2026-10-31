@@ -92,11 +92,16 @@ export interface ImportReport {
     criteria: string[];
     painLimit: string[];
   }[];
-  /** CLN-06: the client's diagnosis categories file and how many conditions it maps. */
+  /**
+   * CLN-06: the client's diagnosis categories file and how many conditions it maps; SET-12: each
+   * category's conditions and those with none, as "ID name", for the clinic to check.
+   */
   categories: {
     file: { name: string; sha256: string };
     names: string[];
     mapped: number;
+    byCategory: { name: string; conditions: string[] }[];
+    unmapped: string[];
   };
   /** CLN-07: the plan catalog file, its modalities' precaution links and its questionnaires. */
   planCatalog: {
@@ -358,6 +363,15 @@ export function buildReport(
       file: categories.file,
       names: categories.categories.map((category) => category.name),
       mapped: Object.keys(categories.mapping).length,
+      byCategory: categories.categories.map((category) => ({
+        name: category.name,
+        conditions: conditions
+          .filter((c) => categories.mapping[c.conditionId] === category.code)
+          .map((c) => `${c.conditionId} ${c.name}`),
+      })),
+      unmapped: conditions
+        .filter((c) => categories.mapping[c.conditionId] === undefined)
+        .map((c) => `${c.conditionId} ${c.name}`),
     },
     planCatalog: {
       file: planCatalog.file,
@@ -400,7 +414,7 @@ export function reportMarkdown(report: ImportReport): string {
       'do not edit by hand. How the import reads each column, and how to act on this report: ' +
       '`docs/runbooks/knowledge-base.md`.',
     `**${report.totals.listings} workbook rows, ${report.totals.conditions} conditions** ` +
-      `(${report.totals.merged} conditions are described in two workbooks and share one ID).`,
+      `(${report.totals.merged} conditions are described in more than one workbook and share one ID).`,
     '## Workbooks',
     table(
       ['Workbook', 'Rows imported', 'Title says', 'SHA-256 (first 12)'],
@@ -417,9 +431,9 @@ export function reportMarkdown(report: ImportReport): string {
     ),
     '## Gaps',
     report.gaps.map((gap) => `- ${gap}`).join('\n'),
-    '## Merged: one condition, two workbooks',
-    'Same name in two workbooks (brackets ignored). Each workbook keeps its own text as a listing ' +
-      'under the shared ID.',
+    '## Merged: one condition, more than one workbook',
+    'Same name in two workbooks (brackets ignored), or the same condition given one ID in the ID ' +
+      'file (OPS-02). Each workbook keeps its own text as a listing under the shared ID.',
     table(
       ['ID', 'Listings'],
       report.merged.map((m) => [
@@ -587,9 +601,20 @@ export function reportMarkdown(report: ImportReport): string {
       `\`packages/db/src/knowledge/${report.categories.file.name}\` ` +
       `(SHA-256 ${report.categories.file.sha256.slice(0, 12)}), the client's "Physiotherapeutic ` +
       `diagnosis" list word for word; ${report.categories.mapped} of ${report.totals.conditions} ` +
-      'conditions mapped to one (the client’s mapping arrives with SET-12; until then the ' +
-      'clinician picks the category in Assessment).',
-    report.categories.names.map((name) => `- ${cell(name)}`).join('\n'),
+      'conditions mapped to one (SET-12, drafted by Velyx Labs for the clinic to confirm). ' +
+      'Assessment suggests the mapped category and the clinician can change it; for a condition ' +
+      'with none the clinician picks.',
+    table(
+      ['Category', 'Conditions mapped to it'],
+      report.categories.byCategory.map((c) => [
+        c.name,
+        c.conditions.length > 0 ? c.conditions.join('; ') : 'None',
+      ]),
+    ),
+    '### No category suggested (the clinician picks)',
+    report.categories.unmapped.length > 0
+      ? report.categories.unmapped.map((c) => `- ${cell(c)}`).join('\n')
+      : 'None.',
     '## Plan catalog (CLN-07)',
     `${report.planCatalog.modalities.length} modalities and ${report.planCatalog.questionnaires.length} ` +
       `questionnaires from \`packages/db/src/knowledge/${report.planCatalog.file.name}\` ` +
