@@ -108,15 +108,15 @@ describe('the candidate filter over the real workbooks', () => {
     const atOnset = listings.filter((l) => l.ageText?.toLowerCase().includes('onset'));
     expect(atOnset.map((l) => `${l.conditionId} ${l.region} ${l.ageText ?? ''}`).sort()).toEqual([
       'HIP-035 cervical Under 45 at onset',
+      'HIP-035 lumbar_sij Under 45 at onset',
       'LUM-015 lumbar_sij 10-20 (onset)',
-      'LUM-020 lumbar_sij Under 45 at onset',
     ]);
     const ruledOut = (region: 'back' | 'neck', durationWeeks: number) =>
       shortlistCandidates(listings, patient({ region, age: 52, durationWeeks }), settings)
         .items.filter((i) => i.mustRuleOut)
         .map((i) => i.conditionId);
-    expect(ruledOut('back', 8 * 52)).toContain('LUM-020');
+    expect(ruledOut('back', 8 * 52)).toContain('HIP-035');
     expect(ruledOut('neck', 8 * 52)).toContain('HIP-035');
-    expect(ruledOut('back', 2)).not.toContain('LUM-020');
+    expect(ruledOut('back', 2)).not.toContain('HIP-035');
   });
 });

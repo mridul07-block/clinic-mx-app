@@ -153,7 +153,10 @@ The client's "Physiotherapeutic diagnosis" list (in `docs/1 Movementology Clinic
 Softwear (1).docx`) is committed word for word as
 `packages/db/src/knowledge/diagnosis-categories.json`: 44 categories, each with a stable code made
 from its name once (`knee_pfps` for "Knee - PFPS"; the client's spelling is kept in the name).
-`conditions` maps condition IDs to codes and is empty until the client's mapping arrives (SET-12).
+`conditions` maps condition IDs to codes: 245 of 332, drafted by Velyx Labs for the clinic to
+confirm (SET-12, `docs/knowledge-base/clean-up-review.md`). Assessment suggests the mapped category
+and the clinician can change it; for a condition with none the clinician picks. The import report
+lists each category's conditions and those with none.
 
 - The import checks the file (`categories.ts`): codes unique and lowercase, every mapped ID a
   condition in the workbooks, every mapped code a category. Any problem stops the import.
@@ -198,7 +201,8 @@ so they must survive workbook edits:
   file by hand (change the key, keep the ID), then run again.
 - **A new row:** run `pnpm kb:import --assign`. It gets the next ID of its workbook, or joins a
   condition another workbook names the same. Commit the changed file.
-- **A merge** (a look-alike confirmed by a clinician): give both keys the same ID, keeping the
+- **A merge** (a look-alike confirmed by a clinician; OPS-02 drafted 11, listed in
+  `docs/knowledge-base/clean-up-review.md`): give both keys the same ID, keeping the
   older one.
 - **A removed row:** its key stays in the file, and the report lists it under "matched no row".
   Delete the key only when no record uses the ID.

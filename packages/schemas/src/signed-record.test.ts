@@ -160,8 +160,19 @@ describe('signed record', () => {
     expect(rows.measures).toEqual([
       { key: 'knee.lsi.quadriceps', limb: 'involved', side: null, value: 32, unit: 'kg' },
     ]);
-    // The condition's mapping codes the category, whatever was picked.
-    expect(rows.diagnosis.categoryCode).toBe('knee_pfps');
+    // The clinician's category stands over the condition's suggestion (SET-12) ...
+    expect(rows.diagnosis.categoryCode).toBe('knee_others');
+    // ... and the suggestion is used when they chose none.
+    const unpicked = sections({
+      assessment: {
+        conditionId: 'KNE-001',
+        movement: 'Valgus',
+        irritability: 'low',
+        stage: 'chronic',
+        categoryCode: '',
+      },
+    });
+    expect(signedRecord(unpicked, context).rows.diagnosis.categoryCode).toBe('knee_pfps');
   });
 
   it('refuses what the version no longer holds', () => {

@@ -20,13 +20,20 @@ const file = (extra: Record<string, unknown> = {}) =>
   });
 
 describe('diagnosis categories', () => {
-  it('reads the committed file: the client’s 44 categories, none mapped yet', async () => {
+  it('reads the committed file: the client’s 44 categories and SET-12’s draft mapping', async () => {
     const ids = Object.values(await readConditionIds());
     const built = buildCategories(await readCategoriesFile(), builtWith(ids));
     expect(built.categories).toHaveLength(44);
     expect(built.categories[0]).toEqual({ code: 'chronic_pain', name: 'Chronic pain', sort: 0 });
     expect(built.categories.map((c) => c.name)).toContain('Foot & Ankle - Ligaments injuries');
-    expect(built.mapping).toEqual({});
+    expect(Object.keys(built.mapping)).toHaveLength(245);
+    expect(built.mapping).toMatchObject({
+      'KNE-001': 'knee_pfps',
+      'SHO-006': 'shoulder_stiff_shoulder',
+    });
+    // No honest fit: the clinician picks (septic arthritis, a fracture).
+    expect(built.mapping['KNE-039']).toBeUndefined();
+    expect(built.mapping['SHO-038']).toBeUndefined();
     expect(built.file.name).toBe('diagnosis-categories.json');
     expect(built.file.sha256).toMatch(/^[0-9a-f]{64}$/);
   });

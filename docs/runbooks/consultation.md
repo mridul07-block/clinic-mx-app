@@ -166,8 +166,10 @@ missing any of these components is incomplete"). Decisions (user, 24 October 202
   biomechanical cause" from each workbook that lists it shows beneath as a reference.
 - **Irritability:** suggested from the worse of Pain now and Pain with activity (the clinician's
   value where Subjective changed it).
-- **Category:** the client's 44 categories are knowledge data. A condition mapped to one codes it
-  automatically; until the client's mapping arrives (SET-12) the clinician picks it.
+- **Category:** the client's 44 categories are knowledge data. A condition mapped to one (SET-12's
+  draft, 245 of 332) suggests it, shown as chosen with "Suggested from the condition"; the
+  clinician can change it, and choosing another condition keeps a category they picked. For a
+  condition with none, the clinician picks.
 
 **Search.** "Tissue diagnosis" is a combobox over the consultation's version: every word typed must
 appear in the name, a synonym, a workbook's name for it or the ID (case and accents ignored).
@@ -191,14 +193,14 @@ irritability level show beneath it, word for word.
 
 **Signing.** `signingBlockers` now also lists "The working diagnosis needs its four parts: tissue,
 movement, irritability and stage." until all four are in; each reason links to its section. The
-category is not required while the mapping is pending. Sign shows "n of 4 parts".
+category is not required (87 conditions have no suggestion). Sign shows "n of 4 parts".
 
 **Storage.** Everything lives in `sections.assessment` (condition ID, movement, irritability, stage,
 category code, provisional), autosaved with the draft; older drafts read with empty parts. The
 page reads the consultation's own version (`knowledgeAssessment`) and the settings once, so it works
 offline. **When signing arrives (CLN-09), the TAD's `diagnosis` row is written** with the version;
-the sign service checks the condition and category exist in that version and takes a mapped
-category from the knowledge base.
+the sign service checks the condition and category exist in that version and keeps the
+clinician's category, or the condition's suggested one when none was chosen.
 
 ## Plan (CLN-07)
 
@@ -293,7 +295,7 @@ until none is left.
    | --- | --- |
    | `measure` | Objective: one row per side entered (`limb` involved or uninvolved, `side` from the involved side, the other side for uninvolved), single values without a limb; the unit from the knowledge base |
    | `special_test_result` | Objective's tests and results |
-   | `diagnosis` | Assessment: the condition (a foreign key into its version), movement, irritability, stage, provisional; the category is the condition's mapped one when it has one, else the clinician's |
+   | `diagnosis` | Assessment: the condition (a foreign key into its version), movement, irritability, stage, provisional; the category is the clinician's, else the condition's suggested one |
    | `plan_of_care` (version 1) | Plan, resolved: goals and home programme rows left blank are dropped; the review date, questionnaires and treating physio defaults filled in |
    | `plan_modality` | Plan's modalities and their reasons (parameters with SES-05) |
 
@@ -353,12 +355,12 @@ Each save is an audited update (actor, before, after), one per autosave.
 | `packages/schemas/src/consultations.test.ts`, `apps/web/lib/drafts/savers.test.ts` | Sections, steps, Back and Next; the saver's endpoint. |
 | `packages/schemas/src/screening.test.ts` | Region questions (knee, back, none), follow ups only after a confirmed yes, pregnancy only for a female patient, what the patient said, progress ignoring stale keys, the signing gate, answers checked against their items. |
 | `packages/schemas/src/assessment.test.ts` | Irritability bands at 2/3 and 5/6 from the worse score, settings honoured; durations in weeks and the stage at 3 and 12 weeks; the clinician's Subjective answers first; search by name, synonym and ID with the Objective's workbook first; the four parts, old drafts, limits and the signing reason; the categories file shape. |
-| `packages/schemas/src/signed-record.test.ts` | The rows signing writes: both sides with their sides, single values, one side kept, a mapped category over the clinician's, defaults resolved, blanks dropped; everything the version no longer holds refused; the special test result reason; the addendum's length. |
+| `packages/schemas/src/signed-record.test.ts` | The rows signing writes: both sides with their sides, single values, one side kept, the clinician's category over the condition's suggestion, the suggestion when none was chosen, defaults resolved, blanks dropped; everything the version no longer holds refused; the special test result reason; the addendum's length. |
 | `packages/db/src/integration/clinical-record.integration.test.ts` | Under row level security: signing writes the rows and completes the visit, audited as the consultant; a signed consultation and its rows never change, and no rows are written outside the signing transaction; another physio, support or a deactivated consultant (token still saying treats) cannot sign, nor at another version; a visit is completed only once signed; addenda by the consultant and a colleague at the centre, not on a draft, not as someone else, not by the desk, another centre or support, who also read nothing. Removing the live tick check fails it. |
 | `apps/web/lib/drafts/controller.test.ts` | `saveNow` answers the saved version, or nothing while changes stay unsaved. |
 | `packages/schemas/src/plan.test.ts` | Precautions in force (a Screening confirmation over the patient's tick, pregnancy only for a female patient); warnings and the reason to keep a modality; the signing reason; questionnaires offered and suggested (VISA-P, KOOS, Kujala, none for PSFS); defaults resolved; parts, old drafts and limits; the catalog file shape. |
 | `packages/db/src/knowledge/plan-catalog.test.ts` | The committed catalog: 8 modalities with their links (PEMF, shockwave, traction, laser), 19 questionnaires, QuickDASH for elbow and wrist; repeated keys, repeated or unknown precautions stop the import. |
-| `packages/db/src/knowledge/categories.test.ts` | The committed file: 44 categories in order, none mapped; a mapping to an unknown condition or category, or a repeated code, stops the import. |
+| `packages/db/src/knowledge/categories.test.ts` | The committed file: 44 categories in order, SET-12's 245 mapped; a mapping to an unknown condition or category, or a repeated code, stops the import. |
 | `packages/schemas/src/objective.test.ts` | LSI, inverted LSI, heel raise count, deficit bands (absolute and not), reference and target, the Objective section and its limits. |
 | `packages/db/src/knowledge/build.test.ts` | Against the real workbooks: LSI targets, the timed hop, the heel raise, each workbook's bands, cervical references, joint position error at most, 10 grades, special tests with their categories; an unknown header stops the import. |
 | `packages/schemas/src/subjective.test.ts` | The form's fields and wording; sources; answers checked against their fields; Other shown only when ticked. |

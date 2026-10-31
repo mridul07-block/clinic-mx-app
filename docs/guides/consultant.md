@@ -18,6 +18,7 @@ As in the physiotherapist guide. **Knowledge base** also holds **Patient content
 2. Work through **Subjective**, **Screening**, **Objective**, **Assessment** and **Plan** with **Next** and **Back**.
 3. Everything saves as you type. To come back, tap **Open consultation**.
 4. On **Screening**, confirm every item. If you find a red flag, tap **Red flag found**.
+5. On **Assessment**, the **Diagnosis category** is suggested from the condition. Change it if another fits better.
 
 ### Write the plan of care
 
@@ -68,7 +69,6 @@ As in the physiotherapist guide. **Knowledge base** also holds **Patient content
 
 - The AI preparation sheet (**Preparation sheet ready**) and **Recheck with findings** are off until the AI key and its blind test are done.
 - **Explain to patient** and "About your condition" show only once a consultant approves the content.
-- Diagnosis categories wait for the clinic's mapping.
 - WhatsApp messages are queued, not sent. The desk shows the patient a QR code instead.
 
 ## If something goes wrong

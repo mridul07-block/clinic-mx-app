@@ -45,7 +45,7 @@ state and weight nothing clinically.
 - **How each field matches:**
   - **Age:** inclusive at both ends, read as the workbooks' age column was read (never narrower
     than the text).
-    - Three rows state the age at onset: "Under 45 at onset" for LUM-020 and HIP-035 (cervical),
+    - Three rows state the age at onset: "Under 45 at onset" for HIP-035's lumbar and cervical rows,
       and "10-20 (onset)" for LUM-015.
     - These are checked against the age the problem started at, worked out from the duration,
       using every whole age the duration allows.
