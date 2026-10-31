@@ -17,6 +17,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { appointment } from './appointments';
+import { staffUser } from './identity';
 import { patientLink } from './patient-links';
 import { patient } from './patients';
 
@@ -111,6 +112,12 @@ export const message = pgTable(
     index('message_inbound_phone_idx')
       .on(table.fromPhone, table.sentAt)
       .where(sql`${table.direction} = 'inbound'`),
+    // WA-13: the failed messages the front desk follows up, newest first.
+    index('message_failed_idx')
+      .on(table.statusAt)
+      .where(
+        sql`${table.status} = 'failed' and ${table.direction} = 'outbound' and ${table.patientId} is not null`,
+      ),
     check('message_to_phone', sql`${table.toPhone} ~ '^\\+[1-9][0-9]{7,14}$'`),
     check('message_from_phone', sql`${table.fromPhone} ~ '^\\+[1-9][0-9]{7,14}$'`),
     // Sent, Delivered and Read have Meta's id and the time Meta took it; a message never sent has
@@ -142,3 +149,22 @@ export const message = pgTable(
 ).enableRLS();
 
 export type Message = typeof message.$inferSelect;
+
+/**
+ * A failed message the front desk has followed up (WA-13): "Done" on Today's Not delivered panel,
+ * by whom and when; the message then leaves the panel. Server only: written and read through
+ * `internal.follow_up_undelivered` and `internal.undelivered_messages`, which check the person may
+ * see the message's centre. Audited.
+ */
+export const messageFollowUp = pgTable('message_follow_up', {
+  /** The message's own id, so its audit events name the message. */
+  id: uuid('id')
+    .primaryKey()
+    .references(() => message.id, { onDelete: 'cascade' }),
+  followedUpBy: uuid('followed_up_by')
+    .notNull()
+    .references(() => staffUser.id),
+  followedUpAt: timestamp('followed_up_at', { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
+export type MessageFollowUp = typeof messageFollowUp.$inferSelect;

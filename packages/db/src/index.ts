@@ -824,3 +824,4 @@ export {
   type LibraryExercise,
 } from './exercises';
 export { raiseEmergencyTask } from './emergency';
+export { followUpUndelivered, undeliveredMessages, type UndeliveredMessage } from './undelivered';
