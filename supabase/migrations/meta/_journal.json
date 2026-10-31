@@ -1744,6 +1744,20 @@
       "when": 1793406210288,
       "tag": "20261031002330_emergency_reply",
       "breakpoints": true
+    },
+    {
+      "idx": 249,
+      "version": "7",
+      "when": 1793436383127,
+      "tag": "20261031084623_message_follow_up",
+      "breakpoints": true
+    },
+    {
+      "idx": 250,
+      "version": "7",
+      "when": 1793436385396,
+      "tag": "20261031084625_message_follow_up_rules",
+      "breakpoints": true
     }
   ]
 }
