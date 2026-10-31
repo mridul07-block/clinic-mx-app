@@ -68,7 +68,9 @@ describe('the settings screen', () => {
     await rolledBack(async (tx) => {
       await becomeStaff(tx, superAdmin);
       const entries = await settingEntries(tx);
-      expect(entries.map((entry) => entry.key).sort()).toEqual([...settingKeys].sort());
+      // Every setting the code defines; a migration may add one a release before the code reads it
+      // (docs/runbooks/local-gate.md).
+      expect(entries.map((entry) => entry.key)).toEqual(expect.arrayContaining([...settingKeys]));
       const read = entries.find((entry) => entry.key === key);
       if (!read) throw new Error('no setting');
 
