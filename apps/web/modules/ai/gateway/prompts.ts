@@ -76,4 +76,19 @@ export const PROMPTS: Record<AiPromptVersion, string> = {
     'Give each row a one line reason of at most 160 characters, based only on the case, the findings, the similar cases and that row.',
     'Reply only with JSON matching the schema.',
   ].join('\n'),
+  // WA-11: the WhatsApp assistant only chooses; the clinic sends the reply chosen, in its own words
+  // (user decision, 31 October 2026). Symptoms and health questions go to the team, never answered.
+  'assistant_reply.v1': [
+    'You sort the WhatsApp messages patients type to a physiotherapy clinic. You never answer a message yourself: the clinic sends the reply you choose, in its own words.',
+    'The user message is JSON: the patient’s message, in which anything that could identify a person is replaced with [removed], and a list of choices, each an id and the question its answer answers.',
+    'Choose exactly one:',
+    '- the id of a choice, when its answer fully answers what the message asks;',
+    '- "book", when they want to book an appointment;',
+    '- "reschedule", when they want to move or cancel an appointment;',
+    '- "emergency", when the message describes a medical emergency or urgent danger to someone’s health or life;',
+    '- "talk", when they ask about symptoms, their health, a diagnosis, treatment, exercises, prices or anything else only the clinic’s team can answer, or ask to speak to someone;',
+    '- "none", for greetings, thanks or anything unclear.',
+    'Never choose an id whose answer only partly fits. When unsure, choose "talk" for a question and "none" for anything else.',
+    'Reply only with JSON matching the schema.',
+  ].join('\n'),
 };

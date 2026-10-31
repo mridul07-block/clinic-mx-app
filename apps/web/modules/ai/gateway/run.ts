@@ -10,6 +10,8 @@ import {
   type NewAiRun,
 } from '@clinic-mx/db';
 import {
+  aiAssistantInputSchema,
+  aiAssistantOutputSchema,
   aiPatientContentInputSchema,
   aiPatientContentOutputSchema,
   aiPromptsWithLimit,
@@ -57,6 +59,12 @@ const TASKS = {
     settingKey: 'ai.task_write_patient_content',
     input: aiPatientContentInputSchema,
     output: aiPatientContentOutputSchema,
+  },
+  // WA-11: sorts a typed WhatsApp message; within the daily cap, never pinned (not clinical).
+  assistant_reply: {
+    settingKey: 'ai.task_assistant_reply',
+    input: aiAssistantInputSchema,
+    output: aiAssistantOutputSchema,
   },
 } as const;
 export type GatewayTask = keyof typeof TASKS;

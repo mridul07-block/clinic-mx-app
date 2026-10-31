@@ -304,6 +304,36 @@ export function centreContacts(
     .orderBy(asc(centre.name));
 }
 
+/** Every active centre's address and map link, for `{{centres}}` in an assistant answer (WA-11). */
+export function centreDirections(
+  db: DbOrTransaction,
+): Promise<{ name: string; address: string | null; mapLink: string | null }[]> {
+  return db
+    .select({ name: centre.name, address: centre.address, mapLink: centre.mapLink })
+    .from(centre)
+    .where(eq(centre.active, true))
+    .orderBy(asc(centre.name));
+}
+
+/** The names of every patient with this number (WA-11): replaced before a model sees their words. */
+export async function patientNamesByPhone(db: DbOrTransaction, phone: string): Promise<string[]> {
+  const rows = await db
+    .select({ name: patient.name })
+    .from(patient)
+    .where(eq(patient.phone, phone));
+  return rows.map((row) => row.name);
+}
+
+/** Whether a message was queued for this source already (WA-11: one answer per typed message). */
+export async function sourceQueued(db: DbOrTransaction, sourceKey: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: message.id })
+    .from(message)
+    .where(eq(message.sourceKey, sourceKey))
+    .limit(1);
+  return row !== undefined;
+}
+
 /** When this number last wrote to us, for WhatsApp's 24 hour window. */
 export async function lastInboundAt(db: DbOrTransaction, phone: string): Promise<Date | null> {
   const [row] = await db

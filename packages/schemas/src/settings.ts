@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { aiSheetSettingSchema } from './ai';
+import { assistantFaqsSchema } from './ai-assistant';
 import { aiLongTaskConfigSchema, aiTaskConfigSchema } from './ai-gateway';
 import { redFlagTiers } from './knowledge';
 import { testRecipientsSchema } from './messaging';
@@ -771,6 +772,22 @@ export const settingDefinitions = {
     source: 'WA-13, user decision 31 October 2026',
     description:
       'Days a WhatsApp message that could not be delivered stays on Today for the front desk, unless marked Done first.',
+  },
+  'ai.task_assistant_reply': {
+    schema: aiTaskConfigSchema,
+    source:
+      'TAD section 7 (assistantReply; the small tier, Haiku 5.5 or GPT 6 Luna class); WA-11, user decision 31 October 2026: Haiku 5.5, on',
+    description:
+      'The WhatsApp assistant, which sorts a typed message into one of the approved answers or a menu choice: the model (none: typed messages get the menu), prompt version, reasoning effort, timeout and token limit.',
+  },
+  // DECISION WA-11: the clinic's own FAQs are the client's to add; until then only facts already
+  // approved (where the centres are, what to bring).
+  'whatsapp.assistant_faqs': {
+    schema: assistantFaqsSchema,
+    source:
+      'PRD section 6 (the WhatsApp assistant answers FAQs); WA-11, user decision 31 October 2026: the model only chooses, the patient reads the clinic’s words',
+    description:
+      'The answers the WhatsApp assistant may send, each with an id (lower case and underscores), the question it answers (what the model sees) and the answer the patient reads word for word. {{centres}} in an answer becomes each centre’s address and map link.',
   },
   // DECISION WA-10: the standard safety text until the clinical director confirms the wording.
   'whatsapp.emergency_advice': {

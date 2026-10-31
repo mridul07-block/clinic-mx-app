@@ -16,6 +16,8 @@ const webhook = vi.hoisted(() => ({
 vi.mock('../../../../modules/messaging/webhook', () => webhook);
 const router = vi.hoisted(() => ({ routeInboundMessage: vi.fn() }));
 vi.mock('../../../../modules/messaging/router', () => router);
+const assistant = vi.hoisted(() => ({ answerTypedMessage: vi.fn() }));
+vi.mock('../../../../modules/messaging/assistant', () => assistant);
 const later = vi.hoisted(() => ({ tasks: [] as (() => Promise<void>)[] }));
 vi.mock('next/server', () => ({
   after: (task: () => Promise<void>) => later.tasks.push(task),
@@ -102,16 +104,23 @@ describe('POST /api/whatsapp/webhook', () => {
   it('routes each message sent to us straight after storing it (WA-03)', async () => {
     webhook.handleWhatsappEvent.mockResolvedValue({
       updated: 0,
-      received: 2,
-      receivedIds: ['message-1', 'message-2'],
+      received: 3,
+      receivedIds: ['message-1', 'message-2', 'message-3'],
       skipped: false,
     });
+    router.routeInboundMessage
+      .mockResolvedValueOnce({ route: 'assistant', reply: 'none', skipped: false })
+      .mockResolvedValueOnce({ route: 'menu', reply: 'menu', skipped: false })
+      .mockResolvedValueOnce({ route: null, reply: null, skipped: true });
     expect((await post(statusBody, sign(statusBody))).status).toBe(200);
     await later.tasks[0]?.();
     expect(router.routeInboundMessage.mock.calls).toEqual([
       [{}, 'message-1'],
       [{}, 'message-2'],
+      [{}, 'message-3'],
     ]);
+    // WA-11: typed text gets the assistant's answer straight after, outside the routing.
+    expect(assistant.answerTypedMessage.mock.calls).toEqual([[{}, 'message-1']]);
   });
 
   it('leaves a failed handling to the job, still answering 200', async () => {

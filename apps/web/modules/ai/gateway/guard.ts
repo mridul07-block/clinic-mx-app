@@ -29,13 +29,40 @@ export function textsOf(value: unknown): string[] {
   return [];
 }
 
+/** What an identifier is replaced with before a patient's own text is sent (WA-11). */
+export const REMOVED = '[removed]';
+
+function nameWords(forbidden: readonly string[]): string[] {
+  return forbidden
+    .flatMap((name) => name.toLowerCase().split(/[^\p{L}]+/u))
+    .filter((word) => word.length >= 2);
+}
+
+/**
+ * A patient's own words with everything this guard looks for replaced (WA-11: a typed WhatsApp
+ * message): IDs, emails, phone and other long numbers, and the name words given. Whatever is
+ * left still passes `outboundAllowed` before it is sent.
+ */
+export function redactIdentifiers(text: string, forbidden: readonly string[] = []): string {
+  const names = new Set(nameWords(forbidden));
+  // Splitting on a pattern cuts at every match, global or not.
+  let redacted = identifiers.reduce(
+    (current, pattern) => current.split(pattern).join(REMOVED),
+    text,
+  );
+  redacted = redacted.replace(digitRuns, (run) =>
+    run.replace(/\D/g, '').length >= 7 ? REMOVED : run,
+  );
+  return names.size === 0
+    ? redacted
+    : redacted.replace(/\p{L}+/gu, (word) => (names.has(word.toLowerCase()) ? REMOVED : word));
+}
+
 export function outboundAllowed(
   texts: readonly string[],
   forbidden: readonly string[] = [],
 ): boolean {
-  const names = forbidden
-    .flatMap((name) => name.toLowerCase().split(/[^\p{L}]+/u))
-    .filter((word) => word.length >= 2);
+  const names = nameWords(forbidden);
   return texts.every((text) => {
     if (identifiers.some((pattern) => pattern.test(text)) || longNumber(text)) return false;
     const words = new Set(text.toLowerCase().split(/[^\p{L}]+/u));

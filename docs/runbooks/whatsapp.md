@@ -113,7 +113,7 @@ shares a mobile, so nobody is guessed).
 | They send | Route | Handler | Reply now |
 | --- | --- | --- | --- |
 | Typed text with an emergency phrase (checked first) | Emergency | WA-10 (live) | None: the handler sends the emergency advice and raises the call back task (see "Emergency messages") |
-| Other typed text | Typed message | WA-11 (assistant) | The three button menu |
+| Other typed text | Typed message | WA-11 (live) | None: the assistant answers straight after (see "The assistant") |
 | The menu's Book appointment | Book appointment | WA-04 (live) | The booking form (the team's contact details where it is not set up) |
 | The menu's Reschedule or cancel, or the reminder's Reschedule | Reschedule or cancel | WA-05 (live) | The reschedule form (the team's contact details where it is not set up) |
 | The menu's Talk to our team | Talk to our team | WA-09 (live) | The team's contact details |
@@ -154,6 +154,40 @@ menu.
 - **The 24 hour window:** a reply that is not a template goes only within 24 hours of the person's
   last message to us (Meta's rule); later it is kept as Not sent. The test list applies too.
 - **One reply, one message** (TAD section 6, Rules).
+
+## The assistant (WA-11)
+
+Typed text without an emergency phrase goes to the assistant (PRD section 6; TAD sections 6 and 7).
+The model only chooses (user decision, 31 October 2026); it never writes what a patient reads:
+
+| The model chooses | The patient gets (one message) |
+| --- | --- |
+| One of the approved answers | That answer, word for word, with the menu's three buttons under it (plain text if over 1024 characters) |
+| `book`, `reschedule`, `talk` | What the menu's button gets: the booking form, the reschedule form (the team's contact details where they are not set up), the team's contact details |
+| `emergency` | The emergency advice and the call back task (WA-10), as for an emergency phrase |
+| `none`, or anything not offered | The three button menu |
+
+- **The answers** (`whatsapp.assistant_faqs`, DECISION WA-11): each an id (lower case and
+  underscores), the question it answers (what the model sees) and the answer (what the patient
+  reads, at most 1000 characters). `{{centres}}` in an answer becomes each active centre's address
+  and map link, from the centres' setup. It starts with where the centres are and what to bring;
+  the clinic adds its FAQs on Settings. Never add clinical advice: health questions go to the team.
+- **The model** (`ai.task_assistant_reply`): Haiku 5.5 through OpenRouter, zero data retention and
+  no data collection, within the daily AI spend cap, prompt `assistant_reply.v1` (symptoms and
+  health questions go to the team). Clear the model on Settings and typed text gets the menu.
+- **What it is sent:** the message, cut to 500 characters, with IDs, emails, phone and other long
+  numbers and the names of the number's patients replaced by `[removed]`, and the answers' ids and
+  questions, never the answers. The gateway's identifier guard still checks it.
+- **The menu whenever the model cannot answer:** not set up, over the cap, timed out, a wrong
+  answer twice, or blocked. Every run is logged in `ai_run` (`assistant_reply`).
+- **When:** the webhook answers straight after routing, outside the routing transaction; the
+  `whatsapp.assistant_reply` job a minute later is the fallback. The answer's source key
+  (`whatsapp.assistant_reply:<message id>`) and the message's row lock make one answer whichever
+  runs.
+- **Checking it:** `pnpm ai:check` (with the environment's key) sends three made-up messages and
+  says whether each got the choice it must: directions, book, and a knee pain question to the team
+  (`docs/runbooks/ai-gateway.md`).
+- **Released in two parts:** the settings first (#176), then the code.
 
 ## The booking Flow
 

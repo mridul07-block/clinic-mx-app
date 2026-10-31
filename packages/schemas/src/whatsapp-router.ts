@@ -5,10 +5,9 @@ import type { InboundKind } from './messaging';
 /**
  * The conversation router (WA-03; TAD section 6, PRD J1.2, J1.9, J1.10). Every message sent to the
  * clinic's number gets one route: emergency phrases first, then button replies and Flow
- * completions to fixed handlers, typed text to the assistant. A route whose handler is not live
- * yet falls back (user decision, 30 October 2026): to "Talk to our team" (WA-09: the front desk
- * phone and email), or to the three button menu for typed text until the assistant (WA-11).
- * One reply is one message (TAD section 6, Rules).
+ * completions to fixed handlers, typed text to the assistant (WA-11). A route whose handler is
+ * not live yet falls back (user decision, 30 October 2026) to "Talk to our team" (WA-09: the front
+ * desk phone and email). One reply is one message (TAD section 6, Rules).
  */
 
 export const inboundRoutes = [
@@ -42,7 +41,7 @@ export const inboundRouteLabels: Record<InboundRoute, string> = {
 /**
  * The replies sent inside WhatsApp's 24 hour window: the router's own (the menu, the contact
  * details, the booking Flow, WA-04, the reschedule Flow, WA-05), the confirmation texts the Flows
- * send (until WA-07) and the thanks for a check's answer (WA-06).
+ * send (until WA-07), the thanks for a check's answer (WA-06) and the assistant's answer (WA-11).
  */
 export const sessionReplies = [
   'menu',
@@ -54,6 +53,8 @@ export const sessionReplies = [
   'check_answer',
   'appointment_confirmed',
   'emergency_advice',
+  // WA-11: one of the clinic's approved answers, with the menu's buttons under it.
+  'assistant_answer',
 ] as const;
 export type SessionReply = (typeof sessionReplies)[number];
 
@@ -67,6 +68,7 @@ export const sessionReplyLabels: Record<SessionReply, string> = {
   check_answer: 'Answer noted',
   appointment_confirmed: 'Confirm answered',
   emergency_advice: 'Emergency advice',
+  assistant_answer: 'Assistant answer',
 };
 
 /** What the router answers a route with; `none` when the handler has answered already. */
@@ -78,6 +80,7 @@ export type RouteReply =
       | 'check_answer'
       | 'appointment_confirmed'
       | 'emergency_advice'
+      | 'assistant_answer'
     >
   | 'none';
 
@@ -115,7 +118,8 @@ export const routeHandlers: Record<
   // The form already booked (or moved) and sent the confirmation text; nothing more to say.
   booking_flow: { ticket: 'WA-04', live: true, reply: 'none' },
   reschedule_flow: { ticket: 'WA-05', live: true, reply: 'none' },
-  assistant: { ticket: 'WA-11', live: false, reply: 'menu' },
+  // WA-11: the assistant chooses one of the clinic's answers or a menu choice, and answers itself.
+  assistant: { ticket: 'WA-11', live: true, reply: 'none' },
   // The handler records the answer and thanks them itself.
   check_answer: { ticket: 'WA-06', live: true, reply: 'none' },
 };

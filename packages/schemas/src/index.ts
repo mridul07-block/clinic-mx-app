@@ -1111,6 +1111,27 @@ export {
   type AiTaskConfig,
 } from './ai-gateway';
 export {
+  ASSISTANT_ANSWER_MAX,
+  ASSISTANT_FAQS_MAX,
+  ASSISTANT_MESSAGE_MAX,
+  ASSISTANT_QUESTION_MAX,
+  BUTTON_MESSAGE_MAX,
+  CENTRES_PLACEHOLDER,
+  aiAssistantInputSchema,
+  aiAssistantOutputSchema,
+  assistantActions,
+  assistantAnswerText,
+  assistantChoice,
+  assistantFaqSchema,
+  assistantFaqsSchema,
+  type AiAssistantInput,
+  type AiAssistantOutput,
+  type AssistantAction,
+  type AssistantChoice,
+  type AssistantFaq,
+  type CentreDirections,
+} from './ai-assistant';
+export {
   SUGGESTIONS_UNAVAILABLE,
   activityLabels,
   aiCaseFrom,

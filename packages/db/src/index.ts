@@ -735,6 +735,9 @@ export {
 export {
   applyDeliveryUpdate,
   centreContacts,
+  centreDirections,
+  patientNamesByPhone,
+  sourceQueued,
   inboundToRoute,
   lastInboundAt,
   markWhatsappEventProcessed,

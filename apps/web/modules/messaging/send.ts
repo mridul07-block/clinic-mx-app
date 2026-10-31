@@ -15,6 +15,7 @@ import {
   BOOKING_FLOW_TEXT,
   RESCHEDULE_FLOW_CTA,
   RESCHEDULE_FLOW_TEXT,
+  BUTTON_MESSAGE_MAX,
   MENU_BUTTONS,
   MENU_TEXT,
   TEST_TEMPLATE,
@@ -84,6 +85,12 @@ const flowMessages = {
  */
 function sessionContent(message: Message): Omit<SessionSend, 'to'> | undefined {
   if (message.templateKey === 'menu') return { text: MENU_TEXT, buttons: MENU_BUTTONS };
+  // WA-11: an approved answer with the menu's buttons under it, one message; plain text if too long.
+  if (message.templateKey === 'assistant_answer') {
+    const text = message.variables.text;
+    if (!text) throw new Error(`Reply ${message.id} has no text`);
+    return text.length <= BUTTON_MESSAGE_MAX ? { text, buttons: MENU_BUTTONS } : { text };
+  }
   if (message.templateKey === 'booking_flow' || message.templateKey === 'reschedule_flow') {
     const env = serverEnv();
     const flow = flowMessages[message.templateKey];

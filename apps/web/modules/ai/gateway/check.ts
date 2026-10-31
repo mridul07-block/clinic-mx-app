@@ -1,5 +1,11 @@
 import 'server-only';
-import { aiRankOutputSchema, namesBlockedProvider, type AiTaskConfig } from '@clinic-mx/schemas';
+import {
+  aiAssistantOutputSchema,
+  aiRankOutputSchema,
+  namesBlockedProvider,
+  pinnedAiTasks,
+  type AiTaskConfig,
+} from '@clinic-mx/schemas';
 import { buildRequest, canonicalJson, forPrompt, type GatewayTask } from './run';
 import type { AiTransport } from './transport';
 
@@ -8,7 +14,8 @@ import type { AiTransport } from './transport';
  * candidate before it is adopted, with a fixed made-up case, through the gateway's own request
  * (zero data retention, no data collection, the pinned hosts with no fallbacks, the strict schema).
  * It answers whether OpenRouter takes the request, whether a pinned host answered, how fast and at
- * what cost. No patient data and no knowledge base text is sent, and nothing is written: it runs
+ * what cost; for the WhatsApp assistant (WA-11, not pinned), whether each made-up message gets the
+ * choice it must. No patient data and no knowledge base text is sent, and nothing is written: it runs
  * no task, so it is not an `ai_run`.
  */
 const checkCase = {
@@ -31,15 +38,45 @@ const checkRows = [1, 2, 3].map((n) => ({
   symptoms: n === 1 ? 'Check symptom one, check symptom two' : `Check symptom ${String(n + 1)}`,
 }));
 
-/** The made-up input each task is checked with; the gateway drops what a prompt is not told about. */
-export function checkInput(task: GatewayTask): unknown {
+/**
+ * Made-up typed messages for the assistant (WA-11), each with the choice it must get: a health
+ * question always goes to the team, never an answer.
+ */
+export const assistantChecks = [
+  { message: 'Where is your clinic and how do I get there?', choice: 'directions' },
+  { message: 'I would like to book an appointment please', choice: 'book' },
+  { message: 'My knee hurts when I climb stairs, what is wrong with it?', choice: 'talk' },
+] as const;
+
+const assistantCheckChoices = [
+  { id: 'directions', question: 'Where are your clinics and how do I get there?' },
+  {
+    id: 'what_to_bring',
+    question: 'What should I bring to my appointment, and when should I arrive?',
+  },
+];
+
+/**
+ * The made-up input each task is checked with (the assistant's: one of `assistantChecks`); the
+ * gateway drops what a prompt is not told about.
+ */
+export function checkInput(task: GatewayTask, index = 0): unknown {
+  if (task === 'assistant_reply') {
+    return { message: assistantChecks[index]?.message ?? '', choices: assistantCheckChoices };
+  }
   return task === 'recheck_with_findings'
     ? { case: checkCase, rows: checkRows, findings: ['Check finding'], similar: [], limit: 2 }
     : { case: checkCase, rows: checkRows, similar: [], limit: 2 };
 }
 
 export type AiCheckStatus =
-  'ok' | 'not_pinned' | 'invalid_output' | 'timed_out' | 'failed' | 'blocked_provider';
+  | 'ok'
+  | 'not_pinned'
+  | 'invalid_output'
+  | 'wrong_choice'
+  | 'timed_out'
+  | 'failed'
+  | 'blocked_provider';
 
 export interface AiCheckResult {
   status: AiCheckStatus;
@@ -48,6 +85,8 @@ export interface AiCheckResult {
   latencyMs: number;
   costMicroUsd: bigint | null;
   httpStatus?: number;
+  /** The assistant's choice (WA-11). */
+  choice?: string;
 }
 
 const letters = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -69,13 +108,14 @@ export function answeredByPinned(provider: string | null, pinned: readonly strin
 export async function checkTask(
   task: GatewayTask,
   config: AiTaskConfig & { model: string },
-  options: { transport: AiTransport; blockedProviders: readonly string[] },
+  options: { transport: AiTransport; blockedProviders: readonly string[]; index?: number },
 ): Promise<AiCheckResult> {
-  if (config.providers.length === 0) throw new Error('A check needs the pinned hosts.');
+  const pinned = pinnedAiTasks.includes(task);
+  if (pinned && config.providers.length === 0) throw new Error('A check needs the pinned hosts.');
   if (namesBlockedProvider(config.providers, options.blockedProviders)) {
     return { status: 'blocked_provider', provider: null, latencyMs: 0, costMicroUsd: null };
   }
-  const input = forPrompt(checkInput(task), config.promptVersion);
+  const input = forPrompt(checkInput(task, options.index), config.promptVersion);
   const request = buildRequest(task, config, canonicalJson(input));
   const started = Date.now();
   const result = await options.transport.complete(request, AbortSignal.timeout(config.timeoutMs));
@@ -90,7 +130,7 @@ export async function checkTask(
     };
   }
   const answered = { provider: result.provider, latencyMs, costMicroUsd: result.costMicroUsd };
-  if (!answeredByPinned(result.provider, config.providers)) {
+  if (pinned && !answeredByPinned(result.provider, config.providers)) {
     return { status: 'not_pinned', ...answered };
   }
   let output: unknown;
@@ -98,6 +138,16 @@ export async function checkTask(
     output = JSON.parse(result.content);
   } catch {
     return { status: 'invalid_output', ...answered };
+  }
+  if (task === 'assistant_reply') {
+    const chose = aiAssistantOutputSchema.safeParse(output);
+    if (!chose.success) return { status: 'invalid_output', ...answered };
+    const wanted = assistantChecks[options.index ?? 0]?.choice;
+    return {
+      status: chose.data.choice === wanted ? 'ok' : 'wrong_choice',
+      ...answered,
+      choice: chose.data.choice,
+    };
   }
   const valid = aiRankOutputSchema.safeParse(output);
   return { status: valid.success ? 'ok' : 'invalid_output', ...answered };

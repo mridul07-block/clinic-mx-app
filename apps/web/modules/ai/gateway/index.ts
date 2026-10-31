@@ -1,5 +1,11 @@
 import 'server-only';
 import type { Db } from '@clinic-mx/db';
+import {
+  ASSISTANT_MESSAGE_MAX,
+  assistantChoice,
+  type AssistantChoice,
+  type AssistantFaq,
+} from '@clinic-mx/schemas';
 import type {
   AiCase,
   AiPatientContentInput,
@@ -9,6 +15,7 @@ import type {
   AiTaskConfig,
 } from '@clinic-mx/schemas';
 import type { AiSheetPass } from '../gate';
+import { redactIdentifiers } from './guard';
 import { runTask, type AiResult, type RunOptions } from './run';
 
 /**
@@ -170,4 +177,37 @@ export async function writePatientContent(
     config: call.config,
     transport: call.transport,
   });
+}
+
+/**
+ * Sorts a typed WhatsApp message (WA-11): the message with its identifiers and the number's
+ * patients' names replaced, and the approved answers' ids and questions (never the answers), in;
+ * one choice out, kept only when it is one of those offered (otherwise none). Outside any episode:
+ * the model only chooses, and the patient reads only the clinic's words.
+ */
+export async function assistantReply(
+  db: Db,
+  call: {
+    message: string;
+    faqs: readonly AssistantFaq[];
+    /** The names of the number's patients: replaced, and never sent. */
+    forbidden?: readonly string[];
+    transport?: RunOptions['transport'];
+  },
+): Promise<AiResult<AssistantChoice>> {
+  const message = redactIdentifiers(call.message, call.forbidden)
+    .slice(0, ASSISTANT_MESSAGE_MAX)
+    .trim();
+  const result = await runTask(
+    db,
+    'assistant_reply',
+    { message, choices: call.faqs.map(({ id, question }) => ({ id, question })) },
+    { episodeId: null, kbVersionId: null, forbidden: call.forbidden, transport: call.transport },
+  );
+  if (result.status !== 'ok') return result;
+  return {
+    status: 'ok',
+    runId: result.runId,
+    output: assistantChoice(result.output.choice, call.faqs),
+  };
 }

@@ -69,6 +69,8 @@ export const aiPromptVersions = [
   'write_patient_content.v1',
   'rank_diagnoses.v3',
   'recheck_with_findings.v3',
+  // WA-11: the WhatsApp assistant only chooses (an answer's id or an action), never writes.
+  'assistant_reply.v1',
 ] as const;
 export type AiPromptVersion = (typeof aiPromptVersions)[number];
 
