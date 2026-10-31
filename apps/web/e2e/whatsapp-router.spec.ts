@@ -36,6 +36,40 @@ test.afterAll(async () => {
 
 const seconds = () => String(Math.floor(Date.now() / 1000));
 
+/** Everything a test conversation made: its messages, their jobs and tasks, Meta's bodies. */
+async function removeConversation(from: string, waIds: string[]): Promise<void> {
+  // Through this transaction: the test's pool has one connection.
+  await withActor(db(), systemActor('tests'), async (tx) => {
+    const ids = (
+      await tx
+        .select({ id: message.id })
+        .from(message)
+        .where(or(eq(message.fromPhone, from), eq(message.toPhone, from)))
+    ).map((row) => row.id);
+    const events = waIds.length
+      ? (
+          await tx
+            .select({ id: whatsappEvent.id })
+            .from(whatsappEvent)
+            .where(or(...waIds.map((wa) => sql`${whatsappEvent.payload}::text like ${`%${wa}%`}`)))
+        ).map((row) => row.id)
+      : [];
+    const keys = [
+      ...ids.flatMap((id) => [
+        `whatsapp.send:${id}`,
+        `whatsapp.route:${id}`,
+        `whatsapp.assistant_reply:${id}`,
+      ]),
+      ...events.map((id) => `whatsapp.event:${id}`),
+    ];
+    if (keys.length > 0) await tx.delete(job).where(inArray(job.idempotencyKey, keys));
+    // The emergency's call back task (WA-10) names its message.
+    if (ids.length > 0) await tx.delete(task).where(sql`${task.details} ->> 'messageId' in ${ids}`);
+    if (events.length > 0) await tx.delete(whatsappEvent).where(inArray(whatsappEvent.id, events));
+    if (ids.length > 0) await tx.delete(message).where(inArray(message.id, ids));
+  });
+}
+
 test('typed text, a menu button and an emergency phrase each reach their handler', async ({
   page,
 }) => {
@@ -130,39 +164,54 @@ test('typed text, a menu button and an emergency phrase each reach their handler
       fullPage: true,
     });
   } finally {
-    // Through this transaction: the test's pool has one connection.
-    await withActor(db(), systemActor('tests'), async (tx) => {
-      const ids = (
-        await tx
-          .select({ id: message.id })
-          .from(message)
-          .where(or(eq(message.fromPhone, from), eq(message.toPhone, from)))
-      ).map((row) => row.id);
-      const events = waIds.length
-        ? (
-            await tx
-              .select({ id: whatsappEvent.id })
-              .from(whatsappEvent)
-              .where(
-                or(...waIds.map((wa) => sql`${whatsappEvent.payload}::text like ${`%${wa}%`}`)),
-              )
-          ).map((row) => row.id)
-        : [];
-      const keys = [
-        ...ids.flatMap((id) => [
-          `whatsapp.send:${id}`,
-          `whatsapp.route:${id}`,
-          `whatsapp.assistant_reply:${id}`,
-        ]),
-        ...events.map((id) => `whatsapp.event:${id}`),
-      ];
-      if (keys.length > 0) await tx.delete(job).where(inArray(job.idempotencyKey, keys));
-      // The emergency's call back task (WA-10) names its message.
-      if (ids.length > 0)
-        await tx.delete(task).where(sql`${task.details} ->> 'messageId' in ${ids}`);
-      if (events.length > 0)
-        await tx.delete(whatsappEvent).where(inArray(whatsappEvent.id, events));
-      if (ids.length > 0) await tx.delete(message).where(inArray(message.id, ids));
+    await removeConversation(from, waIds);
+  }
+});
+
+test('a reply goes straight after the message to us, not at the next job tick', async ({
+  page,
+}) => {
+  const from = fakeMobile();
+  const id = `wamid.e2e-${crypto.randomUUID()}`;
+  try {
+    const tapped = Date.now();
+    const body = webhookBody({
+      messages: [
+        {
+          from: from.slice(1),
+          id,
+          timestamp: seconds(),
+          type: 'interactive',
+          interactive: {
+            type: 'button_reply',
+            button_reply: { id: 'menu.talk', title: 'Talk to our team' },
+          },
+        },
+      ],
     });
+    expect((await postWebhook(page.request, body)).status()).toBe(200);
+    // No tick is run here: the webhook itself sends the reply (kept as Not sent in tests, with no
+    // WhatsApp token), long before the minute's tick would.
+    await expect
+      .poll(
+        async () => {
+          const [reply] = await db().select().from(message).where(eq(message.contextWaId, id));
+          if (!reply) return undefined;
+          const [send] = await db()
+            .select({ status: job.status, attempts: job.attempts })
+            .from(job)
+            .where(eq(job.idempotencyKey, `whatsapp.send:${reply.id}`));
+          return { template: reply.templateKey, reply: reply.status, send };
+        },
+        { timeout: 10_000 },
+      )
+      .toEqual({
+        template: 'contact',
+        reply: 'skipped',
+        send: { status: 'done', attempts: 1 },
+      });
+    expect(Date.now() - tapped).toBeLessThan(10_000);
+  } finally {
+    await removeConversation(from, [id]);
   }
 });

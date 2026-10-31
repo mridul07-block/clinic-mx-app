@@ -11,7 +11,6 @@ import {
   LOST_TO_FOLLOW_UP_JOB,
   NO_SHOW_MESSAGE_JOB,
   PACKAGE_EXPIRY_REMINDER_JOB,
-  BOOKING_CONFIRMATION_JOB,
   PLAN_SESSIONS_LIST_JOB,
   RECEIPT_JOB,
   RED_FLAG_SAFETY_ADVICE_JOB,
@@ -38,7 +37,6 @@ import {
   sendFollowUpCheck,
   sendNoShow,
   sendPackageExpiryReminder,
-  sendBookingConfirmation,
   sendPlanSessionsList,
   sendReceipt,
   sendRedFlagSafetyAdvice,
@@ -46,8 +44,8 @@ import {
   sendSession3Check,
 } from '../messaging/clinic-messages';
 import { runDayBeforeReminders, runMorningReminders } from '../messaging/reminders';
-import { WHATSAPP_SEND_JOB, sendQueuedMessage } from '../messaging/send';
 import { answerTypedMessage } from '../messaging/assistant';
+import { conversationJobs } from '../messaging/conversation-jobs';
 import {
   WHATSAPP_ASSISTANT_JOB,
   WHATSAPP_ROUTE_JOB,
@@ -72,17 +70,10 @@ import { runUnsignedNotesFlag } from '../tasks/unsigned-notes';
  * here; handlers must be safe to run twice, because a job may run again after a crash.
  */
 export const jobHandlers: JobHandlers = {
+  // WA-01, WA-07: the message sends and booking confirmations, also run straight after a message.
+  ...conversationJobs,
   /** Does nothing: proves the queue end to end on an environment (docs/runbooks/jobs.md). */
   'system.ping': { payload: z.object({}), run: () => Promise.resolve() },
-  /**
-   * Sends one WhatsApp message (WA-01), queued with its row by the `message_queue_send` trigger.
-   * A failure Meta may get over is thrown, so the queue tries again with its backoff.
-   */
-  [WHATSAPP_SEND_JOB]: defineJob({
-    payload: z.object({ messageId: z.guid() }),
-    run: ({ messageId }, { db, job }) =>
-      sendQueuedMessage(db, messageId, { attempt: job.attempts }),
-  }),
   /** A webhook body from Meta (WA-02); usually handled already, straight after it came. */
   [WHATSAPP_EVENT_JOB]: defineJob({
     payload: z.object({ eventId: z.guid() }),
@@ -353,20 +344,6 @@ export const jobHandlers: JobHandlers = {
     payload: z.object({ episodeId: z.guid() }),
     run: async ({ episodeId }, { db }) => {
       await runReviewBooking(db, { episodeId });
-    },
-  }),
-  /**
-   * The booking confirmation (WA-07), queued by the database for every booking not in a plan
-   * series: the same text for WhatsApp and the clinic's bookings.
-   */
-  [BOOKING_CONFIRMATION_JOB]: defineJob({
-    payload: z.object({ appointmentId: z.guid() }),
-    run: async ({ appointmentId }, { db, job }) => {
-      await sendBookingConfirmation(db, {
-        sourceKey: job.idempotencyKey ?? [job.kind, job.id].join(':'),
-        appointmentId,
-        now: new Date(),
-      });
     },
   }),
   [PLAN_SESSIONS_LIST_JOB]: defineJob({

@@ -112,6 +112,10 @@ export const message = pgTable(
     index('message_inbound_phone_idx')
       .on(table.fromPhone, table.sentAt)
       .where(sql`${table.direction} = 'inbound'`),
+    // WA-03: the messages still queued for a number, sent straight after its message to us.
+    index('message_queued_phone_idx')
+      .on(table.toPhone, table.createdAt)
+      .where(sql`${table.status} = 'queued' and ${table.direction} = 'outbound'`),
     // WA-13: the failed messages the front desk follows up, newest first.
     index('message_failed_idx')
       .on(table.statusAt)

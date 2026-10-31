@@ -190,9 +190,10 @@ test('a new patient books a consultation through the WhatsApp form, shown on the
     bookedBy: null,
     startsAt: new Date(time),
   });
-  // WA-07: the booking confirmation, queued by the database and sent by the queue. They wrote to
-  // us just now and no version is approved here, so it goes as the same text in a plain reply.
-  await tickUntil(page.request, async () => {
+  // WA-07: the booking confirmation, queued by the database and sent straight after the confirm,
+  // with no tick run here (kept as Not sent in tests, with no WhatsApp token). They wrote to us
+  // just now and no version is approved here, so it goes as the same text in a plain reply.
+  await expect(async () => {
     const [confirmation] = await db()
       .select()
       .from(message)
@@ -201,6 +202,7 @@ test('a new patient books a consultation through the WhatsApp form, shown on the
       patientId: booked?.patientId,
       kind: 'session',
       appointmentId: booked?.id,
+      status: 'skipped',
     });
     const said = String(confirmation?.variables.text);
     expect(said).toContain(`your appointment ${number} is booked for `);
@@ -209,7 +211,7 @@ test('a new patient books a consultation through the WhatsApp form, shown on the
     expect(said).toContain('Please arrive 10 minutes early and bring any reports you have.');
     expect(said).toContain('Directions: ');
     expect(said).toMatch(/call the front desk on \+91 [\d ]+ or reply to this message\.$/);
-  });
+  }).toPass({ timeout: 10_000 });
   // An unknown Flow token is refused as Meta expects (427).
   expect(
     (await flowRequest(page.request, { action: 'INIT', flow_token: crypto.randomUUID() })).status,

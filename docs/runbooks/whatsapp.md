@@ -91,8 +91,8 @@ number by configuration only.
 | A body over 1 MB | 413 |
 
 A stored body (`whatsapp_event`) queues its `whatsapp.event` job. The route handles it straight
-after answering; the job is the fallback when that fails or the server stops, and a body already
-handled is skipped. Meta retries a body we did not answer 200 for, for up to 7 days; a body it sends
+after answering, routes its messages and sends their replies (see "Reply speed"); the job is the
+fallback when that fails or the server stops, and a body already handled is skipped. Meta retries a body we did not answer 200 for, for up to 7 days; a body it sends
 twice changes nothing (statuses only move forward, a message is stored once by Meta's id).
 
 A status can arrive before the send job has recorded Meta's id for the message. Such a body stays
@@ -102,6 +102,32 @@ sent (one sent from Meta's dashboard, say) is let go.
 Handled bodies are deleted hourly (pg_cron `whatsapp-event-prune`) once older than
 `whatsapp.event_retention_days`; a body never handled goes the same number of days after it came
 (its job gave up long before and left the Super Admin a task).
+
+## Reply speed
+
+Replies go straight after the message they answer, like a conversation (user request, 1 November
+2026). Before, a reply was queued and sent at the next job tick, so it came 1 to 60 seconds later.
+
+- **The webhook:** once a message is routed (and a typed one answered by the assistant), every
+  message still queued for that number is sent at once, oldest first (`sendRepliesNow`,
+  `apps/web/modules/messaging/send-now.ts`).
+- **The Flows:** once the booking or reschedule form books or moves an appointment, its booking
+  confirmation is written and sent straight after the screen is answered (`sendFlowMessagesNow`).
+- **Never twice:** each send is the message's own `whatsapp.send` job, claimed from the queue
+  first (`runJobsNow`, `claimJobsByKey`: locked, skipping any a tick holds), then done or failed as
+  a tick would. A tick at the same moment skips it.
+- **The tick stays the fallback:** a send that fails goes back to the queue with its backoff, and
+  one the server never reached is sent at the next tick.
+- **Limits (database review, 1 November 2026):** sends are at least once, as before. A server that
+  stops after Meta took a message but before its outcome is recorded sends it again once its lease
+  (10 minutes) runs out. When two replies for one number are queued together, a tick at the same
+  moment can send the second first; the count is never wrong, only the order.
+- **What stays on the tick:** the clinic's own messages (receipts, the desk's booking
+  confirmations, reminders), within a minute as before.
+
+Measured on staging, 31 October 2026, before the change: stored and routed within 0.3 seconds, the
+assistant's choice about 4 seconds, then a wait for the tick. Locally, with the change, the reply's
+send is done about half a second after the message reaches us.
 
 ## The conversation router
 
@@ -449,7 +475,9 @@ already Sent, Failed or Not sent is never sent again, so a job that runs twice c
 | `apps/web/modules/messaging/router.test.ts` | Typed text gets the menu as a reply to it; Talk to our team from an unknown number lists every centre; a known patient is linked and gets their centre; an emergency is routed first; routed once |
 | `apps/web/modules/messaging/send.test.ts` (router replies) | The menu with its buttons and the contact details as text; Not sent after 24 hours or with no message from them; the test list |
 | `packages/db/src/integration/whatsapp-router.integration.test.ts` | The route job queued once; routed once, inbound only; replies are outbound and queue their send; a number linked only when one patient's; the last message time; centre contacts |
-| `apps/web/e2e/whatsapp-router.spec.ts` | At 360 px and desktop, with bodies signed by the test secret: typed text, Talk to our team and an emergency phrase each routed and answered once; Recent messages shows the routes and replies, never the text |
+| `apps/web/e2e/whatsapp-router.spec.ts` | At 360 px and desktop, with bodies signed by the test secret: typed text, Talk to our team and an emergency phrase each routed and answered once; Recent messages shows the routes and replies, never the text. A reply's send done straight after the message, with no tick run |
+| `packages/db/src/integration/jobs.integration.test.ts` (`runJobsNow`) | Only the named due jobs run, in order; one a tick holds is skipped and never runs twice; a failure goes back to the queue with its pause |
+| `packages/db/src/integration/messaging.integration.test.ts` (queued for a number) | The messages still queued for a number, oldest first, by their send jobs' keys |
 | `apps/web/modules/messaging/flow-crypto.test.ts` | Meta's sealing both ways with a key pair made for the test; another key or changed data refused |
 | `apps/web/app/api/flows/booking/route.test.ts` | The health check and a screen sealed as Meta expects; Meta's error notice acknowledged; 432, 421, 427, 503, 429 |
 | `apps/web/modules/messaging/router.test.ts` (booking) | Book appointment sends the form with a new session, or the contact details where it is not set up; a completed form gets no reply |
@@ -465,9 +493,11 @@ already Sent, Failed or Not sent is never sent again, so a job that runs twice c
 | `apps/web/modules/messaging/router.test.ts` (Confirm) | Confirm confirms the reminder's appointment and thanks them with its day and time, the same once confirmed; changed since: the centre's contact details; Confirm on another message: the menu |
 | `packages/db/src/integration/reminders.integration.test.ts` | The date's Booked and Confirmed appointments not started, soonest first; Confirm only for a Booked one not started; a reminder names its appointment, is queued once, and outlives a removed appointment; the next run queued once per date |
 | `apps/web/e2e/reminders.spec.ts` | At 360 px and desktop: the evening's run reaches every appointment of the day (a family on one number one each, a cancelled one left out), once; its Reschedule opens the form on that appointment; Confirm through the signed webhook confirms only that one and thanks them; the morning's run reaches every patient; the desk sees "On WhatsApp" |
-| `apps/web/e2e/booking-flow.spec.ts` | At 360 px and desktop, as Meta: Book appointment opens the form; clinic, dates, times, a physio with fee, someone new, confirm; a second confirm books nothing more; the booking on the staff calendar; a slot held by someone else refused, and one taken before confirming sends them back to the free times |
+| `apps/web/e2e/booking-flow.spec.ts` | At 360 px and desktop, as Meta: Book appointment opens the form; clinic, dates, times, a physio with fee, someone new, confirm; a second confirm books nothing more; the booking confirmation sent straight after, with no tick run; the booking on the staff calendar; a slot held by someone else refused, and one taken before confirming sends them back to the free times |
 
-Without the test list check in `sendQueuedMessage`, the unit test "keeps a clinic message to a
+Without the send in the webhook route, the end to end test "a reply goes straight after the
+message to us" fails. Without the due time check in `claimJobsByKey`, the database test "runs only
+the named due jobs" fails. Without the test list check in `sendQueuedMessage`, the unit test "keeps a clinic message to a
 number off the test list as Not sent" fails. Without the signature check in the webhook route, the
 route test "refuses a wrong, missing or other body's signature" fails. Without the status check in
 `confirmAppointment`, the database test "confirms a Booked appointment once ... a changed or

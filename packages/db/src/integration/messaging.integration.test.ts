@@ -3,7 +3,14 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
 import type { StaffMember } from '../identity';
-import { queueMessage, recentMessages, recordMessageOutcome, type NewMessage } from '../messaging';
+import {
+  queueMessage,
+  queuedSendKeys,
+  recentMessages,
+  recordMessageOutcome,
+  sendJobKey,
+  type NewMessage,
+} from '../messaging';
 import { auditEvent, job, message } from '../schema';
 import { seedStaff, seedStaffCentres } from '../seed/data';
 import { becomeStaff, testPatient } from './fake-schedule';
@@ -83,7 +90,7 @@ const sendJobs = (tx: Tx, messageId: string) =>
   tx
     .select({ kind: job.kind, status: job.status })
     .from(job)
-    .where(eq(job.idempotencyKey, `whatsapp.send:${messageId}`));
+    .where(eq(job.idempotencyKey, sendJobKey(messageId)));
 
 describe('WhatsApp messages', () => {
   it('queue their send job with them, and the Super Admin queues a test send as themselves', async () => {
@@ -177,6 +184,25 @@ describe('WhatsApp messages', () => {
         attempts: 2,
         errorCode: null,
       });
+    });
+  });
+
+  it("are found queued for a number, oldest first, by their send jobs' keys (WA-03)", async () => {
+    await rolledBack(async (tx) => {
+      const system = { createdBy: 'system:tests' };
+      const phone = '+919845099001';
+      const first = await queueMessage(tx, testSend(superAdmin, { ...system, toPhone: phone }));
+      const second = await queueMessage(tx, testSend(superAdmin, { ...system, toPhone: phone }));
+      const sent = await queueMessage(tx, testSend(superAdmin, { ...system, toPhone: phone }));
+      await queueMessage(tx, testSend(superAdmin, { ...system, toPhone: '+919845099002' }));
+      await recordMessageOutcome(tx, sent, { status: 'sent', waMessageId: 'wamid.queued-test' });
+      // All three were created in one transaction, at one time: the second is made the later.
+      await tx
+        .update(message)
+        .set({ createdAt: sql`now() + interval '1 second'` })
+        .where(eq(message.id, second));
+      expect(await queuedSendKeys(tx, phone)).toEqual([sendJobKey(first), sendJobKey(second)]);
+      expect(await sendJobs(tx, first)).toEqual([{ kind: 'whatsapp.send', status: 'queued' }]);
     });
   });
 });

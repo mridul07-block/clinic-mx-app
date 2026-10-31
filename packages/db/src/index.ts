@@ -16,6 +16,7 @@ export {
   JOB_LEASE_MINUTES,
   MAX_JOB_ATTEMPTS,
   claimJobs,
+  claimJobsByKey,
   completeJob,
   describeError,
   enqueueJob,
@@ -26,6 +27,7 @@ export {
 } from './jobs/queue';
 export {
   runDueJobs,
+  runJobsNow,
   defineJob,
   type JobHandler,
   type JobHandlers,
@@ -744,10 +746,12 @@ export {
   messageRecord,
   queueMessage,
   queueMessageOnce,
+  queuedSendKeys,
   recentMessages,
   recordInboundMessage,
   recordMessageOutcome,
   recordRoute,
+  sendJobKey,
   solePatientByPhone,
   storeWhatsappEvent,
   whatsappEventRecord,
