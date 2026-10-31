@@ -540,6 +540,7 @@ export {
 } from './message-templates';
 export {
   UNSIGNED_NOTES_FLAG_TIME,
+  EMERGENCY_CALL_TASK,
   UNSIGNED_NOTES_TASK,
   REVIEW_BOOKING_TASK,
   reviewToBookOf,
@@ -1417,7 +1418,9 @@ export {
   checkAnswerOf,
   checkAnswers,
   contactText,
+  emergencyAdviceSchema,
   emergencyPhrasesSchema,
+  emergencyReplyText,
   frontDeskEmailSchema,
   hasEmergencyPhrase,
   inboundRouteLabels,

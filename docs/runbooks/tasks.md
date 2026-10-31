@@ -63,6 +63,7 @@ Kinds so far:
 | --- | --- | --- |
 | `job.failed` | A job out of attempts (FND-10) | The Super Admin |
 | `call.no_show` | A confirmed no show (ALT-04, `docs/runbooks/no-shows.md`) | The Front Desk at the centre |
+| `call.emergency` | A WhatsApp message with an emergency phrase (WA-10, `docs/runbooks/whatsapp.md`, "Emergency messages"), urgent, one open per number; the card shows the number to call back | The Front Desk at the patient's centre, else at every centre |
 | `review.no_shows` | Missed appointments in a row (ALT-04) | The physio of the missed appointment |
 | `call.think_about_it` | "I'll think about it" still the patient's choice on day 2 (BIL-02, `docs/runbooks/plan-sheet.md`) | The Front Desk at the episode's centre |
 | `review.worsening` | A session note signed "Worse", or with "Escalate" next (ALT-02) | The consultant who signed the consultation (high), else the Centre Manager |

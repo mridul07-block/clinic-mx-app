@@ -112,7 +112,7 @@ shares a mobile, so nobody is guessed).
 
 | They send | Route | Handler | Reply now |
 | --- | --- | --- | --- |
-| Typed text with an emergency phrase (checked first) | Emergency | WA-10 | The team's contact details |
+| Typed text with an emergency phrase (checked first) | Emergency | WA-10 (live) | None: the handler sends the emergency advice and raises the call back task (see "Emergency messages") |
 | Other typed text | Typed message | WA-11 (assistant) | The three button menu |
 | The menu's Book appointment | Book appointment | WA-04 (live) | The booking form (the team's contact details where it is not set up) |
 | The menu's Reschedule or cancel, or the reminder's Reschedule | Reschedule or cancel | WA-05 (live) | The reschedule form (the team's contact details where it is not set up) |
@@ -139,6 +139,18 @@ menu.
 - **Emergency phrases** (`whatsapp.emergency_phrases`, DECISION WA-03): matched as whole words in
   any case, apostrophes ignored ("can't breathe" = "cant breathe"). The list is a draft for the
   clinical director; change it on Settings. Only typed text is checked, never a tapped button.
+- **Emergency messages** (WA-10; PRD J1.9): typed text with an emergency phrase gets, never a
+  booking or the menu:
+  - **The advice** `whatsapp.emergency_advice`, then the clinic's phone, chosen as for the contact
+    details: the patient's centre when the number is theirs alone, otherwise every active centre's
+    phone by name. A centre without a phone is left out. The advice is the standard safety text
+    ("call 112 or go to the nearest hospital emergency department now") until the clinical director
+    confirms it (DECISION WA-10); change it on Settings, keeping it to emergency services.
+  - **An urgent task** `call.emergency` for the Front Desk: at the patient's centre when the number
+    is theirs alone, otherwise at every centre. It names the message, never the number; its card
+    shows "Call +91 …" (a `tel:` link), read through `internal.task_call_back_phone` for those who
+    may read the task (never a Velyx support login). One open task per number: further messages get the advice again but add no
+    task until it is closed (user decisions, 31 October 2026). The message's text is never shown.
 - **The 24 hour window:** a reply that is not a template goes only within 24 hours of the person's
   last message to us (Meta's rule); later it is kept as Not sent. The test list applies too.
 - **One reply, one message** (TAD section 6, Rules).
@@ -343,6 +355,8 @@ already Sent, Failed or Not sent is never sent again, so a job that runs twice c
 | Only an inbound message has a route, always with its time | Check `message_route` |
 | A router reply is an outbound message of kind `session`, sent only within 24 hours of their last message | Check `message_outbound`; `sendQueuedMessage` |
 | Emergency phrases come before any other route | `routeInbound` |
+| One open emergency task per number, even for two messages at once | `raiseEmergencyTask` (`packages/db/src/emergency.ts`, a lock on the number) |
+| An emergency task's number only for those who may read the task | `internal.task_call_back_phone` (migration `emergency_reply`) |
 | Off the test list while it is on: Not sent; a test send is checked against the list when queued | `sendQueuedMessage` (`apps/web/modules/messaging/send.ts`), `sendTestMessageService` |
 | Only an approved template is sent | `templateSendable` (`packages/schemas/src/messaging.ts`) |
 

@@ -1,4 +1,4 @@
-import { createDb, job, message, systemActor, withActor, whatsappEvent } from '@clinic-mx/db';
+import { createDb, job, message, systemActor, task, withActor, whatsappEvent } from '@clinic-mx/db';
 import { expect, test } from '@playwright/test';
 import { eq, inArray, or, sql } from 'drizzle-orm';
 import { tickUntil } from './jobs';
@@ -9,8 +9,7 @@ import { postWebhook, webhookBody } from './whatsapp';
 // WA-03 done when: buttons, Flow completions, typed text and emergency phrases each reach the
 // right handler. Messages "sent to us" are bodies signed with the test app secret, as Meta would
 // send them. Typed text gets the three button menu; "Talk to our team" the front desk details; an
-// emergency phrase is routed first and, until WA-10, gets the front desk details too (user
-// decision, 30 October 2026). Tests send nothing out: the replies are kept as Not sent. Generated
+// emergency phrase is routed first and gets the emergency advice (WA-10, emergency.spec.ts). Tests send nothing out: the replies are kept as Not sent. Generated
 // numbers only; everything made is deleted after.
 
 let database: ReturnType<typeof createDb> | undefined;
@@ -73,7 +72,10 @@ test('typed text, a menu button and an emergency phrase each reach their handler
         toPhone: from,
       });
       expect(await replyTo(talk)).toMatchObject({ kind: 'session', templateKey: 'contact' });
-      expect(await replyTo(urgent)).toMatchObject({ kind: 'session', templateKey: 'contact' });
+      expect(await replyTo(urgent)).toMatchObject({
+        kind: 'session',
+        templateKey: 'emergency_advice',
+      });
       // One reply each, and tests send nothing out.
       expect((await replyTo(hello))?.status).toBe('skipped');
     });
@@ -89,7 +91,8 @@ test('typed text, a menu button and an emergency phrase each reach their handler
     await expect(rows.filter({ hasText: 'Incoming · Reply → Talk to our team' })).toHaveCount(1);
     await expect(rows.filter({ hasText: 'Incoming · Text → Emergency' })).toHaveCount(1);
     await expect(rows.filter({ hasText: 'Reply · Menu' })).toHaveCount(1);
-    await expect(rows.filter({ hasText: 'Reply · Contact details' })).toHaveCount(2);
+    await expect(rows.filter({ hasText: 'Reply · Contact details' })).toHaveCount(1);
+    await expect(rows.filter({ hasText: 'Reply · Emergency advice' })).toHaveCount(1);
     await expect(page.getByText('CHEST PAIN')).toHaveCount(0);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
@@ -122,6 +125,9 @@ test('typed text, a menu button and an emergency phrase each reach their handler
         ...events.map((id) => `whatsapp.event:${id}`),
       ];
       if (keys.length > 0) await tx.delete(job).where(inArray(job.idempotencyKey, keys));
+      // The emergency's call back task (WA-10) names its message.
+      if (ids.length > 0)
+        await tx.delete(task).where(sql`${task.details} ->> 'messageId' in ${ids}`);
       if (events.length > 0)
         await tx.delete(whatsappEvent).where(inArray(whatsappEvent.id, events));
       if (ids.length > 0) await tx.delete(message).where(inArray(message.id, ids));

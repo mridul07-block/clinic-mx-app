@@ -3,6 +3,7 @@ import {
   MENU_BUTTONS,
   checkAnswerOf,
   contactText,
+  emergencyReplyText,
   emergencyPhrasesSchema,
   frontDeskEmailSchema,
   hasEmergencyPhrase,
@@ -108,9 +109,32 @@ describe('handlers', () => {
     expect(routeHandlers.talk).toMatchObject({ live: true, reply: 'contact' });
   });
 
-  it('give the team’s contact details until a handler is live, the menu for typed text', () => {
-    expect(routeHandlers.emergency).toMatchObject({ live: false, reply: 'contact' });
+  it('give the menu for typed text until the assistant is live', () => {
     expect(routeHandlers.assistant).toMatchObject({ live: false, reply: 'menu' });
+  });
+
+  // WA-10: the handler sends the emergency advice and raises the task itself.
+  it('answer an emergency phrase with the advice, the handler answering', () => {
+    expect(routeHandlers.emergency).toMatchObject({ ticket: 'WA-10', live: true, reply: 'none' });
+  });
+
+  // WA-10 (user decision, 31 October 2026): the advice, then the clinic's number; every centre's,
+  // by name, for a number not one patient's; a centre without a phone left out.
+  it('give the emergency advice with the clinic’s number', () => {
+    const advice = 'If this is a medical emergency, call 112 now.';
+    expect(emergencyReplyText(advice, [{ name: 'HSR Layout', phone: '+918041234567' }])).toBe(
+      'If this is a medical emergency, call 112 now. To reach the clinic, call +91 80 4123 4567.',
+    );
+    expect(
+      emergencyReplyText(advice, [
+        { name: 'HSR Layout', phone: '+918041234567' },
+        { name: 'Koramangala', phone: null },
+        { name: 'Whitefield', phone: '+919845012345' },
+      ]),
+    ).toBe(
+      'If this is a medical emergency, call 112 now. To reach the clinic, call HSR Layout +91 80 4123 4567, Whitefield +91 98450 12345.',
+    );
+    expect(emergencyReplyText(advice, [{ name: 'HSR Layout', phone: null }])).toBe(advice);
   });
 
   // WA-08: the day before reminder's Confirm (its quick reply payload) confirms its appointment;

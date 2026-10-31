@@ -3,7 +3,11 @@ import { aiSheetSettingSchema } from './ai';
 import { aiLongTaskConfigSchema, aiTaskConfigSchema } from './ai-gateway';
 import { redFlagTiers } from './knowledge';
 import { testRecipientsSchema } from './messaging';
-import { emergencyPhrasesSchema, frontDeskEmailSchema } from './whatsapp-router';
+import {
+  emergencyAdviceSchema,
+  emergencyPhrasesSchema,
+  frontDeskEmailSchema,
+} from './whatsapp-router';
 
 /**
  * Business rules that the Super Admin changes without a code release (rule 6, PRD section 7).
@@ -761,6 +765,14 @@ export const settingDefinitions = {
       'PRD J1.9 and TAD section 6 (emergency phrases go to the emergency reply first); WA-03 draft, user decision 30 October 2026, for the clinical director to confirm',
     description:
       'Words and short phrases that mark a WhatsApp message as an emergency, matched as whole words in any case, for example "chest pain". Checked before anything else.',
+  },
+  // DECISION WA-10: the standard safety text until the clinical director confirms the wording.
+  'whatsapp.emergency_advice': {
+    schema: emergencyAdviceSchema,
+    source:
+      'PRD J1.9 (emergency words get emergency advice and the clinic number); WA-10, user decision 31 October 2026, for the clinical director to confirm',
+    description:
+      'What a WhatsApp message with an emergency phrase is told first; the clinic phone follows. Keep it to emergency services, not medical advice.',
   },
   // DECISION WA-03: the clinic's front desk email, set by the Super Admin.
   'whatsapp.front_desk_email': {

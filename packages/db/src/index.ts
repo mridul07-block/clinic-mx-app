@@ -823,3 +823,4 @@ export {
   type ExerciseVideo,
   type LibraryExercise,
 } from './exercises';
+export { raiseEmergencyTask } from './emergency';

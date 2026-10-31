@@ -71,6 +71,12 @@ From `main`, after `git pull` (`scripts/migrate-staging.mjs`): the steps of
 settings from `apps/web/.env.local`. Nothing goes through a shell and the database address is
 never printed. Vercel still deploys on its own; check `/api/health` serves the merge commit.
 
+**Before the merge instead,** from the branch once its checks pass, when the app needs what the
+migration adds: a new setting (`parseSettings` refuses to load any setting while a registered one
+has no row, so the deployed app would fail every settings read until the migration ran), or a new
+function or column the app calls. Such a migration must also be safe for the app still deployed,
+which ignores settings it does not know (WA-10).
+
 ## Backups
 
 The nightly backup also runs on GitHub Actions and is paused with it. Until runners are back, take

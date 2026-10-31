@@ -6,6 +6,7 @@ import {
   UNSIGNED_NOTES_TASK,
   can,
   documentDateTime,
+  formatIndianPhone,
   formatIstDate,
   formatIstDateTime,
   reassessmentIdOf,
@@ -124,6 +125,19 @@ function KbReportLink({ details, reads }: { details: Record<string, unknown>; re
   );
 }
 
+/** The number an emergency message came from (WA-10): the desk calls it straight back. */
+function CallBack({ phone }: { phone: string }) {
+  return (
+    <a
+      href={['tel:', phone].join('')}
+      data-testid="call-back"
+      className="self-start text-sm font-semibold text-accent underline underline-offset-2 pointer-coarse:py-3"
+    >
+      Call {formatIndianPhone(phone)}
+    </a>
+  );
+}
+
 /** The reassessment a review task opens (OUT-05). */
 function ReassessmentLink({ details }: { details: Record<string, unknown> }) {
   const id = reassessmentIdOf(details);
@@ -197,6 +211,7 @@ function TaskCard({
             <p className="text-sm text-ink">{task.patientName}</p>
           )
         ) : null}
+        {task.callBackPhone ? <CallBack phone={task.callBackPhone} /> : null}
         {task.kind === 'job.failed' ? <JobFailure details={task.details} /> : null}
         {task.kind === UNSIGNED_NOTES_TASK ? <UnsignedNotes details={task.details} /> : null}
         {task.kind === REVIEW_BOOKING_TASK ? <ReviewToBook details={task.details} /> : null}
