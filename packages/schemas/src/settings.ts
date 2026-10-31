@@ -75,8 +75,15 @@ export const settingDefinitions = {
   'live.refresh_seconds': {
     schema: z.int().positive(),
     source:
-      'User decision 22 October 2026 (SCH-05): live screens check for changes every 3 seconds until the realtime relay (FND-09)',
-    description: 'How often live screens, such as the calendar, check for changes, in seconds.',
+      'User decision 22 October 2026 (SCH-05): live screens check for changes every 3 seconds until the realtime relay (FND-09); FND-09, user decision 31 October 2026: still so whenever the relay is not connected',
+    description:
+      'How often live screens, such as the calendar, check for changes on their own, in seconds, while the realtime relay is not connected.',
+  },
+  'live.connected_check_seconds': {
+    schema: z.int().min(5).max(120),
+    source: 'TAD section 8 (15 second polling fallback); FND-09, user decision 31 October 2026',
+    description:
+      'How often live screens still check for changes on their own while the realtime relay is connected, in seconds; the relay tells them at once when something changes.',
   },
   'billing.consultation_price_items': {
     schema: z.array(priceItemKey).min(1),

@@ -17,9 +17,11 @@ from it (SCH-07, below).
 
 From the user (22 October 2026):
 
-- **Live updates check every 3 seconds** (`live.refresh_seconds`) until the realtime relay
-  (FND-09), which waits for the clinic domain. The header says "Live, updated n s ago". After a
-  failed check it says "Not updated for n s. Checking again." in amber.
+- **Live updates check every 3 seconds** (`live.refresh_seconds`) while the realtime relay
+  (FND-09) is not connected. Where it is, the calendar checks at once when its centre changes and
+  every `live.connected_check_seconds` otherwise (`docs/runbooks/live-relay.md`). The header says
+  "Live, updated n s ago". After a failed check it says "Not updated for n s. Checking again." in
+  amber.
 - **A free slot opens the drawer.** It shows the physio, the time and each appointment type with
   "Fits, 45 min" or why it does not fit (the slot engine's words). Booking a patient there comes
   with SCH-07.
@@ -438,7 +440,7 @@ The check carries the `x-clinic-live` header (`apps/web/lib/live.ts`):
 - **It is never logged as a page a support login asked for** (IAM-08).
 - **It stays on our domain** (rule 9), and the proxy keeps the session fresh.
 
-When FND-09's relay arrives, the same component listens for changes instead of asking.
+With FND-09's relay connected, the same check runs at once when the relay says the centre changed (`scheduleLiveChecks`), and every `live.connected_check_seconds` otherwise.
 
 ## Data
 

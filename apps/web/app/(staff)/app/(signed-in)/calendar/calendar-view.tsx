@@ -6,6 +6,8 @@ import { LIVE_HEADER } from '../../../../../lib/live';
 import { AgendaList } from './agenda-list';
 import { DayGrid } from './day-grid';
 import { reviveDay, type CalendarDayJson } from './links';
+import { scheduleLiveChecks } from '../../../../../lib/live-relay';
+import { useLiveRelay } from '../../../../../lib/live-relay-context';
 
 /**
  * The live calendar (SCH-05): the day as the server drew it, then checked every
@@ -53,6 +55,8 @@ export function CalendarView({
     };
   }, []);
 
+  const { relay, connectedSeconds } = useLiveRelay();
+
   useEffect(() => {
     let stopped = false;
     const check = async () => {
@@ -75,12 +79,17 @@ export function CalendarView({
         if (!stopped) setFailing(true);
       }
     };
-    const timer = setInterval(() => void check(), refreshSeconds * 1000);
+    // FND-09: at once when the realtime relay says this centre changed; on its own otherwise.
+    const stop = scheduleLiveChecks(relay, check, {
+      refreshSeconds,
+      connectedSeconds,
+      centres: [centreId],
+    });
     return () => {
       stopped = true;
-      clearInterval(timer);
+      stop();
     };
-  }, [centreId, date, refreshSeconds]);
+  }, [centreId, date, refreshSeconds, relay, connectedSeconds]);
 
   const seconds = Math.max(0, Math.round((now - checkedAt) / 1000));
   return (

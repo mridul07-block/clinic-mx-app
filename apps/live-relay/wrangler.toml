@@ -1,0 +1,19 @@
+# The realtime relay (FND-09; docs/runbooks/live-relay.md). On *.workers.dev until the clinic's
+# domain (FND-05). Secrets are set with `wrangler secret put`, never here: TOKEN_SECRET (the app's
+# LIVE_RELAY_TOKEN_SECRET) and SIGNAL_SECRET (Vault's live_relay_signal_secret).
+name = "clinic-mx-live-relay"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGINS = "https://clinic-mx-app.vercel.app"
+
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "LiveHub"
+
+# SQLite backed: the kind the free plan offers. The hub stores nothing.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["LiveHub"]

@@ -18,6 +18,8 @@ import { LIVE_HEADER } from '../../../../../lib/live';
 import { todayHref } from '../../../../../modules/front-desk/links';
 import { calendarHref } from '../../../../../modules/scheduling/links';
 import { shownStatus, shownStatusLabels, stripClass, timeOf } from '../calendar/calendar-block';
+import { scheduleLiveChecks } from '../../../../../lib/live-relay';
+import { useLiveRelay } from '../../../../../lib/live-relay-context';
 
 /** A Today row with its session (SES-01). */
 type TodayRow = TodayAppointment & {
@@ -100,6 +102,8 @@ export function TodayBoard({
     };
   }, []);
 
+  const { relay, connectedSeconds } = useLiveRelay();
+
   useEffect(() => {
     let stopped = false;
     const check = async () => {
@@ -125,12 +129,17 @@ export function TodayBoard({
         if (!stopped) setFailing(true);
       }
     };
-    const timer = setInterval(() => void check(), refreshSeconds * 1000);
+    // FND-09: at once when the realtime relay says this centre changed; on its own otherwise.
+    const stop = scheduleLiveChecks(relay, check, {
+      refreshSeconds,
+      connectedSeconds,
+      centres: [centreId],
+    });
     return () => {
       stopped = true;
-      clearInterval(timer);
+      stop();
     };
-  }, [centreId, date, refreshSeconds]);
+  }, [centreId, date, refreshSeconds, relay, connectedSeconds]);
 
   const pick = (next: TodayFilter | undefined) => {
     setFilter(next);

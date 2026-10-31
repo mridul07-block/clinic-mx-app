@@ -18,6 +18,8 @@ import { Tag } from '../../../../../components/tag';
 import { LIVE_HEADER } from '../../../../../lib/live';
 import { shownStatus, shownStatusLabels, stripClass, timeOf } from '../calendar/calendar-block';
 import { StartButton } from './start-button';
+import { scheduleLiveChecks } from '../../../../../lib/live-relay';
+import { useLiveRelay } from '../../../../../lib/live-relay-context';
 
 /** A visit with its session (SES-01), and who covered it (SES-08). */
 type MyPatientRow = MyPatientVisit & { session: SessionView | null; coveredBy: string | null };
@@ -101,6 +103,8 @@ export function MyPatientsList({
     };
   }, []);
 
+  const { relay, connectedSeconds } = useLiveRelay();
+
   useEffect(() => {
     let stopped = false;
     const check = async () => {
@@ -123,12 +127,17 @@ export function MyPatientsList({
         if (!stopped) setFailing(true);
       }
     };
-    const timer = setInterval(() => void check(), refreshSeconds * 1000);
+    // FND-09: at once when the realtime relay says a centre changed; on its own otherwise.
+    const stop = scheduleLiveChecks(relay, check, {
+      refreshSeconds,
+      connectedSeconds,
+      centres: 'any',
+    });
     return () => {
       stopped = true;
-      clearInterval(timer);
+      stop();
     };
-  }, [refreshSeconds]);
+  }, [refreshSeconds, relay, connectedSeconds]);
 
   const seconds = Math.max(0, Math.round((now - checkedAt) / 1000));
   return (

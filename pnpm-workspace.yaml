@@ -17,3 +17,6 @@ allowBuilds:
   # install scripts only re-check it, so they stay denied.
   esbuild: false
   unrs-resolver: false
+  # The Worker runtime (FND-09, wrangler): its binary also comes from a platform optional
+  # dependency, and its install script only re-checks it.
+  workerd: false
