@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import type { Db } from '../client';
 import type { Job } from '../schema';
-import { claimJobs, completeJob, failJob, staleJobs } from './queue';
+import { claimJobs, claimJobsByKey, completeJob, failJob, staleJobs } from './queue';
 
 /** What runs one kind of job: its payload schema and the work. Must be safe to repeat. */
 export interface JobHandler<S extends z.ZodType = z.ZodType> {
@@ -55,18 +55,42 @@ export async function runDueJobs(
     const batch = await claimJobs(db, batchSize);
     if (batch.length === 0) break;
     result.claimed += batch.length;
-    for (const claimed of batch) {
-      try {
-        const handler = handlers[claimed.kind];
-        if (!handler) throw new Error(`No handler for job kind "${claimed.kind}"`);
-        await handler.run(handler.payload.parse(claimed.payload), { db, job: claimed });
-        await completeJob(db, claimed.id);
-        result.done++;
-      } catch (error) {
-        await failJob(db, claimed, error);
-        result.failed++;
-      }
-    }
+    for (const claimed of batch) await runClaimed(db, handlers, claimed, result);
   }
   return result;
+}
+
+/**
+ * Runs the due jobs with these idempotency keys now, in the keys' order, rather than at the next
+ * tick (a WhatsApp reply, WA-03): claimed, run, then done or failed exactly as a tick would, so a
+ * failure is tried again by the tick with its backoff. One not due, or claimed already, is left.
+ */
+export async function runJobsNow(
+  db: Db,
+  handlers: JobHandlers,
+  keys: readonly string[],
+): Promise<TickResult> {
+  const result: TickResult = { claimed: 0, done: 0, failed: 0, timedOut: 0 };
+  const claimed = await claimJobsByKey(db, keys);
+  result.claimed = claimed.length;
+  for (const one of claimed) await runClaimed(db, handlers, one, result);
+  return result;
+}
+
+async function runClaimed(
+  db: Db,
+  handlers: JobHandlers,
+  claimed: Job,
+  result: TickResult,
+): Promise<void> {
+  try {
+    const handler = handlers[claimed.kind];
+    if (!handler) throw new Error(`No handler for job kind "${claimed.kind}"`);
+    await handler.run(handler.payload.parse(claimed.payload), { db, job: claimed });
+    await completeJob(db, claimed.id);
+    result.done++;
+  } catch (error) {
+    await failJob(db, claimed, error);
+    result.failed++;
+  }
 }

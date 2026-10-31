@@ -3,8 +3,15 @@ import { z } from 'zod';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
-import { MAX_JOB_ATTEMPTS, claimJobs, enqueueJob, failJob, retryDelayMinutes } from '../jobs/queue';
-import { runDueJobs, type JobHandlers } from '../jobs/runner';
+import {
+  MAX_JOB_ATTEMPTS,
+  claimJobs,
+  claimJobsByKey,
+  enqueueJob,
+  failJob,
+  retryDelayMinutes,
+} from '../jobs/queue';
+import { runDueJobs, runJobsNow, type JobHandlers } from '../jobs/runner';
 import { job, task } from '../schema';
 
 // Runs against the CI database only (FND-10 done when: jobs claimed with skip locked; 5 retries
@@ -184,6 +191,66 @@ describe('runDueJobs', () => {
     const [row] = await first.db.select().from(job);
     expect(row).toMatchObject({ status: 'queued', attempts: 1 });
     expect(row?.lastError).toContain('lease');
+  });
+});
+
+describe('runJobsNow', () => {
+  const keyed = (key: string, kind = 'test.ok', runAt?: Date) =>
+    enqueueJob(first.db, { kind, idempotencyKey: key, ...(runAt ? { runAt } : {}) });
+  const statusOf = async (key: string) =>
+    (await first.db.select().from(job).where(eq(job.idempotencyKey, key)))[0];
+
+  it("runs only the named due jobs, in the keys' order, and marks them done", async () => {
+    const order: string[] = [];
+    const recorder: JobHandlers = {
+      'test.ok': {
+        payload: z.object({}),
+        run: (_, { job: ran }) => {
+          order.push(ran.idempotencyKey ?? '');
+          return Promise.resolve();
+        },
+      },
+    };
+    await keyed('reply:b');
+    await keyed('reply:a');
+    await keyed('other:c');
+    await keyed('later:d', 'test.ok', new Date(Date.now() + 60_000));
+    const result = await runJobsNow(first.db, recorder, ['reply:a', 'reply:b', 'later:d']);
+    expect(order).toEqual(['reply:a', 'reply:b']);
+    expect(result).toEqual({ claimed: 2, done: 2, failed: 0, timedOut: 0 });
+    expect((await statusOf('reply:a'))?.status).toBe('done');
+    expect((await statusOf('other:c'))?.status).toBe('queued');
+    expect((await statusOf('later:d'))?.status).toBe('queued');
+  });
+
+  it('never runs a job a tick holds, and a tick never takes one it holds', async () => {
+    await keyed('reply:held');
+    await keyed('reply:free');
+    const [byTick, now] = await first.db.transaction(async (tx) => {
+      const tick = await claimJobsByKey(tx, ['reply:held']);
+      // A tick holds one locked; the webhook at the same moment, on another connection.
+      const ran = await runJobsNow(second.db, ok, ['reply:held', 'reply:free']);
+      return [tick, ran];
+    });
+    expect(byTick).toHaveLength(1);
+    expect(now.claimed).toBe(1);
+    expect((await statusOf('reply:free'))?.status).toBe('done');
+    expect((await statusOf('reply:held'))?.status).toBe('running');
+    // The free one ran now: the next tick finds nothing left, and running it again does nothing.
+    expect(await claimJobs(third.db, 10)).toEqual([]);
+    expect(await runJobsNow(third.db, ok, ['reply:free', 'reply:held'])).toMatchObject({
+      claimed: 0,
+    });
+  });
+
+  it('leaves a failure to the tick, queued again after its pause', async () => {
+    await keyed('reply:fails', 'test.fails');
+    const result = await runJobsNow(first.db, ok, ['reply:fails']);
+    expect(result).toMatchObject({ claimed: 1, failed: 1 });
+    const failed = await statusOf('reply:fails');
+    expect(failed).toMatchObject({ status: 'queued', attempts: 1 });
+    expect(failed?.lastError).toContain('Provider unavailable');
+    expect(failed?.runAt.getTime()).toBeGreaterThan(Date.now());
   });
 });
 

@@ -18,6 +18,8 @@ const router = vi.hoisted(() => ({ routeInboundMessage: vi.fn() }));
 vi.mock('../../../../modules/messaging/router', () => router);
 const assistant = vi.hoisted(() => ({ answerTypedMessage: vi.fn() }));
 vi.mock('../../../../modules/messaging/assistant', () => assistant);
+const sendNow = vi.hoisted(() => ({ sendRepliesNow: vi.fn() }));
+vi.mock('../../../../modules/messaging/send-now', () => sendNow);
 const later = vi.hoisted(() => ({ tasks: [] as (() => Promise<void>)[] }));
 vi.mock('next/server', () => ({
   after: (task: () => Promise<void>) => later.tasks.push(task),
@@ -83,6 +85,7 @@ describe('POST /api/whatsapp/webhook', () => {
       skipped: false,
     });
     router.routeInboundMessage.mockReset();
+    sendNow.sendRepliesNow.mockReset();
     later.tasks = [];
   });
 
@@ -121,6 +124,15 @@ describe('POST /api/whatsapp/webhook', () => {
     ]);
     // WA-11: typed text gets the assistant's answer straight after, outside the routing.
     expect(assistant.answerTypedMessage.mock.calls).toEqual([[{}, 'message-1']]);
+    // And each reply is sent now, after its answer, not at the next tick.
+    expect(sendNow.sendRepliesNow.mock.calls).toEqual([
+      [{}, 'message-1'],
+      [{}, 'message-2'],
+      [{}, 'message-3'],
+    ]);
+    const [answered] = assistant.answerTypedMessage.mock.invocationCallOrder;
+    const [sent] = sendNow.sendRepliesNow.mock.invocationCallOrder;
+    expect(answered).toBeLessThan(sent ?? 0);
   });
 
   it('leaves a failed handling to the job, still answering 200', async () => {

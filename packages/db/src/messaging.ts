@@ -334,6 +334,30 @@ export async function sourceQueued(db: DbOrTransaction, sourceKey: string): Prom
   return row !== undefined;
 }
 
+/** A message's send job's key, as the `message_queue_send` trigger sets it. */
+export function sendJobKey(messageId: string): string {
+  return `whatsapp.send:${messageId}`;
+}
+
+/**
+ * The send jobs' keys of the messages still queued for this number, oldest first: its replies,
+ * sent straight after its message to us (WA-03).
+ */
+export async function queuedSendKeys(db: DbOrTransaction, phone: string): Promise<string[]> {
+  const rows = await db
+    .select({ id: message.id })
+    .from(message)
+    .where(
+      and(
+        eq(message.toPhone, phone),
+        eq(message.status, 'queued'),
+        eq(message.direction, 'outbound'),
+      ),
+    )
+    .orderBy(asc(message.createdAt));
+  return rows.map((row) => sendJobKey(row.id));
+}
+
 /** When this number last wrote to us, for WhatsApp's 24 hour window. */
 export async function lastInboundAt(db: DbOrTransaction, phone: string): Promise<Date | null> {
   const [row] = await db

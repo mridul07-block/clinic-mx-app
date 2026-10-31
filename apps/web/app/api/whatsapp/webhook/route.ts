@@ -5,6 +5,7 @@ import { serverEnv } from '../../../../lib/env';
 import { requestAddress } from '../../../../lib/network';
 import { answerTypedMessage } from '../../../../modules/messaging/assistant';
 import { routeInboundMessage } from '../../../../modules/messaging/router';
+import { sendRepliesNow } from '../../../../modules/messaging/send-now';
 import { handleWhatsappEvent, receiveWhatsappWebhook } from '../../../../modules/messaging/webhook';
 import {
   validVerifyToken,
@@ -15,10 +16,9 @@ import { count, limited, networkKey } from '../../../../modules/rate-limits/limi
 // Meta's WhatsApp webhook (WA-02; TAD sections 5 and 6, docs/runbooks/whatsapp.md). GET answers
 // Meta's subscribe check; POST takes delivery statuses and inbound messages. A body is accepted
 // only with the app secret's signature over its exact bytes; it is stored, which queues its job,
-// and answered at once, then handled and its messages routed straight after (the jobs are the
-// fallback). Wrong signatures
-// and verify tokens are limited per network like the job tick (IAM-11). Nothing of a body is ever
-// logged.
+// and answered at once, then handled, its messages routed and their replies sent straight after
+// (the jobs are the fallback). Wrong signatures and verify tokens are limited per network like the
+// job tick (IAM-11). Nothing of a body is ever logged.
 export const dynamic = 'force-dynamic';
 
 /** Larger than any body Meta sends (a technical limit, not a business rule). */
@@ -89,10 +89,12 @@ export async function POST(request: Request): Promise<Response> {
         if (routed.route === 'assistant' && !routed.skipped) {
           await answerTypedMessage(db, messageId);
         }
+        // And the reply sent now, like a conversation, not at the next tick.
+        await sendRepliesNow(db, messageId);
       }
     } catch {
-      // Its `whatsapp.event`, `whatsapp.route` and `whatsapp.assistant_reply` jobs handle it at
-      // the next tick, and try again after a failure.
+      // Its `whatsapp.event`, `whatsapp.route`, `whatsapp.assistant_reply` and `whatsapp.send`
+      // jobs handle it at the next tick, and try again after a failure.
     }
   });
   return Response.json({ received: true }, { headers: { 'Cache-Control': 'no-store' } });

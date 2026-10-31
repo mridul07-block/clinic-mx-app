@@ -1,4 +1,5 @@
 import 'server-only';
+import { after } from 'next/server';
 import { z } from 'zod';
 import { serverEnv } from '../../lib/env';
 import { requestAddress } from '../../lib/network';
@@ -16,7 +17,8 @@ import { validWebhookSignature } from './webhook-signature';
 // Meta posts each screen signed with the app secret and sealed with our public key; the answer
 // goes back sealed with the same one-time key. A wrong signature is 432, a request we cannot open
 // 421 (Meta fetches our key again), a Flow token we do not know (or of the other Flow) 427.
-// Refused calls are limited per network like the webhook. Nothing of a request is ever logged.
+// Refused calls are limited per network like the webhook. A booking or move's confirmation is sent
+// straight after the screen is answered. Nothing of a request is ever logged.
 
 /** Larger than any request Meta sends (a technical limit, not a business rule). */
 const MAX_BODY_BYTES = 200_000;
@@ -36,9 +38,13 @@ const decrypted = z.object({
 
 const plain = (status: number) => new Response(null, { status });
 
-/** The POST handler of one Flow's endpoint, handing each opened screen to `step`. */
+/**
+ * The POST handler of one Flow's endpoint, handing each opened screen to `step`, then running
+ * `afterStep` with its Flow token once the screen is answered (a booking's confirmation, sent now).
+ */
 export function flowEndpoint(
   step: (request: FlowStepRequest) => Promise<FlowStepResult>,
+  afterStep?: (flowToken: string) => Promise<void>,
 ): (request: Request) => Promise<Response> {
   return async (request) => {
     const env = serverEnv();
@@ -87,13 +93,12 @@ export function flowEndpoint(
     if (data && ('error' in data || 'error_message' in data) && !('step' in data)) {
       return answer({ data: { acknowledged: true } });
     }
-    const result = await step({
-      action,
-      screen: parsed.data.screen,
-      data,
-      flow_token: parsed.data.flow_token ?? '',
-    });
+    const flowToken = parsed.data.flow_token ?? '';
+    const result = await step({ action, screen: parsed.data.screen, data, flow_token: flowToken });
     if ('unknownToken' in result) return plain(427);
+    // Once the form books or moves an appointment, its confirmation is sent now, not at the next
+    // tick; the job is the fallback.
+    if (afterStep) after(() => afterStep(flowToken).catch(() => undefined));
     return answer(result);
   };
 }

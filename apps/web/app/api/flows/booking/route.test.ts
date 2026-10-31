@@ -19,6 +19,12 @@ vi.mock('../../../../modules/rate-limits/limits', () => limits);
 vi.mock('../../../../lib/db', () => ({ appDb: () => ({}) }));
 const flow = vi.hoisted(() => ({ bookingFlowStep: vi.fn() }));
 vi.mock('../../../../modules/messaging/booking-flow', () => flow);
+const sendNow = vi.hoisted(() => ({ sendFlowMessagesNow: vi.fn() }));
+vi.mock('../../../../modules/messaging/send-now', () => sendNow);
+const later = vi.hoisted(() => ({ tasks: [] as (() => Promise<unknown>)[] }));
+vi.mock('next/server', () => ({
+  after: (task: () => Promise<unknown>) => later.tasks.push(task),
+}));
 
 // WA-04: the booking Flow's data endpoint answers only Meta: signed with the app secret, sealed
 // with our public key; it answers sealed, and refuses with the codes Meta acts on.
@@ -81,6 +87,8 @@ describe('POST /api/flows/booking', () => {
     limits.count.mockReset();
     limits.limited.mockReset().mockResolvedValue({ limited: false, retryAfterSeconds: 0 });
     flow.bookingFlowStep.mockReset();
+    sendNow.sendFlowMessagesNow.mockReset().mockResolvedValue(undefined);
+    later.tasks = [];
   });
 
   it('answers Meta’s health check, sealed as Meta expects', async () => {
@@ -104,6 +112,18 @@ describe('POST /api/flows/booking', () => {
       {},
       { action: 'INIT', screen: undefined, data: undefined, flow_token: 'token-1' },
     );
+    // Straight after answering: the session's booking confirmation, if it booked, sent now.
+    expect(sendNow.sendFlowMessagesNow).not.toHaveBeenCalled();
+    await later.tasks[0]?.();
+    expect(sendNow.sendFlowMessagesNow).toHaveBeenCalledWith({}, 'token-1');
+  });
+
+  it('still answers when sending the confirmation now fails, leaving it to the job', async () => {
+    flow.bookingFlowStep.mockResolvedValue({ screen: 'DONE', data: {} });
+    sendNow.sendFlowMessagesNow.mockRejectedValue(new Error('database busy'));
+    const { raw } = sealed({ version: '3.0', action: 'data_exchange', flow_token: 'token-1' });
+    expect((await post(raw)).status).toBe(200);
+    await expect(later.tasks[0]?.()).resolves.toBeUndefined();
   });
 
   it('acknowledges Meta’s notice of an error it showed', async () => {
@@ -137,6 +157,7 @@ describe('POST /api/flows/booking', () => {
     flow.bookingFlowStep.mockResolvedValue({ unknownToken: true });
     const { raw } = sealed({ action: 'INIT', flow_token: 'gone' });
     expect((await post(raw)).status).toBe(427);
+    expect(later.tasks).toEqual([]);
   });
 
   it('refuses everything while the key or the app secret is not set, and over the limit', async () => {

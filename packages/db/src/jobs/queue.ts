@@ -63,26 +63,56 @@ export async function claimJobs(db: DbOrTransaction, limit: number): Promise<Job
       .orderBy(job.runAt)
       .limit(limit)
       .for('update', { skipLocked: true });
-    if (due.length === 0) return [];
-    return tx
-      .update(job)
-      .set({
-        status: 'running',
-        attempts: sql`${job.attempts} + 1`,
-        claimedAt: sql`now()`,
-        updatedAt: sql`now()`,
-      })
+    return markRunning(tx, due);
+  });
+}
+
+/**
+ * Claims the due jobs with these idempotency keys, to run now rather than at the next tick (a
+ * WhatsApp reply, WA-03). Locked and marked as `claimJobs` does, so a tick at the same time skips
+ * them, and one claimed already is left alone: none runs twice. Returned in the keys' order.
+ */
+export async function claimJobsByKey(db: DbOrTransaction, keys: readonly string[]): Promise<Job[]> {
+  if (keys.length === 0) return [];
+  const claimed = await db.transaction(async (tx) => {
+    const due = await tx
+      .select({ id: job.id })
+      .from(job)
       .where(
         and(
-          inArray(
-            job.id,
-            due.map((row) => row.id),
-          ),
+          inArray(job.idempotencyKey, [...keys]),
           eq(job.status, 'queued'),
+          lte(job.runAt, sql`now()`),
         ),
       )
-      .returning();
+      .for('update', { skipLocked: true });
+    return markRunning(tx, due);
   });
+  const order = (row: Job) => keys.indexOf(row.idempotencyKey ?? '');
+  return claimed.sort((a, b) => order(a) - order(b));
+}
+
+/** Marks locked due jobs running, one more attempt; only those still queued. */
+async function markRunning(tx: DbOrTransaction, due: { id: string }[]): Promise<Job[]> {
+  if (due.length === 0) return [];
+  return tx
+    .update(job)
+    .set({
+      status: 'running',
+      attempts: sql`${job.attempts} + 1`,
+      claimedAt: sql`now()`,
+      updatedAt: sql`now()`,
+    })
+    .where(
+      and(
+        inArray(
+          job.id,
+          due.map((row) => row.id),
+        ),
+        eq(job.status, 'queued'),
+      ),
+    )
+    .returning();
 }
 
 export async function completeJob(db: DbOrTransaction, id: string): Promise<void> {
