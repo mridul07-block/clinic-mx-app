@@ -14,6 +14,9 @@ coverage/
 *.tsbuildinfo
 next-env.d.ts
 .vercel/
+# wrangler's local Worker state (FND-09 relay tests and wrangler dev)
+.wrangler/
+.dev.vars
 
 # Test output
 playwright-report/

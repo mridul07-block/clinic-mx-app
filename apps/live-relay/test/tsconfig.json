@@ -1,0 +1,8 @@
+{
+  "//": "The tests run in Node and start the Worker with wrangler; the Worker's own code is checked by ../tsconfig.json.",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM"]
+  },
+  "include": ["."]
+}

@@ -9,7 +9,12 @@ const nextConfig: NextConfig = {
   // drops the router's `_rsc` query itself.
   skipProxyUrlNormalize: true,
   // Workspace packages export TypeScript source; Next compiles them with the app.
-  transpilePackages: ['@clinic-mx/schemas', '@clinic-mx/ui', '@clinic-mx/db'],
+  transpilePackages: [
+    '@clinic-mx/schemas',
+    '@clinic-mx/ui',
+    '@clinic-mx/db',
+    '@clinic-mx/live-relay',
+  ],
   // Report photos and scans are posted to a server action (INT-02): up to `reports.max_file_mb`
   // (at most 4 MB, the hosted request limit), so the default 1 MB body is too small.
   experimental: {

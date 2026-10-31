@@ -54,6 +54,7 @@ const stored: Settings = {
   'whatsapp.test_recipients': [],
   'whatsapp.event_retention_days': 7,
   'whatsapp.undelivered_days': 7,
+  'live.connected_check_seconds': 15,
   'whatsapp.assistant_faqs': [
     {
       id: 'what_to_bring',

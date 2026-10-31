@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { LIVE_HEADER } from '../../../../lib/live';
+import { scheduleLiveChecks } from '../../../../lib/live-relay';
+import { useLiveRelay } from '../../../../lib/live-relay-context';
 
 /**
  * Keeps the emergency banners current on every page (ALT-01): checks the open emergencies every
@@ -24,6 +26,8 @@ export function EmergencyWatch({
     current.current = shown;
   }, [shown]);
 
+  const { relay, connectedSeconds } = useLiveRelay();
+
   useEffect(() => {
     let stopped = false;
     const check = async () => {
@@ -39,12 +43,17 @@ export function EmergencyWatch({
         // Offline: the banners stay as they are until the next check.
       }
     };
-    const timer = setInterval(() => void check(), refreshSeconds * 1000);
+    // FND-09: at once when the realtime relay says a centre changed; on its own otherwise.
+    const stop = scheduleLiveChecks(relay, check, {
+      refreshSeconds,
+      connectedSeconds,
+      centres: 'any',
+    });
     return () => {
       stopped = true;
-      clearInterval(timer);
+      stop();
     };
-  }, [refreshSeconds, router]);
+  }, [refreshSeconds, router, relay, connectedSeconds]);
 
   return null;
 }

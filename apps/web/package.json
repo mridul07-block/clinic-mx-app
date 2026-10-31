@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@clinic-mx/db": "workspace:*",
+    "@clinic-mx/live-relay": "workspace:*",
     "@clinic-mx/schemas": "workspace:*",
     "@clinic-mx/ui": "workspace:*",
     "@react-pdf/renderer": "4.9.0",

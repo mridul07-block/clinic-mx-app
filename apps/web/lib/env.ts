@@ -42,6 +42,13 @@ const serverEnvSchema = z.object({
    */
   OPENROUTER_API_KEY: z.string().min(20).optional(),
   /**
+   * The realtime relay (FND-09; docs/runbooks/live-relay.md): its address, `wss://` (`ws://` for
+   * a local one), and the secret connect tokens are signed with (the relay's TOKEN_SECRET). Unset
+   * locally, in CI and until the relay is deployed: live screens check on their own.
+   */
+  LIVE_RELAY_URL: z.url({ protocol: /^wss?$/ }).optional(),
+  LIVE_RELAY_TOKEN_SECRET: z.string().min(32).optional(),
+  /**
    * WhatsApp Cloud API (WA-01; TAD section 6), server only: a permanent System User token of the
    * Meta app, the sending number's Phone Number ID and its WhatsApp Business Account. Unset locally
    * and in CI, so no message ever leaves; each is kept as Not sent, "not configured".

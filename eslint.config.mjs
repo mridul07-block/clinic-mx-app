@@ -25,6 +25,8 @@ export default defineConfig(
       '**/playwright-report/**',
       '**/test-results/**',
       '**/next-env.d.ts',
+      // wrangler's local Worker state and build output (FND-09 relay tests).
+      '**/.wrangler/**',
       'docs/**',
       '.claude/**',
       '.gstack/**',
