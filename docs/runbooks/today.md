@@ -142,6 +142,10 @@ How it works:
 - **Reading:** `todayBoard` (`packages/db/src/today.ts`) lists the centre's appointments that day
   for every physio, whatever their hours, under the reader's row level security.
 
+- **Not delivered (WA-13):** a panel above the board lists the centre's WhatsApp messages Meta
+  could not deliver, with Done once the desk has called; the patient's rows get a "Not delivered"
+  tag. See `docs/runbooks/whatsapp.md`, "Not delivered".
+
 ## Not yet
 
 - Notifying the physio on check in (PRD J2.1) comes with notifications.

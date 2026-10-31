@@ -13,9 +13,11 @@ import { loadCheckIn } from '../../../../../modules/front-desk/check-in';
 import { ownOrigin } from '../../../../../lib/own-origin';
 import { todayHref, type CheckInDone } from '../../../../../modules/front-desk/links';
 import { loadToday } from '../../../../../modules/front-desk/today';
+import { undeliveredFor } from '../../../../../modules/messaging/undelivered';
 import { calendarHref } from '../../../../../modules/scheduling/links';
 import { getSetting } from '../../../../../modules/settings/settings';
 import { CheckInDrawer } from './check-in-drawer';
+import { NotDelivered } from './not-delivered';
 import { TodayBoard } from './today-board';
 import { chosenCentreId } from '../../../../../modules/navigation/centres';
 
@@ -71,6 +73,8 @@ export default async function TodayPage({
   ];
   const date = istDate(new Date());
   const today = await loadToday(staff, { centreId: centre.id, date });
+  // WA-13: WhatsApp messages Meta could not deliver, for the desk to call about.
+  const undelivered = await undeliveredFor(staff, centre.id);
   const renderedAt = new Date().getTime();
   const show = todayFilters.find<TodayFilter>((f): f is TodayFilter => f === params.show);
   // The check in drawer (INT-02): the appointment named in the address, if this person sees it.
@@ -151,8 +155,9 @@ export default async function TodayPage({
             ))}
           </nav>
         ) : null}
+        <NotDelivered messages={undelivered} centreId={centre.id} show={show} />
         <TodayBoard
-          key={`${centre.id}:${date}:${today.version}:${show ?? ''}`}
+          key={`${centre.id}:${date}:${today.version}:${show ?? ''}:${String(undelivered.length)}`}
           initial={today.appointments}
           version={today.version}
           renderedAt={renderedAt}
@@ -162,6 +167,7 @@ export default async function TodayPage({
           refreshSeconds={refreshSeconds}
           show={show}
           pricesPlans={can(staff, 'bills.view_amounts')}
+          notDelivered={undelivered.map((message) => message.patientId)}
         />
         {opened ? (
           <CheckInDrawer

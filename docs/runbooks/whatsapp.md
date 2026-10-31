@@ -327,6 +327,28 @@ How it works:
 
 Statuses only move forward: a late or repeated one changes nothing.
 
+## Not delivered (WA-13)
+
+A message Meta could not deliver (Failed) to a known patient shows on the front desk's Today, so the
+desk can call them (user decisions, 31 October 2026):
+
+- **Where:** the "Not delivered" panel at the top of Today. Each item shows the patient, the message
+  (the template's name, or the reply's label), when it failed, and Meta's reason in plain words
+  (`undeliveredReason`: 131026 "Not on WhatsApp, or cannot receive messages", and so on; an unknown
+  code is shown as it came). That patient's appointment rows that day get a "Not delivered" tag.
+- **Which centre:** the message's appointment's centre, else the patient's own. A failed reply to a
+  number not on file is not listed: nobody can tell who it was.
+- **Which messages:** Failed only. Not sent for a setup reason (not approved, outside the 24 hour
+  window, the test list, not configured) is the Super Admin's, on WhatsApp templates.
+- **Done:** once the desk has called, Done takes it off the panel and the tag off the row, recorded
+  by whom and when (`message_follow_up`, audited). Items not done leave after
+  `whatsapp.undelivered_days` (7).
+- **Who:** those who run Today (`check_in.manage`: Super Admin, Centre Manager, Front Desk) at that
+  centre, never a Velyx support login. Only the Super Admin reads messages, so the list and Done go
+  through `internal.undelivered_messages` and `internal.follow_up_undelivered`, which check that.
+- **Released in two parts:** the migration first (#174), then the code, as a new setting must exist
+  before the code that reads it (`docs/runbooks/local-gate.md`).
+
 ## Retries
 
 The job queue retries a send that got no answer, a rate limit (429) or a fault on Meta's side (5xx).
