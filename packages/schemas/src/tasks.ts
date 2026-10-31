@@ -38,7 +38,11 @@ export const taskKindLabels: Record<string, string> = {
   'ai.spend_cap': 'AI spend cap reached',
   'ai.kb_report': 'Knowledge base report',
   'consent.part_b_declined': 'Part B consent declined',
+  'call.emergency': 'Call back: emergency message on WhatsApp',
 };
+
+/** The task an emergency phrase on WhatsApp raises for the front desk (WA-10). */
+export const EMERGENCY_CALL_TASK = 'call.emergency';
 
 export function taskKindLabel(kind: string): string {
   return taskKindLabels[kind] ?? 'Task';

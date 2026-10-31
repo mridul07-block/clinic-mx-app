@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { formatIndianPhone } from './centres';
 import type { InboundKind } from './messaging';
 
 /**
@@ -52,6 +53,7 @@ export const sessionReplies = [
   'reschedule_confirmation',
   'check_answer',
   'appointment_confirmed',
+  'emergency_advice',
 ] as const;
 export type SessionReply = (typeof sessionReplies)[number];
 
@@ -64,13 +66,18 @@ export const sessionReplyLabels: Record<SessionReply, string> = {
   reschedule_confirmation: 'Reschedule confirmation',
   check_answer: 'Answer noted',
   appointment_confirmed: 'Confirm answered',
+  emergency_advice: 'Emergency advice',
 };
 
 /** What the router answers a route with; `none` when the handler has answered already. */
 export type RouteReply =
   | Exclude<
       SessionReply,
-      'booking_confirmation' | 'reschedule_confirmation' | 'check_answer' | 'appointment_confirmed'
+      | 'booking_confirmation'
+      | 'reschedule_confirmation'
+      | 'check_answer'
+      | 'appointment_confirmed'
+      | 'emergency_advice'
     >
   | 'none';
 
@@ -94,9 +101,9 @@ export const routeHandlers: Record<
   InboundRoute,
   { ticket: string; live: boolean; reply: RouteReply }
 > = {
-  // DECISION WA-03: emergency advice wording is WA-10's, from the clinic; until then the front
-  // desk details, never a booking (PRD J1.9).
-  emergency: { ticket: 'WA-10', live: false, reply: 'contact' },
+  // WA-10: the handler sends the emergency advice with the clinic's number and raises an urgent
+  // front desk task, never a booking (PRD J1.9).
+  emergency: { ticket: 'WA-10', live: true, reply: 'none' },
   menu: { ticket: 'WA-03', live: true, reply: 'menu' },
   talk: { ticket: 'WA-09', live: true, reply: 'contact' },
   // WA-04: the booking Flow; the router falls back to the contact details where it is not set up.
@@ -153,6 +160,13 @@ export const SESSION_REPLY_VERSION = 1;
 
 /** The setting `whatsapp.emergency_phrases`: words and short phrases, matched whole. */
 export const emergencyPhrasesSchema = z.array(z.string().trim().min(3).max(60)).max(200);
+
+/**
+ * The setting `whatsapp.emergency_advice` (WA-10): what a message with an emergency phrase is told
+ * first, before the clinic's number. DECISION WA-10: the standard safety text until the clinical
+ * director confirms it.
+ */
+export const emergencyAdviceSchema = z.string().trim().min(20).max(500);
 
 /** The setting `whatsapp.front_desk_email`: empty until the clinic gives its address. */
 export const frontDeskEmailSchema = z.union([z.literal(''), z.email()]);
@@ -247,4 +261,22 @@ export function contactText({
   ];
   if (ways.length === 0) return 'Please call the clinic you visit; our front desk will help.';
   return `To talk to our team, ${ways.join(' or ')}.`;
+}
+
+/**
+ * The answer to a message with an emergency phrase (WA-10; PRD J1.9): the advice, then the phone of
+ * the patient's centre when the number is theirs alone, otherwise of every centre, by name, as
+ * "Talk to our team" chooses (user decision, 31 October 2026). A centre without a phone is left
+ * out, never invented.
+ */
+export function emergencyReplyText(advice: string, centres: readonly CentreContact[]): string {
+  const phones = centres
+    .filter((centre): centre is { name: string; phone: string } => Boolean(centre.phone))
+    .map((centre) =>
+      centres.length > 1
+        ? [centre.name, formatIndianPhone(centre.phone)].join(' ')
+        : formatIndianPhone(centre.phone),
+    );
+  if (phones.length === 0) return advice;
+  return `${advice} To reach the clinic, call ${phones.join(', ')}.`;
 }

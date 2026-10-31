@@ -10,6 +10,7 @@ const db = vi.hoisted(() => ({
   flowSessionRecord: vi.fn(),
   inboundToRoute: vi.fn(),
   queueMessage: vi.fn(),
+  raiseEmergencyTask: vi.fn(),
   recordRoute: vi.fn(),
   repliedMessage: vi.fn(),
   solePatientByPhone: vi.fn(),
@@ -68,6 +69,7 @@ describe('routing a message sent to us', () => {
     settings.values = {
       'whatsapp.emergency_phrases': ['chest pain'],
       'whatsapp.front_desk_email': 'desk@example.com',
+      'whatsapp.emergency_advice': 'If this is a medical emergency, call 112 now.',
     };
   });
 
@@ -120,11 +122,57 @@ describe('routing a message sent to us', () => {
     expect(queued()[0]).toMatchObject({ patientId: 'patient-1', templateKey: 'contact' });
   });
 
-  it('routes an emergency phrase first, with the front desk details until WA-10', async () => {
+  // WA-10: emergency advice with the clinic's number, never a booking, and the front desk's task.
+  it('answers an emergency phrase first with the advice and raises the call back task', async () => {
     db.inboundToRoute.mockResolvedValue(inbound({ body: 'Book me, I have chest pain' }));
-    expect(await routeInboundMessage({} as Db, messageId)).toMatchObject({
+    expect(await routeInboundMessage({} as Db, messageId)).toEqual({
       route: 'emergency',
-      reply: 'contact',
+      reply: 'none',
+      skipped: false,
+    });
+    expect(db.centreContacts).toHaveBeenCalledWith('system-tx', undefined);
+    expect(queued()).toEqual([
+      {
+        patientId: null,
+        toPhone: from,
+        kind: 'session',
+        templateKey: 'emergency_advice',
+        templateVersion: 1,
+        language: 'en',
+        variables: {
+          text: 'If this is a medical emergency, call 112 now. To reach the clinic, call HSR Layout +91 80 0000 0001, Koramangala +91 80 0000 0002.',
+        },
+        createdBy: 'system:whatsapp',
+        contextWaId: 'wamid.IN1',
+      },
+    ]);
+    expect(db.raiseEmergencyTask).toHaveBeenCalledWith('system-tx', {
+      messageId,
+      phone: from,
+      patientId: null,
+      centreId: null,
+    });
+    expect(db.createFlowSession).not.toHaveBeenCalled();
+  });
+
+  it('gives a known patient their own centre and links the task to them', async () => {
+    const patient = { id: '00000000-0000-4000-8000-000000000702', centreId: 'centre-hsr' };
+    db.solePatientByPhone.mockResolvedValue(patient);
+    db.centreContacts.mockResolvedValue([{ name: 'HSR Layout', phone: '+918041234567' }]);
+    db.inboundToRoute.mockResolvedValue(inbound({ body: 'CHEST PAIN!' }));
+    await routeInboundMessage({} as Db, messageId);
+    expect(db.centreContacts).toHaveBeenCalledWith('system-tx', 'centre-hsr');
+    expect(queued()[0]).toMatchObject({
+      patientId: patient.id,
+      variables: {
+        text: 'If this is a medical emergency, call 112 now. To reach the clinic, call +91 80 4123 4567.',
+      },
+    });
+    expect(db.raiseEmergencyTask).toHaveBeenCalledWith('system-tx', {
+      messageId,
+      phone: from,
+      patientId: patient.id,
+      centreId: 'centre-hsr',
     });
   });
 

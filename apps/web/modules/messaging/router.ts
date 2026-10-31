@@ -6,6 +6,7 @@ import {
   flowSessionRecord,
   inboundToRoute,
   queueMessage,
+  raiseEmergencyTask,
   recordRoute,
   repliedMessage,
   solePatientByPhone,
@@ -22,6 +23,7 @@ import {
   checkAnswerOf,
   contactText,
   documentTime,
+  emergencyReplyText,
   flowReplies,
   inboundKinds,
   istDate,
@@ -134,6 +136,37 @@ async function confirmReminder(
   };
 }
 
+/**
+ * A message with an emergency phrase (WA-10; PRD J1.9): the emergency advice with the clinic's
+ * number, never a booking, and an urgent task for the front desk to call back, one open per number
+ * (user decision, 31 October 2026).
+ */
+async function answerEmergency(
+  tx: DbOrTransaction,
+  message: { id: string; fromPhone: string; waMessageId: string | null },
+  owner: { id: string; centreId: string } | undefined,
+): Promise<void> {
+  const advice = await getSetting('whatsapp.emergency_advice');
+  const centres = await centreContacts(tx, owner?.centreId);
+  await queueMessage(tx, {
+    patientId: owner?.id ?? null,
+    toPhone: message.fromPhone,
+    kind: 'session',
+    templateKey: 'emergency_advice',
+    templateVersion: SESSION_REPLY_VERSION,
+    language: TEMPLATE_LANGUAGE,
+    variables: { text: emergencyReplyText(advice, centres) },
+    createdBy: 'system:whatsapp',
+    contextWaId: message.waMessageId,
+  });
+  await raiseEmergencyTask(tx, {
+    messageId: message.id,
+    phone: message.fromPhone,
+    patientId: owner?.id ?? null,
+    centreId: owner?.centreId ?? null,
+  });
+}
+
 const route = systemService({
   component: 'whatsapp',
   input: z.object({ messageId: z.guid() }),
@@ -154,6 +187,11 @@ const route = systemService({
       { emergencyPhrases },
     );
     await recordRoute(tx, message.id, chosen, owner?.id ?? null);
+
+    if (chosen === 'emergency') {
+      await answerEmergency(tx, { ...message, fromPhone: message.fromPhone }, owner);
+      return { route: chosen, reply: 'none', skipped: false };
+    }
 
     if (chosen === 'check_answer' || chosen === 'confirm') {
       const answered =

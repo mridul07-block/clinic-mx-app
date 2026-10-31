@@ -42,6 +42,8 @@ export interface TaskEntry {
   patientId: string | null;
   patientName: string | null;
   patientNumber: string | null;
+  /** The number to call back, for an emergency message task only (WA-10). */
+  callBackPhone: string | null;
   decision: string | null;
   closedBy: string | null;
   closedAt: Date | null;
@@ -67,6 +69,9 @@ function taskEntries(db: DbOrTransaction) {
       patientId: task.patientId,
       patientName: patient.name,
       patientNumber: patient.opNumber,
+      // Read through a function: only the Super Admin reads messages, and the task holds no number.
+      callBackPhone: sql<string | null>`case when ${task.kind} = 'call.emergency'
+        then internal.task_call_back_phone(${task.id}) end`,
       decision: task.decision,
       closedBy: closer.name,
       closedAt: task.closedAt,

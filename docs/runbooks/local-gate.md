@@ -71,6 +71,13 @@ From `main`, after `git pull` (`scripts/migrate-staging.mjs`): the steps of
 settings from `apps/web/.env.local`. Nothing goes through a shell and the database address is
 never printed. Vercel still deploys on its own; check `/api/health` serves the merge commit.
 
+**The migration first, in its own pull request,** when the app needs what it adds: a new setting
+(`parseSettings` refuses to load any setting while a registered one has no row, so an app deployed
+first would fail every settings read until the migration ran), or a new function or column the app
+calls. Merge the migration alone, run `pnpm migrate:staging` from `main`, then rebase and merge the
+code. The app still deployed ignores a stored setting it does not know, and the settings tests
+allow a stored one ahead of the code (WA-10, #171).
+
 ## Backups
 
 The nightly backup also runs on GitHub Actions and is paused with it. Until runners are back, take
