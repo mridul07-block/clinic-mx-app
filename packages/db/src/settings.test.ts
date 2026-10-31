@@ -54,6 +54,21 @@ const stored: Settings = {
   'whatsapp.test_recipients': [],
   'whatsapp.event_retention_days': 7,
   'whatsapp.undelivered_days': 7,
+  'whatsapp.assistant_faqs': [
+    {
+      id: 'what_to_bring',
+      question: 'What should I bring to my appointment, and when should I arrive?',
+      answer: 'Please arrive 10 minutes early and bring any reports you have.',
+    },
+  ],
+  'ai.task_assistant_reply': {
+    model: 'anthropic/claude-haiku-5.5',
+    providers: [],
+    promptVersion: 'assistant_reply.v1',
+    reasoningEffort: 'none',
+    timeoutMs: 8000,
+    maxTokens: 100,
+  },
   'booking.whatsapp_days_ahead': 14,
   'whatsapp.emergency_phrases': ['chest pain'],
   'whatsapp.front_desk_email': '',

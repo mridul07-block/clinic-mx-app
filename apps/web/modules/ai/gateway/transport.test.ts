@@ -88,6 +88,7 @@ describe('the prompts', () => {
     );
     expect(hashes).toMatchInlineSnapshot(`
       {
+        "assistant_reply.v1": "8ff3d19beefef441",
         "rank_diagnoses.v1": "2e601ca02ca0e9e9",
         "rank_diagnoses.v2": "06028c23ada12f90",
         "rank_diagnoses.v3": "3aae13901ef9d59b",

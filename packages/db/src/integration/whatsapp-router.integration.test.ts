@@ -5,12 +5,15 @@ import { systemActor, withActor } from '../audit';
 import { createDb } from '../client';
 import {
   centreContacts,
+  centreDirections,
   inboundToRoute,
   lastInboundAt,
   queueMessage,
   recordInboundMessage,
+  patientNamesByPhone,
   recordRoute,
   solePatientByPhone,
+  sourceQueued,
 } from '../messaging';
 import { insertPatient } from '../patients';
 import { centre, job, message } from '../schema';
@@ -187,6 +190,60 @@ describe('numbers and patients', () => {
         .where(and(eq(centre.active, true)));
       expect(all).toHaveLength(active[0]?.n ?? 0);
       expect(all.map((c) => c.name)).toEqual([...all.map((c) => c.name)].sort());
+    });
+  });
+});
+
+// WA-11: the assistant answers a typed message once (its source key), replaces the names of the
+// number's patients before the model sees the message, and fills in each active centre's address.
+describe('the assistant', () => {
+  it('answers a typed message once: a second answer for it is refused', async () => {
+    await rolledBack(async (tx) => {
+      const from = fakeNumber();
+      const typed = await recordInboundMessage(tx, inbound(from));
+      const sourceKey = ['whatsapp.assistant_reply', typed].join(':');
+      expect(await sourceQueued(tx, sourceKey)).toBe(false);
+      await queueMessage(tx, {
+        ...reply(from),
+        templateKey: 'assistant_answer',
+        variables: { text: 'Please arrive 10 minutes early.' },
+        sourceKey,
+      });
+      expect(await sourceQueued(tx, sourceKey)).toBe(true);
+      expect(await failure(tx, (sp) => queueMessage(sp, { ...reply(from), sourceKey }))).toBe(
+        '23505',
+      );
+    });
+  });
+
+  it('knows the names of every patient with the number, a family’s too', async () => {
+    await rolledBack(async (tx) => {
+      const details = fakePatientDetails(centreIds.koramangala);
+      await insertPatient(tx, details);
+      const sibling = { ...fakePatientDetails(), phone: details.phone };
+      await insertPatient(tx, sibling);
+      expect((await patientNamesByPhone(tx, details.phone)).sort()).toEqual(
+        [details.name, sibling.name].sort(),
+      );
+      expect(await patientNamesByPhone(tx, fakeNumber())).toEqual([]);
+    });
+  });
+
+  it('gives every active centre’s address and map link, by name', async () => {
+    await rolledBack(async (tx) => {
+      await tx
+        .update(centre)
+        .set({ address: '1 Test Road, Bengaluru', mapLink: 'https://maps.example/hsr' })
+        .where(eq(centre.id, centreIds.hsrLayout));
+      const all = await centreDirections(tx);
+      expect(all).toContainEqual({
+        name: 'HSR Layout',
+        address: '1 Test Road, Bengaluru',
+        mapLink: 'https://maps.example/hsr',
+      });
+      expect(all.map((c) => c.name)).toEqual([...all.map((c) => c.name)].sort());
+      await tx.update(centre).set({ active: false }).where(eq(centre.id, centreIds.hsrLayout));
+      expect((await centreDirections(tx)).map((c) => c.name)).not.toContain('HSR Layout');
     });
   });
 });

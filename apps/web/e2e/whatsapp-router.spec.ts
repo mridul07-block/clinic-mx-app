@@ -1,6 +1,15 @@
-import { createDb, job, message, systemActor, task, withActor, whatsappEvent } from '@clinic-mx/db';
+import {
+  aiRun,
+  createDb,
+  job,
+  message,
+  systemActor,
+  task,
+  withActor,
+  whatsappEvent,
+} from '@clinic-mx/db';
 import { expect, test } from '@playwright/test';
-import { eq, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, or, sql } from 'drizzle-orm';
 import { tickUntil } from './jobs';
 import { fakeMobile } from './patients';
 import { signInWithCode, temporaryWithCode } from './staff';
@@ -8,9 +17,11 @@ import { postWebhook, webhookBody } from './whatsapp';
 
 // WA-03 done when: buttons, Flow completions, typed text and emergency phrases each reach the
 // right handler. Messages "sent to us" are bodies signed with the test app secret, as Meta would
-// send them. Typed text gets the three button menu; "Talk to our team" the front desk details; an
-// emergency phrase is routed first and gets the emergency advice (WA-10, emergency.spec.ts). Tests send nothing out: the replies are kept as Not sent. Generated
-// numbers only; everything made is deleted after.
+// send them. Typed text goes to the assistant (WA-11): a greeting gets the three button menu, with
+// the run logged (not configured where there is no model key, as in CI); "Talk to our team" gets
+// the front desk details; an emergency phrase is routed first and gets the emergency advice (WA-10,
+// emergency.spec.ts). Tests send nothing out: the replies are kept as Not sent. Generated numbers
+// only; everything made is deleted after (AI runs are never deleted, by design).
 
 let database: ReturnType<typeof createDb> | undefined;
 const db = () => {
@@ -29,6 +40,7 @@ test('typed text, a menu button and an emergency phrase each reach their handler
   page,
 }) => {
   test.slow();
+  const started = new Date();
   const from = fakeMobile();
   const waIds: string[] = [];
   const sendToUs = async (message: Record<string, unknown>) => {
@@ -66,10 +78,13 @@ test('typed text, a menu button and an emergency phrase each reach their handler
       expect((await routed(hello))?.route).toBe('assistant');
       expect((await routed(talk))?.route).toBe('talk');
       expect((await routed(urgent))?.route).toBe('emergency');
+      // WA-11: the assistant's answer (its source key), the menu while no model is set up.
+      const typed = await routed(hello);
       expect(await replyTo(hello)).toMatchObject({
         kind: 'session',
         templateKey: 'menu',
         toPhone: from,
+        sourceKey: ['whatsapp.assistant_reply', typed?.id].join(':'),
       });
       expect(await replyTo(talk)).toMatchObject({ kind: 'session', templateKey: 'contact' });
       expect(await replyTo(urgent)).toMatchObject({
@@ -81,6 +96,19 @@ test('typed text, a menu button and an emergency phrase each reach their handler
     });
     const replies = await db().select().from(message).where(eq(message.toPhone, from));
     expect(replies).toHaveLength(3);
+    // The run is logged: not configured where there is no key (CI), else the model's choice for a
+    // greeting, none, which is the menu too.
+    const runs = await db()
+      .select({ status: aiRun.status, output: aiRun.output })
+      .from(aiRun)
+      .where(and(eq(aiRun.kind, 'assistant_reply'), gte(aiRun.createdAt, started)));
+    expect(runs.length).toBeGreaterThan(0);
+    for (const run of runs) {
+      expect([
+        { status: 'not_configured', output: null },
+        { status: 'ok', output: { choice: 'none' } },
+      ]).toContainEqual(run);
+    }
     expect(String((await replyTo(talk))?.variables.text)).toMatch(
       /^(To talk to our team, .+\.|Please call the clinic you visit; our front desk will help\.)$/,
     );
@@ -121,7 +149,11 @@ test('typed text, a menu button and an emergency phrase each reach their handler
           ).map((row) => row.id)
         : [];
       const keys = [
-        ...ids.flatMap((id) => [`whatsapp.send:${id}`, `whatsapp.route:${id}`]),
+        ...ids.flatMap((id) => [
+          `whatsapp.send:${id}`,
+          `whatsapp.route:${id}`,
+          `whatsapp.assistant_reply:${id}`,
+        ]),
         ...events.map((id) => `whatsapp.event:${id}`),
       ];
       if (keys.length > 0) await tx.delete(job).where(inArray(job.idempotencyKey, keys));

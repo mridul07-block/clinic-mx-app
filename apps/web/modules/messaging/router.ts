@@ -3,6 +3,7 @@ import {
   centreContacts,
   confirmAppointment,
   createFlowSession,
+  enqueueJob,
   flowSessionRecord,
   inboundToRoute,
   queueMessage,
@@ -50,6 +51,19 @@ import { recordCheckAnswerIn } from './clinic-messages';
  */
 
 export const WHATSAPP_ROUTE_JOB = 'whatsapp.route';
+
+/**
+ * The assistant's answer to a typed message (WA-11), from `messaging/assistant`: the webhook
+ * answers straight after routing, outside the routing transaction (the model is never called
+ * inside one); this job, queued with the route a minute later, is the fallback.
+ */
+export const WHATSAPP_ASSISTANT_JOB = 'whatsapp.assistant_reply';
+const ASSISTANT_FALLBACK_MS = 60_000;
+
+/** The assistant's answer's source key: one answer per typed message. */
+export function assistantSourceKey(messageId: string): string {
+  return [WHATSAPP_ASSISTANT_JOB, messageId].join(':');
+}
 
 /**
  * How long a Flow sent now can be used: WhatsApp's 24 hour window, after which no reply that is
@@ -139,12 +153,13 @@ async function confirmReminder(
 /**
  * A message with an emergency phrase (WA-10; PRD J1.9): the emergency advice with the clinic's
  * number, never a booking, and an urgent task for the front desk to call back, one open per number
- * (user decision, 31 October 2026).
+ * (user decision, 31 October 2026). Also the assistant's, when it chooses emergency (WA-11).
  */
-async function answerEmergency(
+export async function answerEmergency(
   tx: DbOrTransaction,
   message: { id: string; fromPhone: string; waMessageId: string | null },
   owner: { id: string; centreId: string } | undefined,
+  sourceKey?: string,
 ): Promise<void> {
   const advice = await getSetting('whatsapp.emergency_advice');
   const centres = await centreContacts(tx, owner?.centreId);
@@ -158,6 +173,7 @@ async function answerEmergency(
     variables: { text: emergencyReplyText(advice, centres) },
     createdBy: 'system:whatsapp',
     contextWaId: message.waMessageId,
+    ...(sourceKey ? { sourceKey } : {}),
   });
   await raiseEmergencyTask(tx, {
     messageId: message.id,
@@ -213,37 +229,72 @@ const route = systemService({
       return { route: chosen, reply: answered === 'menu' ? 'menu' : 'none', skipped: false };
     }
 
-    const wanted = routeHandlers[chosen].reply;
-    const reply = isFlowReply(wanted) && !flowReady(wanted) ? 'contact' : wanted;
-    if (reply === 'none') return { route: chosen, reply, skipped: false };
-    let variables: Record<string, string> = {};
-    if (reply === 'contact') {
-      variables = {
-        text: contactText({ centres: await centreContacts(tx, owner?.centreId), email }),
-      };
-    } else if (isFlowReply(reply)) {
-      // From the menu the reschedule form first lists the number's appointments (WA-05).
-      const flowToken = await createFlowSession(tx, {
-        phone: message.fromPhone,
-        kind: reply === 'booking_flow' ? 'booking' : 'reschedule',
-        expiresAt: new Date(Date.now() + FLOW_SESSION_MS),
+    if (chosen === 'assistant') {
+      // WA-11: answered outside this transaction, straight after it by the webhook; this job is
+      // the fallback.
+      await enqueueJob(tx, {
+        kind: WHATSAPP_ASSISTANT_JOB,
+        payload: { messageId: message.id },
+        idempotencyKey: assistantSourceKey(message.id),
+        runAt: new Date(Date.now() + ASSISTANT_FALLBACK_MS),
       });
-      variables = { flowToken };
+      return { route: chosen, reply: 'none', skipped: false };
     }
-    await queueMessage(tx, {
-      patientId: owner?.id ?? null,
-      toPhone: message.fromPhone,
-      kind: 'session',
-      templateKey: reply,
-      templateVersion: SESSION_REPLY_VERSION,
-      language: TEMPLATE_LANGUAGE,
-      variables,
-      createdBy: 'system:whatsapp',
-      contextWaId: message.waMessageId,
-    });
+
+    const wanted = routeHandlers[chosen].reply;
+    if (wanted === 'none') return { route: chosen, reply: wanted, skipped: false };
+    const reply = await queueRouteReply(
+      tx,
+      { fromPhone: message.fromPhone, waMessageId: message.waMessageId },
+      owner,
+      wanted,
+    );
     return { route: chosen, reply, skipped: false };
   },
 });
+
+/**
+ * The reply a menu choice gets (WA-03, WA-04, WA-05, WA-09): the menu, the contact details, or the
+ * booking or reschedule Flow, the contact details where it is not set up. Also the assistant's,
+ * when it chooses one (WA-11), with its source key. Returns the reply queued.
+ */
+export async function queueRouteReply(
+  tx: DbOrTransaction,
+  message: { fromPhone: string; waMessageId: string | null },
+  owner: { id: string; centreId: string } | undefined,
+  wanted: Exclude<RouteReply, 'none'>,
+  sourceKey?: string,
+): Promise<Exclude<RouteReply, 'none'>> {
+  const reply = isFlowReply(wanted) && !flowReady(wanted) ? 'contact' : wanted;
+  let variables: Record<string, string> = {};
+  if (reply === 'contact') {
+    const email = await getSetting('whatsapp.front_desk_email');
+    variables = {
+      text: contactText({ centres: await centreContacts(tx, owner?.centreId), email }),
+    };
+  } else if (isFlowReply(reply)) {
+    // From the menu the reschedule form first lists the number's appointments (WA-05).
+    const flowToken = await createFlowSession(tx, {
+      phone: message.fromPhone,
+      kind: reply === 'booking_flow' ? 'booking' : 'reschedule',
+      expiresAt: new Date(Date.now() + FLOW_SESSION_MS),
+    });
+    variables = { flowToken };
+  }
+  await queueMessage(tx, {
+    patientId: owner?.id ?? null,
+    toPhone: message.fromPhone,
+    kind: 'session',
+    templateKey: reply,
+    templateVersion: SESSION_REPLY_VERSION,
+    language: TEMPLATE_LANGUAGE,
+    variables,
+    createdBy: 'system:whatsapp',
+    contextWaId: message.waMessageId,
+    ...(sourceKey ? { sourceKey } : {}),
+  });
+  return reply;
+}
 
 export function routeInboundMessage(db: Db, messageId: string): Promise<RouteOutcome> {
   return route(db, { messageId });

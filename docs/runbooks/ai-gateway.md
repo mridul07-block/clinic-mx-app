@@ -25,8 +25,11 @@ recorded as DECISION AI-01 in `docs/PROGRESS.md`.
   `docs/runbooks/ai-blind-test.md`): OpenRouter takes `zdr`, `data_collection`, a pinned `order`
   of host tags such as `wafer/us`, `allow_fallbacks: false`, `require_parameters` and the strict
   schema, and reports each call's cost.
-- **No model is set yet**, so locally, in CI and on staging each run is logged as `not_configured`
-  and no model is called. Live calls need two things:
+- **The WhatsApp assistant has a model** (Haiku 5.5, WA-11, user decision 31 October 2026): it is
+  called wherever the environment has the key (staging; locally when `apps/web/.env.local` holds
+  it). In CI there is no key, so its runs are logged as `not_configured`.
+- **No clinical task has a model yet**, so locally, in CI and on staging each clinical run is logged
+  as `not_configured` and no model is called. Live clinical calls need two things:
   - `OPENROUTER_API_KEY` in the environment (server only; `apps/web/lib/env.ts`, `.env.example`);
   - a model and pinned providers in the task settings, set when the winner of the blind test is
     adopted (AI-06).
@@ -50,6 +53,10 @@ pnpm ai:check --model z-ai/glm-5.3 --provider wafer/us --provider sail-research/
   made-up case (`apps/web/modules/ai/gateway/check.ts`), built by the gateway's own
   `buildRequest`, so zero data retention, no data collection, pinning and the strict schema are
   the ones the sheet uses.
+- **The WhatsApp assistant** (WA-11), when its settings name a model: three made-up messages,
+  each `ok` only when it gets the choice it must (directions, book, and a knee pain question to
+  the team; otherwise `wrong_choice`, with the choice printed). It is not pinned, so the host is
+  not checked.
 - **A named candidate** runs as the blind test measured it: reasoning off and 12 seconds, unless
   `--reasoning` or `--timeout-ms` says otherwise; its prompt and token limit are the ranking
   task's. With no model named and no task configured (staging and production until a model is
@@ -125,6 +132,7 @@ usual." (AI-03).
 | `ai.usd_rate_paise` | 9650 | Paise per US dollar, from TAD section 11. |
 | `ai.task_write_patient_content` | model none, providers none, prompt `write_patient_content.v1`, reasoning none, 60000 ms (up to 120000 for this task only; the sheet's tasks keep 20000), 2500 tokens | Patient content (AI-07): the operator names the model and hosts for each run (`docs/runbooks/patient-content.md`). |
 | `ai.patient_content_budget_paise` | 350000 | DECISION AI-07: the one-time patient content run's own budget, never the daily cap; a placeholder for the client. |
+| `ai.task_assistant_reply` | model `anthropic/claude-haiku-5.5`, providers none (not pinned: not clinical), prompt `assistant_reply.v1`, reasoning none, 8000 ms, 100 tokens | The WhatsApp assistant (WA-11): it only chooses an approved answer's id or a menu choice (`docs/runbooks/whatsapp.md`, "The assistant"). Within the daily cap. Clear the model to turn it off. |
 | `ai.patient_content_stop_after_failures` | 3 | The patient content run stops after this many calls in a row with no valid answer (a timed out call's cost never comes back). |
 
 ## Prompts

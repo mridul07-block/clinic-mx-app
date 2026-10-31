@@ -7,6 +7,7 @@ const db = vi.hoisted(() => ({
   centreContacts: vi.fn(),
   confirmAppointment: vi.fn(),
   createFlowSession: vi.fn(),
+  enqueueJob: vi.fn(),
   flowSessionRecord: vi.fn(),
   inboundToRoute: vi.fn(),
   queueMessage: vi.fn(),
@@ -73,14 +74,34 @@ describe('routing a message sent to us', () => {
     };
   });
 
-  it('answers typed text with the three button menu, as a reply to it', async () => {
+  it('sends typed text to the assistant, queuing its answer as a fallback job, no reply here', async () => {
+    const before = Date.now();
     expect(await routeInboundMessage({} as Db, messageId)).toEqual({
       route: 'assistant',
-      reply: 'menu',
+      reply: 'none',
       skipped: false,
     });
     expect(db.inboundToRoute).toHaveBeenCalledWith('system-tx', messageId);
     expect(db.recordRoute).toHaveBeenCalledWith('system-tx', messageId, 'assistant', null);
+    expect(queued()).toEqual([]);
+    const [tx, job] = db.enqueueJob.mock.calls[0] as [string, Record<string, unknown>];
+    expect(tx).toBe('system-tx');
+    expect(job).toMatchObject({
+      kind: 'whatsapp.assistant_reply',
+      payload: { messageId },
+      idempotencyKey: ['whatsapp.assistant_reply', messageId].join(':'),
+    });
+    // A minute later: the webhook answers first, straight after routing.
+    expect((job.runAt as Date).getTime()).toBeGreaterThanOrEqual(before + 60_000);
+  });
+
+  it('gives the menu to a menu choice it cannot place, as a reply to it', async () => {
+    db.inboundToRoute.mockResolvedValue(inbound({ kind: 'other', body: null }));
+    expect(await routeInboundMessage({} as Db, messageId)).toEqual({
+      route: 'menu',
+      reply: 'menu',
+      skipped: false,
+    });
     expect(queued()).toEqual([
       {
         patientId: null,
@@ -94,6 +115,7 @@ describe('routing a message sent to us', () => {
         contextWaId: 'wamid.IN1',
       },
     ]);
+    expect(db.enqueueJob).not.toHaveBeenCalled();
   });
 
   it('gives every centre’s phone and the email to "Talk to our team" from an unknown number', async () => {

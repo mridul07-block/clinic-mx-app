@@ -1,12 +1,13 @@
 import { parseArgs } from 'node:util';
-import { aiTaskConfigSchema, type AiTaskConfig } from '@clinic-mx/schemas';
-import { checkTask, type AiCheckResult } from '../modules/ai/gateway/check';
+import { aiTaskConfigSchema, pinnedAiTasks, type AiTaskConfig } from '@clinic-mx/schemas';
+import { assistantChecks, checkTask, type AiCheckResult } from '../modules/ai/gateway/check';
 import type { GatewayTask } from '../modules/ai/gateway/run';
 import { openRouterKeyStatus, openRouterTransport } from '../modules/ai/gateway/transport';
 import { getSetting } from '../modules/settings/settings';
 
 // The live check (AI-01): `pnpm ai:check [--model <vendor/model> --provider <host> ...]`. With no
-// model, it checks each task whose settings name one; with a model, that candidate as the blind
+// model, it checks each task whose settings name one (the assistant, WA-11, with each of its made-up
+// messages); with a model, that candidate as the blind
 // test runs it (reasoning off, 12 seconds, unless told otherwise). One made-up case per call,
 // nothing written, only the outcome printed. Exits 1 when it cannot check, 2 when a check is not ok
 // (docs/runbooks/ai-gateway.md).
@@ -28,6 +29,7 @@ const line = (label: string, result: AiCheckResult) =>
     `${String(result.latencyMs)} ms`.padEnd(10),
     result.costMicroUsd === null ? 'cost unknown' : usd(Number(result.costMicroUsd) / 1e6),
     result.httpStatus === undefined ? '' : `HTTP ${String(result.httpStatus)}`,
+    result.choice === undefined ? '' : ['chose', result.choice].join(' '),
   ].join(' ');
 
 function options() {
@@ -69,7 +71,7 @@ async function main() {
     );
   }
 
-  const targets: { label: string; task: GatewayTask; config: AiTaskConfig }[] = [];
+  const targets: { label: string; task: GatewayTask; config: AiTaskConfig; index?: number }[] = [];
   if (values.model) {
     const base = await getSetting('ai.task_rank_diagnoses');
     const parsed = aiTaskConfigSchema.safeParse({
@@ -94,19 +96,32 @@ async function main() {
         config: await getSetting('ai.task_recheck_with_findings'),
       },
     );
+    const assistant = await getSetting('ai.task_assistant_reply');
+    targets.push(
+      ...assistantChecks.map((check, index) => ({
+        label: ['assistant_reply', check.choice].join(' → '),
+        task: 'assistant_reply' as const,
+        config: assistant,
+        index,
+      })),
+    );
   }
 
   const transport = openRouterTransport(key);
   const blockedProviders = await getSetting('ai.blocked_providers');
   let checked = 0;
   let failed = false;
-  for (const { label, task, config } of targets) {
+  for (const { label, task, config, index } of targets) {
     const { model } = config;
-    if (!model || config.providers.length === 0) {
+    if (!model || (pinnedAiTasks.includes(task) && config.providers.length === 0)) {
       console.log(`${label.padEnd(28)} not configured (no model or pinned host in its settings)`);
       continue;
     }
-    const result = await checkTask(task, { ...config, model }, { transport, blockedProviders });
+    const result = await checkTask(
+      task,
+      { ...config, model },
+      { transport, blockedProviders, index },
+    );
     console.log(line(label, result));
     checked += 1;
     failed ||= result.status !== 'ok';

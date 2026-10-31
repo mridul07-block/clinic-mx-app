@@ -7,7 +7,13 @@ import {
 } from '@clinic-mx/schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { z } from 'zod';
-import { rankDiagnoses, rankForBlindTest, recheckWithFindings, writePatientContent } from './index';
+import {
+  assistantReply,
+  rankDiagnoses,
+  rankForBlindTest,
+  recheckWithFindings,
+  writePatientContent,
+} from './index';
 import { PROMPTS } from './prompts';
 import { buildRequest, canonicalJson, runTask } from './run';
 import type { AiRequest, AiTransport, AiTransportResult } from './transport';
@@ -651,5 +657,95 @@ describe('writing patient content through the gateway', () => {
         transport,
       }),
     ).rejects.toThrow('Only patient content');
+  });
+});
+
+// WA-11: the WhatsApp assistant only chooses. Its message goes out with identifiers and the
+// number's patients' names replaced, unpinned but with zero data retention, within the daily cap;
+// a choice not offered is none. Generated text and names only.
+describe('the WhatsApp assistant through the gateway', () => {
+  const assistantConfig: AiTaskConfig & { model: string } = {
+    model: 'anthropic/claude-haiku-5.5',
+    providers: [],
+    promptVersion: 'assistant_reply.v1',
+    reasoningEffort: 'none',
+    timeoutMs: 8000,
+    maxTokens: 100,
+  };
+  const faqs = [
+    {
+      id: 'what_to_bring',
+      question: 'What should I bring?',
+      answer: 'Please arrive 10 minutes early and bring any reports you have.',
+    },
+  ];
+  const ask = (transport: AiTransport | null, message: string, forbidden: string[] = []) =>
+    assistantReply({} as Db, { message, faqs, forbidden, transport });
+
+  beforeEach(() => {
+    for (const fn of Object.values(db)) fn.mockReset();
+    db.insertAiRun.mockResolvedValue('00000000-0000-4000-8000-000000000a03');
+    db.aiSpendSince.mockResolvedValue(0n);
+    Object.assign(settings, {
+      'ai.task_assistant_reply': assistantConfig,
+      'ai.daily_spend_cap_paise': 20000,
+      'ai.usd_rate_paise': 9650,
+      'ai.blocked_providers': ['deepseek'],
+    });
+  });
+
+  it('sends the message without identifiers or names, and the questions, never the answers', async () => {
+    const { transport, sent } = fake(answer({ choice: 'what_to_bring' }));
+    const result = await ask(
+      transport,
+      'Hi, this is Asha Testpatient (MVH-1234, asha.t@example.com), call 98765 43210. What do I bring?',
+      ['Asha Testpatient'],
+    );
+    expect(result).toMatchObject({ status: 'ok', output: { kind: 'faq', faq: faqs[0] } });
+    const request = sent[0];
+    expect(request?.provider).toEqual({
+      zdr: true,
+      data_collection: 'deny',
+      require_parameters: true,
+    });
+    expect(request?.model).toBe('anthropic/claude-haiku-5.5');
+    expect(request?.reasoning).toBeUndefined();
+    const user = JSON.parse(request?.messages[1]?.content ?? '{}') as Record<string, unknown>;
+    expect(user).toEqual({
+      choices: [{ id: 'what_to_bring', question: 'What should I bring?' }],
+      message:
+        'Hi, this is [removed] [removed] ([removed], [removed]), call [removed]. What do I bring?',
+    });
+    expect(request?.messages[0]?.content).toBe(PROMPTS['assistant_reply.v1']);
+    expect(recorded()).toEqual([
+      expect.objectContaining({ kind: 'assistant_reply', episodeId: null, kbVersionId: null }),
+    ]);
+  });
+
+  it('keeps a menu choice, and makes any choice not offered none', async () => {
+    for (const choice of ['book', 'reschedule', 'talk', 'emergency', 'none']) {
+      const { transport } = fake(answer({ choice }));
+      expect(await ask(transport, 'Hello')).toMatchObject({
+        status: 'ok',
+        output: { kind: choice },
+      });
+    }
+    const { transport } = fake(answer({ choice: 'knee_pain_causes' }));
+    expect(await ask(transport, 'Why does my knee hurt?')).toMatchObject({
+      status: 'ok',
+      output: { kind: 'none' },
+    });
+  });
+
+  it('is unavailable without a model, past the daily cap, or with nothing left to send', async () => {
+    const { transport, sent } = fake();
+    settings['ai.task_assistant_reply'] = { ...assistantConfig, model: null };
+    expect(await ask(transport, 'Hello')).toMatchObject({ reason: 'not_configured' });
+    settings['ai.task_assistant_reply'] = assistantConfig;
+    db.aiSpendSince.mockResolvedValue(30_000_000n);
+    expect(await ask(transport, 'Hello')).toMatchObject({ reason: 'capped' });
+    db.aiSpendSince.mockResolvedValue(0n);
+    expect(await ask(transport, '   ')).toMatchObject({ reason: 'blocked' });
+    expect(sent).toHaveLength(0);
   });
 });

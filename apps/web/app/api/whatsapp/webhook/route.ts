@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { appDb } from '../../../../lib/db';
 import { serverEnv } from '../../../../lib/env';
 import { requestAddress } from '../../../../lib/network';
+import { answerTypedMessage } from '../../../../modules/messaging/assistant';
 import { routeInboundMessage } from '../../../../modules/messaging/router';
 import { handleWhatsappEvent, receiveWhatsappWebhook } from '../../../../modules/messaging/webhook';
 import {
@@ -82,10 +83,16 @@ export async function POST(request: Request): Promise<Response> {
     try {
       const handled = await handleWhatsappEvent(db, eventId);
       // WA-03: each message sent to us gets its route and reply now, not at the next tick.
-      for (const messageId of handled.receivedIds) await routeInboundMessage(db, messageId);
+      for (const messageId of handled.receivedIds) {
+        const routed = await routeInboundMessage(db, messageId);
+        // WA-11: a typed message's answer now too, outside the routing transaction.
+        if (routed.route === 'assistant' && !routed.skipped) {
+          await answerTypedMessage(db, messageId);
+        }
+      }
     } catch {
-      // Its `whatsapp.event` and `whatsapp.route` jobs handle it at the next tick, and try again
-      // after a failure.
+      // Its `whatsapp.event`, `whatsapp.route` and `whatsapp.assistant_reply` jobs handle it at
+      // the next tick, and try again after a failure.
     }
   });
   return Response.json({ received: true }, { headers: { 'Cache-Control': 'no-store' } });

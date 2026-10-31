@@ -47,7 +47,12 @@ import {
 } from '../messaging/clinic-messages';
 import { runDayBeforeReminders, runMorningReminders } from '../messaging/reminders';
 import { WHATSAPP_SEND_JOB, sendQueuedMessage } from '../messaging/send';
-import { WHATSAPP_ROUTE_JOB, routeInboundMessage } from '../messaging/router';
+import { answerTypedMessage } from '../messaging/assistant';
+import {
+  WHATSAPP_ASSISTANT_JOB,
+  WHATSAPP_ROUTE_JOB,
+  routeInboundMessage,
+} from '../messaging/router';
 import { WHATSAPP_EVENT_JOB, handleWhatsappEvent } from '../messaging/webhook';
 import { generateConsultationSummary } from '../documents/consultation-summary';
 import { generateDischargeReport } from '../documents/discharge-report';
@@ -90,6 +95,16 @@ export const jobHandlers: JobHandlers = {
     payload: z.object({ messageId: z.guid() }),
     run: async ({ messageId }, { db }) => {
       await routeInboundMessage(db, messageId);
+    },
+  }),
+  /**
+   * The assistant's answer to a typed message (WA-11), when the webhook did not answer it straight
+   * after routing; answers once whichever runs.
+   */
+  [WHATSAPP_ASSISTANT_JOB]: defineJob({
+    payload: z.object({ messageId: z.guid() }),
+    run: async ({ messageId }, { db }) => {
+      await answerTypedMessage(db, messageId);
     },
   }),
   /** A submitted health form's pipeline (INT-10); a form already done is left as it is. */

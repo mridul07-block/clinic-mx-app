@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { aiRankInputSchema, aiRecheckInputSchema, type AiTaskConfig } from '@clinic-mx/schemas';
+import {
+  aiAssistantInputSchema,
+  aiRankInputSchema,
+  aiRecheckInputSchema,
+  type AiTaskConfig,
+} from '@clinic-mx/schemas';
 import { outboundAllowed, textsOf } from './guard';
-import { answeredByPinned, checkInput, checkTask } from './check';
+import { answeredByPinned, assistantChecks, checkInput, checkTask } from './check';
 import { openRouterKeyStatus, type AiRequest, type AiTransport } from './transport';
 
 vi.mock('../../../lib/env', () => ({ serverEnv: () => ({}) }));
@@ -113,6 +118,45 @@ describe('the live check', () => {
     expect(answeredByPinned('Nebius', ['nebius-ai-studio'])).toBe(false);
     expect(answeredByPinned(null, ['wafer'])).toBe(false);
     expect(answeredByPinned('Wafer', ['/us'])).toBe(false);
+  });
+});
+
+// WA-11: the assistant is checked unpinned, with each made-up message and the choice it must get.
+describe('the live check of the assistant', () => {
+  const assistantConfig = {
+    ...config,
+    model: 'anthropic/claude-haiku-5.5',
+    providers: [],
+    promptVersion: 'assistant_reply.v1' as const,
+    maxTokens: 100,
+  };
+  const ask = (content: string, index: number) =>
+    checkTask('assistant_reply', assistantConfig, {
+      transport: fake({ content, provider: 'Anthropic' }).transport,
+      blockedProviders: ['deepseek'],
+      index,
+    });
+
+  it('sends made-up messages the gateway would send', () => {
+    assistantChecks.forEach((_check, index) => {
+      const input = checkInput('assistant_reply', index);
+      expect(aiAssistantInputSchema.safeParse(input).success).toBe(true);
+      expect(outboundAllowed(textsOf(input))).toBe(true);
+    });
+  });
+
+  it('is ok only with the choice each message must get, a health question going to the team', async () => {
+    expect(await ask('{"choice":"directions"}', 0)).toMatchObject({
+      status: 'ok',
+      choice: 'directions',
+      provider: 'Anthropic',
+    });
+    expect(await ask('{"choice":"talk"}', 2)).toMatchObject({ status: 'ok', choice: 'talk' });
+    expect(await ask('{"choice":"none"}', 2)).toMatchObject({
+      status: 'wrong_choice',
+      choice: 'none',
+    });
+    expect(await ask('{"answer":"Rest it"}', 2)).toMatchObject({ status: 'invalid_output' });
   });
 });
 

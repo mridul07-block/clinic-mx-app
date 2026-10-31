@@ -109,8 +109,9 @@ describe('handlers', () => {
     expect(routeHandlers.talk).toMatchObject({ live: true, reply: 'contact' });
   });
 
-  it('give the menu for typed text until the assistant is live', () => {
-    expect(routeHandlers.assistant).toMatchObject({ live: false, reply: 'menu' });
+  // WA-11: the assistant chooses the answer and queues it itself.
+  it('send typed text to the assistant, the handler answering', () => {
+    expect(routeHandlers.assistant).toMatchObject({ ticket: 'WA-11', live: true, reply: 'none' });
   });
 
   // WA-10: the handler sends the emergency advice and raises the task itself.
