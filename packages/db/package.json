@@ -12,6 +12,8 @@
     "db:seed": "tsx src/seed/run.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "kb:import": "tsx src/knowledge/run.ts",
+    "demo:fill": "tsx src/demo/run.ts fill",
+    "demo:remove": "tsx src/demo/run.ts remove",
     "backup": "tsx src/backup/run.ts"
   },
   "dependencies": {
