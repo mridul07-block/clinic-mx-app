@@ -766,6 +766,12 @@ export const settingDefinitions = {
     description:
       'Words and short phrases that mark a WhatsApp message as an emergency, matched as whole words in any case, for example "chest pain". Checked before anything else.',
   },
+  'whatsapp.undelivered_days': {
+    schema: days.max(30),
+    source: 'WA-13, user decision 31 October 2026',
+    description:
+      'Days a WhatsApp message that could not be delivered stays on Today for the front desk, unless marked Done first.',
+  },
   // DECISION WA-10: the standard safety text until the clinical director confirms the wording.
   'whatsapp.emergency_advice': {
     schema: emergencyAdviceSchema,

@@ -69,6 +69,7 @@ export function TodayBoard({
   refreshSeconds,
   show,
   pricesPlans = false,
+  notDelivered = [],
 }: {
   initial: TodayRow[];
   version: string;
@@ -80,6 +81,8 @@ export function TodayBoard({
   show?: TodayFilter;
   /** Whether the person sees bill amounts: a done consultation links to its plan sheet (BIL-01). */
   pricesPlans?: boolean;
+  /** Patients with a WhatsApp message not delivered, on the panel above (WA-13). */
+  notDelivered?: readonly string[];
 }) {
   const [appointments, setAppointments] = useState(initial);
   const [filter, setFilter] = useState(show);
@@ -241,6 +244,12 @@ export function TodayBoard({
                   ['booked', 'confirmed', 'checked_in'].includes(appointment.status) ? (
                     <span data-testid="session-gate" title={appointment.session.gate.message}>
                       <Tag tone="waiting">Gate blocked</Tag>
+                    </span>
+                  ) : null}
+                  {notDelivered.includes(appointment.patientId) ? (
+                    // WA-13: a WhatsApp message to them was not delivered; see the panel above.
+                    <span data-testid="not-delivered-tag">
+                      <Tag tone="danger">Not delivered</Tag>
                     </span>
                   ) : null}
                   {appointment.consentDeclined ? (

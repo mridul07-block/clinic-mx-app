@@ -1466,3 +1466,9 @@ export {
   type ExerciseInput,
   type ExerciseVideoType,
 } from './exercises';
+export {
+  followUpUndeliveredSchema,
+  messageLabel,
+  undeliveredReason,
+  type FollowUpUndeliveredInput,
+} from './undelivered';
