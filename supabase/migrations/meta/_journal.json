@@ -1758,6 +1758,13 @@
       "when": 1793436385396,
       "tag": "20261031084625_message_follow_up_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 251,
+      "version": "7",
+      "when": 1793440084450,
+      "tag": "20261031094804_assistant_reply_settings",
+      "breakpoints": true
     }
   ]
 }
