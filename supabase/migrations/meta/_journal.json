@@ -1765,6 +1765,13 @@
       "when": 1793440084450,
       "tag": "20261031094804_assistant_reply_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 252,
+      "version": "7",
+      "when": 1793446638686,
+      "tag": "20261031113718_live_signals",
+      "breakpoints": true
     }
   ]
 }
