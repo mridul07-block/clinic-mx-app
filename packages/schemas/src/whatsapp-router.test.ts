@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MENU_BUTTONS,
   checkAnswerOf,
+  contactMessage,
   contactText,
   emergencyReplyText,
   emergencyPhrasesSchema,
@@ -213,6 +214,30 @@ describe('handlers', () => {
 describe('Talk to our team', () => {
   const hsr = { name: 'HSR Layout', phone: '+91 80 0000 0001' };
   const kor = { name: 'Koramangala', phone: '+91 80 0000 0002' };
+
+  // The layout chosen by the user (1 November 2026): heading, each centre with its phone, email.
+  it('lays the message out a centre to a line pair, with icons, numbers formatted', () => {
+    expect(
+      contactMessage({
+        centres: [hsr, { name: 'Whitefield', phone: '+919845012345' }],
+        email: 'desk@example.com',
+      }),
+    ).toBe(
+      [
+        '*Talk to our team*',
+        'Our front desk is happy to help.',
+        '📞 *HSR Layout*\n+91 80 0000 0001',
+        '📞 *Whitefield*\n+91 98450 12345',
+        '✉️ desk@example.com',
+      ].join('\n\n'),
+    );
+    expect(contactMessage({ centres: [{ name: 'HSR Layout', phone: null }], email: '' })).toBe(
+      'Please call the clinic you visit; our front desk will help.',
+    );
+    expect(
+      contactMessage({ centres: [{ name: 'HSR Layout', phone: null }], email: 'a@b.in' }),
+    ).toBe('*Talk to our team*\n\nOur front desk is happy to help.\n\n✉️ a@b.in');
+  });
 
   it('gives the patient’s centre phone, or every centre’s by name, and the email', () => {
     expect(contactText({ centres: [hsr], email: 'desk@example.com' })).toBe(

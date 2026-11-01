@@ -290,8 +290,31 @@ export function contactText({
     ...(phones.length > 0 ? [`call ${phones.join(', ')}`] : []),
     ...(email ? [`email ${email}`] : []),
   ];
-  if (ways.length === 0) return 'Please call the clinic you visit; our front desk will help.';
+  if (ways.length === 0) return NO_CONTACT_TEXT;
   return `To talk to our team, ${ways.join(' or ')}.`;
+}
+
+const NO_CONTACT_TEXT = 'Please call the clinic you visit; our front desk will help.';
+
+/**
+ * "Talk to our team" as its own WhatsApp message (WA-09; layout chosen by the user, 1 November
+ * 2026): a bold heading, then each centre by name with its phone, then the email, one per line, so
+ * it reads at a glance and each number is tap to call. The same centres and email as
+ * `contactText`, which stays for a line inside other text (a Flow screen); nothing invented.
+ */
+export function contactMessage({
+  centres,
+  email,
+}: {
+  centres: readonly CentreContact[];
+  email: string;
+}): string {
+  const phones = centres
+    .filter((centre): centre is { name: string; phone: string } => Boolean(centre.phone))
+    .map((centre) => `📞 *${centre.name}*\n${formatIndianPhone(centre.phone)}`);
+  const ways = [...phones, ...(email ? [`✉️ ${email}`] : [])];
+  if (ways.length === 0) return NO_CONTACT_TEXT;
+  return ['*Talk to our team*', 'Our front desk is happy to help.', ...ways].join('\n\n');
 }
 
 /**
