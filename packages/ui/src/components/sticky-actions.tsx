@@ -20,6 +20,7 @@ export function StickyActions({ children, aboveTabs = true, className }: StickyA
     <>
       <div aria-hidden className="h-20 md:hidden" />
       <div
+        data-sticky-actions
         className={cn(
           'fixed inset-x-0 z-20 flex flex-col gap-2 border-t border-line bg-surface px-4 pt-3 *:w-full',
           aboveTabs
