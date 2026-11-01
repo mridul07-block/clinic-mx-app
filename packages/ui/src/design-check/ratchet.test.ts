@@ -43,5 +43,6 @@ describe('legacy ratchet', () => {
     expect(countsTowardsRatchet('apps/web/components/tag.test.tsx')).toBe(false);
     expect(countsTowardsRatchet('apps/web/e2e/today.spec.tsx')).toBe(false);
     expect(countsTowardsRatchet('apps/web/lib/a.ts')).toBe(false);
+    expect(countsTowardsRatchet('packages/ui/src/components/select.tsx')).toBe(false);
   });
 });

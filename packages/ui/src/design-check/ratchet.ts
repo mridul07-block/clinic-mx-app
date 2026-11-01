@@ -18,9 +18,15 @@ export const legacyPatterns = {
 export type LegacyName = keyof typeof legacyPatterns;
 export type LegacyCounts = Record<LegacyName, number>;
 
-/** Only screen code counts: tests and end to end specs may name the patterns. */
+/**
+ * Only screen code counts: tests and end to end specs may name the patterns, and the kit's own
+ * components (packages/ui/src/components) are what replace them, built on the native elements.
+ */
 export const countsTowardsRatchet = (file: string) =>
-  /\.tsx$/.test(file) && !/\.test\.tsx$/.test(file) && !file.includes('/e2e/');
+  /\.tsx$/.test(file) &&
+  !/\.test\.tsx$/.test(file) &&
+  !file.includes('/e2e/') &&
+  !file.startsWith('packages/ui/src/components/');
 
 export function emptyCounts(): LegacyCounts {
   return { 'raw-select': 0, 'raw-date-input': 0, 'phone-width-page': 0 };
