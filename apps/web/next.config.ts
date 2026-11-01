@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
   // page someone opened: IAM-07 activity and the IAM-08 log of what Velyx support opened. It
   // drops the router's `_rsc` query itself.
   skipProxyUrlNormalize: true,
+  // UIX-27: Sentry is errors only (lib/monitoring/options.ts: no tracing, no replay), so its
+  // tracing code and debug logging are compiled out. Sentry's own `treeshake` option only works
+  // with webpack; these are the flags it sets, applied by Turbopack too.
+  compiler: {
+    define: { __SENTRY_TRACING__: 'false', __SENTRY_DEBUG__: 'false' },
+  },
   // Workspace packages export TypeScript source; Next compiles them with the app.
   transpilePackages: [
     '@clinic-mx/schemas',

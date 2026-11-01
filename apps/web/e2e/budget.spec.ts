@@ -11,20 +11,22 @@ import { signIn, temporaryWithCode, testStaff } from './staff';
 // only: the bundles are the same on a phone. Plan and payment joins with its redesign (UIX-15).
 //
 // The Frontend Specification's budget is 200 KB a route (section 10). Measured on 1 November 2026
-// the staff screens were about 270 KB: the whole schemas package (zod) reaches the browser
-// through its single entry, and Sentry adds its own. Until that is cut (UIX-27), each route has a
-// ceiling of today's size plus 5%, so nothing grows; UIX-27 lowers them to the budget.
+// the staff screens were about 280 KB and the patient link 271 KB. UIX-27 marked the schemas
+// package free of side effects and compiled Sentry's tracing and debug code out: the patient link
+// 236 KB, sign in 243 KB, staff screens 269 to 278 KB, with the component kit added. Each route's
+// ceiling is its size plus 5%, so nothing grows while the rest is cut (zod itself, still on staff
+// screens through their forms' schemas).
 
 const targetBytes = 200 * 1024;
 
-/** Gzipped bytes per route (1 November 2026 plus 5%); lower these as bundles shrink, never raise. */
+/** Gzipped bytes per route (after UIX-27, plus 5%); lower these as bundles shrink, never raise. */
 const ceilings: Record<string, number> = {
-  '/p/[token]': 285 * 1024,
-  '/app/sign-in': 283 * 1024,
-  '/app/today': 299 * 1024,
-  '/app/calendar': 298 * 1024,
-  '/app/patients': 291 * 1024,
-  '/app/patients/[id]': 297 * 1024,
+  '/p/[token]': 248 * 1024,
+  '/app/sign-in': 255 * 1024,
+  '/app/today': 291 * 1024,
+  '/app/calendar': 291 * 1024,
+  '/app/patients': 283 * 1024,
+  '/app/patients/[id]': 289 * 1024,
 };
 
 test.skip(() => test.info().project.name !== 'desktop', 'bundles are the same on every screen');
