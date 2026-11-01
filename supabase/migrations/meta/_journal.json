@@ -1779,6 +1779,13 @@
       "when": 1793472401508,
       "tag": "20261031184641_whatsapp_queued_phone",
       "breakpoints": true
+    },
+    {
+      "idx": 254,
+      "version": "7",
+      "when": 1793533102113,
+      "tag": "20261101113822_greeting_words_setting",
+      "breakpoints": true
     }
   ]
 }
