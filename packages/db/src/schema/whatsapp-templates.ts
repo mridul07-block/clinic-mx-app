@@ -33,6 +33,11 @@ export const whatsappTemplate = pgTable(
     metaName: text('meta_name').notNull(),
     /** Meta's template id, from the submission. */
     metaId: text('meta_id').notNull().unique(),
+    /**
+     * The WhatsApp Business Account the template is on: an approval counts on that account only
+     * (1 November 2026). Rows recorded before then have none and count on no account.
+     */
+    businessAccountId: text('business_account_id'),
     /** Meta's category: UTILITY as submitted, unless Meta moved it. */
     category: text('category').notNull(),
     status: templateApprovalStatus('status').notNull().default('pending'),
@@ -44,6 +49,19 @@ export const whatsappTemplate = pgTable(
   (table) => [
     unique('whatsapp_template_version').on(table.key, table.version, table.language),
     unique('whatsapp_template_meta_name').on(table.metaName, table.language),
+    // Per account: the same version can be on two accounts (a new number, the client's at WA-12).
+    unique('whatsapp_template_account_version').on(
+      table.businessAccountId,
+      table.key,
+      table.version,
+      table.language,
+    ),
+    unique('whatsapp_template_account_meta_name').on(
+      table.businessAccountId,
+      table.metaName,
+      table.language,
+    ),
+    check('whatsapp_template_business_account', sql`${table.businessAccountId} ~ '^[0-9]+$'`),
     check('whatsapp_template_version_positive', sql`${table.version} >= 1`),
     check(
       'whatsapp_template_meta_name_format',

@@ -202,6 +202,12 @@ describe('WhatsApp template versions on Meta', () => {
           recordTemplateVersion(sp, { ...version(fakeKey(), 1), metaId: '' }),
         ),
       ).toBe('23514');
+      // The WhatsApp Business Account, when recorded, is Meta's numeric id.
+      expect(
+        await failure(tx, (sp) =>
+          sp.insert(whatsappTemplate).values({ ...version(fakeKey(), 1), businessAccountId: 'x1' }),
+        ),
+      ).toBe('23514');
       // Created again on Meta under a new id: refused, never left pointing at the old one.
       await expect(recordTemplateVersion(tx, { ...v1, metaId: '123456789' })).rejects.toThrow(
         TemplateVersionClashError,
