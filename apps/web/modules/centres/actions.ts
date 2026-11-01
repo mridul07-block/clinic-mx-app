@@ -11,7 +11,8 @@ import { CentreError, addCentre, editCentre, setCentreActiveService } from './se
 export interface CentreFormState {
   error?: string;
   /**
-   * Messages by field: name, code, appointmentPrefix, address, phone, mapLink, reviewLink, colour,
+   * Messages by field: name, code, appointmentPrefix, address, phone, mapLink, coordinates,
+   * reviewLink, colour,
    * treadmills.
    */
   fieldErrors?: Record<string, string>;
@@ -31,6 +32,7 @@ const detailsFrom = (form: FormData) => ({
   address: text(form, 'address'),
   phone: text(form, 'phone'),
   mapLink: text(form, 'mapLink'),
+  coordinates: text(form, 'coordinates'),
   reviewLink: text(form, 'reviewLink'),
   colour: text(form, 'colour'),
   treadmills: text(form, 'treadmills'),

@@ -68,6 +68,8 @@ export async function metaJson(response: Response, what: string): Promise<unknow
 export function metaTemplateClient(config: MetaConfig, send: Fetch = fetch) {
   const auth = { Authorization: `Bearer ${config.accessToken}` };
   return {
+    /** The WhatsApp Business Account its templates are on: recorded with each (1 November 2026). */
+    businessAccountId: config.businessAccountId,
     /** Every template on the business account, Meta's samples included. */
     async list(): Promise<MetaTemplate[]> {
       const templates: MetaTemplate[] = [];
@@ -146,13 +148,14 @@ const record = systemService({
 });
 
 /** Meta's template as a recorded version of ours; none for one not in the registry. */
-function asVersion(found: MetaTemplate): TemplateVersionOnMeta | null {
+function asVersion(found: MetaTemplate, businessAccountId: string): TemplateVersionOnMeta | null {
   const match = /^([a-z][a-z0-9_]*)_v(\d+)$/.exec(found.name);
   const status = templateApprovalOf(found.status);
   if (!match?.[1] || !status || !messageTemplates.some((entry) => entry.key === match[1])) {
     return null;
   }
   return {
+    businessAccountId,
     key: match[1],
     version: Number(match[2]),
     language: found.language,
@@ -248,13 +251,17 @@ export async function submitTemplates(
       outcome: toCreate.includes(template) ? 'submitted' : 'on_meta',
     });
   }
-  await record(db, { versions: onMeta.flatMap((found) => asVersion(found) ?? []) });
+  await record(db, {
+    versions: onMeta.flatMap((found) => asVersion(found, meta.businessAccountId) ?? []),
+  });
   return results;
 }
 
 /** Reads Meta's verdict on every version of ours it holds into `whatsapp_template`. */
 export async function syncTemplates(db: Db, meta: MetaTemplateClient): Promise<number> {
-  const versions = (await meta.list()).flatMap((found) => asVersion(found) ?? []);
+  const versions = (await meta.list()).flatMap(
+    (found) => asVersion(found, meta.businessAccountId) ?? [],
+  );
   await record(db, { versions });
   return versions.length;
 }

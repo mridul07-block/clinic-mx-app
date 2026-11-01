@@ -27,6 +27,7 @@ const templates = [
   messageTemplate('morning_reminder'),
 ];
 const fakeMeta = (onMeta: Awaited<ReturnType<MetaTemplateClient['list']>>) => ({
+  businessAccountId: '1000000000000001',
   list: vi.fn(() => Promise.resolve(structuredClone(onMeta))),
   uploadSample: vi.fn(() => Promise.resolve('handle-1')),
   create: vi.fn((body: { name: string }) =>
@@ -80,6 +81,8 @@ describe('submitting the templates to Meta', () => {
     });
     expect(recorded()).toEqual([
       {
+        // 1 November 2026: each version is recorded with the account it is on.
+        businessAccountId: '1000000000000001',
         key: 'morning_reminder',
         version: 1,
         language: 'en',

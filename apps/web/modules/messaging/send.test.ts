@@ -129,7 +129,12 @@ describe('sending a queued WhatsApp message', () => {
       },
       expect.any(AbortSignal),
     );
-    expect(db.approvedTemplateVersion).toHaveBeenCalledWith({}, 'no_show', 'en', 1);
+    expect(db.approvedTemplateVersion).toHaveBeenCalledWith(
+      {},
+      'no_show',
+      'en',
+      expect.objectContaining({ minVersion: 1 }),
+    );
     expect(outcome()).toEqual([{ status: 'sent', waMessageId: 'wamid.2' }]);
   });
 
@@ -143,7 +148,7 @@ describe('sending a queued WhatsApp message', () => {
       {},
       'front_desk_booking_confirmation',
       'en',
-      2,
+      expect.objectContaining({ minVersion: 2 }),
     );
   });
 
@@ -308,6 +313,72 @@ describe('sending a router reply', () => {
       'whatsapp.test_recipients_only': true,
       'whatsapp.test_recipients': [onList],
     };
+  });
+
+  // 1 November 2026: the confirmation with a map inside the window, the pin, then the text with
+  // the template's buttons; and the template itself with the centre's map in its header.
+  const place = {
+    map_latitude: '12.9116',
+    map_longitude: '77.6474',
+    map_name: 'Movementology HSR Layout',
+    map_address: '1 Test Road',
+  };
+  const pinned = {
+    latitude: 12.9116,
+    longitude: 77.6474,
+    name: 'Movementology HSR Layout',
+    address: '1 Test Road',
+  };
+
+  it('sends the centre as a pin, then the confirmation with Reschedule and Talk to our team', async () => {
+    const meta = transport({ ok: true, waMessageId: 'wamid.pin' });
+    db.messageRecord.mockResolvedValue(reply('clinic_location', place));
+    await send({ transport: meta });
+    expect(meta.sendSession).toHaveBeenLastCalledWith(
+      { to: onList, text: '', location: pinned },
+      expect.any(AbortSignal),
+    );
+    db.messageRecord.mockResolvedValue(reply('appointment_confirmation', { text: 'Confirmed' }));
+    await send({ transport: meta });
+    expect(meta.sendSession).toHaveBeenLastCalledWith(
+      {
+        to: onList,
+        text: 'Confirmed',
+        buttons: [
+          { id: 'appointment_confirmation.reschedule', title: 'Reschedule' },
+          { id: 'appointment_confirmation.talk', title: 'Talk to our team' },
+        ],
+      },
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('puts the centre on the map template’s header', async () => {
+    const meta = transport({ ok: true, waMessageId: 'wamid.map' });
+    db.approvedTemplateVersion.mockResolvedValue({
+      metaName: 'appointment_confirmation_v1',
+      version: 1,
+    });
+    db.messageRecord.mockResolvedValue(
+      queued({
+        kind: 'template',
+        templateKey: 'appointment_confirmation',
+        language: 'en',
+        variables: { patient_name: 'Asha', clinic_phone: '+91 80 0000 0001', ...place },
+      }),
+    );
+    await send({ transport: meta });
+    expect(meta.sendTemplate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        template: 'appointment_confirmation_v1',
+        location: pinned,
+        buttons: [
+          { index: 0, kind: 'quick_reply', payload: 'appointment_confirmation.reschedule' },
+          { index: 1, kind: 'quick_reply', payload: 'appointment_confirmation.talk' },
+        ],
+      }),
+      expect.any(AbortSignal),
+    );
   });
 
   it('sends the menu with its three buttons, and the contact details as text', async () => {

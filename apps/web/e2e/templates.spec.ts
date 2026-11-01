@@ -9,7 +9,7 @@ import {
 import { expect, test, type Page } from '@playwright/test';
 import { eq, sql } from 'drizzle-orm';
 import { signIn, signInWithCode, temporaryDesk, temporaryWithCode } from './staff';
-import { postWebhook } from './whatsapp';
+import { TEST_WHATSAPP_BUSINESS_ACCOUNT_ID, postWebhook } from './whatsapp';
 
 // SET-11 done when: keys, variables and versions are viewable by the Super Admin. The registry is
 // in code (packages/schemas/src/message-templates.ts). WA-06 done when: every template in the TAD
@@ -66,8 +66,8 @@ test('the Super Admin views every template with its key, variables and version',
   await page.goto('/app');
   await page.getByRole('main').getByRole('link', { name: 'WhatsApp templates' }).click();
   await expect(page.getByRole('heading', { name: 'WhatsApp templates', level: 1 })).toBeVisible();
-  await expect(page.getByTestId('message-template')).toHaveCount(16);
-  await expect(page.getByTestId('template-count')).toContainText('16 templates');
+  await expect(page.getByTestId('message-template')).toHaveCount(17);
+  await expect(page.getByTestId('template-count')).toContainText('17 templates');
 
   const confirmation = card(page, 'booking_confirmation');
   await expect(confirmation.getByText('Booking confirmation', { exact: true })).toBeVisible();
@@ -101,6 +101,7 @@ test('Meta’s verdict on a template shows, and its signed webhook moves it on',
   metaIds.push(metaId);
   await withActor(db(), systemActor('whatsapp-templates'), (tx) =>
     tx.insert(whatsappTemplate).values({
+      businessAccountId: TEST_WHATSAPP_BUSINESS_ACCOUNT_ID,
       key,
       version: 1,
       language: 'en',

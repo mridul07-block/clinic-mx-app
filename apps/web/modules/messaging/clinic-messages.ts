@@ -31,6 +31,8 @@ import {
   FIRST_TREATMENT_ANSWER_KEY,
   FOLLOW_UP_ANSWER_KEY,
   FOLLOW_UP_INTERVAL_KEY,
+  CLINIC_LOCATION_KEY,
+  MAP_CONFIRMATION_KEY,
   SESSION_REPLY_VERSION,
   TEMPLATE_LANGUAGE,
   checkAnswers,
@@ -45,6 +47,7 @@ import {
   formatIndianPhone,
   formatRupees,
   istDate,
+  mapPlaceVariables,
   messageTemplate,
   oldestSendableVersion,
   packageState,
@@ -55,6 +58,7 @@ import {
   type TemplateParameters,
 } from '@clinic-mx/schemas';
 import { z } from 'zod';
+import { serverEnv } from '../../lib/env';
 import { systemService } from '../access/service';
 import { issuePatientLink, patientLinkPath } from '../patient-links/services';
 import { flowDate } from './booking-flow';
@@ -367,14 +371,85 @@ export const sendBookingConfirmation = systemService({
       directions: confirmationDirections(visit.mapLink, visit.address),
       clinic_phone: formatIndianPhone(phone),
     };
-    const approved = await approvedTemplateVersion(
-      tx,
-      key,
-      TEMPLATE_LANGUAGE,
-      oldestSendableVersion(template),
-    );
-    const plain =
-      !approved && withinSessionWindow(await lastInboundAt(tx, patient.phone), input.now);
+    const businessAccountId = serverEnv().WHATSAPP_BUSINESS_ACCOUNT_ID;
+    const inWindow = withinSessionWindow(await lastInboundAt(tx, patient.phone), input.now);
+    const common = {
+      patientId: patient.id,
+      toPhone: patient.phone,
+      language: TEMPLATE_LANGUAGE,
+      createdBy: 'system:whatsapp',
+      patientLinkId: null,
+      appointmentId: input.appointmentId,
+    };
+
+    // 1 November 2026: with the centre's map when it has its coordinates, as the template once Meta
+    // approves it, else inside the window as the pin and then the text with its buttons.
+    if (typeof visit.latitude === 'number' && typeof visit.longitude === 'number') {
+      const mapTemplate = messageTemplate(MAP_CONFIRMATION_KEY);
+      const mapApproved = await approvedTemplateVersion(
+        tx,
+        MAP_CONFIRMATION_KEY,
+        TEMPLATE_LANGUAGE,
+        {
+          businessAccountId,
+          minVersion: oldestSendableVersion(mapTemplate),
+        },
+      );
+      if (mapApproved || inWindow) {
+        // The map takes the place of the directions line.
+        const mapVariables = {
+          patient_name: variables.patient_name,
+          appointment_id: variables.appointment_id,
+          date: variables.date,
+          time: variables.time,
+          physio: variables.physio,
+          clinic: variables.clinic,
+          fee: variables.fee,
+          clinic_phone: variables.clinic_phone,
+        };
+        const place = mapPlaceVariables({
+          latitude: visit.latitude,
+          longitude: visit.longitude,
+          name: `Movementology ${visit.centreName}`,
+          address: visit.address ?? '',
+        });
+        if (mapApproved) {
+          const id = await queueMessageOnce(tx, {
+            ...common,
+            kind: 'template',
+            templateKey: MAP_CONFIRMATION_KEY,
+            templateVersion: mapTemplate.version,
+            variables: { ...mapVariables, ...place },
+            sourceKey: input.sourceKey,
+          });
+          return id ? 'queued' : 'already_queued';
+        }
+        await queueMessageOnce(tx, {
+          ...common,
+          kind: 'session',
+          templateKey: CLINIC_LOCATION_KEY,
+          templateVersion: SESSION_REPLY_VERSION,
+          variables: place,
+          sourceKey: `${input.sourceKey}:map`,
+        });
+        const id = await queueMessageOnce(tx, {
+          ...common,
+          kind: 'session',
+          templateKey: MAP_CONFIRMATION_KEY,
+          templateVersion: SESSION_REPLY_VERSION,
+          variables: { text: renderTemplateBody(mapTemplate, mapVariables) },
+          sourceKey: input.sourceKey,
+          queuedAfter: true,
+        });
+        return id ? 'queued' : 'already_queued';
+      }
+    }
+
+    const approved = await approvedTemplateVersion(tx, key, TEMPLATE_LANGUAGE, {
+      businessAccountId,
+      minVersion: oldestSendableVersion(template),
+    });
+    const plain = !approved && inWindow;
     const id = await queueMessageOnce(tx, {
       patientId: patient.id,
       toPhone: patient.phone,

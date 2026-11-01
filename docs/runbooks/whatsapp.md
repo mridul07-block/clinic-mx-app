@@ -162,6 +162,14 @@ Measured on staging, 31 October 2026, before the change: stored and routed withi
 assistant's choice about 4 seconds, then a wait for the tick. Locally, with the change, the reply's
 send is done about half a second after the message reaches us.
 
+## The booking confirmation with a map
+
+A booking or move gets the confirmation with the centre's map when the centre has its coordinates
+(1 November 2026; `docs/runbooks/whatsapp-templates.md`, "With the centre's map"). Inside the
+window, before Meta approves the template, it comes as a pin of the centre, then the laid out text
+with Reschedule and Talk to our team. Enter each centre's coordinates in Centres ("Map
+coordinates", as Google Maps shows them on a right click, for example 12.9116, 77.6474).
+
 ## Health
 
 `pnpm whatsapp:health` (from `apps/web`, `node --env-file=.env.local` as the other WhatsApp
@@ -210,7 +218,8 @@ menu.
   Laid out as its own message (`contactMessage`; the user's choice, 1 November 2026): "*Talk to
   our team*", "Our front desk is happy to help.", then each centre as "📞 *name*" over its phone
   (tap to call), then "✉️ email". Inside other text, such as the booking form's screen, the
-  one-line `contactText` is used.
+  one-line `contactText` is used. A number several centres share is listed once, with their names
+  ("📞 *HSR Layout, Koramangala and Whitefield*"), as the three centres share one front desk number.
   Phones come from each centre's setup. What is not set is left out; with nothing set the reply
   asks them to call the clinic they visit.
 - **Emergency phrases** (`whatsapp.emergency_phrases`, DECISION WA-03): matched as whole words in

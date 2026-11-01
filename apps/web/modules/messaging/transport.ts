@@ -20,6 +20,14 @@ export type TemplateButtonParameter =
   | { index: number; kind: 'quick_reply'; payload: string }
   | { index: number; kind: 'flow'; token: string };
 
+/** A place on a map (1 November 2026: the centre in the booking confirmation). */
+export interface MapPlace {
+  latitude: number;
+  longitude: number;
+  name: string;
+  address: string;
+}
+
 export interface TemplateSend {
   to: string;
   template: string;
@@ -31,6 +39,8 @@ export interface TemplateSend {
    * media id, never a public link; and the file name the patient sees.
    */
   document?: { id: string; filename: string };
+  /** A map header: the place, given with each message. */
+  location?: MapPlace;
   buttons?: readonly TemplateButtonParameter[];
 }
 
@@ -43,6 +53,8 @@ export interface SessionSend {
   text: string;
   buttons?: readonly { id: string; title: string }[];
   flow?: { id: string; token: string; cta: string; mode: 'draft' | 'published' };
+  /** A pin on a map instead of text (the text is then not sent). */
+  location?: MapPlace;
 }
 
 export type SendResult =
@@ -132,6 +144,9 @@ export function templateBody(message: TemplateSend) {
     ...(message.document
       ? [{ type: 'header', parameters: [{ type: 'document', document: message.document }] }]
       : []),
+    ...(message.location
+      ? [{ type: 'header', parameters: [{ type: 'location', location: message.location }] }]
+      : []),
     ...(message.parameters.length > 0
       ? [
           {
@@ -163,6 +178,7 @@ export function sessionBody(message: SessionSend) {
     recipient_type: 'individual',
     to: message.to.replace(/^\+/, ''),
   };
+  if (message.location) return { ...common, type: 'location', location: message.location };
   if (message.flow) {
     return {
       ...common,

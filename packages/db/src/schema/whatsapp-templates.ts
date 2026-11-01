@@ -47,8 +47,6 @@ export const whatsappTemplate = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    unique('whatsapp_template_version').on(table.key, table.version, table.language),
-    unique('whatsapp_template_meta_name').on(table.metaName, table.language),
     // Per account: the same version can be on two accounts (a new number, the client's at WA-12).
     unique('whatsapp_template_account_version').on(
       table.businessAccountId,

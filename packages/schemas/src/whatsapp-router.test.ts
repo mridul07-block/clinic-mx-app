@@ -39,6 +39,13 @@ describe('greetings', () => {
     expect(isGreeting('hi', [])).toBe(false);
   });
 
+  it('route the confirmation with a map’s buttons as the menu’s', () => {
+    expect(route({ kind: 'reply', replyId: 'appointment_confirmation.reschedule' })).toBe(
+      'reschedule',
+    );
+    expect(route({ kind: 'reply', replyId: 'appointment_confirmation.talk' })).toBe('talk');
+  });
+
   it('get the menu without the assistant, emergency phrases still first', () => {
     expect(route({ body: 'Hello!' })).toBe('menu');
     expect(route({ body: 'hi, my knee hurts' })).toBe('assistant');
@@ -237,6 +244,29 @@ describe('Talk to our team', () => {
     expect(
       contactMessage({ centres: [{ name: 'HSR Layout', phone: null }], email: 'a@b.in' }),
     ).toBe('*Talk to our team*\n\nOur front desk is happy to help.\n\n✉️ a@b.in');
+  });
+
+  // 1 November 2026: the three centres share one front desk number; it is listed once.
+  it('lists a number the centres share once, with their names', () => {
+    const shared = '+918296169699';
+    const centres = [
+      { name: 'HSR Layout', phone: shared },
+      { name: 'Koramangala', phone: shared },
+      { name: 'Whitefield', phone: shared },
+    ];
+    expect(contactMessage({ centres, email: '' })).toBe(
+      [
+        '*Talk to our team*',
+        'Our front desk is happy to help.',
+        '📞 *HSR Layout, Koramangala and Whitefield*\n+91 82961 69699',
+      ].join('\n\n'),
+    );
+    expect(contactText({ centres: [...centres, kor], email: '' })).toBe(
+      'To talk to our team, call HSR Layout, Koramangala and Whitefield +918296169699, Koramangala +91 80 0000 0002.',
+    );
+    expect(emergencyReplyText('Call 112.', centres.slice(0, 2))).toBe(
+      'Call 112. To reach the clinic, call HSR Layout and Koramangala +91 82961 69699.',
+    );
   });
 
   it('gives the patient’s centre phone, or every centre’s by name, and the email', () => {

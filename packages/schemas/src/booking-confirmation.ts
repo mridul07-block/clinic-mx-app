@@ -28,3 +28,48 @@ export function confirmationFee(typeKey: string, consultationFeePaise: number | 
     ? 'payable at the clinic'
     : `${formatRupees(consultationFeePaise)}, payable at the clinic`;
 }
+
+/**
+ * The confirmation with the centre's map (user decisions, 1 November 2026): sent when the centre
+ * has its coordinates, as the `appointment_confirmation` template, or inside the window as a pin
+ * (`clinic_location`) followed by the same text with its buttons.
+ */
+export const MAP_CONFIRMATION_KEY = 'appointment_confirmation';
+export const CLINIC_LOCATION_KEY = 'clinic_location';
+
+export interface MapPlace {
+  latitude: number;
+  longitude: number;
+  name: string;
+  address: string;
+}
+
+/** A centre's place as a message's variables, kept with it until it is sent. */
+export function mapPlaceVariables(place: MapPlace): Record<string, string> {
+  return {
+    map_latitude: String(place.latitude),
+    map_longitude: String(place.longitude),
+    map_name: place.name,
+    map_address: place.address,
+  };
+}
+
+/** The place a message's variables hold, if whole. */
+export function mapPlaceOf(variables: Record<string, string>): MapPlace | undefined {
+  const latitude = Number(variables.map_latitude);
+  const longitude = Number(variables.map_longitude);
+  if (
+    !variables.map_latitude ||
+    !variables.map_longitude ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude)
+  ) {
+    return undefined;
+  }
+  return {
+    latitude,
+    longitude,
+    name: variables.map_name ?? '',
+    address: variables.map_address ?? '',
+  };
+}

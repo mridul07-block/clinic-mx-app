@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatMapCoordinates,
+  mapCoordinatesSchema,
   centreColourIndex,
   centreColourName,
   centreColours,
@@ -82,6 +84,8 @@ describe('centre details', () => {
     expect(centreDetailsSchema.parse({ ...details, name: '  HSR Layout ' })).toEqual({
       ...details,
       phone: '+918041234567',
+      // Optional: none given, none kept.
+      coordinates: null,
     });
     for (const field of ['name', 'address', 'phone', 'mapLink', 'colour'] as const) {
       expect(centreDetailsSchema.safeParse({ ...details, [field]: '' }).success, field).toBe(false);
@@ -131,5 +135,33 @@ describe('the review link', () => {
       'https://g.page/r/TestOnlyReview123/review',
     );
     expect(parsed('https://example.com').success).toBe(false);
+  });
+});
+
+// The map in WhatsApp's booking confirmation (user decision, 1 November 2026).
+describe('map coordinates', () => {
+  it('take them as Google Maps shows them, and show them back the same way', () => {
+    expect(mapCoordinatesSchema.parse('12.9116, 77.6474')).toEqual({
+      latitude: 12.9116,
+      longitude: 77.6474,
+    });
+    expect(mapCoordinatesSchema.parse(' 12.91161234,77.64749999 ')).toEqual({
+      latitude: 12.911612,
+      longitude: 77.6475,
+    });
+    expect(mapCoordinatesSchema.parse('-33.8688, 151.2093')).toEqual({
+      latitude: -33.8688,
+      longitude: 151.2093,
+    });
+    expect(formatMapCoordinates(12.9116, 77.6474)).toBe('12.9116, 77.6474');
+    expect(formatMapCoordinates(null, null)).toBe('');
+  });
+
+  it('are optional, and refuse anything else', () => {
+    expect(mapCoordinatesSchema.parse('')).toBeNull();
+    expect(mapCoordinatesSchema.parse(undefined)).toBeNull();
+    for (const bad of ['12.9116', '91, 77', '12.9, 181', 'HSR Layout', '12.9; 77.6']) {
+      expect(mapCoordinatesSchema.safeParse(bad).success).toBe(false);
+    }
   });
 });

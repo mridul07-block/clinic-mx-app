@@ -1793,6 +1793,13 @@
       "when": 1793539240386,
       "tag": "20261101132040_template_account_centre_coordinates",
       "breakpoints": true
+    },
+    {
+      "idx": 256,
+      "version": "7",
+      "when": 1793539413379,
+      "tag": "20261101132333_template_account_only",
+      "breakpoints": true
     }
   ]
 }

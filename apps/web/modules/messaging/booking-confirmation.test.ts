@@ -73,7 +73,7 @@ describe('the booking confirmation', () => {
       'system-tx',
       'front_desk_booking_confirmation',
       'en',
-      2,
+      expect.objectContaining({ minVersion: 2 }),
     );
     expect(queued()).toEqual([
       {
@@ -172,5 +172,96 @@ describe('the booking confirmation', () => {
   it('skips an appointment that is gone', async () => {
     db.appointmentForConfirmation.mockResolvedValue(undefined);
     expect(await send()).toBe('skipped:no appointment');
+  });
+});
+
+// User decisions, 1 November 2026: with the centre's map when it has its coordinates.
+describe('the booking confirmation with a map', () => {
+  const placed = { ...visit, latitude: 12.9116, longitude: 77.6474 };
+  const place = {
+    map_latitude: '12.9116',
+    map_longitude: '77.6474',
+    map_name: 'Movementology HSR Layout',
+    map_address: '1 Test Road',
+  };
+
+  it('goes as the map template once Meta approves it, the place with it', async () => {
+    db.appointmentForConfirmation.mockResolvedValue(placed);
+    db.approvedTemplateVersion.mockImplementation((_tx, key: string) =>
+      Promise.resolve(
+        key === 'appointment_confirmation'
+          ? { metaName: 'appointment_confirmation_v1', version: 1 }
+          : null,
+      ),
+    );
+    expect(await send()).toBe('queued');
+    expect(queued()).toEqual([
+      expect.objectContaining({
+        kind: 'template',
+        templateKey: 'appointment_confirmation',
+        appointmentId: ids.appointment,
+        sourceKey,
+        variables: {
+          patient_name: 'Test',
+          appointment_id: 'MVH-00042',
+          date: 'day 2026-11-03',
+          time: '10:00 AM',
+          physio: 'Test Physio',
+          clinic: 'HSR Layout',
+          fee: '₹1,000, payable at the clinic',
+          clinic_phone: '+91 80 0000 0001',
+          ...place,
+        },
+      }),
+    ]);
+  });
+
+  it('goes as the pin, then the laid out text, inside the window until Meta approves', async () => {
+    db.appointmentForConfirmation.mockResolvedValue(placed);
+    db.approvedTemplateVersion.mockResolvedValue(null);
+    db.lastInboundAt.mockResolvedValue(new Date(now.getTime() - 60_000));
+    expect(await send()).toBe('queued');
+    const [pin, text] = queued();
+    expect(pin).toMatchObject({
+      kind: 'session',
+      templateKey: 'clinic_location',
+      variables: place,
+      sourceKey: `${sourceKey}:map`,
+    });
+    expect(text).toMatchObject({
+      kind: 'session',
+      templateKey: 'appointment_confirmation',
+      sourceKey,
+      queuedAfter: true,
+    });
+    expect((text?.variables as { text: string }).text.split('\n')).toEqual([
+      'Hi Test, your appointment is confirmed ✅',
+      '',
+      '🆔 *MVH-00042*',
+      '📅 day 2026-11-03',
+      '⏰ 10:00 AM',
+      '👩‍⚕️ With Test Physio',
+      '📍 Movementology HSR Layout',
+      '💳 ₹1,000, payable at the clinic',
+      '',
+      'Please arrive 10 minutes early and bring any reports you have.',
+      '',
+      'Need to change it? Call +91 80 0000 0001 or tap *Reschedule* below.',
+    ]);
+  });
+
+  it('falls back to the confirmation without a map outside the window until approved', async () => {
+    db.appointmentForConfirmation.mockResolvedValue(placed);
+    db.approvedTemplateVersion.mockImplementation((_tx, key: string) =>
+      Promise.resolve(
+        key === 'appointment_confirmation'
+          ? null
+          : { metaName: 'front_desk_booking_confirmation_v2', version: 2 },
+      ),
+    );
+    await send();
+    expect(queued()).toEqual([
+      expect.objectContaining({ kind: 'template', templateKey: 'front_desk_booking_confirmation' }),
+    ]);
   });
 });
