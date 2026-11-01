@@ -43,7 +43,8 @@ test('every chart draws within the screen, says its values and has its table', a
   await expect(channel.getByRole('table')).toContainText('WhatsApp');
   await expect(channel.getByRole('table')).toContainText('58%');
   await page.evaluate(() => {
-    for (const details of document.querySelectorAll('details')) details.open = true;
+    for (const details of document.querySelectorAll<HTMLDetailsElement>('main details'))
+      details.open = true;
   });
   await expect(page.getByRole('table')).toHaveCount(9);
   await expect(page.getByText('Target 75%')).toBeVisible();

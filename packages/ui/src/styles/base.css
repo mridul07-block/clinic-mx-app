@@ -6,6 +6,15 @@
     color-scheme: light;
   }
 
+  /* On phones the top bar is pinned (56 px) and so is the tab bar: whatever is scrolled into
+     view (a skip link, an anchor, a field with an error) stops clear of both (UIX-12). */
+  @media (max-width: 767px) {
+    html {
+      scroll-padding-top: calc(4rem + env(safe-area-inset-top));
+      scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+    }
+  }
+
   /* Ink on the canvas, Inter, staff base size 14/20. Prose uses proportional figures;
      tables, times, money and KPIs opt into tabular ones with the tabular-nums utility. */
   body {
