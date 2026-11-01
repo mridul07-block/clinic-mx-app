@@ -130,7 +130,13 @@ describe('routing a message sent to us', () => {
     expect(queued()[0]).toMatchObject({
       templateKey: 'contact',
       variables: {
-        text: 'To talk to our team, call HSR Layout +91 80 0000 0001, Koramangala +91 80 0000 0002 or email desk@example.com.',
+        text: [
+          '*Talk to our team*',
+          'Our front desk is happy to help.',
+          '📞 *HSR Layout*\n+91 80 0000 0001',
+          '📞 *Koramangala*\n+91 80 0000 0002',
+          '✉️ desk@example.com',
+        ].join('\n\n'),
       },
     });
   });
@@ -363,7 +369,9 @@ describe('routing a message sent to us', () => {
       await routeInboundMessage({} as Db, messageId);
       expect(db.centreContacts).toHaveBeenCalledWith('system-tx', 'c1');
       const text = (queued()[0]?.variables as { text: string }).text;
-      expect(text).toMatch(/^This appointment has changed, so it cannot be confirmed here\. /);
+      expect(text).toMatch(
+        /^This appointment has changed, so it cannot be confirmed here\.\n\n\*Talk to our team\*\n/,
+      );
       expect(text).toContain('+91 80 0000 0001');
       expect(queued()[0]?.templateKey).toBe('appointment_confirmed');
     });

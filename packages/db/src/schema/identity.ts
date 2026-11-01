@@ -5,6 +5,7 @@ import {
   check,
   index,
   integer,
+  numeric,
   pgEnum,
   pgTable,
   primaryKey,
@@ -44,6 +45,12 @@ export const centre = pgTable(
     treadmills: integer('treadmills').notNull().default(1),
     address: text('address'),
     mapLink: text('map_link'),
+    /**
+     * The centre's place for the map in WhatsApp's booking confirmation (user decision, 1 November
+     * 2026), in decimal degrees; both or neither.
+     */
+    latitude: numeric('latitude', { precision: 9, scale: 6, mode: 'number' }),
+    longitude: numeric('longitude', { precision: 9, scale: 6, mode: 'number' }),
     /** PAT-09: the centre's Google review link, sent to every discharged patient. */
     reviewLink: text('review_link'),
     phone: text('phone'),
@@ -57,6 +64,11 @@ export const centre = pgTable(
     check('centre_code_letters', sql`${table.code} ~ '^[A-Z]{2,4}$'`),
     check('centre_appointment_prefix_letters', sql`${table.appointmentPrefix} ~ '^[A-Z]{2,4}$'`),
     check('centre_treadmills', sql`${table.treadmills} >= 0`),
+    check(
+      'centre_coordinates',
+      sql`(${table.latitude} is null) = (${table.longitude} is null)
+        and ${table.latitude} between -90 and 90 and ${table.longitude} between -180 and 180`,
+    ),
     // SET-01: each chart colour belongs to one active centre at a time.
     uniqueIndex('centre_colour_active_key')
       .on(table.colour)

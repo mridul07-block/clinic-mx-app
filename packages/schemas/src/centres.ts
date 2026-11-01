@@ -111,6 +111,45 @@ export const reviewLinkSchema = z
     { error: 'Paste the centre’s Google review link (it starts with https://).' },
   );
 
+/**
+ * The centre's place on a map, for WhatsApp's booking confirmation (user decision, 1 November
+ * 2026): pasted as Google Maps shows it on a right click, "12.9116, 77.6474". Optional; empty
+ * clears it.
+ */
+export const mapCoordinatesSchema = z
+  .string()
+  .trim()
+  .optional()
+  .transform((text, context) => {
+    if (!text) return null;
+    const parts = text.split(',').map((part) => part.trim());
+    const decimal = (part: string | undefined) =>
+      part !== undefined && /^-?[\d.]{1,20}$/.test(part) ? Number(part) : Number.NaN;
+    const latitude = decimal(parts[0]);
+    const longitude = decimal(parts[1]);
+    if (
+      parts.length !== 2 ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) ||
+      Math.abs(latitude) > 90 ||
+      Math.abs(longitude) > 180
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Paste the coordinates as Google Maps shows them, for example 12.9116, 77.6474.',
+      });
+      return z.NEVER;
+    }
+    // Six decimals, about 10 cm: what the column keeps.
+    const round = (value: number) => Math.round(value * 1e6) / 1e6;
+    return { latitude: round(latitude), longitude: round(longitude) };
+  });
+
+/** "12.9116, 77.6474", as the form shows a centre's place; empty when it has none. */
+export function formatMapCoordinates(latitude: number | null, longitude: number | null): string {
+  return latitude === null || longitude === null ? '' : `${String(latitude)}, ${String(longitude)}`;
+}
+
 /** A centre's details, as the Super Admin enters them. */
 export const centreDetailsSchema = z.object({
   name: z
@@ -125,6 +164,7 @@ export const centreDetailsSchema = z.object({
     .max(300, { error: 'Keep the address under 300 characters.' }),
   phone: indianPhoneSchema,
   mapLink: mapLinkSchema,
+  coordinates: mapCoordinatesSchema,
   /** PAT-09: optional until the clinic has it; empty clears it. */
   reviewLink: z
     .string()

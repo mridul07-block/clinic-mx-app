@@ -251,6 +251,26 @@ describe('cloudApiTransport', () => {
     expect(await markReadTyping(config, 'wamid.IN1', signal(), offline)).toBe(false);
   });
 
+  // 1 November 2026: the centre's map, as a template's header or a pin inside the window.
+  it('puts the centre on a map, as a template header or a pin of its own', () => {
+    const place = {
+      latitude: 12.9116,
+      longitude: 77.6474,
+      name: 'HSR Layout',
+      address: '18th Main',
+    };
+    expect(templateBody({ ...hello, location: place }).template.components).toEqual([
+      { type: 'header', parameters: [{ type: 'location', location: place }] },
+    ]);
+    expect(sessionBody({ to: '+919845012345', text: '', location: place })).toEqual({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: '919845012345',
+      type: 'location',
+      location: place,
+    });
+  });
+
   it('tells a network failure from a timeout', async () => {
     const down = vi.fn(() => Promise.reject(new TypeError('fetch failed')));
     expect(await cloudApiTransport(config, down).sendTemplate(hello, signal())).toEqual({

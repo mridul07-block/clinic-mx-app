@@ -43,11 +43,19 @@ export interface NewMessage {
   sourceKey?: string | null;
   /** WA-08: the appointment a reminder is about, for its Confirm. */
   appointmentId?: string | null;
+  /**
+   * Sent after the messages queued before it in the same transaction, which share its time (the
+   * confirmation's text after its map pin, 1 November 2026).
+   */
+  queuedAfter?: boolean;
 }
+
+const asRow = ({ queuedAfter, ...values }: NewMessage) =>
+  queuedAfter ? { ...values, createdAt: sql`now() + interval '1 millisecond'` } : values;
 
 /** Queues a message; its send job is queued with it. Returns the message id. */
 export async function queueMessage(tx: DbOrTransaction, values: NewMessage): Promise<string> {
-  const [row] = await tx.insert(message).values(values).returning({ id: message.id });
+  const [row] = await tx.insert(message).values(asRow(values)).returning({ id: message.id });
   if (!row) throw new Error('The message was not recorded.');
   return row.id;
 }
@@ -62,7 +70,7 @@ export async function queueMessageOnce(
 ): Promise<string | null> {
   const [row] = await tx
     .insert(message)
-    .values(values)
+    .values(asRow(values))
     .onConflictDoNothing({ target: message.sourceKey })
     .returning({ id: message.id });
   return row?.id ?? null;

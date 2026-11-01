@@ -20,6 +20,9 @@ export interface CentreEntry {
   treadmills: number;
   address: string | null;
   mapLink: string | null;
+  /** The centre's place for the map in the booking confirmation (1 November 2026). */
+  latitude: number | null;
+  longitude: number | null;
   /** PAT-09: the centre's Google review link. */
   reviewLink: string | null;
   phone: string | null;
@@ -35,6 +38,8 @@ const columns = {
   treadmills: centre.treadmills,
   address: centre.address,
   mapLink: centre.mapLink,
+  latitude: centre.latitude,
+  longitude: centre.longitude,
   reviewLink: centre.reviewLink,
   phone: centre.phone,
   colour: centre.colour,
@@ -55,12 +60,24 @@ export async function centreRecord(
   return row;
 }
 
+/** The details as the centre's columns: the coordinates as latitude and longitude. */
+function asColumns<T extends { coordinates?: { latitude: number; longitude: number } | null }>({
+  coordinates,
+  ...details
+}: T) {
+  return {
+    ...details,
+    latitude: coordinates?.latitude ?? null,
+    longitude: coordinates?.longitude ?? null,
+  };
+}
+
 /** Records a new, active centre; returns its id. */
 export async function insertCentre(
   db: DbOrTransaction,
   details: NewCentreDetails,
 ): Promise<string> {
-  const [row] = await db.insert(centre).values(details).returning({ id: centre.id });
+  const [row] = await db.insert(centre).values(asColumns(details)).returning({ id: centre.id });
   if (!row) throw new Error('The centre was not recorded.');
   return row.id;
 }
@@ -73,7 +90,7 @@ export async function updateCentre(
 ): Promise<boolean> {
   const updated = await db
     .update(centre)
-    .set({ ...details, updatedAt: sql`now()` })
+    .set({ ...asColumns(details), updatedAt: sql`now()` })
     .where(eq(centre.id, centreId))
     .returning({ id: centre.id });
   return updated.length > 0;

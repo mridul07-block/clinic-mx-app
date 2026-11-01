@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MENU_BUTTONS,
   checkAnswerOf,
+  contactMessage,
   contactText,
   emergencyReplyText,
   emergencyPhrasesSchema,
@@ -36,6 +37,13 @@ describe('greetings', () => {
     expect(isGreeting('history', greetings)).toBe(false);
     expect(isGreeting('👋', greetings)).toBe(false);
     expect(isGreeting('hi', [])).toBe(false);
+  });
+
+  it('route the confirmation with a map’s buttons as the menu’s', () => {
+    expect(route({ kind: 'reply', replyId: 'appointment_confirmation.reschedule' })).toBe(
+      'reschedule',
+    );
+    expect(route({ kind: 'reply', replyId: 'appointment_confirmation.talk' })).toBe('talk');
   });
 
   it('get the menu without the assistant, emergency phrases still first', () => {
@@ -213,6 +221,53 @@ describe('handlers', () => {
 describe('Talk to our team', () => {
   const hsr = { name: 'HSR Layout', phone: '+91 80 0000 0001' };
   const kor = { name: 'Koramangala', phone: '+91 80 0000 0002' };
+
+  // The layout chosen by the user (1 November 2026): heading, each centre with its phone, email.
+  it('lays the message out a centre to a line pair, with icons, numbers formatted', () => {
+    expect(
+      contactMessage({
+        centres: [hsr, { name: 'Whitefield', phone: '+919845012345' }],
+        email: 'desk@example.com',
+      }),
+    ).toBe(
+      [
+        '*Talk to our team*',
+        'Our front desk is happy to help.',
+        '📞 *HSR Layout*\n+91 80 0000 0001',
+        '📞 *Whitefield*\n+91 98450 12345',
+        '✉️ desk@example.com',
+      ].join('\n\n'),
+    );
+    expect(contactMessage({ centres: [{ name: 'HSR Layout', phone: null }], email: '' })).toBe(
+      'Please call the clinic you visit; our front desk will help.',
+    );
+    expect(
+      contactMessage({ centres: [{ name: 'HSR Layout', phone: null }], email: 'a@b.in' }),
+    ).toBe('*Talk to our team*\n\nOur front desk is happy to help.\n\n✉️ a@b.in');
+  });
+
+  // 1 November 2026: the three centres share one front desk number; it is listed once.
+  it('lists a number the centres share once, with their names', () => {
+    const shared = '+918296169699';
+    const centres = [
+      { name: 'HSR Layout', phone: shared },
+      { name: 'Koramangala', phone: shared },
+      { name: 'Whitefield', phone: shared },
+    ];
+    expect(contactMessage({ centres, email: '' })).toBe(
+      [
+        '*Talk to our team*',
+        'Our front desk is happy to help.',
+        '📞 *HSR Layout, Koramangala and Whitefield*\n+91 82961 69699',
+      ].join('\n\n'),
+    );
+    expect(contactText({ centres: [...centres, kor], email: '' })).toBe(
+      'To talk to our team, call HSR Layout, Koramangala and Whitefield +918296169699, Koramangala +91 80 0000 0002.',
+    );
+    expect(emergencyReplyText('Call 112.', centres.slice(0, 2))).toBe(
+      'Call 112. To reach the clinic, call HSR Layout and Koramangala +91 82961 69699.',
+    );
+  });
 
   it('gives the patient’s centre phone, or every centre’s by name, and the email', () => {
     expect(contactText({ centres: [hsr], email: 'desk@example.com' })).toBe(

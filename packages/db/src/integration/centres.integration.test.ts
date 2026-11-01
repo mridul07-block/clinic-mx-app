@@ -79,6 +79,7 @@ const details = (name: string, colour: string) => ({
   address: '100 Feet Rd, Indiranagar, Bengaluru 560038',
   phone: '+918041234567',
   mapLink: 'https://maps.app.goo.gl/abc123',
+  coordinates: null,
 });
 
 describe('centres', () => {
@@ -129,6 +130,21 @@ describe('centres', () => {
       expect(event).toEqual({ actor: `staff:${superAdmin.id}`, action: 'update' });
       expect(await centreNameTaken(tx, 'hsr layout')).toBe(true);
       expect(await centreNameTaken(tx, 'hsr layout', centreIds.hsrLayout)).toBe(false);
+    });
+  });
+
+  // The map in WhatsApp's booking confirmation (1 November 2026): both or neither, in range.
+  it('keep coordinates whole and on the globe', async () => {
+    await rolledBack(superAdmin, async (tx) => {
+      const place = (values: { latitude: number | null; longitude: number | null }) =>
+        failure(tx, (sp) =>
+          sp.update(centre).set(values).where(eq(centre.id, centreIds.hsrLayout)),
+        );
+      expect(await place({ latitude: 12.911_6, longitude: 77.647_4 })).toBeUndefined();
+      expect(await place({ latitude: null, longitude: null })).toBeUndefined();
+      expect(await place({ latitude: 12.9, longitude: null })).toBe('23514');
+      expect(await place({ latitude: 91, longitude: 77.6 })).toBe('23514');
+      expect(await place({ latitude: 12.9, longitude: 181 })).toBe('23514');
     });
   });
 

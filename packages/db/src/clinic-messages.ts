@@ -153,6 +153,8 @@ export async function appointmentForConfirmation(db: DbOrTransaction, appointmen
       centreName: centre.name,
       mapLink: centre.mapLink,
       address: centre.address,
+      latitude: centre.latitude,
+      longitude: centre.longitude,
       centrePhone: centre.phone,
     })
     .from(appointment)

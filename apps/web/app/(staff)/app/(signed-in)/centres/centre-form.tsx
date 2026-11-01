@@ -29,6 +29,8 @@ export interface CentreFormValues {
   address: string;
   phone: string;
   mapLink: string;
+  /** The centre's place, "12.9116, 77.6474", for the map in the booking confirmation. */
+  coordinates: string;
   /** PAT-09: the centre's Google review link. */
   reviewLink: string;
   colour: string;
@@ -126,6 +128,15 @@ export function CentreForm({
         defaultValue={value('mapLink')}
         helper="In Google Maps, open the centre, choose Share and copy the link."
         error={state.fieldErrors?.mapLink}
+      />
+      <TextField
+        label="Map coordinates (optional)"
+        name="coordinates"
+        inputMode="decimal"
+        autoComplete="off"
+        defaultValue={value('coordinates')}
+        helper="For the map in WhatsApp's booking confirmation. In Google Maps, right click the centre and click the numbers at the top, for example 12.9116, 77.6474, then paste them here."
+        error={state.fieldErrors?.coordinates}
       />
       <TextField
         label="Google review link (optional)"

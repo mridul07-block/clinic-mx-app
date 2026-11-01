@@ -87,6 +87,42 @@ series' appointments get the plan sessions list instead.
 - **Version 1** had other variables, so it is never sent: `sendsFrom: 2` in the registry, and the
   send job asks only for an approved version from there (`approvedTemplateVersion`'s `minVersion`).
 
+### With the centre's map (1 November 2026)
+
+When the centre has its coordinates (Centres, "Map coordinates"), the confirmation goes as
+`appointment_confirmation` instead, for any channel (user decisions, 1 November 2026: a map, the
+layout with icons, two buttons). DECISION WA-07: the wording and the footer, for the clinic to
+confirm.
+
+```
+[ map of the centre: Meta's location header, the place given with each message ]
+Hi Asha, your appointment is confirmed ✅
+
+🆔 *MVH-00042*
+📅 Mon, 2 Nov
+⏰ 10:00 AM
+👩‍⚕️ With Priya Rao
+📍 Movementology HSR Layout
+💳 ₹1,000, payable at the clinic
+
+Please arrive 10 minutes early and bring any reports you have.
+
+Need to change it? Call +91 80 4000 0000 or tap *Reschedule* below.
+Movementology Clinics                      (footer)
+[ Reschedule ]  [ Talk to our team ]       (quick replies)
+```
+
+- **Tapping the map** opens the phone's maps app at the centre. The place is the centre's latitude
+  and longitude, with "Movementology <centre>" and its address under the map.
+- **Reschedule** opens the reschedule form, as the menu's does; **Talk to our team** sends the
+  contact details. The router routes the template's quick reply payloads
+  (`appointment_confirmation.reschedule`, `.talk`) and the plain form's button ids alike.
+- **Before Meta approves it**, inside the 24 hour window (a WhatsApp booking always is): two
+  messages, the centre as a pin (`clinic_location`, Meta's location message), then the same text
+  with the two buttons. Outside the window: the confirmation without a map, as above.
+- **A centre without coordinates** gets the confirmation without a map, its directions the map
+  link or address.
+
 ## The text (WA-06)
 
 Drafted by Velyx Labs from the facts each message already carries; plain English, no clinical
@@ -135,6 +171,14 @@ signed like every other and move the rows on; a template not ours (Meta's sample
 environment's) is left alone. Updates apply in the order they arrive: should Meta deliver an old
 "approved" after a newer "paused", the page shows Approved until the next update or a `sync`
 (sending then fails at Meta and the message is Failed with Meta's reason).
+
+**Per account (1 November 2026):** each version is recorded with the WhatsApp Business Account it
+is on (`whatsapp_template.business_account_id`), and an approval counts on that account only: the
+send job, the confirmation and the templates page all use this environment's
+`WHATSAPP_BUSINESS_ACCOUNT_ID`. After switching to another account (another number, the client's at
+WA-12), nothing counts as approved there until `submit` puts the templates on it and Meta approves
+them; until then, replies inside the window go as plain text. Versions recorded before 1 November
+2026 have no account and count on none.
 
 A version deleted on Meta and created again gets a new Meta id; recording it is refused ("has
 another id on Meta than the one recorded"). Raise the version in the registry and submit instead.

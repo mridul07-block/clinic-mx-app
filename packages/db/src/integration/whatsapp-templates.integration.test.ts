@@ -78,11 +78,21 @@ async function failure(tx: Tx, work: (sp: Tx) => Promise<unknown>): Promise<stri
 const asOwner = (tx: Tx) => tx.execute(sql`reset role`);
 // A key no real template has, so a database with real versions changes nothing here.
 const fakeKey = () => ['test_template', randomUUID().slice(0, 8)].join('_');
+// Made-up WhatsApp Business Accounts: this environment's, and another number's.
+const account = '1000000000000001';
+const otherAccount = '1000000000000002';
+const approved = (
+  tx: Tx,
+  key: string,
+  language: string,
+  options: { minVersion?: number; maxVersion?: number; businessAccountId?: string } = {},
+) => approvedTemplateVersion(tx, key, language, { businessAccountId: account, ...options });
 const version = (
   key: string,
   number: number,
   extra: Partial<TemplateVersionOnMeta> = {},
 ): TemplateVersionOnMeta => ({
+  businessAccountId: account,
   key,
   version: number,
   language: 'en',
@@ -102,23 +112,23 @@ describe('WhatsApp template versions on Meta', () => {
       const v2 = version(key, 2);
       await recordTemplateVersion(tx, v1);
       await recordTemplateVersion(tx, v2);
-      expect(await approvedTemplateVersion(tx, key, 'en')).toEqual({
+      expect(await approved(tx, key, 'en')).toEqual({
         metaName: v1.metaName,
         version: 1,
       });
       // Not for another language.
-      expect(await approvedTemplateVersion(tx, key, 'en_US')).toBeNull();
+      expect(await approved(tx, key, 'en_US')).toBeNull();
       // WA-07: never one older than the registry's variables allow.
-      expect(await approvedTemplateVersion(tx, key, 'en', 2)).toBeNull();
+      expect(await approved(tx, key, 'en', { minVersion: 2 })).toBeNull();
 
       expect(
         await applyTemplateUpdate(tx, { metaId: v2.metaId, status: 'approved', reason: null }),
       ).toBe('changed');
-      expect(await approvedTemplateVersion(tx, key, 'en')).toEqual({
+      expect(await approved(tx, key, 'en')).toEqual({
         metaName: v2.metaName,
         version: 2,
       });
-      expect(await approvedTemplateVersion(tx, key, 'en', 2)).toEqual({
+      expect(await approved(tx, key, 'en', { minVersion: 2 })).toEqual({
         metaName: v2.metaName,
         version: 2,
       });
@@ -146,14 +156,25 @@ describe('WhatsApp template versions on Meta', () => {
         category: 'MARKETING',
         reason: 'Meta moved it to the marketing category.',
       });
-      expect(await approvedTemplateVersion(tx, key, 'en')).toEqual({
+      expect(await approved(tx, key, 'en')).toEqual({
         metaName: v1.metaName,
         version: 1,
       });
 
+      // 1 November 2026: no newer than a version the message can fill.
+      expect(await approved(tx, key, 'en', { maxVersion: 1 })).toEqual({
+        metaName: v1.metaName,
+        version: 1,
+      });
+      // An approval counts on its own account only, and nowhere without one.
+      expect(await approved(tx, key, 'en', { businessAccountId: otherAccount })).toBeNull();
+      expect(
+        await approvedTemplateVersion(tx, key, 'en', { businessAccountId: undefined }),
+      ).toBeNull();
+
       // A sync records Meta's current verdict on a version already recorded.
       await recordTemplateVersion(tx, { ...v1, status: 'rejected', reason: 'INVALID_FORMAT' });
-      expect(await approvedTemplateVersion(tx, key, 'en')).toBeNull();
+      expect(await approved(tx, key, 'en')).toBeNull();
 
       // Every write is audited, as the server.
       const ids = (
@@ -170,6 +191,31 @@ describe('WhatsApp template versions on Meta', () => {
       expect(new Set(events.map((event) => event.actor))).toEqual(
         new Set(['system:whatsapp-templates']),
       );
+    });
+  });
+
+  // 1 November 2026: staging moved to another account and sent a template it never had there.
+  it('keeps each account’s versions apart: the same version on two, each counting on its own', async () => {
+    await rolledBack(async (tx) => {
+      const key = fakeKey();
+      await recordTemplateVersion(tx, version(key, 1, { status: 'approved' }));
+      const there = version(key, 1, { businessAccountId: otherAccount });
+      await recordTemplateVersion(tx, there);
+      expect(await approved(tx, key, 'en', { businessAccountId: otherAccount })).toBeNull();
+      await recordTemplateVersion(tx, { ...there, status: 'approved' });
+      expect(await approved(tx, key, 'en', { businessAccountId: otherAccount })).toEqual({
+        metaName: there.metaName,
+        version: 1,
+      });
+      expect((await templateVersionsOnMeta(tx, otherAccount)).map((row) => row.metaId)).toEqual([
+        there.metaId,
+      ]);
+      // A version recorded before accounts were (no account) counts on none.
+      const legacyKey = fakeKey();
+      await tx
+        .insert(whatsappTemplate)
+        .values({ ...version(legacyKey, 1, { status: 'approved' }), businessAccountId: null });
+      expect(await approved(tx, legacyKey, 'en')).toBeNull();
     });
   });
 
@@ -202,6 +248,12 @@ describe('WhatsApp template versions on Meta', () => {
           recordTemplateVersion(sp, { ...version(fakeKey(), 1), metaId: '' }),
         ),
       ).toBe('23514');
+      // The WhatsApp Business Account, when recorded, is Meta's numeric id.
+      expect(
+        await failure(tx, (sp) =>
+          sp.insert(whatsappTemplate).values({ ...version(fakeKey(), 1), businessAccountId: 'x1' }),
+        ),
+      ).toBe('23514');
       // Created again on Meta under a new id: refused, never left pointing at the old one.
       await expect(recordTemplateVersion(tx, { ...v1, metaId: '123456789' })).rejects.toThrow(
         TemplateVersionClashError,
@@ -214,7 +266,9 @@ describe('WhatsApp template versions on Meta', () => {
       const v1 = version(fakeKey(), 1, { status: 'approved' });
       await recordTemplateVersion(tx, v1);
       await becomeStaff(tx, superAdmin);
-      expect((await templateVersionsOnMeta(tx)).map((row) => row.metaId)).toContain(v1.metaId);
+      expect((await templateVersionsOnMeta(tx, account)).map((row) => row.metaId)).toContain(
+        v1.metaId,
+      );
       expect(await failure(tx, (sp) => recordTemplateVersion(sp, version(fakeKey(), 1)))).toBe(
         '42501',
       );
@@ -230,7 +284,7 @@ describe('WhatsApp template versions on Meta', () => {
       for (const staff of others) {
         await becomeStaff(tx, staff);
         expect(
-          (await templateVersionsOnMeta(tx)).map((row) => row.metaId),
+          (await templateVersionsOnMeta(tx, account)).map((row) => row.metaId),
           staff.email,
         ).not.toContain(v1.metaId);
         expect(

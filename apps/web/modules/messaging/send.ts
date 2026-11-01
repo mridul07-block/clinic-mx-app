@@ -16,10 +16,14 @@ import {
   RESCHEDULE_FLOW_CTA,
   RESCHEDULE_FLOW_TEXT,
   BUTTON_MESSAGE_MAX,
+  CLINIC_LOCATION_KEY,
+  MAP_CONFIRMATION_BUTTONS,
+  MAP_CONFIRMATION_KEY,
   MENU_BUTTONS,
   MENU_TEXT,
   TEST_TEMPLATE,
   bodyVariables,
+  mapPlaceOf,
   mayReceive,
   messageTemplates,
   oldestSendableVersion,
@@ -27,6 +31,7 @@ import {
   retryableSendFailure,
   skipReasons,
   withinSessionWindow,
+  type MapPlace,
 } from '@clinic-mx/schemas';
 import { z } from 'zod';
 import { serverEnv } from '../../lib/env';
@@ -91,6 +96,18 @@ function sessionContent(message: Message): Omit<SessionSend, 'to'> | undefined {
     if (!text) throw new Error(`Reply ${message.id} has no text`);
     return text.length <= BUTTON_MESSAGE_MAX ? { text, buttons: MENU_BUTTONS } : { text };
   }
+  // 1 November 2026: the confirmation with a map inside the window, the pin, then the text with
+  // the template's buttons (the same ids, so a tap is routed alike).
+  if (message.templateKey === CLINIC_LOCATION_KEY) return { text: '', location: placeOf(message) };
+  if (message.templateKey === MAP_CONFIRMATION_KEY) {
+    const text = message.variables.text;
+    if (!text) throw new Error(`Reply ${message.id} has no text`);
+    const buttons = MAP_CONFIRMATION_BUTTONS.map((button) => ({
+      id: quickReplyPayload(MAP_CONFIRMATION_KEY, button.id),
+      title: button.text,
+    }));
+    return text.length <= BUTTON_MESSAGE_MAX ? { text, buttons } : { text };
+  }
   if (message.templateKey === 'booking_flow' || message.templateKey === 'reschedule_flow') {
     const env = serverEnv();
     const flow = flowMessages[message.templateKey];
@@ -112,6 +129,13 @@ async function windowOpen(db: Db, phone: string): Promise<boolean> {
   return withinSessionWindow(await lastInboundAt(db, phone), new Date());
 }
 
+/** The centre's place a message carries for its map (1 November 2026); it must have one. */
+function placeOf(message: Message): MapPlace {
+  const place = mapPlaceOf(message.variables);
+  if (!place) throw new Error(`Message ${message.id} has no place for its map`);
+  return place;
+}
+
 /**
  * A clinic template as Meta sends it (WA-06): the text's variables in the registry's order, the
  * PDF of a document header, a link button's token, a quick reply's payload naming the template and
@@ -131,6 +155,7 @@ function clinicTemplate(
     ...(template.header === 'document'
       ? { document: { id: mediaId ?? '', filename: value('document_name') } }
       : {}),
+    ...(template.header === 'location' ? { location: placeOf(message) } : {}),
     ...(template.buttons.length > 0
       ? {
           buttons: template.buttons.map((button, index) => {
@@ -214,12 +239,10 @@ export async function sendQueuedMessage(
     template = { template: TEST_TEMPLATE.key, parameters: [] };
   } else if (message.kind !== 'session') {
     const registered = messageTemplates.find((entry) => entry.key === templateKey);
-    const approved = await approvedTemplateVersion(
-      db,
-      templateKey,
-      language,
-      registered ? oldestSendableVersion(registered) : 1,
-    );
+    const approved = await approvedTemplateVersion(db, templateKey, language, {
+      businessAccountId: serverEnv().WHATSAPP_BUSINESS_ACCOUNT_ID,
+      minVersion: registered ? oldestSendableVersion(registered) : 1,
+    });
     if (!approved) {
       await record({
         status: 'skipped',

@@ -791,7 +791,7 @@ export const settingDefinitions = {
   'ai.task_assistant_reply': {
     schema: aiTaskConfigSchema,
     source:
-      'TAD section 7 (assistantReply; the small tier, Haiku 5.5 or GPT 6 Luna class); WA-11, user decision 31 October 2026: Haiku 5.5, on',
+      'TAD section 7 (assistantReply; the small tier, Haiku 5.5 or GPT 6 Luna class); WA-11, user decisions 31 October 2026: Haiku 5.5, on; 1 November 2026: off, WhatsApp is for booking, so typed messages get the menu',
     description:
       'The WhatsApp assistant, which sorts a typed message into one of the approved answers or a menu choice: the model (none: typed messages get the menu), prompt version, reasoning effort, timeout and token limit.',
   },

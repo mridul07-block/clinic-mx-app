@@ -162,6 +162,14 @@ Measured on staging, 31 October 2026, before the change: stored and routed withi
 assistant's choice about 4 seconds, then a wait for the tick. Locally, with the change, the reply's
 send is done about half a second after the message reaches us.
 
+## The booking confirmation with a map
+
+A booking or move gets the confirmation with the centre's map when the centre has its coordinates
+(1 November 2026; `docs/runbooks/whatsapp-templates.md`, "With the centre's map"). Inside the
+window, before Meta approves the template, it comes as a pin of the centre, then the laid out text
+with Reschedule and Talk to our team. Enter each centre's coordinates in Centres ("Map
+coordinates", as Google Maps shows them on a right click, for example 12.9116, 77.6474).
+
 ## Health
 
 `pnpm whatsapp:health` (from `apps/web`, `node --env-file=.env.local` as the other WhatsApp
@@ -207,6 +215,11 @@ menu.
   cancel, Talk to our team.
 - **The team's contact details** (WA-09): the phone of the patient's centre when the number is
   theirs alone, otherwise every active centre's phone by name, and `whatsapp.front_desk_email`.
+  Laid out as its own message (`contactMessage`; the user's choice, 1 November 2026): "*Talk to
+  our team*", "Our front desk is happy to help.", then each centre as "📞 *name*" over its phone
+  (tap to call), then "✉️ email". Inside other text, such as the booking form's screen, the
+  one-line `contactText` is used. A number several centres share is listed once, with their names
+  ("📞 *HSR Layout, Koramangala and Whitefield*"), as the three centres share one front desk number.
   Phones come from each centre's setup. What is not set is left out; with nothing set the reply
   asks them to call the clinic they visit.
 - **Emergency phrases** (`whatsapp.emergency_phrases`, DECISION WA-03): matched as whole words in
@@ -229,6 +242,12 @@ menu.
 - **One reply, one message** (TAD section 6, Rules).
 
 ## The assistant (WA-11)
+
+**Off since 1 November 2026 (user decision):** the clinic's WhatsApp is for booking, not a general
+chatbot, so the assistant's model is cleared (migration `20261101152744_assistant_off.sql`, and on
+staging the same day). Nothing is sent to any model; every typed message gets the three button menu,
+and emergency phrases are still caught first by their word list. Setting a model in
+`ai.task_assistant_reply` on Settings turns everything below back on.
 
 Typed text without an emergency phrase goes to the assistant (PRD section 6; TAD sections 6 and 7).
 The model only chooses (user decision, 31 October 2026); it never writes what a patient reads:

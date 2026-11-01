@@ -1,5 +1,5 @@
 import { centreList } from '@clinic-mx/db';
-import { formatIndianPhone } from '@clinic-mx/schemas';
+import { formatIndianPhone, formatMapCoordinates } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -109,6 +109,7 @@ export default async function CentrePage({
               address: centre.address ?? '',
               phone: centre.phone ?? '',
               mapLink: centre.mapLink ?? '',
+              coordinates: formatMapCoordinates(centre.latitude, centre.longitude),
               reviewLink: centre.reviewLink ?? '',
               colour: centre.colour,
               treadmills: String(centre.treadmills),

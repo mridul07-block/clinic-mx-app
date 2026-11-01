@@ -5,6 +5,8 @@ import type { APIRequestContext, APIResponse } from '@playwright/test';
 // server, never the Meta app's own. With them a test signs bodies as Meta would.
 export const TEST_WHATSAPP_APP_SECRET = 'e2e-only-whatsapp-app-secret-never-on-a-deployment';
 export const TEST_WHATSAPP_VERIFY_TOKEN = 'e2e-only-whatsapp-verify-token';
+/** A made-up WhatsApp Business Account: template versions are recorded per account. */
+export const TEST_WHATSAPP_BUSINESS_ACCOUNT_ID = '1000000000000001';
 
 /** Posts a body to the webhook, signed with the test app secret unless `signed` is false. */
 export function postWebhook(

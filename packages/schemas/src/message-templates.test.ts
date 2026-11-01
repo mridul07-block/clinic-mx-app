@@ -25,6 +25,8 @@ const expectSnakeCase = (name: string) => {
 describe('message template registry', () => {
   it('holds every template in the TAD list, once each', () => {
     expect(messageTemplates.map((template) => template.key)).toEqual([
+      // 1 November 2026: the confirmation with the centre's map, before the one without.
+      'appointment_confirmation',
       'booking_confirmation',
       'front_desk_booking_confirmation',
       'plan_sessions_list',
@@ -66,12 +68,14 @@ describe('message template registry', () => {
 
   // WA-06: Meta refuses a template whose text breaks these rules, so they are checked here first.
   it.each(messageTemplates)('$key: text within Meta rules', (template) => {
-    const text = template.body as string;
+    const text: string = template.body;
     expect(text.length).toBeLessThanOrEqual(1024);
     expect(text).not.toMatch(/^\s*\{\{/);
     expect(text).not.toMatch(/\}\}[\s.!?]*$/);
     expect(text).not.toMatch(/\}\}\s*\{\{/);
-    expect(text).not.toMatch(/[\n\t]| {5}/);
+    // Line breaks are allowed in the body (1 November 2026, the confirmation with a map), but no
+    // tabs, runs of spaces or more than one blank line; inside a variable, none (below).
+    expect(text).not.toMatch(/\t| {5}|\n{3,}/);
     const numbers = [...text.matchAll(/\{\{(\d+)\}\}/g)].map((match) => Number(match[1]));
     const body = bodyVariables(template);
     expect(numbers).toEqual(body.map((_, index) => index + 1));
@@ -225,5 +229,41 @@ describe('the booking confirmation templates', () => {
     expect(renderTemplateBody(messageTemplate('morning_reminder'), { patient_name: 'Asha' })).toBe(
       'Hi Asha, a reminder of your appointment today at  at Movementology . See you soon.',
     );
+  });
+});
+
+// The confirmation with a map (user decisions, 1 November 2026).
+describe('the appointment confirmation with a map', () => {
+  const template = messageTemplates.find((entry) => entry.key === 'appointment_confirmation');
+
+  it('asks Meta for a map header, the footer and both buttons, in that layout', () => {
+    if (!template) throw new Error('missing');
+    const body = templateCreateBody(template, { origin: 'https://clinic.example' });
+    expect(body.components).toEqual([
+      { type: 'HEADER', format: 'LOCATION' },
+      expect.objectContaining({ type: 'BODY', text: template.body }),
+      { type: 'FOOTER', text: 'Movementology Clinics' },
+      {
+        type: 'BUTTONS',
+        buttons: [
+          { type: 'QUICK_REPLY', text: 'Reschedule' },
+          { type: 'QUICK_REPLY', text: 'Talk to our team' },
+        ],
+      },
+    ]);
+    expect(template.body.split('\n')).toEqual([
+      'Hi {{1}}, your appointment is confirmed ✅',
+      '',
+      '🆔 *{{2}}*',
+      '📅 {{3}}',
+      '⏰ {{4}}',
+      '👩‍⚕️ With {{5}}',
+      '📍 Movementology {{6}}',
+      '💳 {{7}}',
+      '',
+      'Please arrive 10 minutes early and bring any reports you have.',
+      '',
+      'Need to change it? Call {{8}} or tap *Reschedule* below.',
+    ]);
   });
 });

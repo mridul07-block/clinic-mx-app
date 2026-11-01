@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { formatIndianPhone } from './centres';
+import { MAP_CONFIRMATION_BUTTONS, quickReplyPayload } from './message-templates';
 import type { InboundKind } from './messaging';
 
 /**
@@ -55,6 +56,9 @@ export const sessionReplies = [
   'emergency_advice',
   // WA-11: one of the clinic's approved answers, with the menu's buttons under it.
   'assistant_answer',
+  // 1 November 2026: the confirmation with a map inside the window, the pin, then the text.
+  'clinic_location',
+  'appointment_confirmation',
 ] as const;
 export type SessionReply = (typeof sessionReplies)[number];
 
@@ -69,6 +73,8 @@ export const sessionReplyLabels: Record<SessionReply, string> = {
   appointment_confirmed: 'Confirm answered',
   emergency_advice: 'Emergency advice',
   assistant_answer: 'Assistant answer',
+  clinic_location: 'Clinic location',
+  appointment_confirmation: 'Appointment confirmation',
 };
 
 /** What the router answers a route with; `none` when the handler has answered already. */
@@ -77,6 +83,8 @@ export type RouteReply =
       SessionReply,
       | 'booking_confirmation'
       | 'reschedule_confirmation'
+      | 'clinic_location'
+      | 'appointment_confirmation'
       | 'check_answer'
       | 'appointment_confirmed'
       | 'emergency_advice'
@@ -235,6 +243,18 @@ const reminderRoutes: Record<string, InboundRoute> = {
   reschedule: 'reschedule',
 };
 
+/**
+ * The confirmation with a map's buttons (1 November 2026): Reschedule opens the reschedule form,
+ * Talk to our team the contact details, as the menu's do. The template's quick reply payloads and
+ * the plain text form's button ids are the same.
+ */
+const confirmationRoutes: Record<string, InboundRoute> = Object.fromEntries(
+  MAP_CONFIRMATION_BUTTONS.map((button) => [
+    quickReplyPayload('appointment_confirmation', button.id),
+    button.id === 'reschedule' ? 'reschedule' : 'talk',
+  ]),
+);
+
 const flowRoutes: Record<string, InboundRoute> = {
   booking: 'booking_flow',
   reschedule: 'reschedule_flow',
@@ -257,7 +277,12 @@ export function routeInbound(
     case 'reply': {
       const id = message.replyId ?? '';
       if (checkAnswerOf(id)) return 'check_answer';
-      return menuRoutes[id] ?? reminderRoutes[id.trim().toLowerCase()] ?? 'menu';
+      return (
+        menuRoutes[id] ??
+        confirmationRoutes[id] ??
+        reminderRoutes[id.trim().toLowerCase()] ??
+        'menu'
+      );
     }
     case 'flow':
       return flowRoutes[message.replyId ?? ''] ?? 'menu';
@@ -272,6 +297,22 @@ export interface CentreContact {
 }
 
 /**
+ * The centres' phones, each number once with the names of the centres that share it, in the
+ * centres' order (1 November 2026: the three centres share one front desk number, which was listed
+ * three times). A centre without a phone is left out.
+ */
+function phoneGroups(centres: readonly CentreContact[]): { names: string; phone: string }[] {
+  const groups = new Map<string, string[]>();
+  for (const { name, phone } of centres) {
+    if (phone) groups.set(phone, [...(groups.get(phone) ?? []), name]);
+  }
+  return [...groups].map(([phone, names]) => ({
+    names: [names.slice(0, -1).join(', '), names.at(-1)].filter(Boolean).join(' and '),
+    phone,
+  }));
+}
+
+/**
  * "Talk to our team" (WA-09; PRD J1.2): the front desk phone and email, one message. The phones of
  * the patient's centre when the number is theirs alone, otherwise of every centre (user decision,
  * 30 October 2026). Nothing is invented: a missing phone or email is left out.
@@ -283,15 +324,38 @@ export function contactText({
   centres: readonly CentreContact[];
   email: string;
 }): string {
-  const phones = centres
-    .filter((centre): centre is { name: string; phone: string } => Boolean(centre.phone))
-    .map((centre) => (centres.length > 1 ? `${centre.name} ${centre.phone}` : centre.phone));
+  const phones = phoneGroups(centres).map(({ names, phone }) =>
+    centres.length > 1 ? `${names} ${phone}` : phone,
+  );
   const ways = [
     ...(phones.length > 0 ? [`call ${phones.join(', ')}`] : []),
     ...(email ? [`email ${email}`] : []),
   ];
-  if (ways.length === 0) return 'Please call the clinic you visit; our front desk will help.';
+  if (ways.length === 0) return NO_CONTACT_TEXT;
   return `To talk to our team, ${ways.join(' or ')}.`;
+}
+
+const NO_CONTACT_TEXT = 'Please call the clinic you visit; our front desk will help.';
+
+/**
+ * "Talk to our team" as its own WhatsApp message (WA-09; layout chosen by the user, 1 November
+ * 2026): a bold heading, then each centre by name with its phone, then the email, one per line, so
+ * it reads at a glance and each number is tap to call. The same centres and email as
+ * `contactText`, which stays for a line inside other text (a Flow screen); nothing invented.
+ */
+export function contactMessage({
+  centres,
+  email,
+}: {
+  centres: readonly CentreContact[];
+  email: string;
+}): string {
+  const phones = phoneGroups(centres).map(
+    ({ names, phone }) => `📞 *${names}*\n${formatIndianPhone(phone)}`,
+  );
+  const ways = [...phones, ...(email ? [`✉️ ${email}`] : [])];
+  if (ways.length === 0) return NO_CONTACT_TEXT;
+  return ['*Talk to our team*', 'Our front desk is happy to help.', ...ways].join('\n\n');
 }
 
 /**
@@ -301,13 +365,9 @@ export function contactText({
  * out, never invented.
  */
 export function emergencyReplyText(advice: string, centres: readonly CentreContact[]): string {
-  const phones = centres
-    .filter((centre): centre is { name: string; phone: string } => Boolean(centre.phone))
-    .map((centre) =>
-      centres.length > 1
-        ? [centre.name, formatIndianPhone(centre.phone)].join(' ')
-        : formatIndianPhone(centre.phone),
-    );
+  const phones = phoneGroups(centres).map(({ names, phone }) =>
+    centres.length > 1 ? `${names} ${formatIndianPhone(phone)}` : formatIndianPhone(phone),
+  );
   if (phones.length === 0) return advice;
   return `${advice} To reach the clinic, call ${phones.join(', ')}.`;
 }

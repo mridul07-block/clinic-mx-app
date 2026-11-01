@@ -8,6 +8,7 @@ import {
   type WhatsappTemplate,
 } from '@clinic-mx/db';
 import { TEST_TEMPLATE, can, sendTestMessageSchema } from '@clinic-mx/schemas';
+import { serverEnv } from '../../lib/env';
 import { staffService } from '../access/service';
 import { asStaff } from '../access/staff-db';
 import { getSetting } from '../settings/settings';
@@ -30,10 +31,11 @@ export async function recentMessagesOf(actor: StaffMember): Promise<MessageEntry
   return asStaff(actor, (tx) => recentMessages(tx, RECENT_MESSAGES));
 }
 
-/** What Meta decided about each template version on this environment's number (WA-06). */
+/** What Meta decided about each template version on this environment's account (WA-06). */
 export async function templateVersionsOf(actor: StaffMember): Promise<WhatsappTemplate[]> {
   if (!can(actor, 'templates.manage') || actor.support) return [];
-  return asStaff(actor, (tx) => templateVersionsOnMeta(tx));
+  const account = serverEnv().WHATSAPP_BUSINESS_ACCOUNT_ID;
+  return asStaff(actor, (tx) => templateVersionsOnMeta(tx, account));
 }
 
 export const sendTestMessageService = staffService({
