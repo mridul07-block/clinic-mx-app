@@ -12,6 +12,7 @@
     "ai:blind-test": "node --conditions=react-server --import tsx scripts/blind-test.ts",
     "whatsapp:templates": "node --conditions=react-server --import tsx scripts/whatsapp-templates.ts",
     "whatsapp:flows": "node --conditions=react-server --import tsx scripts/whatsapp-flows.ts",
+    "whatsapp:health": "node --conditions=react-server --import tsx scripts/whatsapp-health.ts",
     "ai:check": "node --conditions=react-server --import tsx scripts/ai-check.ts",
     "ai:patient-content": "node --conditions=react-server --import tsx scripts/patient-content.ts"
   },

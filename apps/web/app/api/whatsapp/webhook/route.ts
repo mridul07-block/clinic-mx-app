@@ -1,11 +1,12 @@
 import { whatsappWebhookSchema } from '@clinic-mx/schemas';
+import * as Sentry from '@sentry/nextjs';
 import { after } from 'next/server';
 import { appDb } from '../../../../lib/db';
 import { serverEnv } from '../../../../lib/env';
 import { requestAddress } from '../../../../lib/network';
 import { answerTypedMessage } from '../../../../modules/messaging/assistant';
 import { routeInboundMessage } from '../../../../modules/messaging/router';
-import { sendRepliesNow } from '../../../../modules/messaging/send-now';
+import { sendRepliesNow, showTyping } from '../../../../modules/messaging/send-now';
 import { handleWhatsappEvent, receiveWhatsappWebhook } from '../../../../modules/messaging/webhook';
 import {
   validVerifyToken,
@@ -17,8 +18,8 @@ import { count, limited, networkKey } from '../../../../modules/rate-limits/limi
 // Meta's subscribe check; POST takes delivery statuses and inbound messages. A body is accepted
 // only with the app secret's signature over its exact bytes; it is stored, which queues its job,
 // and answered at once, then handled, its messages routed and their replies sent straight after
-// (the jobs are the fallback). Wrong signatures and verify tokens are limited per network like the
-// job tick (IAM-11). Nothing of a body is ever logged.
+// (the jobs are the fallback), showing "typing…" meanwhile. Wrong signatures and verify tokens are
+// limited per network like the job tick (IAM-11). Nothing of a body is ever logged.
 export const dynamic = 'force-dynamic';
 
 /** Larger than any body Meta sends (a technical limit, not a business rule). */
@@ -52,17 +53,18 @@ export async function GET(request: Request): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   const secret = serverEnv().WHATSAPP_APP_SECRET;
   if (!secret) return Response.json({ error: 'Not configured' }, { status: 503 });
-  const network = networkKey(requestAddress(request.headers));
-  const over = await limited('webhook_failures_per_network', network);
-  if (over.limited) return tooMany(over.retryAfterSeconds);
-
   const declared = Number(request.headers.get('content-length') ?? 0);
   if (declared > MAX_BODY_BYTES) return Response.json({ error: 'Too large' }, { status: 413 });
   const body = new Uint8Array(await request.arrayBuffer());
   if (body.byteLength > MAX_BODY_BYTES) {
     return Response.json({ error: 'Too large' }, { status: 413 });
   }
+  // The signature first: Meta's own calls skip the limit's queries (reply speed); only a refused
+  // one is checked against the limit and counted.
   if (!validWebhookSignature(body, request.headers.get('x-hub-signature-256'), secret)) {
+    const network = networkKey(requestAddress(request.headers));
+    const over = await limited('webhook_failures_per_network', network);
+    if (over.limited) return tooMany(over.retryAfterSeconds);
     await count('webhook_failures_per_network', network);
     return Response.json({ error: 'Unauthorised' }, { status: 401 });
   }
@@ -80,10 +82,20 @@ export async function POST(request: Request): Promise<Response> {
   const db = appDb();
   const eventId = await receiveWhatsappWebhook(db, { payload });
   after(async () => {
+    let received: string[];
     try {
-      const handled = await handleWhatsappEvent(db, eventId);
-      // WA-03: each message sent to us gets its route and reply now, not at the next tick.
-      for (const messageId of handled.receivedIds) {
+      received = (await handleWhatsappEvent(db, eventId)).receivedIds;
+    } catch (error) {
+      // Its `whatsapp.event` job handles it at the next tick, and tries again after a failure.
+      Sentry.captureException(error);
+      return;
+    }
+    // WA-03: each message sent to us gets its route and reply now, not at the next tick; each on
+    // its own, so one that fails leaves the others' replies (its jobs handle it at the next tick).
+    for (const messageId of received) {
+      // Blue ticks and "typing…" at once, while the reply is made.
+      const typing = showTyping(db, messageId);
+      try {
         const routed = await routeInboundMessage(db, messageId);
         // WA-11: a typed message's answer now too, outside the routing transaction.
         if (routed.route === 'assistant' && !routed.skipped) {
@@ -91,10 +103,10 @@ export async function POST(request: Request): Promise<Response> {
         }
         // And the reply sent now, like a conversation, not at the next tick.
         await sendRepliesNow(db, messageId);
+      } catch (error) {
+        Sentry.captureException(error);
       }
-    } catch {
-      // Its `whatsapp.event`, `whatsapp.route`, `whatsapp.assistant_reply` and `whatsapp.send`
-      // jobs handle it at the next tick, and try again after a failure.
+      await typing;
     }
   });
   return Response.json({ received: true }, { headers: { 'Cache-Control': 'no-store' } });

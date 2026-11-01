@@ -2,6 +2,7 @@ import 'server-only';
 import { BOOKING_CONFIRMATION_JOB, defineJob, type JobHandlers } from '@clinic-mx/db';
 import { z } from 'zod';
 import { sendBookingConfirmation } from './clinic-messages';
+import { replaceRefusedForm } from './router';
 import { WHATSAPP_SEND_JOB, sendQueuedMessage } from './send';
 
 /**
@@ -11,12 +12,15 @@ import { WHATSAPP_SEND_JOB, sendQueuedMessage } from './send';
 export const conversationJobs: JobHandlers = {
   /**
    * Sends one WhatsApp message (WA-01), queued with its row by the `message_queue_send` trigger.
-   * A failure Meta may get over is thrown, so the queue tries again with its backoff.
+   * A failure Meta may get over is thrown, so the queue tries again with its backoff. A form Meta
+   * refused is followed by the team's contact details (`replaceRefusedForm`).
    */
   [WHATSAPP_SEND_JOB]: defineJob({
     payload: z.object({ messageId: z.guid() }),
-    run: ({ messageId }, { db, job }) =>
-      sendQueuedMessage(db, messageId, { attempt: job.attempts }),
+    run: async ({ messageId }, { db, job }) => {
+      await sendQueuedMessage(db, messageId, { attempt: job.attempts });
+      await replaceRefusedForm(db, messageId);
+    },
   }),
   /**
    * The booking confirmation (WA-07), queued by the database for every booking not in a plan

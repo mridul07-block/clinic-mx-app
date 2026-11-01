@@ -10,6 +10,9 @@ describe('a message that was not delivered', () => {
     expect(undeliveredReason('131049')).toBe('WhatsApp held it back');
     expect(undeliveredReason('131050')).toBe('WhatsApp held it back');
     expect(undeliveredReason('131031')).toMatch(/tell the Super Admin$/);
+    expect(undeliveredReason('139000')).toBe(
+      'WhatsApp refuses the form until the business is verified: tell the Super Admin',
+    );
     expect(undeliveredReason('132001')).toBe('A template problem: tell the Super Admin');
     expect(undeliveredReason('131000')).toBe('WhatsApp could not deliver it (code 131000)');
     expect(undeliveredReason(null)).toBe('WhatsApp could not deliver it');

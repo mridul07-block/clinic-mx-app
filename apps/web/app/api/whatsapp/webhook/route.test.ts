@@ -18,7 +18,7 @@ const router = vi.hoisted(() => ({ routeInboundMessage: vi.fn() }));
 vi.mock('../../../../modules/messaging/router', () => router);
 const assistant = vi.hoisted(() => ({ answerTypedMessage: vi.fn() }));
 vi.mock('../../../../modules/messaging/assistant', () => assistant);
-const sendNow = vi.hoisted(() => ({ sendRepliesNow: vi.fn() }));
+const sendNow = vi.hoisted(() => ({ sendRepliesNow: vi.fn(), showTyping: vi.fn() }));
 vi.mock('../../../../modules/messaging/send-now', () => sendNow);
 const later = vi.hoisted(() => ({ tasks: [] as (() => Promise<void>)[] }));
 vi.mock('next/server', () => ({
@@ -86,6 +86,8 @@ describe('POST /api/whatsapp/webhook', () => {
     });
     router.routeInboundMessage.mockReset();
     sendNow.sendRepliesNow.mockReset();
+    sendNow.showTyping.mockReset().mockResolvedValue(undefined);
+    assistant.answerTypedMessage.mockReset();
     later.tasks = [];
   });
 
@@ -133,6 +135,30 @@ describe('POST /api/whatsapp/webhook', () => {
     const [answered] = assistant.answerTypedMessage.mock.invocationCallOrder;
     const [sent] = sendNow.sendRepliesNow.mock.invocationCallOrder;
     expect(answered).toBeLessThan(sent ?? 0);
+    // Reply speed: "typing…" on each message as it is taken up, before its route.
+    expect(sendNow.showTyping.mock.calls).toEqual([
+      [{}, 'message-1'],
+      [{}, 'message-2'],
+      [{}, 'message-3'],
+    ]);
+    const [typing] = sendNow.showTyping.mock.invocationCallOrder;
+    const [routed] = router.routeInboundMessage.mock.invocationCallOrder;
+    expect(typing).toBeLessThan(routed ?? 0);
+  });
+
+  it('still answers the next message when one fails, leaving that one to its jobs', async () => {
+    webhook.handleWhatsappEvent.mockResolvedValue({
+      updated: 0,
+      received: 2,
+      receivedIds: ['message-1', 'message-2'],
+      skipped: false,
+    });
+    router.routeInboundMessage
+      .mockRejectedValueOnce(new Error('database busy'))
+      .mockResolvedValueOnce({ route: 'menu', reply: 'menu', skipped: false });
+    expect((await post(statusBody, sign(statusBody))).status).toBe(200);
+    await expect(later.tasks[0]?.()).resolves.toBeUndefined();
+    expect(sendNow.sendRepliesNow.mock.calls).toEqual([[{}, 'message-2']]);
   });
 
   it('leaves a failed handling to the job, still answering 200', async () => {
@@ -152,12 +178,20 @@ describe('POST /api/whatsapp/webhook', () => {
     expect(limits.count).toHaveBeenCalledWith('webhook_failures_per_network', address);
   });
 
-  it('answers 429 over the limit before checking anything', async () => {
+  it('answers 429 to a refused call over the limit, without counting it again', async () => {
     limits.limited.mockResolvedValue({ limited: true, retryAfterSeconds: 30 });
-    const response = await post(statusBody, sign(statusBody));
+    const response = await post(statusBody, sign('{}'));
     expect(response.status).toBe(429);
     expect(response.headers.get('retry-after')).toBe('30');
     expect(webhook.receiveWhatsappWebhook).not.toHaveBeenCalled();
+    expect(limits.count).not.toHaveBeenCalled();
+  });
+
+  it('takes Meta’s signed calls without asking the limit (reply speed)', async () => {
+    limits.limited.mockResolvedValue({ limited: true, retryAfterSeconds: 30 });
+    expect((await post(statusBody, sign(statusBody))).status).toBe(200);
+    expect(limits.limited).not.toHaveBeenCalled();
+    expect(webhook.receiveWhatsappWebhook).toHaveBeenCalledTimes(1);
   });
 
   it('refuses everything while the app secret is not set', async () => {

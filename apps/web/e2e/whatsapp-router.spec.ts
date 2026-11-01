@@ -215,3 +215,37 @@ test('a reply goes straight after the message to us, not at the next job tick', 
     await removeConversation(from, [id]);
   }
 });
+
+test('a greeting gets the menu at once, without the assistant', async ({ page }) => {
+  const from = fakeMobile();
+  const id = `wamid.e2e-${crypto.randomUUID()}`;
+  try {
+    const body = webhookBody({
+      messages: [
+        { from: from.slice(1), id, timestamp: seconds(), type: 'text', text: { body: 'Hello!' } },
+      ],
+    });
+    expect((await postWebhook(page.request, body)).status()).toBe(200);
+    // No tick is run: routed to the menu and its reply sent straight after the message.
+    await expect
+      .poll(
+        async () => {
+          const [routed] = await db().select().from(message).where(eq(message.waMessageId, id));
+          const [reply] = await db().select().from(message).where(eq(message.contextWaId, id));
+          return { route: routed?.route, reply: reply?.templateKey, status: reply?.status };
+        },
+        { timeout: 10_000 },
+      )
+      .toEqual({ route: 'menu', reply: 'menu', status: 'skipped' });
+    const [routed] = await db().select().from(message).where(eq(message.waMessageId, id));
+    // The assistant was never asked: no answer job for it.
+    expect(
+      await db()
+        .select()
+        .from(job)
+        .where(eq(job.idempotencyKey, `whatsapp.assistant_reply:${routed?.id ?? ''}`)),
+    ).toEqual([]);
+  } finally {
+    await removeConversation(from, [id]);
+  }
+});
