@@ -122,6 +122,8 @@ export {
   centreUpdateSchema,
   formatIndianPhone,
   indianPhoneSchema,
+  formatMapCoordinates,
+  mapCoordinatesSchema,
   mapLinkSchema,
   reviewLinkSchema,
   newCentreSchema,
@@ -528,6 +530,7 @@ export {
   templateApprovalStatuses,
   templateButtonKindLabels,
   templateCreateBody,
+  MAP_CONFIRMATION_BUTTONS,
   templateHeaderLabels,
   templateLinkBase,
   type MessageTemplate,
@@ -1407,9 +1410,14 @@ export {
   type PartBStatus,
 } from './part-b-consent';
 export {
+  CLINIC_LOCATION_KEY,
+  MAP_CONFIRMATION_KEY,
   confirmationDirections,
   confirmationFee,
   confirmationTemplateKey,
+  mapPlaceOf,
+  mapPlaceVariables,
+  type MapPlace,
 } from './booking-confirmation';
 export {
   APPOINTMENT_CHANGED_TEXT,

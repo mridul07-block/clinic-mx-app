@@ -1,15 +1,19 @@
 import type { TemplateApprovalStatus } from '@clinic-mx/schemas';
-import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { whatsappTemplate, type WhatsappTemplate } from './schema';
 import type { DbOrTransaction } from './versioned';
 
 /**
  * Meta's verdict on each template version on this environment's number (WA-06). Written by the
  * server only, on the owner connection: the submit script as `system:whatsapp-templates`, the
- * webhook's job as `system:whatsapp`. The Super Admin reads it under row level security.
+ * webhook's job as `system:whatsapp`. The Super Admin reads it under row level security. Each
+ * version belongs to the WhatsApp Business Account it was submitted to, and counts there only
+ * (1 November 2026): a number on another account has never had it.
  */
 
 export interface TemplateVersionOnMeta {
+  /** The WhatsApp Business Account the version is on. */
+  businessAccountId: string;
   key: string;
   version: number;
   language: string;
@@ -39,6 +43,7 @@ export async function recordTemplateVersion(
     .from(whatsappTemplate)
     .where(
       and(
+        eq(whatsappTemplate.businessAccountId, values.businessAccountId),
         eq(whatsappTemplate.key, values.key),
         eq(whatsappTemplate.version, values.version),
         eq(whatsappTemplate.language, values.language),
@@ -53,7 +58,12 @@ export async function recordTemplateVersion(
     .insert(whatsappTemplate)
     .values(values)
     .onConflictDoUpdate({
-      target: [whatsappTemplate.key, whatsappTemplate.version, whatsappTemplate.language],
+      target: [
+        whatsappTemplate.businessAccountId,
+        whatsappTemplate.key,
+        whatsappTemplate.version,
+        whatsappTemplate.language,
+      ],
       set: { status: values.status, category: values.category, reason: values.reason },
       setWhere: sql`(${whatsappTemplate.status}, ${whatsappTemplate.category}, ${whatsappTemplate.reason})
         IS DISTINCT FROM (excluded.status, excluded.category, excluded.reason)`,
@@ -97,24 +107,33 @@ export async function applyTemplateUpdate(
 }
 
 /**
- * The newest version of a template Meta approved on this number, if any: the one to send. Never
- * one older than `minVersion`, whose variables differ from the registry's (WA-07).
+ * The newest version of a template Meta approved on this account, if any: the one to send. Never
+ * one older than `minVersion`, whose variables differ from the registry's (WA-07), nor newer than
+ * `maxVersion` (a version the message cannot fill, such as a map without the centre's place). No
+ * account (WhatsApp not set up here): none.
  */
 export async function approvedTemplateVersion(
   db: DbOrTransaction,
   key: string,
   language: string,
-  minVersion = 1,
+  {
+    businessAccountId,
+    minVersion = 1,
+    maxVersion,
+  }: { businessAccountId: string | undefined; minVersion?: number; maxVersion?: number },
 ): Promise<{ metaName: string; version: number } | null> {
+  if (!businessAccountId) return null;
   const [row] = await db
     .select({ metaName: whatsappTemplate.metaName, version: whatsappTemplate.version })
     .from(whatsappTemplate)
     .where(
       and(
+        eq(whatsappTemplate.businessAccountId, businessAccountId),
         eq(whatsappTemplate.key, key),
         eq(whatsappTemplate.language, language),
         eq(whatsappTemplate.status, 'approved'),
         gte(whatsappTemplate.version, minVersion),
+        maxVersion === undefined ? undefined : lte(whatsappTemplate.version, maxVersion),
       ),
     )
     .orderBy(desc(whatsappTemplate.version))
@@ -122,10 +141,15 @@ export async function approvedTemplateVersion(
   return row ?? null;
 }
 
-/** Every version recorded on this number, newest first, for the templates page. */
-export function templateVersionsOnMeta(db: DbOrTransaction): Promise<WhatsappTemplate[]> {
+/** Every version recorded on this account, newest first, for the templates page. */
+export function templateVersionsOnMeta(
+  db: DbOrTransaction,
+  businessAccountId: string | undefined,
+): Promise<WhatsappTemplate[]> {
+  if (!businessAccountId) return Promise.resolve([]);
   return db
     .select()
     .from(whatsappTemplate)
+    .where(eq(whatsappTemplate.businessAccountId, businessAccountId))
     .orderBy(whatsappTemplate.key, desc(whatsappTemplate.version));
 }

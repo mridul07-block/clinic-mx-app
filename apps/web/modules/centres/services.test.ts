@@ -85,6 +85,7 @@ describe('centres', () => {
     expect(await addCentre(context(), details)).toBe(newId);
     expect(db.insertCentre).toHaveBeenCalledWith(fakeTx, {
       ...details,
+      coordinates: null,
       code: 'IND',
       appointmentPrefix: 'MVI',
       treadmills: 2,
@@ -161,6 +162,7 @@ describe('centres', () => {
     expect(db.activeCentreWithColour).toHaveBeenCalledWith(fakeTx, blue, hsr);
     expect(db.updateCentre).toHaveBeenCalledWith(fakeTx, hsr, {
       ...details,
+      coordinates: null,
       code: undefined,
       appointmentPrefix: undefined,
       treadmills: 2,

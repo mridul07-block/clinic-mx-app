@@ -79,6 +79,7 @@ const details = (name: string, colour: string) => ({
   address: '100 Feet Rd, Indiranagar, Bengaluru 560038',
   phone: '+918041234567',
   mapLink: 'https://maps.app.goo.gl/abc123',
+  coordinates: null,
 });
 
 describe('centres', () => {

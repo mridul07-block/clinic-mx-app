@@ -39,6 +39,13 @@ describe('greetings', () => {
     expect(isGreeting('hi', [])).toBe(false);
   });
 
+  it('route the confirmation with a map’s buttons as the menu’s', () => {
+    expect(route({ kind: 'reply', replyId: 'appointment_confirmation.reschedule' })).toBe(
+      'reschedule',
+    );
+    expect(route({ kind: 'reply', replyId: 'appointment_confirmation.talk' })).toBe('talk');
+  });
+
   it('get the menu without the assistant, emergency phrases still first', () => {
     expect(route({ body: 'Hello!' })).toBe('menu');
     expect(route({ body: 'hi, my knee hurts' })).toBe('assistant');

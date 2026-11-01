@@ -18,7 +18,7 @@ import { TEMPLATE_LANGUAGE } from './messaging';
  */
 
 export type TemplateCategory = 'utility';
-export type TemplateHeader = 'none' | 'document';
+export type TemplateHeader = 'none' | 'document' | 'location';
 export type TemplateButtonKind = 'quick_reply' | 'url' | 'flow';
 
 /** Meta's verdict on a template version on this environment's number (WA-06). */
@@ -58,6 +58,8 @@ export type MessageTemplateDefinition = {
   readonly body: string;
   readonly variables: readonly TemplateVariable[];
   readonly buttons: readonly TemplateButton[];
+  /** A line under the message in grey, at most 60 characters (Meta). */
+  readonly footer?: string;
   readonly version: number;
   /**
    * The oldest version whose variables are this one's, so an approved older version may still be
@@ -113,7 +115,59 @@ const confirmationVariables = [
   { name: 'clinic_phone', label: "The centre's phone number", example: '+91 80 4000 0000' },
 ] as const;
 
+/**
+ * The booking confirmation with the clinic's map (user decisions, 1 November 2026): a map of the
+ * centre at the top (Meta's location header, filled when sent from the centre's coordinates), each
+ * detail on its own line, and Reschedule and Talk to our team under it. DECISION WA-07: the wording
+ * and the footer, for the clinic to confirm.
+ */
+const mapConfirmationBody = [
+  'Hi {{1}}, your appointment is confirmed ✅',
+  [
+    '🆔 *{{2}}*',
+    '📅 {{3}}',
+    '⏰ {{4}}',
+    '👩‍⚕️ With {{5}}',
+    '📍 Movementology {{6}}',
+    '💳 {{7}}',
+  ].join('\n'),
+  'Please arrive 10 minutes early and bring any reports you have.',
+  'Need to change it? Call {{8}} or tap *Reschedule* below.',
+].join('\n\n');
+
+/** The map confirmation's buttons; the same ids on its plain text form inside the window. */
+export const MAP_CONFIRMATION_BUTTONS = [
+  { kind: 'quick_reply', text: 'Reschedule', id: 'reschedule' },
+  { kind: 'quick_reply', text: 'Talk to our team', id: 'talk' },
+] as const;
+
 export const messageTemplates = [
+  {
+    key: 'appointment_confirmation',
+    name: 'Appointment confirmation with map',
+    purpose:
+      'Confirms an appointment booked or moved, for any channel, with a map of the centre; sent when the centre has its coordinates, else the booking confirmation without a map (1 November 2026).',
+    source: 'PRD J1.4, J1.5; TAD section 6; user decisions 1 November 2026',
+    header: 'location',
+    body: mapConfirmationBody,
+    variables: [
+      patientName,
+      { name: 'appointment_id', label: 'The appointment number', example: 'MVH-00042' },
+      date,
+      time,
+      physio,
+      clinic,
+      {
+        name: 'fee',
+        label: 'The fee payable at the clinic, or "as per your treatment plan"',
+        example: '₹1,000, payable at the clinic',
+      },
+      { name: 'clinic_phone', label: "The centre's phone number", example: '+91 80 4000 0000' },
+    ],
+    buttons: MAP_CONFIRMATION_BUTTONS,
+    footer: 'Movementology Clinics',
+    ...utility,
+  },
   {
     key: 'booking_confirmation',
     name: 'Booking confirmation',
@@ -457,11 +511,14 @@ export function templateCreateBody(
       example: { header_handle: [options.documentHandle] },
     });
   }
+  // A map: the place is given with each message (Meta's location header), so none here.
+  if (template.header === 'location') components.push({ type: 'HEADER', format: 'LOCATION' });
   components.push({
     type: 'BODY',
     text: template.body,
     ...(examples.length > 0 ? { example: { body_text: [examples] } } : {}),
   });
+  if (template.footer) components.push({ type: 'FOOTER', text: template.footer });
   if (template.buttons.length > 0) {
     const base = templateLinkBase(options.origin);
     components.push({
@@ -505,6 +562,7 @@ export function quickReplyPayload(key: string, id: string): string {
 export const templateHeaderLabels: Record<TemplateHeader, string> = {
   none: 'No header',
   document: 'Document (PDF)',
+  location: 'Map of the centre',
 };
 
 export const templateButtonKindLabels: Record<TemplateButtonKind, string> = {

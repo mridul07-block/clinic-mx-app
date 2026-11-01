@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { formatIndianPhone } from './centres';
+import { MAP_CONFIRMATION_BUTTONS, quickReplyPayload } from './message-templates';
 import type { InboundKind } from './messaging';
 
 /**
@@ -55,6 +56,9 @@ export const sessionReplies = [
   'emergency_advice',
   // WA-11: one of the clinic's approved answers, with the menu's buttons under it.
   'assistant_answer',
+  // 1 November 2026: the confirmation with a map inside the window, the pin, then the text.
+  'clinic_location',
+  'appointment_confirmation',
 ] as const;
 export type SessionReply = (typeof sessionReplies)[number];
 
@@ -69,6 +73,8 @@ export const sessionReplyLabels: Record<SessionReply, string> = {
   appointment_confirmed: 'Confirm answered',
   emergency_advice: 'Emergency advice',
   assistant_answer: 'Assistant answer',
+  clinic_location: 'Clinic location',
+  appointment_confirmation: 'Appointment confirmation',
 };
 
 /** What the router answers a route with; `none` when the handler has answered already. */
@@ -77,6 +83,8 @@ export type RouteReply =
       SessionReply,
       | 'booking_confirmation'
       | 'reschedule_confirmation'
+      | 'clinic_location'
+      | 'appointment_confirmation'
       | 'check_answer'
       | 'appointment_confirmed'
       | 'emergency_advice'
@@ -235,6 +243,18 @@ const reminderRoutes: Record<string, InboundRoute> = {
   reschedule: 'reschedule',
 };
 
+/**
+ * The confirmation with a map's buttons (1 November 2026): Reschedule opens the reschedule form,
+ * Talk to our team the contact details, as the menu's do. The template's quick reply payloads and
+ * the plain text form's button ids are the same.
+ */
+const confirmationRoutes: Record<string, InboundRoute> = Object.fromEntries(
+  MAP_CONFIRMATION_BUTTONS.map((button) => [
+    quickReplyPayload('appointment_confirmation', button.id),
+    button.id === 'reschedule' ? 'reschedule' : 'talk',
+  ]),
+);
+
 const flowRoutes: Record<string, InboundRoute> = {
   booking: 'booking_flow',
   reschedule: 'reschedule_flow',
@@ -257,7 +277,12 @@ export function routeInbound(
     case 'reply': {
       const id = message.replyId ?? '';
       if (checkAnswerOf(id)) return 'check_answer';
-      return menuRoutes[id] ?? reminderRoutes[id.trim().toLowerCase()] ?? 'menu';
+      return (
+        menuRoutes[id] ??
+        confirmationRoutes[id] ??
+        reminderRoutes[id.trim().toLowerCase()] ??
+        'menu'
+      );
     }
     case 'flow':
       return flowRoutes[message.replyId ?? ''] ?? 'menu';
