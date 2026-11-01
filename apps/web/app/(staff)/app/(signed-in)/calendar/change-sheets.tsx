@@ -48,7 +48,7 @@ function PackageReschedulesLine({ state }: { state: PackageReschedules | undefin
       data-testid="package-reschedules"
       className={
         state.neverReschedulable || state.reschedulesLeft === 0
-          ? 'text-sm text-waiting-strong'
+          ? 'text-sm text-waiting'
           : 'text-sm text-ink-secondary'
       }
     >
@@ -269,10 +269,7 @@ export function RescheduleConfirm({
       <div className="flex flex-col gap-1">
         <p className="font-mono text-sm text-ink-secondary">{appointment.number}</p>
         <h2 className="text-title font-semibold text-ink">Reschedule {appointment.typeName}</h2>
-        <p
-          data-testid="hold-status"
-          className={heldUntil ? 'text-ink-secondary' : 'text-waiting-strong'}
-        >
+        <p data-testid="hold-status" className={heldUntil ? 'text-ink-secondary' : 'text-waiting'}>
           {heldUntil
             ? `Held for you until ${timeOf(heldUntil)}`
             : 'Your hold ran out. Reschedule still works if the time is free.'}

@@ -69,10 +69,7 @@ export function ColleaguesToday({ colleagues }: { colleagues: ColleagueRow[] }) 
                       </span>
                     </span>
                     {visit.status === 'checked_in' && visit.session && !visit.session.gate.met ? (
-                      <p
-                        data-testid="session-gate"
-                        className="text-sm text-waiting-strong md:max-w-56"
-                      >
+                      <p data-testid="session-gate" className="text-sm text-waiting md:max-w-56">
                         Gate blocked: {visit.session.gate.message}
                       </p>
                     ) : visit.status === 'checked_in' && visit.session ? (

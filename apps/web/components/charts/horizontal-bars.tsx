@@ -40,7 +40,7 @@ export function HorizontalBars({
             <span className="truncate text-ink">{row.label}</span>
             <span className="flex min-w-0 items-center gap-1.5">
               <span
-                className={`cmx-marker h-3 rounded-r-sm ${toneBackground[tone]}`}
+                className={`cmx-marker h-3 ${toneBackground[tone]}`}
                 style={
                   {
                     width: `${String((row.value / top) * 85)}%`,

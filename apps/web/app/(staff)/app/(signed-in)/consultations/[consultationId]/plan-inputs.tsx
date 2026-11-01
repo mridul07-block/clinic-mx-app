@@ -243,7 +243,7 @@ export function PlanInputs({
                 {chosen && warnings.length > 0 ? (
                   <div
                     data-testid="modality-warning"
-                    className="mt-1.5 flex flex-col gap-1.5 rounded-panel border border-waiting-line bg-waiting-soft px-3 py-2.5 text-waiting-strong"
+                    className="mt-1.5 flex flex-col gap-1.5 rounded-panel border border-waiting-line bg-waiting-soft px-3 py-2.5 text-waiting"
                   >
                     <p className="font-medium">Precaution</p>
                     <ul className="flex flex-col gap-1 text-sm">

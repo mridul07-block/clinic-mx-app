@@ -64,6 +64,68 @@ describe("Tailwind's default palette and weights", () => {
   );
 });
 
+describe('strong status tones as text', () => {
+  it.each([
+    `<p className="text-sm text-waiting-strong">`,
+    `<span className="hover:text-danger-strong" />`,
+  ])('fails on %s', (text) => {
+    expect(rulesIn(text)).toContain('strong-as-text');
+  });
+
+  it.each([
+    `<p className="text-waiting">`,
+    `<span className="bg-danger-strong text-on-danger" />`,
+    `<i className="bg-waiting-strong" />`,
+  ])('passes %s', (text) => {
+    expect(rulesIn(text)).toEqual([]);
+  });
+});
+
+describe("shadcn's token names", () => {
+  it.each([
+    `<button className="bg-primary text-primary-foreground" />`,
+    `<div className="bg-background text-foreground" />`,
+    `<p className="text-muted-foreground" />`,
+    `<input className="border-input ring-ring" />`,
+    `<div className="bg-popover" />`,
+    `<b className="hover:bg-destructive/90" />`,
+    `<div className="bg-surface dark:bg-ink" />`,
+  ])('fails on %s', (text) => {
+    expect(rulesIn(text)).toContain('shadcn-name');
+  });
+
+  it.each([
+    `<button className="bg-accent text-on-accent hover:bg-accent-hover" />`,
+    `<p className="text-ink-muted text-ink-secondary bg-surface-sunken" />`,
+    `<input className="border-line-control" />`,
+    `const dark = isNight;`,
+  ])('passes %s', (text) => {
+    expect(rulesIn(text)).toEqual([]);
+  });
+});
+
+describe('dead radius and shadow utilities', () => {
+  it.each([
+    `<div className="rounded-md" />`,
+    `<span className="rounded-r" />`,
+    `<span className="rounded-b" />`,
+    `<span className="rounded-r-sm" />`,
+    `<div className="md:rounded-xl" />`,
+    `<div className="shadow-lg" />`,
+  ])('fails on %s', (text) => {
+    expect(rulesIn(text)).toContain('dead-utility');
+  });
+
+  it.each([
+    `<div className="rounded-control rounded-panel rounded-full rounded-none" />`,
+    `<div className="rounded-r-panel rounded-t-sheet rounded-l-full" />`,
+    `<div className="shadow-xs shadow-float shadow-drawer shadow-none" />`,
+    `const note = 'amounts are rounded to the rupee';`,
+  ])('passes %s', (text) => {
+    expect(rulesIn(text)).toEqual([]);
+  });
+});
+
 describe('dynamic class names', () => {
   it.each(['const c = `bg-${tone}`;', 'className={`border-${tone}-line rounded-tag`}'])(
     'fails on %s',

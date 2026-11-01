@@ -304,7 +304,7 @@ function Acknowledgement({
   }
   return (
     <div className="flex flex-col gap-2" data-testid="clearance-acknowledgement">
-      <p className="text-sm text-waiting-strong">Not acknowledged by the patient yet.</p>
+      <p className="text-sm text-waiting">Not acknowledged by the patient yet.</p>
       {showsQr ? (
         <PatientLinkQr
           id="clearance"
@@ -364,7 +364,7 @@ function ClearanceRow({
       ) : (
         <>
           {clearance.refusal ? (
-            <p className="text-sm text-waiting-strong" data-testid="clearance-blocked">
+            <p className="text-sm text-waiting" data-testid="clearance-blocked">
               {clearance.refusal}
             </p>
           ) : null}

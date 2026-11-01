@@ -139,7 +139,7 @@ export function DischargeForm({ episodeId, view }: { episodeId: string; view: Di
           className="flex flex-col gap-1 rounded-control border border-waiting-line bg-waiting-soft px-3 py-2.5"
           data-testid="discharge-cancels"
         >
-          <p className="text-sm font-medium text-waiting-strong">
+          <p className="text-sm font-medium text-waiting">
             {ahead.length === 1
               ? 'Discharging cancels 1 booked visit:'
               : `Discharging cancels ${String(ahead.length)} booked visits:`}

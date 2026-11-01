@@ -518,6 +518,8 @@ Review every screen against this list. These are what make an interface look gen
 7. Every page has its own loading, empty and error state.
 8. No shadcn token names (`bg-primary`, `text-foreground`, `border-input` and the rest) and no `dark:`.
 9. No `-strong` status tone used as text.
+10. No dead radius or shadow utilities (`rounded-md`, `rounded-r`, `shadow-lg`): Tailwind's own are removed, so they render nothing.
+11. A ratchet on what the redesign replaces (`legacy.json`: native selects, native date inputs, pages capped at the 400 px sign in width): each count may only fall, and the commit that removes some lowers its number.
 
 The end to end tests add: axe on every screen (nothing serious or critical), screenshots compared at 360 px and 1440 px, inputs at 16 px on touch, and at most 200 KB of JavaScript per route.
 

@@ -108,7 +108,7 @@ export default async function SignedInLayout({ children }: { children: ReactNode
               {staff.support ? (
                 <p
                   role="note"
-                  className="w-full border-b border-waiting-line bg-waiting-soft px-4 py-2 text-sm text-waiting-strong"
+                  className="w-full border-b border-waiting-line bg-waiting-soft px-4 py-2 text-sm text-waiting"
                 >
                   Velyx support access, read only
                   {grant ? `, until ${formatIstDateTime(grant.endsAt)}` : ''}. Everything you open

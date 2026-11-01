@@ -348,7 +348,7 @@ export function ConsultationStepper({
                 className={[
                   'flex flex-col gap-1.5 rounded-panel border px-3 py-2.5',
                   blockers.length > 0
-                    ? 'border-waiting-line bg-waiting-soft text-waiting-strong'
+                    ? 'border-waiting-line bg-waiting-soft text-waiting'
                     : 'border-done-line bg-done-soft text-done',
                 ].join(' ')}
               >

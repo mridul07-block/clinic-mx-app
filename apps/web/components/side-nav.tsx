@@ -169,7 +169,7 @@ export function SideNav({
                   {here ? (
                     <span
                       aria-hidden
-                      className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-brand"
+                      className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-brand"
                     />
                   ) : null}
                   {/* The name, for screen readers; the words shown are a picture of it. */}

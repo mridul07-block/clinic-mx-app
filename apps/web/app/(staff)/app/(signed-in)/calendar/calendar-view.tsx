@@ -96,7 +96,7 @@ export function CalendarView({
     <div className="flex flex-col gap-3">
       <p
         data-testid="live-status"
-        className={`text-sm ${failing ? 'text-waiting-strong' : 'text-ink-muted'}`}
+        className={`text-sm ${failing ? 'text-waiting' : 'text-ink-muted'}`}
       >
         {failing
           ? `Not updated for ${String(seconds)} s. Checking again.`

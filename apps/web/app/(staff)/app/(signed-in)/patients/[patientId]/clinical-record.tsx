@@ -165,7 +165,7 @@ export function SummaryCard({
         <Link
           href={`/app/patients/${patientId}?tab=alerts`}
           data-testid="summary-alerts"
-          className="flex flex-col gap-0.5 rounded-control border border-waiting-line bg-waiting-soft px-3 py-2.5 font-semibold text-waiting-strong underline-offset-2 hover:underline"
+          className="flex flex-col gap-0.5 rounded-control border border-waiting-line bg-waiting-soft px-3 py-2.5 font-semibold text-waiting underline-offset-2 hover:underline"
         >
           {openAlerts === 1
             ? '1 open red flag alert'

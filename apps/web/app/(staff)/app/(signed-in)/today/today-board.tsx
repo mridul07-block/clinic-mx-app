@@ -156,7 +156,7 @@ export function TodayBoard({
     <div className="flex flex-col gap-3">
       <p
         data-testid="live-status"
-        className={`text-sm ${failing ? 'text-waiting-strong' : 'text-ink-muted'}`}
+        className={`text-sm ${failing ? 'text-waiting' : 'text-ink-muted'}`}
       >
         {failing
           ? `Not updated for ${String(seconds)} s. Checking again.`
@@ -240,7 +240,7 @@ export function TodayBoard({
                   </span>
                 </span>
                 <span className="col-start-2 row-start-2 flex flex-wrap items-center gap-2 md:col-start-3 md:row-start-1 md:justify-end">
-                  {late ? <span className="text-sm text-waiting-strong">{late}</span> : null}
+                  {late ? <span className="text-sm text-waiting">{late}</span> : null}
                   <Tag tone={toneByAppointmentStatus[status]}>{label}</Tag>
                   {appointment.session?.label ? (
                     // SES-01: the treatment session's number once checked in.

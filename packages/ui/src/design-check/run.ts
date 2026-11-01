@@ -3,7 +3,8 @@ import { join, relative, sep } from 'node:path';
 import { checkTokens } from './contrast';
 import type { Problem } from './problems';
 import { tokenValues } from '../token-values';
-import { checkSource } from './source';
+import { addCounts, checkRatchet, countsTowardsRatchet, emptyCounts } from './ratchet';
+import { checkSource, stripComments } from './source';
 import { parseTokens } from './tokens';
 
 // `pnpm check:design`: the design token check (Frontend Specification section 10). Exits 1 and
@@ -14,6 +15,7 @@ const tokensFile = 'packages/ui/src/styles/tokens.css';
 const tokenValuesFile = 'packages/ui/src/token-values.ts';
 const seedFile = 'packages/db/src/seed/data.ts';
 const centreColoursFile = 'packages/schemas/src/centres.ts';
+const legacyFile = 'packages/ui/src/design-check/legacy.json';
 
 /**
  * Files the raw colour rule skips: the tokens themselves, and mirrors checked against them below
@@ -66,6 +68,7 @@ function* sourceFiles(dir: string): Generator<string> {
 const tokens = parseTokens(readFileSync(join(root, tokensFile), 'utf8'));
 const problems: Problem[] = checkTokens(tokens, tokensFile);
 let scanned = 0;
+const legacy = emptyCounts();
 
 for (const top of ['apps', 'packages']) {
   for (const path of sourceFiles(join(root, top))) {
@@ -73,9 +76,15 @@ for (const top of ['apps', 'packages']) {
     if (skipped(file)) continue;
     scanned++;
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- a file found by the walk above
-    problems.push(...checkSource(file, readFileSync(path, 'utf8'), rawColourAllowed.has(file)));
+    const text = readFileSync(path, 'utf8');
+    problems.push(...checkSource(file, text, rawColourAllowed.has(file)));
+    if (countsTowardsRatchet(file)) addCounts(legacy, stripComments(text));
   }
 }
+
+// What the redesign replaces may only become fewer (UIX-02; ratchet.ts).
+const limits = JSON.parse(readFileSync(join(root, legacyFile), 'utf8')) as Record<string, unknown>;
+problems.push(...checkRatchet(legacy, limits, legacyFile));
 
 // Token values used outside CSS (manifest, icons) must equal tokens.css.
 for (const [name, value] of Object.entries(tokenValues)) {

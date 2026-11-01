@@ -63,7 +63,7 @@ export function BodyChart({
                 <label
                   key={zone.key}
                   title={zone.label}
-                  className="absolute cursor-pointer rounded-md border border-dashed border-line-control/60 has-[:checked]:border-solid has-[:checked]:border-brand-deep has-[:checked]:bg-brand/70 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus"
+                  className="absolute cursor-pointer rounded-control border border-dashed border-line-control/60 has-[:checked]:border-solid has-[:checked]:border-brand-deep has-[:checked]:bg-brand/70 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus"
                   style={{
                     left: `${String(zone.x)}%`,
                     top: `${String(zone.y / 2)}%`,

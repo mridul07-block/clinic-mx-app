@@ -78,7 +78,7 @@ export function PhoneTabBar({ tabs }: { tabs: readonly PhoneTab[] }) {
                   {here ? (
                     <span
                       aria-hidden
-                      className="absolute inset-x-4 top-0 h-[3px] rounded-b bg-brand"
+                      className="absolute inset-x-4 top-0 h-[3px] rounded-full bg-brand"
                     />
                   ) : null}
                   <Icon

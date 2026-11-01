@@ -197,7 +197,7 @@ export function PlanSessionsForm({
                   className="flex flex-col gap-1 rounded-panel border border-waiting-line bg-waiting-soft px-3 py-2 text-sm"
                 >
                   <span className="font-medium text-ink">{row.when}</span>
-                  <span className="text-waiting-strong">{row.reason}</span>
+                  <span className="text-waiting">{row.reason}</span>
                   <fieldset className="flex flex-col">
                     <legend className="sr-only">Instead of {row.when}</legend>
                     {row.choices.map((choice) => (
