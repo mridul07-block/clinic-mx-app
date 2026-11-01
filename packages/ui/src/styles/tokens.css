@@ -116,9 +116,10 @@
   --duration-motion: 240ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 
-  /* Type. IBM Plex Sans carries the rupee sign (latin-ext) and tabular figures; Plex Mono is
-     for patient IDs, appointment IDs and bill numbers only. The app loads both with next/font,
-     which sets --font-plex-sans and --font-plex-mono on <html>. */
-  --font-sans: var(--font-plex-sans), 'IBM Plex Sans', system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), 'IBM Plex Mono', ui-monospace, monospace;
+  /* Type. Inter (design system v3, UIX-04) carries the rupee sign (latin-ext) and tabular
+     figures. font-mono is the same file with tabular figures and the ss02 set (slashed zero,
+     distinct l and I) for patient IDs, appointment IDs and bill numbers (theme.css). The app
+     loads it with next/font, which sets --font-inter on <html>. */
+  --font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
+  --font-mono: var(--font-inter), 'Inter', ui-monospace, monospace;
 }

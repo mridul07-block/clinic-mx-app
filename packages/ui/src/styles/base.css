@@ -6,7 +6,7 @@
     color-scheme: light;
   }
 
-  /* Ink on the canvas, IBM Plex Sans, staff base size 14/20. Prose uses proportional figures;
+  /* Ink on the canvas, Inter, staff base size 14/20. Prose uses proportional figures;
      tables, times, money and KPIs opt into tabular ones with the tabular-nums utility. */
   body {
     background-color: var(--canvas);
@@ -43,5 +43,32 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+  }
+}
+
+/*
+ * Form controls on touch screens are 16/24 (design system v3 section 3.2, UIX-05): iOS Safari
+ * zooms the page into any field under 16 px. Outside @layer on purpose, so it wins over the
+ * text-base or text-sm a control carries; a control set larger (text-lg and up) keeps its size.
+ * With a mouse, controls keep the staff 14 px. Zoom is never blocked.
+ */
+@media (pointer: coarse) {
+  :is(
+    input:not(
+      [type='checkbox'],
+      [type='radio'],
+      [type='range'],
+      [type='hidden'],
+      [type='button'],
+      [type='submit'],
+      [type='reset'],
+      [type='file'],
+      [type='color']
+    ),
+    select,
+    textarea
+  ):not(.text-lg, .text-xl, .text-2xl, .text-title, .text-display) {
+    font-size: 1rem;
+    line-height: 1.5rem;
   }
 }

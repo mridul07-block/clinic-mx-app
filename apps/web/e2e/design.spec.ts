@@ -11,7 +11,7 @@ function rgb(hex: string): string {
   return `rgb(${String(r)}, ${String(g)}, ${String(b)})`;
 }
 
-test('staff pages use the canvas, ink and IBM Plex Sans at 14 px', async ({ page }) => {
+test('staff pages use the canvas, ink and Inter at 14 px', async ({ page }) => {
   await page.goto('/app');
   const body = await page.evaluate(() => {
     const style = getComputedStyle(document.body);
@@ -24,7 +24,7 @@ test('staff pages use the canvas, ink and IBM Plex Sans at 14 px', async ({ page
   });
   expect(body.background).toBe(rgb(tokenValues.canvas));
   expect(body.color).toBe(rgb(tokenValues.ink));
-  expect(body.font).toMatch(/IBM Plex Sans/);
+  expect(body.font).toMatch(/Inter/);
   expect(body.size).toBe('14px');
 });
 
@@ -44,7 +44,7 @@ test('patient pages read at 16 px', async ({ page }) => {
   expect(size).toBe('16px');
 });
 
-test('IBM Plex Sans has loaded, including the rupee sign', async ({ page }) => {
+test('Inter has loaded, including the rupee sign', async ({ page }) => {
   await page.goto('/app');
   const loaded = await page.evaluate(async () => {
     await document.fonts.ready;
@@ -52,4 +52,12 @@ test('IBM Plex Sans has loaded, including the rupee sign', async ({ page }) => {
     return document.fonts.check(`14px ${family}`, '₹');
   });
   expect(loaded).toBe(true);
+});
+
+// UIX-05: iOS Safari zooms into any field under 16 px, so on a touch screen fields are 16 px;
+// with a mouse they keep the staff 14 px.
+test('form fields are 16 px on a touch screen and 14 px with a mouse', async ({ page }) => {
+  await page.goto('/app/sign-in');
+  const size = await page.getByLabel('Email').evaluate((el) => getComputedStyle(el).fontSize);
+  expect(size).toBe(test.info().project.name === 'phone' ? '16px' : '14px');
 });

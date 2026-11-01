@@ -85,6 +85,8 @@
   --font-*: initial;
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+  /* IDs line up and never confuse 0 and O, 1, l and I (Inter's tabular figures and ss02). */
+  --font-mono--font-feature-settings: 'tnum', 'ss02';
 
   /* Type scale: staff base 14 px, patient pages 16 px; two display sizes, the page title
      (24/32) and the one number that matters (32/40). */
