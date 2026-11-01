@@ -243,6 +243,12 @@ menu.
 
 ## The assistant (WA-11)
 
+**Off since 1 November 2026 (user decision):** the clinic's WhatsApp is for booking, not a general
+chatbot, so the assistant's model is cleared (migration `20261101152744_assistant_off.sql`, and on
+staging the same day). Nothing is sent to any model; every typed message gets the three button menu,
+and emergency phrases are still caught first by their word list. Setting a model in
+`ai.task_assistant_reply` on Settings turns everything below back on.
+
 Typed text without an emergency phrase goes to the assistant (PRD section 6; TAD sections 6 and 7).
 The model only chooses (user decision, 31 October 2026); it never writes what a patient reads:
 

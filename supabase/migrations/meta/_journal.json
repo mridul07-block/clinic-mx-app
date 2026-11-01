@@ -1800,6 +1800,13 @@
       "when": 1793539413379,
       "tag": "20261101132333_template_account_only",
       "breakpoints": true
+    },
+    {
+      "idx": 257,
+      "version": "7",
+      "when": 1793546864485,
+      "tag": "20261101152744_assistant_off",
+      "breakpoints": true
     }
   ]
 }
