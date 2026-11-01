@@ -20,7 +20,33 @@ test('a touch screen gets 44 px controls and 16 px fields', async ({ page }) => 
   test.skip(test.info().project.name !== 'phone', 'touch sizes apply on the phone project');
   await signIn(page, testStaff.desk.email);
   await page.goto('/app/test-harness/kit');
-  const email = page.getByLabel('Email', { exact: true });
-  expect(await email.evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px');
-  expect((await email.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  const email = page.locator('input[name="email"]');
+  await expect(email).toHaveCSS('font-size', '16px');
+  await expect
+    .poll(() => email.evaluate((el) => el.getBoundingClientRect().height))
+    .toBeGreaterThanOrEqual(44);
+});
+
+// UIX-10 done when: a date is typed as day, month and year (the Indian order) or picked from the
+// calendar, and the form receives it as an ISO date, on a phone and with a keyboard.
+test('a date typed or picked posts as an ISO date', async ({ page }) => {
+  await signIn(page, testStaff.desk.email);
+  await page.goto('/app/test-harness/kit');
+  // React Aria also renders a native date input with form="", which belongs to no form and never
+  // posts; the hidden text input is what the form sends.
+  const posted = page.locator('input[name="visitDateError"]:not([type="date"])');
+
+  await page.getByRole('spinbutton', { name: /^day, Visit date with an error/ }).click();
+  await page.keyboard.type('25122026');
+  await expect(posted).toHaveValue('2026-12-25');
+
+  // The calendar: next month, then the 5th.
+  await page
+    .getByRole('group', { name: 'Visit date with an error' })
+    .getByRole('button', { name: 'Choose from a calendar' })
+    .click();
+  const calendar = page.getByRole('dialog', { name: 'Visit date with an error' });
+  await calendar.getByRole('button', { name: 'Next month' }).click();
+  await calendar.getByRole('button', { name: 'Tuesday, 5 January 2027', exact: true }).click();
+  await expect(posted).toHaveValue('2027-01-05');
 });

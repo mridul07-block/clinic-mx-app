@@ -1,5 +1,6 @@
 import { Checkbox } from '@clinic-mx/ui/components/checkbox';
 import { CountChip } from '@clinic-mx/ui/components/count-chip';
+import { DateField, DatePicker, TimeField } from '@clinic-mx/ui/components/date-picker';
 import { ErrorSummary, Field } from '@clinic-mx/ui/components/field';
 import { Input, Textarea } from '@clinic-mx/ui/components/input';
 import { RadioGroup } from '@clinic-mx/ui/components/radio-group';
@@ -280,6 +281,18 @@ export default function KitHarnessPage() {
           <CountChip href="?view=here" label="Here now" count={4} />
           <CountChip href="?view=done" label="Done" count={30} />
         </nav>
+      </Section>
+
+      <Section title="Dates and times">
+        <DatePicker label="Visit date" name="visitDate" defaultValue="2026-11-03" />
+        <DatePicker
+          label="Visit date with an error"
+          name="visitDateError"
+          error="Choose a date from today on"
+        />
+        <DateField label="Date of birth" name="dateOfBirth" optional defaultValue="1986-09-04" />
+        <TimeField label="Start time" name="startTime" defaultValue="16:05" helper="In IST" />
+        <DatePicker label="Locked date" name="lockedDate" defaultValue="2026-11-03" disabled />
       </Section>
 
       <Section title="With JavaScript">
