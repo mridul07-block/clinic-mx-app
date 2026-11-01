@@ -39,13 +39,14 @@ test('a browser error reaches /monitoring scrubbed, and no page calls Sentry', a
   expect(outside).toEqual([]);
 });
 
+// The signed in error page (UIX-11) catches it inside the navigation, before app/global-error.tsx.
 test('a page that fails to render shows the error page, saying nothing of why', async ({
   page,
 }) => {
   const desk = await temporaryDesk();
   await signIn(page, desk.email);
   await page.goto('/app/test-harness/client-error?fail=render');
-  await expect(page.getByRole('heading', { name: 'Something went wrong' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'This page did not open' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Load again' })).toBeVisible();
   await expect(page.getByText('harness failed')).toHaveCount(0);
 });
