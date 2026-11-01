@@ -220,9 +220,11 @@ test('Subjective shows the health form as Patient reported; an edit makes it Cli
   await expect(field('onset')).toContainText('Patient reported');
   await expect(field('onset')).not.toContainText('Clinician confirmed');
   if (testInfo.project.name === 'desktop') {
-    await field('pain_site')
-      .getByRole('checkbox', { name: 'Left knee, front' })
-      .check({ force: true });
+    // Tap the zone, as a person does; its checkbox sits hidden in the zone's rounded corner.
+    await field('pain_site').getByTitle('Left knee, front').click();
+    await expect(
+      field('pain_site').getByRole('checkbox', { name: 'Left knee, front' }),
+    ).toBeChecked();
     await expect(field('pain_site')).toContainText('Clinician confirmed');
   }
   await expect(page.getByText('Saved', { exact: true })).toBeVisible();

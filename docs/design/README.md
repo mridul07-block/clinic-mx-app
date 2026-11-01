@@ -313,7 +313,7 @@ The components live in `packages/ui` and are exported from `@clinic-mx/ui/compon
 
 ### Button
 
-Base: inline flex, centred, 8 px gap, 8 px radius, 1 px border, weight 500, no wrap, colour transition 120 ms, pressed `scale(0.98)` (none under reduced motion). Defaults to `type="button"`.
+Base: inline flex, centred, 8 px gap, 8 px radius, 1 px border, weight 500, text centred (a long label wraps rather than pushing past a 360 px screen; buttons in a row share it), colour transition 120 ms, pressed `scale(0.98)` (none under reduced motion). Defaults to `type="button"`.
 
 | Look | Rest | Hover | Disabled |
 |---|---|---|---|

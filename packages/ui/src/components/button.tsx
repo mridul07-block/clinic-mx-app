@@ -8,7 +8,7 @@ import { cn } from '../cn';
  */
 export const buttonVariants = cva(
   [
-    'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-control border font-medium',
+    'inline-flex items-center justify-center gap-2 rounded-control border text-center font-medium',
     'transition-[color,background-color,border-color,transform] duration-[var(--duration-quick)]',
     'active:scale-[0.98] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:active:scale-100',
     '[&_svg]:shrink-0',

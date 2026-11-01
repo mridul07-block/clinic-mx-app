@@ -42,10 +42,8 @@ export function PersonMenu({
         </span>
         <span className="sr-only min-w-0 flex-col xl:not-sr-only xl:flex">
           <span className="truncate font-medium text-ink">{name}</span>
-          <span className="truncate text-xs text-ink-muted">
-            <span className="sr-only">, </span>
-            {role}
-          </span>
+          {/* No comma between them: the account page already says "Name, Role". */}
+          <span className="truncate text-xs text-ink-muted">{role}</span>
         </span>
         <span className="sr-only">: menu</span>
       </summary>
