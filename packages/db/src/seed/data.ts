@@ -12,9 +12,8 @@ export const centreIds = {
   whitefield: '00000000-0000-4000-8000-000000000103',
 } as const;
 
-// Addresses from the clinics' public Google Business listings (21 October 2026); confirm
-// with the clinic. The Koramangala listing is named "Movementology Academy". No public
-// address was found for Whitefield. Phones and map links are added by the Super Admin.
+// Addresses from the clinic's website, movementologyclinics.com/locations (1 November 2026),
+// whose map pins match them. Phones, map links and map coordinates are added by the Super Admin.
 // Colours are the centre chart colours from the Frontend Specification. Codes start OP numbers
 // (SCH-01, user decision 22 October 2026); prefixes start appointment IDs (SCH-04, decision G6).
 export const seedCentres = [
@@ -23,7 +22,8 @@ export const seedCentres = [
     name: 'HSR Layout',
     code: 'HSR',
     appointmentPrefix: 'MVH',
-    address: 'Bhagyalaxmi Square, 17/N, 18th Main Rd, Sector 3, HSR Layout, Bengaluru 560102',
+    address:
+      'Bhagyalaxmi Square, 17/N, 18th Main Rd, Sector 3, HSR Layout, Bengaluru, Karnataka 560102',
     colour: '#2F74BB',
   },
   {
@@ -31,7 +31,7 @@ export const seedCentres = [
     name: 'Koramangala',
     code: 'KOR',
     appointmentPrefix: 'MVK',
-    address: '#89, 17th D Main, 6th Block, Koramangala, Bengaluru 560095',
+    address: '89, 17th D Main Rd, 6th Block, Koramangala, Bengaluru, Karnataka 560095',
     colour: '#7F5BB6',
   },
   {
@@ -39,7 +39,8 @@ export const seedCentres = [
     name: 'Whitefield',
     code: 'WFD',
     appointmentPrefix: 'MVW',
-    address: null,
+    address:
+      'Second Floor, Tower C, Garden Of Eden, C205, Pattandur Agrahara Kalidasa Rd, Whitefield, Bengaluru, Karnataka 560066',
     colour: '#1C8580',
   },
 ] satisfies NewCentre[];

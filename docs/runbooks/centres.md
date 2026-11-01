@@ -77,8 +77,10 @@ Later tickets use these details:
 | Map link | https Google Maps only: `maps.app.goo.gl`, `goo.gl/maps`, `google.com/maps` and `maps.google.com`. Patients open it, so no other site is accepted. |
 | Colour | One of the three above |
 
-The seed adds the three centres and two addresses. The Whitefield address, the phones and the map
-links are still to be entered by the Super Admin.
+The seed adds the three centres with their addresses from the clinic's website
+(movementologyclinics.com/locations, 1 November 2026). Phones, map links and map coordinates are
+entered by the Super Admin; on staging they were entered from the same page (one front desk number,
+082961 69699, for all three, and each centre's Google Maps pin).
 
 ## Deactivating a centre
 
