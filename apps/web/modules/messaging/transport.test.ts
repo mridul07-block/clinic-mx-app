@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { cloudApiTransport, sessionBody, templateBody } from './transport';
+import {
+  cloudApiTransport,
+  markReadTyping,
+  readTypingBody,
+  sessionBody,
+  templateBody,
+} from './transport';
 
 vi.mock('server-only', () => ({}));
 
@@ -201,6 +207,48 @@ describe('cloudApiTransport', () => {
       title: 'Recipient not allowed',
     });
     expect(JSON.stringify(result)).not.toContain('9845012345');
+  });
+
+  it('names a refusal in plain words when Meta gives a code and no title', async () => {
+    const send = vi.fn(() => json(400, { error: { code: 139000, message: 'Blocked' } }));
+    expect(
+      await cloudApiTransport(config, send).sendSession(
+        { to: '+919845012345', text: 'x' },
+        signal(),
+      ),
+    ).toMatchObject({
+      code: '139000',
+      title: 'WhatsApp refuses the form until the business is verified: tell the Super Admin',
+    });
+    const bare = vi.fn(() => json(400, {}));
+    expect(await cloudApiTransport(config, bare).sendTemplate(hello, signal())).toMatchObject({
+      title: 'HTTP 400',
+    });
+  });
+
+  // Reply speed (1 November 2026): blue ticks and "typing…" the moment a message reaches us.
+  it('marks a message read with "typing…", and never throws', async () => {
+    expect(readTypingBody('wamid.IN1')).toEqual({
+      messaging_product: 'whatsapp',
+      status: 'read',
+      message_id: 'wamid.IN1',
+      typing_indicator: { type: 'text' },
+    });
+    const send = vi.fn(() => json(200, { success: true }));
+    expect(await markReadTyping(config, 'wamid.IN1', signal(), send)).toBe(true);
+    const [url, init] = send.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('https://graph.facebook.com/v25.0/111/messages');
+    expect(JSON.parse(init.body as string)).toEqual(readTypingBody('wamid.IN1'));
+    expect(
+      await markReadTyping(
+        config,
+        'wamid.IN1',
+        signal(),
+        vi.fn(() => json(400, {})),
+      ),
+    ).toBe(false);
+    const offline = vi.fn(() => Promise.reject(new Error('offline')));
+    expect(await markReadTyping(config, 'wamid.IN1', signal(), offline)).toBe(false);
   });
 
   it('tells a network failure from a timeout', async () => {

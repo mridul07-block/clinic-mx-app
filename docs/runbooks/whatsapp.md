@@ -30,12 +30,30 @@ Decisions (user, 30 October 2026, WA-02):
 
 ## The test number
 
+Since 1 November 2026 staging uses the **Branmart** business portfolio's app "Clinic Mx Demo" (App
+ID 28310574528641645) and its test number. Branmart is verified, which Meta needs before it sends a
+form (Flow, see "Health"); the first app, "Clinic Mx Demo VelyxLabs" under the unverified
+VelyxLabs portfolio, had every form refused with 139000 (user decision, 1 November 2026: test on
+the verified business).
+
 | What | Value |
 | --- | --- |
-| Test number | +1 555 647 2996 |
-| Phone Number ID | 1429559720231717 |
-| WhatsApp Business Account ID | 1103346035769121 |
+| Test number | +1 555 171 0876 |
+| Phone Number ID | 1202342662968646 |
+| WhatsApp Business Account ID | 1381844343847616 ("Test WhatsApp Business Account", Branmart) |
+| Booking form (Flow) | 1110236325051774, a draft |
+| Reschedule form (Flow) | 1448719870542271, a draft |
+| System user | `clinic-mx-server` (Admin, Branmart), its token never expiring |
 | Graph API version | v25.0 |
+
+Notes on this account:
+- Branmart has no payment method on WhatsApp (141006 in "Health"): conversations the patient
+  starts work, and so do the replies, forms and confirmations in them; a template outside the 24
+  hour window does not.
+- The same WhatsApp account also sends its webhooks to the app "Ideora Service Demo" (kept, user
+  decision), so that app's server, when it runs, also gets these test messages.
+- The VelyxLabs number (+1 555 647 2996, Phone Number ID 1429559720231717, WhatsApp Business
+  Account 1103346035769121) is no longer used; its IDs stay in `.env.local` as `#OLD_` lines.
 
 None of these is secret, but they live in the environment, not in code, so production switches
 number by configuration only.
@@ -124,10 +142,39 @@ Replies go straight after the message they answer, like a conversation (user req
   moment can send the second first; the count is never wrong, only the order.
 - **What stays on the tick:** the clinic's own messages (receipts, the desk's booking
   confirmations, reminders), within a minute as before.
+- **"Typing…" at once** (user decision, 1 November 2026): as each message reaches us the webhook
+  marks it read and shows "typing…" (`showTyping`, Meta's typing indicator), until our reply lands
+  or 25 seconds pass. Only where WhatsApp is set up and the number may be written to (the test
+  list); a failure only loses the ticks.
+- **Greetings skip the assistant** (user decision, 1 November 2026): a message that is only one of
+  `whatsapp.greeting_words` (hi, hello, menu, good morning and so on), in any case, punctuation or
+  stretch ("Hiii!"), gets the menu at once (`isGreeting`, route `menu`). Emergency phrases are still
+  checked first; anything longer ("hi, my knee hurts") still goes to the assistant.
+- **Never silence after a refused form:** when Meta refuses the booking or reschedule form (Failed,
+  for example 139000 while the business is not verified, see "Health"), the team's contact details
+  follow at once, as when a form is not set up (`replaceRefusedForm`, once per form message).
+- **Meta's own calls skip the limit:** the webhook checks the signature first; only a refused call
+  is checked against `limits.webhook_failures_per_network` and counted. Each message is handled on
+  its own, so one that fails (reported to Sentry, with no patient data) leaves the others' replies,
+  and its jobs take it up at the next tick.
 
 Measured on staging, 31 October 2026, before the change: stored and routed within 0.3 seconds, the
 assistant's choice about 4 seconds, then a wait for the tick. Locally, with the change, the reply's
 send is done about half a second after the message reaches us.
+
+## Health
+
+`pnpm whatsapp:health` (from `apps/web`, `node --env-file=.env.local` as the other WhatsApp
+commands) asks Meta whether this environment's number and both forms may send, and prints, for the
+app, the business, the WhatsApp account, the number and each Flow, AVAILABLE or BLOCKED with
+Meta's error codes. Ids, states and codes only, never the token.
+
+Found on 1 November 2026: Meta refuses to send a form (Flow) with **139000** until the business
+behind the number is **verified**, also for a draft Flow, the test number and a reply in the 24
+hour window (Meta's Flows changelog, 12 November 2024: "To send and publish a Flow, business
+verification and high message quality are still required"). Plain replies and buttons are not
+affected. A missing payment method (141006) only blocks conversations the business starts
+(templates outside the window), and a test number needs none.
 
 ## The conversation router
 

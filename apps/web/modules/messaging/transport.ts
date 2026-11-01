@@ -1,4 +1,5 @@
 import 'server-only';
+import { undeliveredReason } from '@clinic-mx/schemas';
 
 /**
  * The one way out to WhatsApp (WA-01; TAD section 6): a template message, or a router reply inside
@@ -66,6 +67,46 @@ export interface WhatsAppTransport {
     file: { bytes: Uint8Array<ArrayBuffer>; filename: string },
     signal: AbortSignal,
   ): Promise<UploadResult>;
+}
+
+/**
+ * The request that marks a message sent to us read and shows "typing…" to its sender until our
+ * reply arrives, at most 25 seconds (Meta's typing indicator; reply speed, 1 November 2026).
+ */
+export function readTypingBody(waMessageId: string) {
+  return {
+    messaging_product: 'whatsapp',
+    status: 'read',
+    message_id: waMessageId,
+    typing_indicator: { type: 'text' },
+  };
+}
+
+/** Sends `readTypingBody`; whether Meta took it. Only cosmetic, so it never throws. */
+export async function markReadTyping(
+  config: WhatsAppConfig,
+  waMessageId: string,
+  signal: AbortSignal,
+  send: typeof fetch = fetch,
+): Promise<boolean> {
+  try {
+    const response = await send(
+      `https://graph.facebook.com/${config.graphVersion}/${config.phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${config.accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(readTypingBody(waMessageId)),
+        cache: 'no-store',
+        signal,
+      },
+    );
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 const isTimeout = (error: unknown) =>
@@ -216,8 +257,13 @@ export function cloudApiTransport(
       kind: 'http',
       httpStatus: response.status,
       code: text(answer.error?.code),
-      // Meta's short title, never the whole message, which can repeat the number.
-      title: text(answer.error?.error_user_title) ?? `HTTP ${String(response.status)}`,
+      // Meta's short title, never the whole message, which can repeat the number; without one,
+      // its code in plain words (139000: the form refused, the business not verified).
+      title:
+        text(answer.error?.error_user_title) ??
+        (answer.error?.code === undefined
+          ? `HTTP ${String(response.status)}`
+          : undeliveredReason(text(answer.error.code) ?? null)),
     };
   }
   return {

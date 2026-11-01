@@ -199,6 +199,22 @@ export function hasEmergencyPhrase(text: string, phrases: readonly string[]): bo
   });
 }
 
+/** The whole message as plain words, each run of one letter as one (hiii = hi, heyyy = hey). */
+function squeezed(text: string): string {
+  return words(text)
+    .trim()
+    .replace(/(.)\1+/g, '$1');
+}
+
+/**
+ * Whether the message is only a greeting, or asks for the menu (`whatsapp.greeting_words`), the
+ * whole of it, however it is cased, punctuated or stretched ("Hiii!", "Good morning 🙂").
+ */
+export function isGreeting(text: string, greetings: readonly string[]): boolean {
+  const said = squeezed(text);
+  return said !== '' && greetings.some((greeting) => squeezed(greeting) === said);
+}
+
 export interface RoutableMessage {
   kind: InboundKind;
   body: string | null;
@@ -226,12 +242,17 @@ const flowRoutes: Record<string, InboundRoute> = {
 
 export function routeInbound(
   message: RoutableMessage,
-  { emergencyPhrases }: { emergencyPhrases: readonly string[] },
+  {
+    emergencyPhrases,
+    greetingWords,
+  }: { emergencyPhrases: readonly string[]; greetingWords: readonly string[] },
 ): InboundRoute {
   switch (message.kind) {
     case 'text':
       // Emergency first (TAD section 6): before any booking or assistant.
       if (message.body && hasEmergencyPhrase(message.body, emergencyPhrases)) return 'emergency';
+      // A greeting gets the menu at once, without waiting for the assistant (reply speed).
+      if (message.body && isGreeting(message.body, greetingWords)) return 'menu';
       return 'assistant';
     case 'reply': {
       const id = message.replyId ?? '';

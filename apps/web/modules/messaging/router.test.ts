@@ -1,6 +1,6 @@
 import type { Db } from '@clinic-mx/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { routeInboundMessage } from './router';
+import { formFallbackSourceKey, replaceRefusedForm, routeInboundMessage } from './router';
 
 vi.mock('server-only', () => ({}));
 const db = vi.hoisted(() => ({
@@ -10,11 +10,13 @@ const db = vi.hoisted(() => ({
   enqueueJob: vi.fn(),
   flowSessionRecord: vi.fn(),
   inboundToRoute: vi.fn(),
+  messageRecord: vi.fn(),
   queueMessage: vi.fn(),
   raiseEmergencyTask: vi.fn(),
   recordRoute: vi.fn(),
   repliedMessage: vi.fn(),
   solePatientByPhone: vi.fn(),
+  sourceQueued: vi.fn(),
 }));
 vi.mock('@clinic-mx/db', () => db);
 const answers = vi.hoisted(() => ({ recordCheckAnswerIn: vi.fn() }));
@@ -69,6 +71,7 @@ describe('routing a message sent to us', () => {
     ]);
     settings.values = {
       'whatsapp.emergency_phrases': ['chest pain'],
+      'whatsapp.greeting_words': ['hello', 'menu'],
       'whatsapp.front_desk_email': 'desk@example.com',
       'whatsapp.emergency_advice': 'If this is a medical emergency, call 112 now.',
     };
@@ -452,6 +455,79 @@ describe('routing a message sent to us', () => {
       skipped: false,
     });
     expect(db.recordRoute).toHaveBeenCalledWith('system-tx', messageId, 'booking_flow', null);
+    expect(db.queueMessage).not.toHaveBeenCalled();
+  });
+});
+
+// Reply speed (user decisions, 1 November 2026): a greeting gets the menu at once, and a form Meta
+// refused is followed by the team's contact details.
+describe('a greeting, and a refused form', () => {
+  beforeEach(() => {
+    for (const fn of Object.values(db)) fn.mockReset();
+    db.solePatientByPhone.mockResolvedValue(undefined);
+    db.recordRoute.mockResolvedValue(true);
+    db.queueMessage.mockResolvedValue('reply-1');
+    db.sourceQueued.mockResolvedValue(false);
+    db.centreContacts.mockResolvedValue([{ name: 'HSR Layout', phone: '+91 80 0000 0001' }]);
+    env.values = {};
+    settings.values = {
+      'whatsapp.emergency_phrases': ['chest pain'],
+      'whatsapp.greeting_words': ['hello', 'menu'],
+      'whatsapp.front_desk_email': 'desk@example.com',
+    };
+  });
+
+  it('answers a greeting with the menu now, never asking the assistant', async () => {
+    db.inboundToRoute.mockResolvedValue(inbound({ body: 'Hello!!' }));
+    expect(await routeInboundMessage({} as Db, messageId)).toEqual({
+      route: 'menu',
+      reply: 'menu',
+      skipped: false,
+    });
+    expect(db.enqueueJob).not.toHaveBeenCalled();
+    expect(queued()).toEqual([expect.objectContaining({ templateKey: 'menu', toPhone: from })]);
+  });
+
+  const form = (extra: Record<string, unknown> = {}) => ({
+    id: 'form-1',
+    direction: 'outbound',
+    kind: 'session',
+    status: 'failed',
+    templateKey: 'booking_flow',
+    toPhone: from,
+    contextWaId: 'wamid.IN1',
+    ...extra,
+  });
+
+  it('follows a refused form with the contact details, once', async () => {
+    db.messageRecord.mockResolvedValue(form());
+    expect(await replaceRefusedForm({} as Db, '00000000-0000-4000-8000-000000000702')).toBe(true);
+    expect(queued()).toEqual([
+      expect.objectContaining({
+        templateKey: 'contact',
+        toPhone: from,
+        contextWaId: 'wamid.IN1',
+        sourceKey: formFallbackSourceKey('form-1'),
+      }),
+    ]);
+    db.sourceQueued.mockResolvedValue(true);
+    expect(await replaceRefusedForm({} as Db, '00000000-0000-4000-8000-000000000702')).toBe(false);
+    expect(db.queueMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves a form that went, and any other failed message, alone', async () => {
+    for (const other of [
+      form({ status: 'sent' }),
+      form({ status: 'skipped' }),
+      form({ templateKey: 'menu' }),
+      form({ kind: 'template', templateKey: 'receipt' }),
+      undefined,
+    ]) {
+      db.messageRecord.mockResolvedValue(other);
+      expect(await replaceRefusedForm({} as Db, '00000000-0000-4000-8000-000000000702')).toBe(
+        false,
+      );
+    }
     expect(db.queueMessage).not.toHaveBeenCalled();
   });
 });

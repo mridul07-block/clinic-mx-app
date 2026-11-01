@@ -8,6 +8,7 @@ import {
   frontDeskEmailSchema,
   hasEmergencyPhrase,
   inboundRoutes,
+  isGreeting,
   routeHandlers,
   routeInbound,
   type RoutableMessage,
@@ -16,11 +17,33 @@ import {
 // WA-03 done when: buttons, Flow completions, typed text and emergency phrases each reach the
 // right handler. Generated words only.
 const phrases = ['chest pain', 'cant breathe', 'numb groin', 'emergency'];
+const greetings = ['hi', 'hello', 'menu', 'good morning'];
 const route = (message: Partial<RoutableMessage>) =>
   routeInbound(
     { kind: 'text', body: null, replyId: null, ...message },
-    { emergencyPhrases: phrases },
+    { emergencyPhrases: phrases, greetingWords: greetings },
   );
+
+// Reply speed (user decision, 1 November 2026): a greeting gets the menu at once.
+describe('greetings', () => {
+  it('match the whole message in any case, punctuation or stretch, emojis aside', () => {
+    expect(isGreeting('Hi', greetings)).toBe(true);
+    expect(isGreeting('hiii!!', greetings)).toBe(true);
+    expect(isGreeting('  HELLO 👋 ', greetings)).toBe(true);
+    expect(isGreeting('Good Morning :)', greetings)).toBe(true);
+    expect(isGreeting('Menu', greetings)).toBe(true);
+    expect(isGreeting('hi, where is your clinic?', greetings)).toBe(false);
+    expect(isGreeting('history', greetings)).toBe(false);
+    expect(isGreeting('👋', greetings)).toBe(false);
+    expect(isGreeting('hi', [])).toBe(false);
+  });
+
+  it('get the menu without the assistant, emergency phrases still first', () => {
+    expect(route({ body: 'Hello!' })).toBe('menu');
+    expect(route({ body: 'hi, my knee hurts' })).toBe('assistant');
+    expect(route({ body: 'emergency' })).toBe('emergency');
+  });
+});
 
 describe('emergency phrases', () => {
   it('match whole words in any case or punctuation, apostrophes or not', () => {
@@ -145,7 +168,7 @@ describe('handlers', () => {
     expect(
       routeInbound(
         { kind: 'reply', body: 'Confirm', replyId: 'day_before_reminder.confirm' },
-        { emergencyPhrases: [] },
+        { emergencyPhrases: [], greetingWords: [] },
       ),
     ).toBe('confirm');
   });

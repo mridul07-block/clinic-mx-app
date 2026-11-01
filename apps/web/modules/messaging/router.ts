@@ -6,11 +6,13 @@ import {
   enqueueJob,
   flowSessionRecord,
   inboundToRoute,
+  messageRecord,
   queueMessage,
   raiseEmergencyTask,
   recordRoute,
   repliedMessage,
   solePatientByPhone,
+  sourceQueued,
   type Db,
   type DbOrTransaction,
 } from '@clinic-mx/db';
@@ -191,8 +193,9 @@ const route = systemService({
     if (!message?.fromPhone || message.route || !isInboundKind(message.kind)) {
       return { route: null, reply: null, skipped: true };
     }
-    const [emergencyPhrases, email, owner] = await Promise.all([
+    const [emergencyPhrases, greetingWords, email, owner] = await Promise.all([
       getSetting('whatsapp.emergency_phrases'),
+      getSetting('whatsapp.greeting_words'),
       getSetting('whatsapp.front_desk_email'),
       solePatientByPhone(tx, message.fromPhone),
     ]);
@@ -200,7 +203,7 @@ const route = systemService({
       message.kind === 'flow' ? await completedFlowKind(tx, message.replyPayload) : undefined;
     const chosen = routeInbound(
       { kind: message.kind, body: message.body, replyId: flowKind ?? message.replyId },
-      { emergencyPhrases },
+      { emergencyPhrases, greetingWords },
     );
     await recordRoute(tx, message.id, chosen, owner?.id ?? null);
 
@@ -298,4 +301,46 @@ export async function queueRouteReply(
 
 export function routeInboundMessage(db: Db, messageId: string): Promise<RouteOutcome> {
   return route(db, { messageId });
+}
+
+/** The source key of the contact details sent in place of a refused form: once per form. */
+export function formFallbackSourceKey(messageId: string): string {
+  return ['whatsapp.flow_fallback', messageId].join(':');
+}
+
+/**
+ * A booking or reschedule form Meta refused to send (Failed; 139000 while the business behind the
+ * number is not verified) is followed by the team's contact details, the reply a form gets where
+ * it is not set up, so nobody who tapped is left without an answer (reply speed, 1 November
+ * 2026). Once per form message; whether it queued them.
+ */
+const replaceRefused = systemService({
+  component: 'whatsapp',
+  input: z.object({ messageId: z.guid() }),
+  run: async (tx, { messageId }): Promise<boolean> => {
+    const form = await messageRecord(tx, messageId);
+    if (
+      form?.direction !== 'outbound' ||
+      form.status !== 'failed' ||
+      form.kind !== 'session' ||
+      !form.toPhone ||
+      !(flowReplies as readonly (string | null)[]).includes(form.templateKey)
+    ) {
+      return false;
+    }
+    const sourceKey = formFallbackSourceKey(form.id);
+    if (await sourceQueued(tx, sourceKey)) return false;
+    await queueRouteReply(
+      tx,
+      { fromPhone: form.toPhone, waMessageId: form.contextWaId },
+      await solePatientByPhone(tx, form.toPhone),
+      'contact',
+      sourceKey,
+    );
+    return true;
+  },
+});
+
+export function replaceRefusedForm(db: Db, messageId: string): Promise<boolean> {
+  return replaceRefused(db, { messageId });
 }

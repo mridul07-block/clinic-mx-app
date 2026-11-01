@@ -21,6 +21,9 @@ export function undeliveredReason(code: string | null): string {
       return 'WhatsApp held it back';
     case '131031':
       return 'The clinic’s WhatsApp account is restricted: tell the Super Admin';
+    // Meta's Flows: refused until the business behind the number is verified (1 November 2026).
+    case '139000':
+      return 'WhatsApp refuses the form until the business is verified: tell the Super Admin';
     default:
       if (code?.startsWith('132')) return 'A template problem: tell the Super Admin';
       return code
