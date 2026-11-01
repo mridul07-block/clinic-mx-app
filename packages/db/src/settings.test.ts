@@ -72,6 +72,7 @@ const stored: Settings = {
   },
   'booking.whatsapp_days_ahead': 14,
   'whatsapp.emergency_phrases': ['chest pain'],
+  'whatsapp.greeting_words': ['hi', 'good morning'],
   'whatsapp.front_desk_email': '',
   'whatsapp.emergency_advice':
     'If this is a medical emergency, call 112 or go to the nearest hospital emergency department now. Do not wait for a reply here.',

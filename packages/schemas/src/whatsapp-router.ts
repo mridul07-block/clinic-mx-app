@@ -166,6 +166,12 @@ export const SESSION_REPLY_VERSION = 1;
 export const emergencyPhrasesSchema = z.array(z.string().trim().min(3).max(60)).max(200);
 
 /**
+ * The setting `whatsapp.greeting_words`: a message that is only one of these (a greeting, or asking
+ * for the menu) gets the menu at once, without the assistant.
+ */
+export const greetingWordsSchema = z.array(z.string().trim().min(1).max(40)).max(100);
+
+/**
  * The setting `whatsapp.emergency_advice` (WA-10): what a message with an emergency phrase is told
  * first, before the clinic's number. DECISION WA-10: the standard safety text until the clinical
  * director confirms it.

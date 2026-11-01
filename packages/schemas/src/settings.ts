@@ -8,6 +8,7 @@ import {
   emergencyAdviceSchema,
   emergencyPhrasesSchema,
   frontDeskEmailSchema,
+  greetingWordsSchema,
 } from './whatsapp-router';
 
 /**
@@ -773,6 +774,13 @@ export const settingDefinitions = {
       'PRD J1.9 and TAD section 6 (emergency phrases go to the emergency reply first); WA-03 draft, user decision 30 October 2026, for the clinical director to confirm',
     description:
       'Words and short phrases that mark a WhatsApp message as an emergency, matched as whole words in any case, for example "chest pain". Checked before anything else.',
+  },
+  // DECISION WA-03: greetings that skip the assistant; edited on Settings.
+  'whatsapp.greeting_words': {
+    schema: greetingWordsSchema,
+    source: 'WA-03 reply speed, user decision 1 November 2026 (greetings get the menu at once)',
+    description:
+      'A WhatsApp message that is only one of these words or phrases, in any case and with any punctuation, gets the menu at once without the assistant, for example "hi". Emergency phrases are still checked first.',
   },
   'whatsapp.undelivered_days': {
     schema: days.max(30),
