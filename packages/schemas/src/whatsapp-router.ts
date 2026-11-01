@@ -297,6 +297,22 @@ export interface CentreContact {
 }
 
 /**
+ * The centres' phones, each number once with the names of the centres that share it, in the
+ * centres' order (1 November 2026: the three centres share one front desk number, which was listed
+ * three times). A centre without a phone is left out.
+ */
+function phoneGroups(centres: readonly CentreContact[]): { names: string; phone: string }[] {
+  const groups = new Map<string, string[]>();
+  for (const { name, phone } of centres) {
+    if (phone) groups.set(phone, [...(groups.get(phone) ?? []), name]);
+  }
+  return [...groups].map(([phone, names]) => ({
+    names: [names.slice(0, -1).join(', '), names.at(-1)].filter(Boolean).join(' and '),
+    phone,
+  }));
+}
+
+/**
  * "Talk to our team" (WA-09; PRD J1.2): the front desk phone and email, one message. The phones of
  * the patient's centre when the number is theirs alone, otherwise of every centre (user decision,
  * 30 October 2026). Nothing is invented: a missing phone or email is left out.
@@ -308,9 +324,9 @@ export function contactText({
   centres: readonly CentreContact[];
   email: string;
 }): string {
-  const phones = centres
-    .filter((centre): centre is { name: string; phone: string } => Boolean(centre.phone))
-    .map((centre) => (centres.length > 1 ? `${centre.name} ${centre.phone}` : centre.phone));
+  const phones = phoneGroups(centres).map(({ names, phone }) =>
+    centres.length > 1 ? `${names} ${phone}` : phone,
+  );
   const ways = [
     ...(phones.length > 0 ? [`call ${phones.join(', ')}`] : []),
     ...(email ? [`email ${email}`] : []),
@@ -334,9 +350,9 @@ export function contactMessage({
   centres: readonly CentreContact[];
   email: string;
 }): string {
-  const phones = centres
-    .filter((centre): centre is { name: string; phone: string } => Boolean(centre.phone))
-    .map((centre) => `📞 *${centre.name}*\n${formatIndianPhone(centre.phone)}`);
+  const phones = phoneGroups(centres).map(
+    ({ names, phone }) => `📞 *${names}*\n${formatIndianPhone(phone)}`,
+  );
   const ways = [...phones, ...(email ? [`✉️ ${email}`] : [])];
   if (ways.length === 0) return NO_CONTACT_TEXT;
   return ['*Talk to our team*', 'Our front desk is happy to help.', ...ways].join('\n\n');
@@ -349,13 +365,9 @@ export function contactMessage({
  * out, never invented.
  */
 export function emergencyReplyText(advice: string, centres: readonly CentreContact[]): string {
-  const phones = centres
-    .filter((centre): centre is { name: string; phone: string } => Boolean(centre.phone))
-    .map((centre) =>
-      centres.length > 1
-        ? [centre.name, formatIndianPhone(centre.phone)].join(' ')
-        : formatIndianPhone(centre.phone),
-    );
+  const phones = phoneGroups(centres).map(({ names, phone }) =>
+    centres.length > 1 ? `${names} ${formatIndianPhone(phone)}` : formatIndianPhone(phone),
+  );
   if (phones.length === 0) return advice;
   return `${advice} To reach the clinic, call ${phones.join(', ')}.`;
 }

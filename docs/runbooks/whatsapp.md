@@ -218,7 +218,8 @@ menu.
   Laid out as its own message (`contactMessage`; the user's choice, 1 November 2026): "*Talk to
   our team*", "Our front desk is happy to help.", then each centre as "📞 *name*" over its phone
   (tap to call), then "✉️ email". Inside other text, such as the booking form's screen, the
-  one-line `contactText` is used.
+  one-line `contactText` is used. A number several centres share is listed once, with their names
+  ("📞 *HSR Layout, Koramangala and Whitefield*"), as the three centres share one front desk number.
   Phones come from each centre's setup. What is not set is left out; with nothing set the reply
   asks them to call the clinic they visit.
 - **Emergency phrases** (`whatsapp.emergency_phrases`, DECISION WA-03): matched as whole words in
