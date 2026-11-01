@@ -119,7 +119,7 @@ export async function CheckInDrawer({
             data-testid="guardians"
             className="flex flex-col gap-1 rounded-panel border border-waiting-line bg-waiting-soft px-4 py-3"
           >
-            <span className="font-semibold text-waiting-strong">A guardian must attend.</span>
+            <span className="font-semibold text-waiting">A guardian must attend.</span>
             {view.guardians.length === 0 ? (
               <span className="text-sm text-ink-secondary">No guardian recorded yet.</span>
             ) : (

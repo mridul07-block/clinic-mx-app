@@ -1,48 +1,49 @@
 /*
- * Clinic Mx design tokens: design system v2 (docs/design/) with the Frontend Specification's
- * changes. The only file in the repository where colour values are written; everything else
+ * Clinic Mx design tokens: design system v3, teal and gold (docs/design/README.md, UIX-01), with
+ * the Frontend Specification's changes. The only file in the repository where colour values are written; everything else
  * uses these variables through the Tailwind theme (theme.css) or var(--token). The design check
  * (pnpm check:design) enforces that, and checks the contrast of every pair below.
  *
- * The palette was built in OKLCH (warm neutrals at hue 80, status colours at equal lightness)
- * and is written as hex, so the browser and the contrast check see exactly the same colour.
+ * Written as hex, so the browser and the contrast check see exactly the same colour. The
+ * neutrals are one cool slate family; the status colours keep their v2 hues.
  */
 
 :root {
-  /* Surfaces: a warm off-white frame, white sheets and panels. */
-  --canvas: #f7f5f3;
+  /* Surfaces: a cool off-white frame, white sheets and panels. */
+  --canvas: #f5f7f9;
   --surface: #ffffff;
-  --surface-subtle: #faf9f7;
-  --surface-hover: #f4f2ef;
-  --surface-sunken: #efedea;
+  --surface-subtle: #f8fafb;
+  --surface-hover: #eef2f5;
+  --surface-sunken: #e9eef2;
 
   /* Lines. line-control marks where a control is and has 3:1 on white (WCAG 1.4.11). */
-  --line: #e6e3df;
-  --line-strong: #d3d0cc;
-  --line-control: #8c8984;
+  --line: #e2e8ee;
+  --line-strong: #cbd5df;
+  --line-control: #7b8a9c;
 
   /* Ink: text. ink-faint is for placeholders and disabled text only, never meaning. */
-  --ink: #1b1915;
-  --ink-secondary: #45423d;
-  --ink-muted: #66635d;
-  --ink-faint: #8f8c86;
+  --ink: #0f1a24;
+  --ink-secondary: #334252;
+  --ink-muted: #4a5868;
+  --ink-faint: #66737f;
 
   /* Movementology gold from the official logo file (Frontend Specification section 2; design
      v2 had #fcb813 from the website). A mark and a fill only: 1.7:1 on white, so never text.
      Ink on gold is 10:1. */
   --brand: #fcb714;
   --brand-deep: #bb8503;
-  --on-brand: #1b1915;
+  --on-brand: #0f1a24;
 
-  /* Ink and gold: near-black actions for staff (primary buttons, selection, links); the gold
-     marks where you are, and is the primary button on patient pages. */
-  --accent: #1b1915;
-  --accent-hover: #35322e;
-  --accent-soft: #f0eeeb;
+  /* Teal and gold: deep teal actions for staff (primary buttons, selection, links, the current
+     page's label), white on it 6.3:1; teal is never a status. The gold marks where you are, and
+     is the primary button on patient pages. */
+  --accent: #0e6b6b;
+  --accent-hover: #0a5656;
+  --accent-soft: #e5f2f1;
   --on-accent: #ffffff;
 
-  /* Focus ring: blue, 4.9:1 on white, so it never looks like a selection. */
-  --focus: #2171cc;
+  /* Focus ring: blue, 5.2:1 on white, so it never looks like a selection or the teal. */
+  --focus: #2563eb;
 
   /* Status: text, tint and border (the NHS tag pattern). Always with a word. Info is also
      "Checked in" (blue), so amber only ever means "needs attention". */
@@ -56,9 +57,9 @@
   --active: #1d7339;
   --active-soft: #ebf9ed;
   --active-line: #b6ddbd;
-  --done: #5a5853;
-  --done-soft: #f1f0ed;
-  --done-line: #d3d0cc;
+  --done: #4a5868;
+  --done-soft: #eef2f5;
+  --done-line: #cbd5df;
   --danger: #ac2724;
   --danger-soft: #ffefed;
   --danger-line: #f6c3bc;
@@ -68,16 +69,16 @@
   --warning-soft: var(--waiting-soft);
 
   /* Data. Series hues sit away from the status hues; charts label their lines directly.
-     The main series is blue, not the ink accent, so a chart never reads as a button. The
+     The main series is blue, not the teal accent, so a chart never reads as a button. The
      centre colours are reserved for comparing centres (and are stored on each centre row). */
   --viz-1: #1b6ab6;
-  --viz-compare: #cac7c2;
-  --viz-target: #66635d;
+  --viz-compare: #c5ced8;
+  --viz-target: #4a5868;
   --viz-centre-1: #2f74bb;
   --viz-centre-2: #7f5bb6;
   --viz-centre-3: #1c8580;
   --viz-promoter: #2f74bb;
-  --viz-passive: #cdcac5;
+  --viz-passive: #c8d1da;
   --viz-detractor: #d8662a;
   /* Sequential ramp for heatmaps: one hue, lightness falling in even steps. */
   --viz-ramp-1: #eaf5ff;
@@ -90,15 +91,15 @@
 
   /* Shape and elevation. Panels are bordered with a hairline; only floating layers (menus,
      popovers, drawers, toasts) cast a real shadow. */
-  --radius-control: 6px;
+  --radius-control: 8px;
   --radius-tag: 6px;
   --radius-panel: 12px;
-  --radius-sheet: 14px;
+  --radius-sheet: 16px;
   --radius-drawer: 16px;
-  --shadow-xs: 0 1px 2px rgb(27 25 21 / 5%);
-  --shadow-float: 0 12px 32px -8px rgb(27 25 21 / 18%), 0 2px 6px rgb(27 25 21 / 6%);
-  --shadow-drawer: -24px 0 48px -16px rgb(27 25 21 / 18%), -1px 0 0 rgb(27 25 21 / 4%);
-  --scrim: rgb(27 25 21 / 40%);
+  --shadow-xs: 0 1px 2px rgb(15 26 36 / 6%);
+  --shadow-float: 0 12px 32px -8px rgb(15 26 36 / 18%), 0 2px 6px rgb(15 26 36 / 6%);
+  --shadow-drawer: -24px 0 48px -16px rgb(15 26 36 / 18%), -1px 0 0 rgb(15 26 36 / 4%);
+  --scrim: rgb(15 26 36 / 40%);
 
   /* Layout. Controls and rows are 36 px with a mouse and 44 px on touch screens, whatever
      the width; the kiosk and patient pages use 56 px targets. */
@@ -115,9 +116,10 @@
   --duration-motion: 240ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 
-  /* Type. IBM Plex Sans carries the rupee sign (latin-ext) and tabular figures; Plex Mono is
-     for patient IDs, appointment IDs and bill numbers only. The app loads both with next/font,
-     which sets --font-plex-sans and --font-plex-mono on <html>. */
-  --font-sans: var(--font-plex-sans), 'IBM Plex Sans', system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), 'IBM Plex Mono', ui-monospace, monospace;
+  /* Type. Inter (design system v3, UIX-04) carries the rupee sign (latin-ext) and tabular
+     figures. font-mono is the same file with tabular figures and the ss02 set (slashed zero,
+     distinct l and I) for patient IDs, appointment IDs and bill numbers (theme.css). The app
+     loads it with next/font, which sets --font-inter on <html>. */
+  --font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
+  --font-mono: var(--font-inter), 'Inter', ui-monospace, monospace;
 }

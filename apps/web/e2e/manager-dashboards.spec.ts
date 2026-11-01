@@ -52,7 +52,8 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
   await expect(page.getByTestId('kpi-panel').locator('[data-kpi]')).toHaveCount(4);
   await expect(page.locator('main')).not.toContainText('₹');
   await page.evaluate(() => {
-    for (const details of document.querySelectorAll('details')) details.open = true;
+    for (const details of document.querySelectorAll<HTMLDetailsElement>('main details'))
+      details.open = true;
   });
   expect(await fits()).toBe(true);
   await page.screenshot({ path: test.info().outputPath('dashboard-centres.png'), fullPage: true });

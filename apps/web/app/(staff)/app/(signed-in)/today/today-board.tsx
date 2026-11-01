@@ -10,6 +10,7 @@ import {
   type TodayFilter,
 } from '@clinic-mx/schemas';
 import { toneByAppointmentStatus } from '@clinic-mx/ui';
+import { CalendarCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { primaryButtonClass, secondaryButtonClass } from '../../../../../components/forms';
@@ -52,8 +53,10 @@ const fit = (buttonClass: string) => `${buttonClass.replace('w-full', 'w-auto')}
 const minutesSince = (from: Date, now: number) =>
   Math.max(0, Math.floor((now - from.getTime()) / 60_000));
 
+// Count chips that are also the filters (design system v3: count row as tabs); the chosen one on
+// the teal tint.
 const chipClass =
-  'inline-flex min-h-11 items-center gap-2 rounded-control border px-3 text-sm aria-pressed:border-ink aria-pressed:bg-surface aria-pressed:font-medium aria-pressed:text-ink';
+  'inline-flex min-h-11 items-center gap-2 rounded-control border border-line-control bg-surface px-3 text-sm text-ink-secondary hover:bg-surface-hover aria-pressed:border-accent aria-pressed:bg-accent-soft aria-pressed:font-medium aria-pressed:text-accent';
 
 /**
  * The front desk Today board (INT-01): count chips that filter, the day's appointments by time
@@ -156,7 +159,8 @@ export function TodayBoard({
     <div className="flex flex-col gap-3">
       <p
         data-testid="live-status"
-        className={`text-sm ${failing ? 'text-waiting-strong' : 'text-ink-muted'}`}
+        data-volatile
+        className={`text-sm ${failing ? 'text-waiting' : 'text-ink-muted'}`}
       >
         {failing
           ? `Not updated for ${String(seconds)} s. Checking again.`
@@ -169,7 +173,7 @@ export function TodayBoard({
           onClick={() => {
             pick(undefined);
           }}
-          className={`${chipClass} border-line-control text-ink-secondary`}
+          className={chipClass}
         >
           All <span className="tabular-nums">{appointments.length}</span>
         </button>
@@ -182,7 +186,7 @@ export function TodayBoard({
             onClick={() => {
               pick(option);
             }}
-            className={`${chipClass} border-line-control text-ink-secondary`}
+            className={chipClass}
           >
             {todayFilterLabels[option]}{' '}
             <span className="tabular-nums">
@@ -192,9 +196,25 @@ export function TodayBoard({
         ))}
       </div>
       {shown.length === 0 ? (
-        <p className="rounded-panel border border-line bg-surface px-4 py-6 text-ink-muted">
-          {filter ? `Nobody under ${todayFilterLabels[filter]}.` : 'No appointments today.'}
-        </p>
+        <div className="flex flex-col items-center gap-3 rounded-panel border border-line bg-surface px-4 py-8 text-center">
+          <span
+            aria-hidden
+            className="flex size-10 items-center justify-center rounded-full bg-surface-sunken text-ink-muted"
+          >
+            <CalendarCheck size={20} strokeWidth={1.75} />
+          </span>
+          <p className="text-ink-muted">
+            {filter ? `Nobody under ${todayFilterLabels[filter]}.` : 'No appointments today.'}
+          </p>
+          {filter ? null : (
+            <Link
+              href={calendarHref({ centreId, date, newBooking: {} })}
+              className="text-sm font-medium text-accent underline underline-offset-2"
+            >
+              Book an appointment
+            </Link>
+          )}
+        </div>
       ) : (
         <ol className="divide-y divide-line overflow-hidden rounded-panel border border-line bg-surface">
           {shown.map((appointment) => {
@@ -223,10 +243,11 @@ export function TodayBoard({
                 <Link
                   href={calendarHref({ centreId, date, appointmentId: appointment.id })}
                   className="row-span-2 text-sm text-ink tabular-nums underline-offset-2 hover:underline md:row-span-1"
-                  aria-label={`Open ${appointment.number} at ${timeOf(appointment.startsAt)}`}
                 >
                   {timeOf(appointment.startsAt)}
                   <span className="block text-xs text-ink-muted">{timeOf(appointment.endsAt)}</span>
+                  {/* Named by the times it shows first (WCAG 2.5.3), then what it opens. */}
+                  <span className="sr-only">, open {appointment.number}</span>
                 </Link>
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <Link
@@ -240,7 +261,7 @@ export function TodayBoard({
                   </span>
                 </span>
                 <span className="col-start-2 row-start-2 flex flex-wrap items-center gap-2 md:col-start-3 md:row-start-1 md:justify-end">
-                  {late ? <span className="text-sm text-waiting-strong">{late}</span> : null}
+                  {late ? <span className="text-sm text-waiting">{late}</span> : null}
                   <Tag tone={toneByAppointmentStatus[status]}>{label}</Tag>
                   {appointment.session?.label ? (
                     // SES-01: the treatment session's number once checked in.
@@ -258,7 +279,7 @@ export function TodayBoard({
                   {notDelivered.includes(appointment.patientId) ? (
                     // WA-13: a WhatsApp message to them was not delivered; see the panel above.
                     <span data-testid="not-delivered-tag">
-                      <Tag tone="danger">Not delivered</Tag>
+                      <Tag tone="waiting">Not delivered</Tag>
                     </span>
                   ) : null}
                   {appointment.consentDeclined ? (

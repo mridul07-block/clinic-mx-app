@@ -1,5 +1,5 @@
 /*
- * Clinic Mx Tailwind v4 theme (design system v2). Import after tailwindcss and tokens.css.
+ * Clinic Mx Tailwind v4 theme (design system v3). Import after tailwindcss and tokens.css.
  *
  * Tailwind's own colours, fonts, type sizes, radii, shadows and weights are removed, so
  * only our tokens exist as utilities: bg-canvas, text-ink, border-line-control, text-base
@@ -85,6 +85,8 @@
   --font-*: initial;
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+  /* IDs line up and never confuse 0 and O, 1, l and I (Inter's tabular figures and ss02). */
+  --font-mono--font-feature-settings: 'tnum', 'ss02';
 
   /* Type scale: staff base 14 px, patient pages 16 px; two display sizes, the page title
      (24/32) and the one number that matters (32/40). */

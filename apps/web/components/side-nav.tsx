@@ -162,14 +162,14 @@ export function SideNav({
                     'relative flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-control border px-1 text-ink-secondary',
                     'xl:min-h-8 xl:flex-row xl:justify-start xl:gap-2.5 xl:px-2 xl:pointer-coarse:min-h-row-touch',
                     here
-                      ? 'border-line bg-surface font-medium text-ink shadow-xs'
+                      ? 'border-line bg-surface font-medium text-accent shadow-xs'
                       : 'border-transparent hover:bg-surface-hover hover:text-ink',
                   ].join(' ')}
                 >
                   {here ? (
                     <span
                       aria-hidden
-                      className="absolute inset-y-1.5 left-0 w-[3px] rounded-r bg-brand"
+                      className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-brand"
                     />
                   ) : null}
                   {/* The name, for screen readers; the words shown are a picture of it. */}
@@ -180,7 +180,7 @@ export function SideNav({
                     aria-hidden
                     size={18}
                     strokeWidth={1.75}
-                    className={here ? 'text-ink' : 'text-ink-muted'}
+                    className={here ? 'text-accent' : 'text-ink-muted'}
                   />
                   <span aria-hidden className="hidden flex-1 truncate xl:inline">
                     {item.label}
@@ -194,7 +194,7 @@ export function SideNav({
                   {count > 0 ? (
                     <span
                       aria-hidden
-                      className="absolute top-0.5 right-0.5 min-w-4 rounded-full bg-ink px-1 text-center text-xs leading-4 text-surface xl:static xl:bg-transparent xl:px-0 xl:text-ink-muted"
+                      className="absolute top-0.5 right-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-xs leading-4 text-on-accent xl:static xl:bg-transparent xl:px-0 xl:text-ink-muted"
                     >
                       {count}
                     </span>

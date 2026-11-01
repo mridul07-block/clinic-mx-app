@@ -1,9 +1,10 @@
 import type { Problem } from './problems';
 
 /**
- * Source rules (Frontend Specification section 10, design system v2 section 13): colours come
+ * Source rules (Frontend Specification section 10, design system v3 section 13): colours come
  * only from tokens.css, gold is never text, Tailwind's default palette and bold do not exist,
- * and class names are written out in full so Tailwind can see them.
+ * strong status tones are never text, shadcn's token names and dead radius or shadow utilities
+ * are refused, and class names are written out in full so Tailwind can see them.
  */
 
 const tailwindPalette = [
@@ -56,6 +57,33 @@ const rules: {
     rule: 'font-weight',
     pattern: /(?<![\w-])(?:[\w-]+:)*font-(?:thin|extralight|light|bold|extrabold|black)(?![\w-])/g,
     message: 'only font-normal, font-medium and font-semibold exist (no bold)',
+  },
+  {
+    rule: 'strong-as-text',
+    // The strong tones are for dots, marks and the emergency fill (design system v3 section
+    // 2.3): waiting-strong on its tint is 3.4:1, below the 4.5:1 text needs.
+    pattern: /(?<![\w-])(?:[\w-]+:)*text-[a-z]+-strong(?:\/\d+)?(?![\w-])/g,
+    message: 'a strong status tone is for marks and fills, never text; use the plain tone',
+  },
+  {
+    rule: 'shadcn-name',
+    // shadcn/ui's token names (UIX-06 ports its recipes): under our theme they generate nothing,
+    // and `accent` means our teal, not shadcn's quiet hover. Rewrite them to our tokens.
+    pattern: new RegExp(
+      `(?<![\\w-])(?:[\\w-]+:)*(?:${colourUtilities})-(?:(?:primary|secondary|muted|popover|card|destructive|accent|sidebar)-foreground|primary|foreground|background|muted|popover|card|input|ring|destructive|sidebar(?:-[a-z]+)*)(?:\\/\\d+)?(?![\\w-])|(?<![\\w-])dark:`,
+      'g',
+    ),
+    message:
+      "shadcn's token name; use ours (docs/design/README.md section 8: bg-accent, text-ink, bg-surface, text-ink-muted, border-line-control)",
+  },
+  {
+    rule: 'dead-utility',
+    // Tailwind's own radii and shadows are removed (theme.css), so these generate nothing.
+    // Bare `rounded` and `shadow` are left alone: they are ordinary words in strings.
+    pattern:
+      /(?<![\w-])(?:[\w-]+:)*(?:rounded-(?:(?:[trbl]|tl|tr|br|bl|[se]|ss|se|es|ee)(?:-(?:xs|sm|md|lg|xl|[234]xl))?|xs|sm|md|lg|xl|[234]xl)|shadow-(?:sm|md|lg|xl|2xl|inner))(?![\w-])/g,
+    message:
+      'generates nothing under our theme; use a token radius (rounded-control, -tag, -panel, -sheet, -drawer, -full) or shadow (shadow-xs, -float, -drawer)',
   },
   {
     rule: 'dynamic-class',

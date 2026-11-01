@@ -1,51 +1,26 @@
-# Design system v2: ink and gold
+# Design system v3: teal and gold
 
-The complete visual language of the Clinic Mx demo (`apps/demo`), written so it can be rebuilt in any codebase, any framework, or Figma. Every value here is the exact value the demo ships.
+The complete visual language of Clinic Mx, written so it can be rebuilt in any codebase, any framework, or Figma. v3 (1 November 2026, UIX-01) replaces v2 "ink and gold": the user chose a deep teal for actions, cool slate neutrals and Inter after a review of the staging app and research into clinic software (Jane, Cliniko) and healthcare design systems (NHS, CMS, VA, USWDS). Everything else in v2 (principles, status pattern, charts, rules) carries over.
 
-**In one line:** a clinical instrument, calm and exact. Ink on warm white, one near-black accent for actions, a gold mark for identity, and colour only for status and data.
+**In one line:** a clinical instrument, calm and exact. Slate ink on cool white, one deep teal for actions, a gold mark for identity, and colour only for status and data.
 
-## What is in this folder
+## What is in this folder, and where the code is
 
 | File | What it is | Use it when |
 |---|---|---|
 | `README.md` | This guide: principles, colour, type, layout, every component's recipe, rules | Always; hand it to a designer or another AI as the brief |
 | `tokens.json` | Every token in W3C design token format | Importing into Figma (Tokens Studio), Style Dictionary, or a non-CSS stack |
-| `css/tokens.css` | Every token as a CSS variable on `:root` | Any web stack. The only file with colour values |
-| `css/tailwind-theme.css` | Tailwind v4 theme mapping the tokens to utilities, with Tailwind's default palette removed | A Tailwind v4 project |
-| `css/base.css` | Body text, the focus ring, reduced motion | Any web stack |
-| `css/motion.css` | Keyframes and animation utilities (drawer, toast, chart draw, row highlight) | Any web stack (the `@utility` blocks need Tailwind v4) |
-| `css/hatch.css` | The diagonal hatch for cancelled items | Calendars and anything "struck" |
 | `brand/movementology-logo.svg` | Full Movementology logo | Sidebar, sign in, receipts |
 | `brand/movementology-mark.svg` | The gold M mark | Kiosk welcome, survey pages, rail |
 | `brand/favicon.svg` | Browser tab icon | `<link rel="icon">` |
 
-**About the brand:** the gold `#FCB813` and the logo belong to Movementology (taken from their website). If the software you are building is for someone else, change only the `--brand`, `--brand-deep` and the SVGs. Everything else is neutral and carries over unchanged; the system was built so the brand is a mark, not the whole palette.
+The CSS lives in the app, not here, so there is one copy: `packages/ui/src/styles/` holds `tokens.css` (the only file with colour values), `theme.css` (the Tailwind v4 theme, with Tailwind's default palette removed), `base.css` (body text, focus ring, reduced motion), `motion.css`, `hatch.css` and `charts.css`. `packages/ui/src/token-values.ts` mirrors the few values the manifest, icons and PDFs need. `pnpm check:design` keeps all of them honest. The React components are in `packages/ui` too, built on Base UI (section 8).
 
-### Quick start (plain web)
-
-```html
-<link rel="stylesheet" href="css/tokens.css">
-<link rel="stylesheet" href="css/base.css">
-<!-- fonts: npm i @fontsource-variable/ibm-plex-sans @fontsource/ibm-plex-mono -->
-```
-
-```js
-import '@fontsource-variable/ibm-plex-sans';   // keep all subsets: the ₹ sign is in Latin Extended
-import '@fontsource/ibm-plex-mono/400.css';
-import '@fontsource/ibm-plex-mono/500.css';
-```
+**About the brand:** the gold `#FCB714` and the logo belong to Movementology (from the official logo file). If the software you are building is for someone else, change only the `--brand`, `--brand-deep` and the SVGs. Everything else is neutral and carries over unchanged; the system was built so the brand is a mark, not the whole palette.
 
 ### Quick start (Tailwind v4)
 
-```css
-@import 'tailwindcss';
-@import './tokens.css';
-@import './tailwind-theme.css';
-@import './base.css';
-@import './motion.css';
-```
-
-Then only token utilities exist: `bg-canvas`, `text-ink-muted`, `border-line-control`, `text-title`, `rounded-panel`, `shadow-float`, `h-row`, `w-drawer`. `bg-red-500` or `font-bold` generate nothing, on purpose. Write class names out in full (never `bg-${tone}`), or Tailwind cannot see them.
+`apps/web/app/globals.css` imports the styles from `@clinic-mx/ui/styles/*`. Then only token utilities exist: `bg-canvas`, `text-ink-muted`, `border-line-control`, `text-title`, `rounded-panel`, `shadow-float`, `h-row`, `w-drawer`. `bg-red-500` or `font-bold` generate nothing, on purpose. Write class names out in full (never `bg-${tone}`), or Tailwind cannot see them.
 
 ---
 
@@ -66,39 +41,39 @@ Then only token utilities exist: `bg-canvas`, `text-ink-muted`, `border-line-con
 
 ## 2. Colour
 
-The palette was built in OKLCH (warm neutrals at hue 80, status colours at equal lightness) and written as hex so every browser and contrast checker sees the same colour. Every text pair reaches 4.5:1 and every mark or control border 3:1 (WCAG 2.2 AA).
+The palette is written as hex so every browser and contrast checker sees the same colour. The neutrals are one cool slate family (never mixed with warm greys); the status colours keep their v2 hues. Every text pair reaches 4.5:1 and every mark or control border 3:1 (WCAG 2.2 AA); the ratios below were measured for v3 and `pnpm check:design` re-checks them on every run.
 
 ### 2.1 Neutrals (most of the screen)
 
 | Token | Hex | Use |
 |---|---|---|
-| `canvas` | `#F7F5F3` | The app frame and sidebar, behind the sheet. Warm off white |
+| `canvas` | `#F5F7F9` | The app frame and sidebar, behind the sheet. Cool off white |
 | `surface` | `#FFFFFF` | The sheet, panels, drawers, inputs |
-| `surface-subtle` | `#FAF9F7` | Table header band, panel and drawer footers |
-| `surface-hover` | `#F4F2EF` | Row and item hover |
-| `surface-sunken` | `#EFEDEA` | Wells, tracks, skeletons, avatars, secondary slots |
-| `line` | `#E6E3DF` | Hairlines, panel borders, grid lines |
-| `line-strong` | `#D3D0CC` | Dividers, secondary button borders |
-| `line-control` | `#8C8984` | Where a control is: inputs, selects, checkboxes, outline tags. 3:1 on white |
-| `ink` | `#1B1915` | Text. A warm near black, never pure `#000` |
-| `ink-secondary` | `#45423D` | Secondary text, sidebar links |
-| `ink-muted` | `#66635D` | Labels, meta, axis labels, chart cells (6:1) |
-| `ink-faint` | `#8F8C86` | Placeholders and disabled text only. Never carries meaning |
+| `surface-subtle` | `#F8FAFB` | Table header band, panel and drawer footers |
+| `surface-hover` | `#EEF2F5` | Row and item hover |
+| `surface-sunken` | `#E9EEF2` | Wells, tracks, skeletons, avatars, secondary slots |
+| `line` | `#E2E8EE` | Hairlines, panel borders, grid lines |
+| `line-strong` | `#CBD5DF` | Dividers, secondary button borders |
+| `line-control` | `#7B8A9C` | Where a control is: inputs, selects, checkboxes, outline tags. 3.5:1 on white, 3.3:1 on canvas |
+| `ink` | `#0F1A24` | Text. A slate near black, never pure `#000` |
+| `ink-secondary` | `#334252` | Secondary text, sidebar links |
+| `ink-muted` | `#4A5868` | Labels, meta, axis labels, chart cells (7:1 on white) |
+| `ink-faint` | `#66737F` | Placeholders and disabled text only. Never carries meaning (4.9:1 on white) |
 
 ### 2.2 Accent, brand, focus
 
 | Token | Hex | Use |
 |---|---|---|
-| `accent` | `#1B1915` | Primary buttons, checked boxes, switches, active tab underline, links. The same near black as ink |
-| `accent-hover` | `#35322E` | Primary button hover |
-| `accent-soft` | `#F0EEEB` | Selected row, quiet button hover, a new row's highlight |
+| `accent` | `#0E6B6B` | **Deep teal.** Primary buttons, checked boxes, switches, active tab underline, links, the current page's label. White on it 6.3:1; as text 6.3:1 on white, 5.9:1 on canvas |
+| `accent-hover` | `#0A5656` | Primary button hover (white on it 8.5:1) |
+| `accent-soft` | `#E5F2F1` | Selected row, quiet button hover, a new row's highlight (teal text on it 5.5:1) |
 | `on-accent` | `#FFFFFF` | Text on the accent |
-| `brand` | `#FCB813` | **Movementology gold.** The logo, the 3 px current-page marker in the sidebar, the kiosk welcome mark, the receipt. **A mark and a fill only, never text** (1.7:1 on white) |
+| `brand` | `#FCB714` | **Movementology gold.** The logo, the 3 px current-page marker in the sidebar and the phone tab bar, the kiosk welcome mark, the receipt, and the primary button on patient pages. **A mark and a fill only, never text** (1.7:1 on white) |
 | `brand-deep` | `#BB8503` | A gold icon that must reach 3:1 |
-| `on-brand` | `#1B1915` | Text on a gold fill (10:1) |
-| `focus` | `#2171CC` | The focus ring. Blue so it never looks like a selection (4.9:1) |
+| `on-brand` | `#0F1A24` | Text on a gold fill (10:1) |
+| `focus` | `#2563EB` | The focus ring. Blue so it never looks like a selection or the teal accent (5.2:1 on white, 4.5:1 on `accent-soft`); drawn 2 px outside the control, so it sits on the surface, not on the teal |
 
-Why ink and not a colour for actions: the accent stays out of the way of the status colours and data colours, so colour on the screen always *means* something. Gold marks where you are; ink says what you can do.
+Why teal for actions: the review of the staging app (1 November 2026) found the monochrome v2 screens looked unfinished and the next step hard to spot. One calm colour that means "you can act here" fixes that without competing with status: teal sits between the info blue and the active green but is darker than both, it is never used for a status, and charts use blue (`viz-1`), so a teal thing is always a button, a link or where you are. Gold marks identity and position; teal says what you can do; status colours say what state things are in.
 
 ### 2.3 Status (always a tint, strong text, a same-hue border, and a word)
 
@@ -107,31 +82,31 @@ This is the NHS tag pattern. Colour is never the only signal.
 | Tone | Text | Tint (`-soft`) | Border (`-line`) | Strong | Used for |
 |---|---|---|---|---|---|
 | info | `#2460A8` | `#EBF6FF` | `#B7D4F9` | | Confirmed, informational |
-| waiting | `#8A5100` | `#FFF3D3` | `#F0CB8D` | `#BB7400` (dots, marks) | Checked in, not marked, overdue, long wait, below target, warnings |
+| waiting | `#8A5100` | `#FFF3D3` | `#F0CB8D` | `#BB7400` (dots, marks; **never text**: 3.4:1 on its tint) | Needs attention: not marked, overdue, long wait, below target, warnings |
 | active | `#1D7339` | `#EBF9ED` | `#B6DDBD` | | In progress, on target, clear |
-| done | `#5A5853` | `#F1F0ED` | `#D3D0CC` | | Completed, closed |
+| done | `#4A5868` | `#EEF2F5` | `#CBD5DF` | | Completed, closed |
 | danger | `#AC2724` | `#FFEFED` | `#F6C3BC` | `#B7191C` with white text (6.6:1) | No show, urgent, money missing. The solid strong red only for a real emergency: its banner, badge and row |
 
-`warning` is an alias of `waiting`. Red stays scarce: people ignore alerts that are everywhere.
+`warning` is an alias of `waiting`. Red stays scarce: people ignore alerts that are everywhere. Status text always uses the plain tone (`text-waiting`, `text-danger`); the `-strong` tones are for dots, marks and the emergency fill only.
 
-**Status to tone mapping (appointments):** Booked = outline in `line-control` · Confirmed = info · Checked in = waiting · In progress = active · Completed = done · Cancelled / Rescheduled = neutral, hatched, time struck through · No show = danger.
+**Status to tone mapping (appointments, Frontend Specification section 9):** Booked = outline in `line-control` · Confirmed = info · Checked in = info · In progress = active · Completed = done · Cancelled / Rescheduled = neutral, hatched, time struck through · No show = danger. Amber only ever means "needs attention".
 
 ### 2.4 Data colours (charts only)
 
 | Token | Hex | Use |
 |---|---|---|
-| `viz-1` | `#1B6AB6` | The main series. Blue, not the ink accent, so a chart never reads as a button |
-| `viz-compare` | `#CAC7C2` | Previous period, "not converted", other series behind the one in focus |
-| `viz-target` | `#66635D` | Target lines: 1 px dashed, labelled at their end |
-| `viz-centre-1/2/3` | `#2F74BB` `#7F5BB6` `#1C8580` | Three categories (blue, violet, teal). Reserved: they mean those categories everywhere and nothing else uses them |
-| `viz-promoter / passive / detractor` | `#2F74BB` `#CDCAC5` `#D8662A` | NPS parts. Blue and orange stay apart for colour blind readers |
+| `viz-1` | `#1B6AB6` | The main series. Blue, not the teal accent, so a chart never reads as a button |
+| `viz-compare` | `#C5CED8` | Previous period, "not converted", other series behind the one in focus |
+| `viz-target` | `#4A5868` | Target lines: 1 px dashed, labelled at their end |
+| `viz-centre-1/2/3` | `#2F74BB` `#7F5BB6` `#1C8580` | The three centres (blue, violet, teal). Reserved: they mean those centres everywhere and nothing else uses them. Unchanged from v2 because each centre row stores its colour |
+| `viz-promoter / passive / detractor` | `#2F74BB` `#C8D1DA` `#D8662A` | NPS parts. Blue and orange stay apart for colour blind readers |
 | `viz-ramp-1` to `7` | `#EAF5FF` `#C7E1FF` `#9FC8F7` `#73ACEB` `#4C8FD8` `#2773C0` `#0E599D` | Heatmaps: one hue, lightness falling in even steps |
 
 Stacked parts are separated by a 2 px white gap. Series hues sit away from status hues.
 
 ### 2.5 Scrim
 
-`rgb(27 25 21 / 40%)` dims the page **only** behind a confirm dialog. Drawers have no scrim.
+`rgb(15 26 36 / 40%)` dims the page behind a confirm dialog and behind a bottom sheet on phones. Desktop drawers have no scrim.
 
 ---
 
@@ -141,17 +116,18 @@ Stacked parts are separated by a 2 px white gap. Series hues sit away from statu
 
 | Role | Font | Why |
 |---|---|---|
-| All UI | **IBM Plex Sans** (variable) | Sturdy and clear at small sizes, tabular figures, has the ₹ glyph, and not the default Inter look |
-| IDs, invoice numbers, keyboard hints | **IBM Plex Mono** 400 and 500 | Characters that must not be confused (0/O, 1/l) |
-| Hindi | IBM Plex Sans Devanagari | Same family look |
-| Kannada, Tamil | Noto Sans Kannada, Noto Sans Tamil | Reliable script support |
+| All UI | **Inter** (variable) | Drawn for dense screens: tall x-height, clear at 12 to 14 px, narrower than IBM Plex so more fits at 360 px. Tabular figures, the ₹ glyph, open licence (OFL) |
+| IDs, invoice numbers, keyboard hints | **Inter with `tnum` and `ss02`** (the `font-mono` utility) | Tabular figures line IDs up; `ss02` is Inter's set for characters that must not be confused (slashed zero, `l` with a tail, `I` with serifs). One font file instead of two |
 
-Self host the fonts (Fontsource packages). Do not trim the Latin Extended subset: the ₹ sign lives there. Many popular fonts (Onest, Instrument Sans, Hanken Grotesk) have no ₹; check the font file before swapping.
+Load Inter with `next/font/google` (self hosted on our domain, rule 9). Keep the Latin Extended subset: the ₹ sign lives there. Many popular fonts (Onest, Instrument Sans, Hanken Grotesk) have no ₹; check the font file before swapping. English only (rule 8), so no other scripts.
 
 ```css
---font-sans: 'IBM Plex Sans Variable', 'IBM Plex Sans', system-ui, sans-serif;
---font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+--font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
+--font-mono: var(--font-inter), 'Inter', ui-monospace, monospace;
+--font-mono--font-feature-settings: 'tnum', 'ss02';
 ```
+
+PDFs (react-pdf) embed Inter's static Regular, Medium and SemiBold files; OP and bill numbers there keep IBM Plex Mono if react-pdf cannot apply Inter's `ss02` (Frontend Specification section 11).
 
 ### 3.2 Scale (staff base 14 px, patient pages 16 px)
 
@@ -168,6 +144,8 @@ Self host the fonts (Fontsource packages). Do not trim the Latin Extended subset
 | `2xl` | 28 / 36 | | 600 | Patient page headings only |
 
 Only three weights exist: 400, 500, 600. **No bold (700).**
+
+**Form controls on touch screens are 16 px.** On `(pointer: coarse)` every input, select and textarea uses 16 / 24 whatever the screen, because iOS Safari zooms the page into any field under 16 px. Staff body text stays 14 px; with a mouse controls stay 14 px. Never block zoom with `maximum-scale`.
 
 ### 3.3 Type rules
 
@@ -197,11 +175,11 @@ Only three weights exist: 400, 500, 600. **No bold (700).**
 
 | Token | Value | On |
 |---|---|---|
-| `control` | 6 px | Buttons, inputs, selects, list options |
+| `control` | 8 px | Buttons, inputs, selects, list options |
 | `tag` | 6 px | Tags and badges |
 | checkbox | 4 px | Checkboxes and key hints |
 | `panel` | 12 px | Panels, floating lists, sign in panel |
-| `sheet` | 14 px | The page sheet |
+| `sheet` | 16 px | The page sheet, bottom sheets on phones |
 | `drawer` | 16 px | Drawers |
 | full | | Avatars, dots, switches |
 
@@ -211,11 +189,11 @@ Table cells and calendar grids are square.
 
 | Token | Value | On |
 |---|---|---|
-| `shadow-xs` | `0 1px 2px rgb(27 25 21 / 5%)` | Panels, the sheet, buttons, inputs: a hairline only |
-| `shadow-float` | `0 12px 32px -8px rgb(27 25 21 / 18%), 0 2px 6px rgb(27 25 21 / 6%)` | Menus, popovers, select lists, toasts |
-| `shadow-drawer` | `-24px 0 48px -16px rgb(27 25 21 / 18%), -1px 0 0 rgb(27 25 21 / 4%)` | Right drawers |
+| `shadow-xs` | `0 1px 2px rgb(15 26 36 / 6%)` | Panels, the sheet, buttons, inputs: a hairline only |
+| `shadow-float` | `0 12px 32px -8px rgb(15 26 36 / 18%), 0 2px 6px rgb(15 26 36 / 6%)` | Menus, popovers, select lists, toasts |
+| `shadow-drawer` | `-24px 0 48px -16px rgb(15 26 36 / 18%), -1px 0 0 rgb(15 26 36 / 4%)` | Right drawers |
 
-Panels are defined by a **1 px `line` border plus `shadow-xs`**. Only things that float cast a real shadow. No glass, blur or gradients.
+Panels are defined by a **1 px `line` border plus `shadow-xs`**. Only things that float cast a real shadow, tinted with the slate ink, never pure black. No glass, blur or gradients.
 
 ### 4.4 Heights and touch
 
@@ -255,7 +233,7 @@ z-index: drawer 30, confirm dialog 40, menus / lists / tooltips 50, toasts 60, l
 
 ## 6. Iconography and imagery
 
-* **lucide** icons, outline style. 16 px in controls, 18 px in navigation, 14 px in small buttons, 20 px in empty states. Used sparingly.
+* **lucide** icons, outline style, one stroke width (1.75) everywhere. 16 px in controls, 18 px in navigation, 14 px in small buttons, 20 px in empty states. Every navigation item and every status tag has its icon; elsewhere icons are used where they help scanning, not as decoration. An icon-only button always has a name (tooltip and `aria-label`).
 * No emoji in the staff interface. **No sparkle, magic wand or robot icons for AI**: an assistant is named in words.
 * No illustrations, blobs or background patterns. Empty states use a lucide icon in a 40 px sunken circle.
 * People are shown as initials on a sunken circle (Avatar), not photos.
@@ -264,43 +242,64 @@ z-index: drawer 30, confirm dialog 40, menus / lists / tooltips 50, toasts 60, l
 
 ## 7. Layout
 
+Desktop:
+
 ```
 +------------------+------------------------------------------------------+
-| [M] Movementology|  Calendar                         [New booking]      |
-| [Centre: HSR   v]|  HSR Layout · Live, updated 2 s ago   < Today >      |
-| Search  Ctrl K   |------------------------------------------------------|
-|                  |                                                      |
-| Today            |                page content (white sheet)            |
-| Calendar       ▌ |                                                      |
-| Patients         |                                                      |
-| Inbox          3 |                                                      |
+| [M] Movementology| [HSR Layout v]   [Search or jump to  Ctrl K] [bell 3](AR)|  <- top bar
+|                  |------------------------------------------------------|
+| Today          ▌ |  Calendar                         [New booking]      |
+| Calendar         |  HSR Layout · Live, updated 2 s ago   < Today >      |
+| Patients         |------------------------------------------------------|
 | Tasks          5 |                                                      |
-| Reports          |                                                      |
+| Reports          |                page content (white sheet)            |
 |                  |                                                      |
 | (AR) Asha Rao  v |                                                      |
 +------------------+------------------------------------------------------+
 ```
 
-* **Canvas and inset sheet.** The window background is `canvas`. The sidebar sits directly on it, with no border. The page is a white **sheet**: 1 px `line` border, 14 px corners, `shadow-xs`, 8 px from the window edges. The window scrolls, not the sheet.
-* **Sidebar** (240 px from 1280 px wide, a 64 px icon rail below):
-  * Top: the logo (20 px high), then a workspace switcher (here the centre).
-  * "Search or jump to" with a `Ctrl K` key hint.
-  * Navigation links: 32 px rows, `ink-secondary` text, 18 px icons in `ink-muted`; hover `surface-hover`. **The current page sits on a white pill (`surface`, `line` border, `shadow-xs`) with a 3 px gold bar on its left edge.** Counts of things needing action sit at the right in `xs ink-muted` (on the rail, a small ink badge with white text).
+Phone (360 px):
+
+```
++----------------------------------+
+| Today         [Q] [bell 3] (AR) |  <- sticky top bar: title, search, bell, person menu
+|----------------------------------|
+| page content, one column         |
+|                                  |
+|                                  |
+| [        Check in (primary)     ]|  <- the screen's one sticky primary action
+|----------------------------------|
+| ▔▔▔▔                             |  <- 3 px gold bar on the current tab
+| Today  Calendar  Patients  More  |  <- bottom tabs by role (3 + More)
++----------------------------------+
+```
+
+* **Canvas and inset sheet.** The window background is `canvas`. The sidebar sits directly on it, with no border. The page is a white **sheet**: 1 px `line` border, 16 px corners, `shadow-xs`, 8 px from the window edges. The window scrolls, not the sheet. On phones the sheet runs edge to edge with no border or corners.
+* **Top bar** (Frontend Specification section 4), on every signed in screen: the centre switcher (when the person works at more than one centre), "Search or jump to" with a `Ctrl K` hint, notifications with a count, and the person menu (account, centre, sign out). On phones it is a sticky 56 px bar with the page title, a search icon (opening search full screen), the bell and the person menu, inside `safe-area-inset-top`.
+* **Sidebar** (240 px from 1280 px wide, a 64 px icon rail from 768 px):
+  * Top: the logo (20 px high).
+  * Navigation links in groups (Day to day, Clinical, Figures, Setup): 32 px rows, `ink-secondary` text, 18 px icons in `ink-muted`; hover `surface-hover`. **The current page sits on a white pill (`surface`, `line` border, `shadow-xs`) with `accent` text and icon and a 3 px gold bar on its left edge.** Counts of things needing action sit at the right in `xs ink-muted` (on the rail, a small `accent` badge with white text).
   * Foot: the person's initials, name and role, opening a menu upward.
-* **Page header** at the top of every sheet: the title (`title`, 24 px semibold), status tags beside it; one context line under it in `sm ink-muted`, its parts separated by a middle dot (the only place middle dots are allowed); an optional back link above in `sm ink-muted`; actions on the right, at most one primary.
-* **Command palette** on `Ctrl K` or `/`.
-* **Details open in a right drawer** so the list or calendar stays visible. Full pages only for big records.
+* **Bottom tabs** (below 768 px): 3 tabs per role plus More, 56 px high plus the safe area, icon over a 12 px label; the current tab has `accent` icon and label and a 3 px gold bar on its top edge. Hidden on the consultation and session note screens, which pin their own actions.
+* **Page widths** (the `Page` component): `form` 640 px for single forms, `content` 1040 px for records and lists, `full` for Today, the calendar and dashboards. Never a phone-width column on a desktop.
+* **Page header** at the top of every sheet: the title (`title`, 24 px semibold), status tags beside it; one context line under it in `sm ink-muted`, its parts separated by a middle dot (the only place middle dots are allowed); an optional back link above in `sm ink-muted` (never a "Home" link: the navigation does that); actions on the right, at most one primary. On phones the primary action moves to the sticky action area above the tabs.
+* **Record header** on a patient, episode, consultation or session: name, OP number (`font-mono`), age and sex; condition and episode stage; next visit, package sessions left and balance due; red flag and consent tags; the one primary action.
+* **View, then edit.** Details show as read-only description lists with an Edit button; editing opens a sheet on phones or turns the panel into a form on desktop. Never an always-open form.
+* **Command palette** on `Ctrl K` or `/`: patients by name or mobile, screens, and actions ("New booking", "Walk in").
+* **Details open in a right drawer** on desktop so the list or calendar stays visible, and in a bottom sheet on phones for short tasks. Long tasks get a full page.
 * **Emergency banner**: full width across the top of the sheet, solid `danger-strong`, white text, an icon in a 28 px circle of white at 15%, one action. Stays until acknowledged.
 
 ### Responsive
+
+Phone first: every staff screen works fully from 360 px; bigger screens add room, never features.
 
 | Width | Behaviour |
 |---|---|
 | 1536 px+ | Three-pane screens show their side pane |
 | 1472 px sheet+ | Dashboard panels pair side by side (a container query on the sheet) |
 | 1280 px+ | Full sidebar |
-| 768 to 1279 px | Icon rail (names in tooltips with a mouse, small labels under icons on touch), 44 px targets |
-| Below 768 px | Read-only staff views; patient pages fully supported from 360 px |
+| 768 to 1279 px | Icon rail (names in tooltips with a mouse, small labels under icons on touch), list and detail side by side |
+| Below 768 px | One column, sticky top bar, bottom tabs, sheets with the action pinned; tables become stacked cards |
 
 Use container queries for parts that depend on their own width (a calendar block, a document pane), not the window width. Every page must work at 125% zoom on a 1366 px laptop without sideways scroll; a wide table scrolls inside its panel.
 
@@ -308,15 +307,18 @@ Use container queries for parts that depend on their own width (a calendar block
 
 ## 8. Components (exact recipes)
 
-Build on unstyled primitives (Radix) with the tokens. Do not import a pre-styled kit. `className` passed to a component is for layout only (margin, width, grid position); variants are typed maps inside the component.
+The components live in `packages/ui` and are exported from `@clinic-mx/ui/components/*`. They are built on **Base UI** (unstyled, accessible primitives) following shadcn/ui's Base UI recipes, with the code copied in and owned here, never generated by `shadcn init` (it writes `oklch()` colours and shadcn's token names). Dates and times use **React Aria Components** (DateField, DatePicker, TimeField, in Asia/Kolkata). When porting a shadcn recipe, rewrite its classes to ours: `bg-primary` → `bg-accent`, `text-primary-foreground` → `text-on-accent`, `bg-background` → `bg-surface`, `text-foreground` → `text-ink`, `bg-muted` → `bg-surface-sunken`, `text-muted-foreground` → `text-ink-muted`, shadcn's hover `bg-accent` → `bg-surface-hover`, `border-input` → `border-line-control`, `rounded-md` → `rounded-control`, `h-9` → `h-row` (touch `h-row-touch`), `text-sm` → `text-base`; drop `ring-ring` (the global focus ring does it) and every `dark:`. `pnpm check:design` rejects shadcn's names so a pasted snippet fails loudly instead of rendering unstyled.
+
+`className` passed to a component is for layout only (margin, width, grid position); variants are typed maps inside the component (`class-variance-authority`), merged with a `cn()` that knows our token names.
 
 ### Button
 
-Base: inline flex, centred, 8 px gap, 6 px radius, 1 px border, weight 500, no wrap, colour transition 120 ms. Defaults to `type="button"`.
+Base: inline flex, centred, 8 px gap, 8 px radius, 1 px border, weight 500, text centred (a long label wraps rather than pushing past a 360 px screen; buttons in a row share it), colour transition 120 ms, pressed `scale(0.98)` (none under reduced motion). Defaults to `type="button"`.
 
 | Look | Rest | Hover | Disabled |
 |---|---|---|---|
-| **Primary** | `accent` fill, white text, transparent border, `shadow-xs` | `accent-hover` | `surface-sunken` fill, `line` border, `ink-faint` text, no shadow |
+| **Primary** (staff) | `accent` (teal) fill, white text, transparent border, `shadow-xs` | `accent-hover` | `surface-sunken` fill, `line` border, `ink-faint` text, no shadow |
+| **Patient** (patient pages and kiosk) | `brand` (gold) fill, `on-brand` text, 56 px | `brand-deep` border | as primary |
 | **Secondary** | `surface` fill, `line-strong` border, `ink` text, `shadow-xs` | border `line-control`, fill `surface-hover` | `surface-subtle`, `line` border, `ink-faint` |
 | **Quiet** | transparent, `accent` text | `accent-soft` fill | `ink-faint` |
 | **Danger** | `surface` fill, `line-strong` border, `danger` text | border `danger-line`, fill `danger-soft` | as secondary |
@@ -335,10 +337,10 @@ While an action runs the button is disabled with fixed text ("Saving"), **no spi
 Square, 36 px (44 touch), a lucide icon, required name used for the tooltip and `aria-label`. Close buttons in drawers and toasts: `ink-muted`, hover `surface-hover` and `ink`.
 
 ### Inputs (Input, Select trigger, Combobox, TextArea)
-Full width, 36 px high (44 touch), 12 px horizontal padding, 6 px radius, **1 px `line-control` border**, `surface` fill, `shadow-xs`, 14 px `ink` text, placeholder `ink-faint`. Hover: border `ink-muted`. Invalid (`aria-invalid`): border `danger`. Disabled: `line` border, `surface-subtle` fill, `ink-faint`, no shadow. A **large** input (48 px, 22 px semibold tabular) for the one figure that is the point of a screen.
+Full width, 36 px high (44 touch), 12 px horizontal padding, 8 px radius, **1 px `line-control` border**, `surface` fill, `shadow-xs`, 14 px `ink` text (16 px on touch, section 3.2), placeholder `ink-faint`. The right `inputmode` and `autocomplete` on every field (mobile numbers `tel`, amounts `decimal`). Hover: border `ink-muted`. Invalid (`aria-invalid`): border `danger`. Disabled: `line` border, `surface-subtle` fill, `ink-faint`, no shadow. A **large** input (48 px, 22 px semibold tabular) for the one figure that is the point of a screen.
 
 ### Field
-Label above (14 px, 500), helper text below in `sm ink-muted`, error below the helper in `danger`. Optional fields say "(optional)"; required ones are not starred.
+Label above (14 px, 500), helper text below in `sm ink-muted`, error below the helper in `danger` with an icon. Optional fields say "(optional)"; required ones are not starred. Placeholders are never labels. Errors appear when the form is sent, not while typing; a form with more than one error also shows an error summary at its top linking to each field (NHS pattern). What the person typed is never cleared.
 
 ### Floating list (Select, Combobox, Menu)
 Panel: 12 px radius, `line` border, `surface`, 4 px padding, `shadow-float`. Options: min 32 px (44 touch), 6 px radius, 10 px left padding, 8 px gap; highlighted on `surface-hover`; a tick on the right for the chosen one.
@@ -373,13 +375,13 @@ StatusBadge is a Tag with a dot and a required word. Tags use adjectives ("Overd
 Several metrics sit in **one panel split into cells by hairlines**, never as floating tiles. Each cell: label (`sm` 500 `ink-muted`), the figure (`display` 32 px or `xl` 22 px, semibold), the change in words ("8% on last week") with a small trend icon in `ink-secondary`, an optional tag ("Below target"), and a small chart under it: a pace line or a bullet graph against the target.
 
 ### Table
-Full width, `border-spacing: 0`, 14 px, tabular numbers. Header: sticky, 36 px, `surface-subtle` band, bottom `line` border, 13 px 500 `ink-muted`, no wrap. Rows: 36 px (44 touch), bottom `line` border (none on the last row inside a panel), hover `surface-hover`, selected `accent-soft`. First cell 20 px left padding, last 20 px right, others 12 px. Numbers right aligned. **No zebra stripes.** Sortable headers carry `aria-sort`. A danger row (`danger-soft`) only for an emergency. Inline data bars (`viz-1`) against the column's highest.
+Below 768 px a table becomes a list of stacked cards (the first column as the card title, the rest as label and value pairs, the row action at the card's foot). From 768 px: full width, `border-spacing: 0`, 14 px, tabular numbers. Header: sticky, 36 px, `surface-subtle` band, bottom `line` border, 13 px 500 `ink-muted`, no wrap. Rows: 36 px (44 touch), bottom `line` border (none on the last row inside a panel), hover `surface-hover`, selected `accent-soft`. First cell 20 px left padding, last 20 px right, others 12 px. Numbers right aligned. **No zebra stripes.** Sortable headers carry `aria-sort`. A danger row (`danger-soft`) only for an emergency. Inline data bars (`viz-1`) against the column's highest.
 
 ### DescriptionList
 Label and value pairs with a fixed label width (labels `ink-muted`), so every drawer's lists line up.
 
 ### Drawer
-Right side, **floating 8 px from the top, right and bottom edges**, 480 px wide, 16 px radius, 1 px `line` border, `surface`, `shadow-drawer`, **no scrim**. Header: bottom `line` border, 12 px vertical, 20 px left padding; optional 32 px avatar; title 16 px semibold; subtitle `sm ink-muted`; close icon button. Body: scrolls, 20 × 16 px padding. Footer: sticky, top `line` border, `surface-subtle`, 20 × 12 px, buttons with 8 px gap. Slides in 240 ms.
+Right side, **floating 8 px from the top, right and bottom edges**, 480 px wide, 16 px radius, 1 px `line` border, `surface`, `shadow-drawer`, **no scrim**. Focus moves into it and returns to what opened it; `Esc` closes it. Below 768 px the same content is a **bottom sheet**: full width, 16 px top corners, a grab handle, over the scrim, at most 90% of the screen high, footer action pinned, closed by the Back gesture. Sheets are never stacked; a long task gets a full page instead. Header: bottom `line` border, 12 px vertical, 20 px left padding; optional 32 px avatar; title 16 px semibold; subtitle `sm ink-muted`; close icon button. Body: scrolls, 20 × 16 px padding. Footer: sticky, top `line` border, `surface-subtle`, 20 × 12 px, buttons with 8 px gap. Slides in 240 ms.
 
 ### ConfirmDialog
 Only for confirmations and destructive actions, over the scrim. Focus starts on "Go back"; the confirm button is a verb, uses the danger fill when destructive, and shows pending.
@@ -390,19 +392,19 @@ Segmented control: a sunken track; the chosen segment is a white pill with a `li
 Count row as tabs: a row of counts (To arrive 12, Here now 4) that are also the tabs.
 
 ### Toast
-Bottom left (16 px from the edges), 360 px wide, `surface`, `line` border, `shadow-float`, a lucide icon (success in `active`, error on `danger-soft` with `danger-line` border). Auto-hides after 4 s, pauses while pointed at or focused, swipe left to dismiss. Repeats the verb ("Checked in"). Undo where possible.
+Bottom left (16 px from the edges), 360 px wide (on phones full width above the bottom tabs), `surface`, `line` border, `shadow-float`, a lucide icon (success in `active`, error on `danger-soft` with `danger-line` border). Auto-hides after 4 s, pauses while pointed at or focused, swipe left to dismiss. Repeats the verb ("Checked in"). Undo where possible.
 
 ### Avatar
 Initials on a sunken circle: `surface-sunken`, 1 px `line` border, semibold `ink-secondary`. Sizes 24 px (10 px text), 32 px (12 px), 48 px (16 px).
 
 ### Kbd
-20 px high, min 20 px wide, 4 px radius, `line` border, `surface`, Plex Mono 12 px `ink-muted`. For hints like `Ctrl K`.
+20 px high, min 20 px wide, 4 px radius, `line` border, `surface`, `font-mono` 12 px `ink-muted`. For hints like `Ctrl K`.
 
 ### ProgressBar and DataBar
 Thin bars (6 px) on a `surface-sunken` track, full radius; fill `ink`, `viz-1`, `active` or `waiting-strong` depending on meaning.
 
 ### Stepper
-Only for real sequences. Numbered circles (28 px, 13 px semibold tabular): upcoming has a 1 px `line-control` border, `surface` fill, `ink-secondary` number; current has a 2 px `ink` border and its row sits on `accent-soft` with a semibold label; done is a solid `ink` circle with a white tick; locked is `surface-sunken` with a `line` border and a lock icon, plus a line under the list saying why. Rows hover on `surface-hover`. Connectors in `line-strong`. Vertical for long processes, horizontal for short ones.
+Only for real sequences. Numbered circles (28 px, 13 px semibold tabular): upcoming has a 1 px `line-control` border, `surface` fill, `ink-secondary` number; current has a 2 px `accent` border and its row sits on `accent-soft` with a semibold label; done is a solid `accent` circle with a white tick; locked is `surface-sunken` with a `line` border and a lock icon, plus a line under the list saying why. Rows hover on `surface-hover`. Connectors in `line-strong`. Vertical for long processes, horizontal for short ones.
 
 ### FeedItem and LiveStamp
 Feed item: a 64 px time column (`sm ink-muted` tabular), the words, a tag. LiveStamp: a small `active` dot plus "Live, updated 3 s ago" in `sm ink-muted`; "Stale" after two missed refreshes. The dot does not pulse.
@@ -470,8 +472,8 @@ Hand-built SVG (no chart library needed). Rules that apply to all:
 ## 11. Accessibility
 
 * WCAG 2.2 AA: 4.5:1 for text, 3:1 for control borders, chart marks and the focus ring.
-* One focus ring everywhere: `outline: 2px solid #2171CC; outline-offset: 2px;` on `:focus-visible`.
-* Full keyboard use and a "Skip to page" link first on every page. Shortcuts: `Ctrl K` or `/` search, `n` new, `t` today, `Esc` close a drawer.
+* One focus ring everywhere: `outline: 2px solid var(--focus); outline-offset: 2px;` on `:focus-visible`.
+* Full keyboard use and a "Skip to page" link first on every page (staff, patient pages and kiosk). Shortcuts on Today and the calendar: `Ctrl K` or `/` search, `b` new booking, `t` today, `n` and `p` next and previous day, `Esc` close a drawer. Single-key shortcuts never fire inside a field.
 * Touch targets: 44 px on tablets, 56 px on kiosk and patient pages, 64 px for kiosk answers.
 * Never colour alone: every status has a word, every series a label, a miss the words "Below target".
 * Run axe on every screen: nothing serious or critical.
@@ -490,7 +492,9 @@ Review every screen against this list. These are what make an interface look gen
 * No all caps eyebrow labels above headings.
 * No middle dots joining metadata, except the page header's one context line.
 * No arrows appended to button text.
-* No Inter, no cream plus terracotta palette, no dark mode with a neon accent.
+* No purple or blue "AI" gradients, no cream plus terracotta palette, no dark mode with a neon accent, no second accent colour.
+* No warm greys mixed into the slate neutrals.
+* No teal for a status. Teal means "you can act here" or "you are here".
 * **No gold text.** The gold is a mark.
 * No colour for decoration: colour means status or data.
 * No illustrations, blobs or background patterns.
@@ -501,9 +505,9 @@ Review every screen against this list. These are what make an interface look gen
 
 ---
 
-## 13. Checks worth automating in the new project
+## 13. Automated checks
 
-The demo enforces these with a script; copy the idea:
+`pnpm check:design` (`packages/ui/src/design-check/`) enforces these:
 
 1. Every text/background pair at 4.5:1 and every mark pair at 3:1, read from the tokens file.
 2. The heatmap ramp falls steadily in lightness.
@@ -512,5 +516,11 @@ The demo enforces these with a script; copy the idea:
 5. No gold used as text colour (`text-brand`).
 6. Every colour class names a colour that exists in the theme.
 7. Every page has its own loading, empty and error state.
+8. No shadcn token names (`bg-primary`, `text-foreground`, `border-input` and the rest) and no `dark:`.
+9. No `-strong` status tone used as text.
+10. No dead radius or shadow utilities (`rounded-md`, `rounded-r`, `shadow-lg`): Tailwind's own are removed, so they render nothing.
+11. A ratchet on what the redesign replaces (`legacy.json`: native selects, native date inputs, pages capped at the 400 px sign in width): each count may only fall, and the commit that removes some lowers its number.
 
-Source of truth in this repo: `apps/demo/design/`, `apps/demo/components/ds/`, `apps/demo/components/charts/`, and `docs/04_FRONTEND_SPEC.md` (version 2.0). The live style guide is at `/demo/design` in the running demo (`pnpm demo`, port 3100).
+The end to end tests add: axe on every screen (nothing serious or critical), screenshots compared at 360 px and 1440 px, inputs at 16 px on touch, and at most 200 KB of JavaScript per route.
+
+Source of truth in this repo: this README, then `packages/ui/src/styles/` and `packages/ui/src/components/`. Where this guide and the Frontend Specification (`docs/Clinic_Mx_Frontend_Specification.md`) differ, the specification wins.

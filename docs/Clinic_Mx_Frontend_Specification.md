@@ -1,10 +1,10 @@
 # Clinic Mx: Frontend Specification
 
-20 October 2026 · Velyx Labs
+20 October 2026 · Velyx Labs · design system v3 (teal and gold, Inter, Base UI) adopted 1 November 2026 (UIX-01)
 
 ## 1. Design direction
 
-Clinic Mx is a calm clinical instrument in Movementology's ink and gold: phone first, English only, with a warm brand forward voice for patients and a quiet, status first voice for staff.
+Clinic Mx is a calm clinical instrument in deep teal and Movementology gold: phone first, English only, with a warm brand forward voice for patients and a quiet, status first voice for staff.
 
 ### Principles
 
@@ -22,13 +22,13 @@ Clinic Mx is a calm clinical instrument in Movementology's ink and gold: phone f
 | | Patient voice | Staff voice |
 | --- | --- | --- |
 | Where | Health form, consent, "My plan", questionnaires, feedback | Every staff screen |
-| Brand | Logo at top; gold primary buttons with ink text | Small logo; gold only as the location marker |
-| Primary button | Gold #FCB714, ink text | Ink #1B1915, white text |
-| Base text | 16 px | 14 px |
+| Brand | Logo at top; gold primary buttons with ink text | Small logo; gold only as the location marker; teal for actions |
+| Primary button | Gold #FCB714, ink text | Teal #0E6B6B, white text |
+| Base text | 16 px | 14 px (form controls 16 px on touch screens) |
 | Touch targets | 56 px; 64 px for Yes and No answers | 36 px with a mouse, 44 px on touch |
 | Tone | Warm, encouraging, plain words | Short, factual, status first |
 
-The design tokens, Tailwind theme, base styles and motion files from the Clinic Mx demo (design system v2) are the starting point; the changes in this spec override them.
+Design system v3 (`docs/design/README.md`, code in `packages/ui`) carries the full recipes; where it and this spec differ, this spec wins. v3 replaced v2 "ink and gold" on 1 November 2026 after the user reviewed staging: a deep teal action colour, cool slate neutrals and Inter, so the next step is easy to spot and more fits on a phone.
 
 ## 2. Brand and colour tokens
 
@@ -40,7 +40,7 @@ The brand gold is #FCB714, taken from the official Movementology logo file; it i
 | --- | --- | --- |
 | `--brand` | #FCB714 | Patient primary buttons, logo mark, location bar, patient progress bars |
 | `--brand-deep` | #BB8503 | Gold icons that must reach 3:1 |
-| `--on-brand` | #1B1915 | Text on gold (about 10:1) |
+| `--on-brand` | #0F1A24 | Text on gold (about 10:1) |
 | Logo black | #030404 | Inside the logo file only |
 
 The logo, mark and favicon come from the client's SVG files. The favicon gets a light rounded backing so it stays visible on dark browser tabs.
@@ -49,19 +49,30 @@ The logo, mark and favicon come from the client's SVG files. The favicon gets a 
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `--canvas` | #F7F5F3 | App frame, sidebar |
+| `--canvas` | #F5F7F9 | App frame, sidebar |
 | `--surface` | #FFFFFF | Sheets, panels, drawers |
-| `--surface-subtle` | #FAF9F7 | Table header band, panel footers |
-| `--surface-hover` | #F4F2EF | Row hover |
-| `--surface-sunken` | #EFEDEA | Wells, tracks, skeletons |
-| `--line` | #E6E3DF | Hairlines, grid lines |
-| `--line-strong` | #D3D0CC | Dividers |
-| `--line-control` | #8C8984 | Input borders (3:1) |
-| `--ink` | #1B1915 | Text, staff primary buttons, links |
-| `--ink-secondary` | #45423D | Secondary text |
-| `--ink-muted` | #66635D | Labels, axes |
-| `--ink-faint` | #8F8C86 | Placeholders and disabled only |
-| `--focus` | #2171CC | Focus ring, 2 px, 2 px offset |
+| `--surface-subtle` | #F8FAFB | Table header band, panel footers |
+| `--surface-hover` | #EEF2F5 | Row hover |
+| `--surface-sunken` | #E9EEF2 | Wells, tracks, skeletons |
+| `--line` | #E2E8EE | Hairlines, grid lines |
+| `--line-strong` | #CBD5DF | Dividers |
+| `--line-control` | #7B8A9C | Input borders (3.5:1) |
+| `--ink` | #0F1A24 | Text |
+| `--ink-secondary` | #334252 | Secondary text |
+| `--ink-muted` | #4A5868 | Labels, axes |
+| `--ink-faint` | #66737F | Placeholders and disabled only |
+| `--focus` | #2563EB | Focus ring, 2 px, 2 px offset |
+
+### Action colour
+
+| Token | Value | Use |
+| --- | --- | --- |
+| `--accent` | #0E6B6B | Staff primary buttons, links, checked controls, the current page's label (white on it 6.3:1) |
+| `--accent-hover` | #0A5656 | Primary button hover |
+| `--accent-soft` | #E5F2F1 | Selected row, quiet button hover |
+| `--on-accent` | #FFFFFF | Text on teal |
+
+Teal only ever means "you can act here" or "you are here"; it is never a status.
 
 ### Status (text, tint, line)
 
@@ -70,27 +81,27 @@ The logo, mark and favicon come from the client's SVG files. The favicon gets a 
 | Info | #2460A8 | #EBF6FF | Checked in, here now, information |
 | Waiting / warning | #8A5100 | #FFF3D3 | Running late, review needed, below target, form open |
 | Active / success | #1D7339 | #EBF9ED | Met, done, confirmed improvement |
-| Done | #5A5853 | #F1F0ED | Completed, cancelled, closed |
+| Done | #4A5868 | #EEF2F5 | Completed, cancelled, closed |
 | Danger | #AC2724 (strong #B7191C) | #FFEFED | Clinical emergency, no show |
 
 Change from the demo: **"Checked in" moves from amber to blue**, so amber only ever means "needs attention". Solid red is reserved for the clinical emergency banner.
 
 ### Data colours
 
-Main series #1B6AB6; comparison #CAC7C2; target lines #66635D dashed; centres HSR Layout #2F74BB, Koramangala #7F5BB6, Whitefield #1C8580 (charts only); promoter #2F74BB, passive #CDCAC5, detractor #D8662A; a 7 step blue ramp for heatmaps.
+Main series #1B6AB6; comparison #C5CED8; target lines #4A5868 dashed; centres HSR Layout #2F74BB, Koramangala #7F5BB6, Whitefield #1C8580 (charts only); promoter #2F74BB, passive #C8D1DA, detractor #D8662A; a 7 step blue ramp for heatmaps.
 
 Light theme only. Every colour pair is contrast checked automatically in CI.
 
 ## 3. Typography
 
-IBM Plex Sans is the only text family, with IBM Plex Mono for IDs; tabular figures are on wherever numbers are compared.
+Inter is the only text family; IDs use Inter with tabular figures and its `ss02` set (slashed zero, distinct l and I) through the `font-mono` utility; tabular figures are on wherever numbers are compared.
 
 | Token | Size / line height | Use |
 | --- | --- | --- |
 | `text-xs` | 12 / 16 | Captions, chart labels |
 | `text-sm` | 13 / 18 | Meta lines, tags, table cells on dense screens |
 | `text-base` | 14 / 20 | Staff body text |
-| `text-md` | 16 / 24 | Patient body text; staff inputs on phones (prevents iOS zoom) |
+| `text-md` | 16 / 24 | Patient body text; every staff input, select and textarea on touch screens (prevents iOS zoom) |
 | `text-lg` | 18 / 26 | Patient section titles |
 | `text-xl` | 22 / 30 | Patient page titles |
 | `text-title` | 24 / 32, semibold, -0.015em | Staff page titles |
@@ -98,7 +109,7 @@ IBM Plex Sans is the only text family, with IBM Plex Mono for IDs; tabular figur
 
 - **Weights:** 400 text, 500 labels and buttons, 600 titles and headline numbers. No bold (700).
 - **Numbers:** `font-variant-numeric: tabular-nums` in tables, KPI cards, prices, times, chart axes; proportional figures in prose.
-- **Mono:** IBM Plex Mono only for patient IDs, appointment IDs and bill numbers (MVK-10482 style codes).
+- **Mono:** `font-mono` (Inter, `tnum` and `ss02`) only for patient IDs, appointment IDs and bill numbers (HSR-00137 style codes).
 - **Case:** sentence case everywhere; no all caps except tiny overlines.
 - **Money and numbers:** Indian grouping (₹18,40,000) or lakh shorthand on dashboards (₹18.4 L).
 - **Loading:** self hosted variable font files (Latin and Latin Extended for ₹), `font-display: swap`, preloaded on first paint.
@@ -130,19 +141,21 @@ Touch size follows the pointer, not the width: 36 px rows with a mouse, 44 px on
 ### Page frame
 
 - Top bar: centre switcher (only for users with more than one centre), search, notifications, profile.
-- A 3 px gold bar marks the current section in the sidebar or rail.
-- Content sits on a white sheet over the warm canvas; panels have a hairline border, not a shadow.
+- A 3 px gold bar marks the current section in the sidebar, rail or bottom tabs; its label and icon are teal.
+- Content sits on a white sheet over the cool canvas; panels have a hairline border, not a shadow. On phones the sheet runs edge to edge.
 - Spacing on a 4 px scale (4, 8, 12, 16, 20, 24, 32, 40, 48, 64); sections 24 to 32 px apart.
-- Radii: controls and tags 6 px, panels 12 px, sheets 14 px, drawers 16 px.
+- Radii: controls 8 px, tags 6 px, panels 12 px, sheets and drawers 16 px.
+- Page widths: form 640 px, content 1040 px, or full width (Today, calendar, dashboards); never a phone-width column on a desktop.
+- On phones the top bar is a sticky 56 px bar: page title, search, notifications, profile (with the centre switch).
 - Safe area insets respected on phones with notches and gesture bars.
 
 ## 5. Component library
 
-All components are built on Radix primitives with Clinic Mx tokens; the clinic specific ones below are new and must exist before screens are built.
+All components live in `packages/ui`, built on Base UI primitives (following shadcn/ui's Base UI recipes, code owned here) with Clinic Mx tokens; dates and times use React Aria Components. The clinic specific ones below must exist before screens are built.
 
 ### Base components
 
-Button (primary ink, primary gold for patients, secondary, quiet, danger), Input, Textarea, Select, Combobox (search), Checkbox, Radio group, Switch, Date picker, Time slot grid, Tag (status with word), Count chip (also a filter), Tabs, Stepper (with locked steps and a reason), Drawer and bottom sheet, Dialog (confirm only for irreversible actions), Toast, Tooltip (tap on touch), Skeleton, Empty state, Avatar, Table (sticky header, tabular numbers, stacked cards on phones), Pagination, Search bar, Banner.
+Button (primary teal, primary gold for patients, secondary, quiet, danger), Input, Textarea, Select, Combobox (search), Checkbox, Radio group, Switch, Date picker, Time slot grid, Tag (status with word), Count chip (also a filter), Tabs, Stepper (with locked steps and a reason), Drawer and bottom sheet, Dialog (confirm only for irreversible actions), Toast, Tooltip (tap on touch), Skeleton, Empty state, Avatar, Table (sticky header, tabular numbers, stacked cards on phones), Pagination, Search bar, Banner.
 
 ### Clinic specific components
 
@@ -378,7 +391,8 @@ Techniques: server rendering for first load, route level code splitting, PWA cac
 
 ### Quality checks
 
-- Design token check: no raw colours, no gold text, no Tailwind default palette, no dynamic class names.
+- Design token check: no raw colours, no gold text, no Tailwind default palette, no dynamic class names, no shadcn token names, no `-strong` status tone as text.
+- axe on every screen (nothing serious or critical) and screenshots compared at 360 px and 1440 px.
 - Playwright tests on 360 px and desktop viewports for every critical flow.
 - Visual review on a real Android phone and an iPhone before each release.
 - Before build: clickable prototypes tested with a receptionist, a consultant and a treating physio (about 10 minutes each).
@@ -392,7 +406,7 @@ All patient documents are A4, on Movementology letterhead, and fully readable wh
 | --- | --- |
 | Page | A4, 18 mm margins; page numbers "Page n of N" in the footer |
 | Letterhead | Logo top left; clinic name, centre address and phone top right; a thin gold rule under the header (decorative only, nothing depends on it) |
-| Type | IBM Plex Sans 10.5 pt body, 14 pt titles; IBM Plex Mono for OP number and bill number |
+| Type | Inter 10.5 pt body, 14 pt titles (static Regular, Medium and SemiBold files embedded); OP number and bill number in Inter with tabular figures and `ss02`, or IBM Plex Mono if the PDF renderer cannot apply the feature |
 | Tables | Hairline borders, tabular numbers, rupee amounts right aligned |
 | Status | Written words (Met, Not met), never colour only |
 | Charts | Only on the discharge report: baseline vs final as a simple paired bar or table; greyscale safe |

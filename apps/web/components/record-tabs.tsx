@@ -43,7 +43,7 @@ export function RecordTabs({
               >
                 {tab.label}
                 {tab.count ? (
-                  <span className="rounded-tag border border-waiting-line bg-waiting-soft px-1.5 text-sm font-medium text-waiting-strong tabular-nums">
+                  <span className="rounded-tag border border-waiting-line bg-waiting-soft px-1.5 text-sm font-medium text-waiting tabular-nums">
                     {tab.count}
                   </span>
                 ) : null}

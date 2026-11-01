@@ -26,9 +26,9 @@ import { chosenCentreId, switchableCentres } from '../../../../modules/navigatio
 import { getSetting } from '../../../../modules/settings/settings';
 import { openTasksOf } from '../../../../modules/tasks/services';
 import { EmergencyWatch } from './emergency-watch';
-import { NotificationsLink } from './notifications-link';
 import { SessionGuard } from './session-guard';
 import { SignOutButton } from './sign-out-button';
+import { TopBar } from './top-bar';
 
 // Every page here needs an active staff member (IAM-01); anyone else goes to sign in. Their
 // drafts are kept on the device under their id and saved when the connection returns (FND-08).
@@ -37,8 +37,9 @@ import { SignOutButton } from './sign-out-button';
 // page links to the staff member's notifications with the unread count (INT-10). Open emergency
 // red flag alerts at the person's centres show as banners on every page, kept current (ALT-01).
 // Live screens hear about changes from the realtime relay where it is set up (FND-09).
-// Phones get the role's bottom tab bar (UI-01); from 768 px the rail, from 1280 px the sidebar,
-// with Search or jump to, beside the page on a white sheet (UI-02).
+// Phones get the role's bottom tab bar (UI-01) and a top bar with search, notifications and the
+// person menu (UIX-12); from 768 px the rail, from 1280 px the sidebar, with Search or jump to,
+// beside the page on a white sheet (UI-02).
 export default async function SignedInLayout({ children }: { children: ReactNode }) {
   const staff = await requireStaff();
   const device = readDevice((await cookies()).get(DEVICE_COOKIE)?.value);
@@ -64,7 +65,7 @@ export default async function SignedInLayout({ children }: { children: ReactNode
   return (
     <StaffProvider staff={{ id: staff.id, name: staff.name, role: staff.role }}>
       <LiveRelayProvider enabled={relayOn} connectedSeconds={connectedSeconds}>
-        {/* First on every page (design system v2 section 11), past the rail or sidebar. */}
+        {/* First on every page (design system v3 section 11), past the rail or sidebar. */}
         <a
           href="#page"
           className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-control focus:bg-surface focus:px-3 focus:py-2 focus:text-ink focus:shadow-float"
@@ -108,7 +109,7 @@ export default async function SignedInLayout({ children }: { children: ReactNode
               {staff.support ? (
                 <p
                   role="note"
-                  className="w-full border-b border-waiting-line bg-waiting-soft px-4 py-2 text-sm text-waiting-strong"
+                  className="w-full border-b border-waiting-line bg-waiting-soft px-4 py-2 text-sm text-waiting"
                 >
                   Velyx support access, read only
                   {grant ? `, until ${formatIstDateTime(grant.endsAt)}` : ''}. Everything you open
@@ -126,9 +127,25 @@ export default async function SignedInLayout({ children }: { children: ReactNode
                   }}
                 />
               ))}
-              <div className="flex justify-end border-b border-line px-4 text-sm">
-                <NotificationsLink unread={unread} />
-              </div>
+              <TopBar
+                unread={unread}
+                findsPatients={accessScope(staff, 'patients.view_contact') !== null}
+                personMenu={
+                  <PersonMenu
+                    placement="top"
+                    name={staff.name}
+                    role={staffRoleLabels[staff.role]}
+                    signOut={<SignOutButton />}
+                    extra={
+                      centres.length > 1 ? (
+                        <Suspense>
+                          <CentreSwitcher centres={centres} chosen={chosen} />
+                        </Suspense>
+                      ) : null
+                    }
+                  />
+                }
+              />
               {children}
             </div>
           </div>

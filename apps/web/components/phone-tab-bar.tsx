@@ -72,20 +72,20 @@ export function PhoneTabBar({ tabs }: { tabs: readonly PhoneTab[] }) {
                   aria-current={here ? 'page' : undefined}
                   className={[
                     'relative flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 text-xs',
-                    here ? 'font-semibold text-ink' : 'text-ink-secondary hover:text-ink',
+                    here ? 'font-semibold text-accent' : 'text-ink-secondary hover:text-ink',
                   ].join(' ')}
                 >
                   {here ? (
                     <span
                       aria-hidden
-                      className="absolute inset-x-4 top-0 h-[3px] rounded-b bg-brand"
+                      className="absolute inset-x-4 top-0 h-[3px] rounded-full bg-brand"
                     />
                   ) : null}
                   <Icon
                     aria-hidden
                     size={18}
                     strokeWidth={1.75}
-                    className={here ? 'text-ink' : 'text-ink-muted'}
+                    className={here ? 'text-accent' : 'text-ink-muted'}
                   />
                   <span>{tab.label}</span>
                 </Link>

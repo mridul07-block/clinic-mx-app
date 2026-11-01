@@ -144,7 +144,7 @@ export function MyPatientsList({
     <div className="flex flex-col gap-3">
       <p
         data-testid="live-status"
-        className={`text-sm ${failing ? 'text-waiting-strong' : 'text-ink-muted'}`}
+        className={`text-sm ${failing ? 'text-waiting' : 'text-ink-muted'}`}
       >
         {failing
           ? `Not updated for ${String(seconds)} s. Checking again.`
@@ -239,7 +239,7 @@ export function MyPatientsList({
                 </span>
                 {visit.status === 'checked_in' && visit.session && !visit.session.gate.met ? (
                   // SES-01: the session waits for its gate; the physio sees why.
-                  <p data-testid="session-gate" className="text-sm text-waiting-strong md:max-w-56">
+                  <p data-testid="session-gate" className="text-sm text-waiting md:max-w-56">
                     Gate blocked: {visit.session.gate.message}
                   </p>
                 ) : visit.status === 'checked_in' ? (

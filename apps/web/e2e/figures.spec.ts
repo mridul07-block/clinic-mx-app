@@ -52,7 +52,8 @@ test('the Super Admin reads every figure, overall and by centre, counted from th
     .toBe(true);
   // Every table open, money in lakhs included: nothing wider than the screen.
   await page.evaluate(() => {
-    for (const details of document.querySelectorAll('details')) details.open = true;
+    for (const details of document.querySelectorAll<HTMLDetailsElement>('main details'))
+      details.open = true;
   });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,

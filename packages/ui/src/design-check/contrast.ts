@@ -14,6 +14,11 @@ export const textPairs: [string, string][] = [
     [tone, 'surface'],
   ]),
   ['ink', 'accent-soft'],
+  // Teal links, the current page's label and quiet buttons (design system v3).
+  ['accent', 'surface'],
+  ['accent', 'canvas'],
+  ['accent', 'accent-soft'],
+  ['accent', 'surface-hover'],
   ['on-accent', 'accent'],
   ['on-accent', 'accent-hover'],
   ['on-brand', 'brand'],
@@ -22,19 +27,25 @@ export const textPairs: [string, string][] = [
 
 /** Control borders, the focus ring, icons and chart marks need 3:1 (WCAG 1.4.11). */
 export const markPairs: [string, string][] = [
-  'line-control',
-  'focus',
-  'brand-deep',
-  'waiting-strong',
-  'danger-strong',
-  'viz-1',
-  'viz-target',
-  'viz-centre-1',
-  'viz-centre-2',
-  'viz-centre-3',
-  'viz-promoter',
-  'viz-detractor',
-].map((mark): [string, string] => [mark, 'surface']);
+  // The frame and a selected row are not white: the ring and control borders sit on them too.
+  ['line-control', 'canvas'],
+  ['focus', 'canvas'],
+  ['focus', 'accent-soft'],
+  ...[
+    'line-control',
+    'focus',
+    'brand-deep',
+    'waiting-strong',
+    'danger-strong',
+    'viz-1',
+    'viz-target',
+    'viz-centre-1',
+    'viz-centre-2',
+    'viz-centre-3',
+    'viz-promoter',
+    'viz-detractor',
+  ].map((mark): [string, string] => [mark, 'surface']),
+];
 
 const rampSteps = [1, 2, 3, 4, 5, 6, 7].map((n) => `viz-ramp-${n}`);
 

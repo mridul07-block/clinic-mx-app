@@ -1,0 +1,21 @@
+/* Applied only while a screenshot is taken (e2e/visual.ts): nothing that moves or blinks. */
+*,
+*::before,
+*::after {
+  transition: none !important;
+  animation: none !important;
+  caret-color: transparent !important;
+}
+
+/* The app's frame (top bar, phone tabs) has its own tests (shell.spec.ts); screenshots of a
+   screen's content leave it out, so a change to the frame does not touch every baseline. */
+[data-testid='top-bar'],
+[data-testid='phone-tab-bar'] {
+  visibility: hidden !important;
+}
+
+/* A screen's pinned actions (StickyActions) sit at the end of its content while a long page is
+   captured, as on a desktop; fixed to the screen they would move with each captured part. */
+[data-sticky-actions] {
+  position: static !important;
+}

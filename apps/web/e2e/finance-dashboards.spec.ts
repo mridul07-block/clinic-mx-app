@@ -69,7 +69,8 @@ test('Finance lands on Collections and reads every tab, with CSV downloads', asy
     page.getByRole('img', { name: 'Revenue by month against the year before' }),
   ).toBeVisible();
   await page.evaluate(() => {
-    for (const details of document.querySelectorAll('details')) details.open = true;
+    for (const details of document.querySelectorAll<HTMLDetailsElement>('main details'))
+      details.open = true;
   });
   expect(await fits()).toBe(true);
   await page.screenshot({ path: test.info().outputPath('finance-revenue.png'), fullPage: true });

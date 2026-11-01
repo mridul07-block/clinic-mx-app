@@ -147,10 +147,7 @@ export function BookingSheet({
         <h2 className="text-title font-semibold text-ink">
           {walkIn ? `Walk in: ${typeName}` : `Book ${typeName}`}
         </h2>
-        <p
-          data-testid="hold-status"
-          className={heldUntil ? 'text-ink-secondary' : 'text-waiting-strong'}
-        >
+        <p data-testid="hold-status" className={heldUntil ? 'text-ink-secondary' : 'text-waiting'}>
           {heldUntil
             ? `Held for you until ${timeOf(heldUntil)}`
             : 'Your hold ran out. Book still works if the time is free.'}

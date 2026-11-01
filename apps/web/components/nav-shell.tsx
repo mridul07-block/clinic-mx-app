@@ -6,10 +6,14 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { SideNav } from './side-nav';
 
-// The rail or sidebar with Search or jump to (UI-02; design system v2 section 7: "Command
+// The rail or sidebar with Search or jump to (UI-02; design system v3 section 7: "Command
 // palette on Ctrl K or /"). The palette finds the person's screens by their words and, for those
 // who may find patients, searches patients for what was typed. Arrow keys move, Enter opens,
-// Escape closes. From 768 px only; phones have the bottom tabs and Home.
+// Escape closes. The keys work from 768 px; on phones the top bar's search button opens it
+// (UIX-12) through the `openSearchEvent` window event.
+
+/** Dispatched on window by anything that opens the palette (the phone top bar's button). */
+export const openSearchEvent = 'cmx:open-search';
 
 interface Choice {
   label: string;
@@ -61,8 +65,10 @@ export function NavShell({
       }
     };
     window.addEventListener('keydown', onKey);
+    window.addEventListener(openSearchEvent, open);
     return () => {
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener(openSearchEvent, open);
     };
   }, [open]);
 
@@ -106,7 +112,7 @@ export function NavShell({
       <dialog
         ref={dialog}
         aria-label="Search or jump to"
-        className="m-auto mt-[12vh] w-[min(36rem,calc(100vw-2rem))] rounded-panel border border-line bg-surface p-0 text-ink shadow-float backdrop:bg-transparent"
+        className="m-auto mt-[12vh] w-[min(36rem,calc(100vw-2rem))] rounded-panel border border-line bg-surface p-0 text-ink shadow-float backdrop:bg-scrim md:backdrop:bg-transparent"
         onClick={(event) => {
           if (event.target === dialog.current) dialog.current.close();
         }}

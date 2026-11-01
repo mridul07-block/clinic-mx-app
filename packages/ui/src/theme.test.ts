@@ -30,3 +30,15 @@ describe('Tailwind theme', () => {
     },
   );
 });
+
+describe('font-mono (design system v3, UIX-04)', () => {
+  it('is Inter with tabular figures and ss02, not a second font', async () => {
+    const compiler = await compile(`@import 'tailwindcss/utilities';\n${css}`, {
+      base: styles,
+      onDependency: () => undefined,
+    });
+    const rule = compiler.build(['font-mono']);
+    expect(rule).toMatch(/font-family:\s*var\(--font-mono\)/);
+    expect(rule).toMatch(/font-feature-settings:\s*'tnum',\s*'ss02'/);
+  });
+});

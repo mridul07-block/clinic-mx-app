@@ -65,6 +65,8 @@ test('the front desk adds two people on one mobile, each with their own OP numbe
 
   // Details are edited; the OP number stays.
   await page.getByTestId('patient').click();
+  // View, then edit (UIX-14): the details read first; Edit details opens the form.
+  await page.getByText('Edit details').click();
   await page.getByText('More details').click();
   await page.getByLabel('Sex').selectOption('female');
   await page.getByRole('button', { name: 'Save details' }).click();

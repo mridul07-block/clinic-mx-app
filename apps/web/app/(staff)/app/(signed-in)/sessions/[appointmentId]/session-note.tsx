@@ -520,7 +520,7 @@ export function SessionNoteForm({
               }}
             />
             {editable ? (
-              <p className="text-sm text-waiting-strong">
+              <p className="text-sm text-waiting">
                 Closing the session gives the consultant a task to review them.
               </p>
             ) : null}
@@ -646,7 +646,7 @@ export function SessionNoteForm({
                     {definition.warnings.length > 0 ? (
                       <div className="flex flex-col gap-2 rounded-control border border-waiting-line bg-waiting-soft px-3 py-2">
                         {definition.warnings.map((warning) => (
-                          <p key={warning.label} className="text-sm text-waiting-strong">
+                          <p key={warning.label} className="text-sm text-waiting">
                             Precaution: {warning.label} ({warning.source})
                           </p>
                         ))}
@@ -775,7 +775,7 @@ export function SessionNoteForm({
               }}
             />
             {editable ? (
-              <p className="text-sm text-waiting-strong">
+              <p className="text-sm text-waiting">
                 Closing the session gives the consultant and the Clinical Director a task.
               </p>
             ) : null}
@@ -827,7 +827,7 @@ export function SessionNoteForm({
         />
         {/* ALT-02: worse after treatment, or escalated, is the consultant's same-day review. */}
         {editable && (note.response.rating === 'worse' || note.nextSession.plan === 'escalate') ? (
-          <p className="text-sm text-waiting-strong" data-testid="worsening-hint">
+          <p className="text-sm text-waiting" data-testid="worsening-hint">
             Closing the session gives the consultant a task to review the patient today.
           </p>
         ) : null}
