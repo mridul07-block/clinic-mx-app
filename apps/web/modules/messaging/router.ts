@@ -24,7 +24,7 @@ import {
   TEMPLATE_LANGUAGE,
   appointmentConfirmedText,
   checkAnswerOf,
-  contactText,
+  contactMessage,
   documentTime,
   emergencyReplyText,
   flowReplies,
@@ -142,7 +142,7 @@ async function confirmReminder(
   const result = await confirmAppointment(tx, ours.appointmentId, new Date());
   if (result.outcome === 'changed' || !result.startsAt) {
     const centres = await centreContacts(tx, result.centreId);
-    return { text: `${APPOINTMENT_CHANGED_TEXT} ${contactText({ centres, email })}` };
+    return { text: [APPOINTMENT_CHANGED_TEXT, contactMessage({ centres, email })].join('\n\n') };
   }
   return {
     text: appointmentConfirmedText({
@@ -273,7 +273,7 @@ export async function queueRouteReply(
   if (reply === 'contact') {
     const email = await getSetting('whatsapp.front_desk_email');
     variables = {
-      text: contactText({ centres: await centreContacts(tx, owner?.centreId), email }),
+      text: contactMessage({ centres: await centreContacts(tx, owner?.centreId), email }),
     };
   } else if (isFlowReply(reply)) {
     // From the menu the reschedule form first lists the number's appointments (WA-05).

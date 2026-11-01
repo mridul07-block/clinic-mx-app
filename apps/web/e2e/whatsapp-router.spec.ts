@@ -144,7 +144,7 @@ test('typed text, a menu button and an emergency phrase each reach their handler
       ]).toContainEqual(run);
     }
     expect(String((await replyTo(talk))?.variables.text)).toMatch(
-      /^(To talk to our team, .+\.|Please call the clinic you visit; our front desk will help\.)$/,
+      /^(\*Talk to our team\*\n\nOur front desk is happy to help\.\n\n[\s\S]+|Please call the clinic you visit; our front desk will help\.)$/,
     );
 
     await page.goto('/app/templates');

@@ -1438,6 +1438,7 @@ export {
   SESSION_REPLY_VERSION,
   checkAnswerOf,
   checkAnswers,
+  contactMessage,
   contactText,
   emergencyAdviceSchema,
   emergencyPhrasesSchema,
