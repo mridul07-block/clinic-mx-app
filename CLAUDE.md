@@ -36,7 +36,7 @@ built by Velyx Labs. pnpm monorepo: `apps/web` (Next.js App Router) and `package
 
 Order of authority: `docs/Clinic_Mx_PRD.md`, then `docs/Clinic_Mx_TAD.md`, then
 `docs/Clinic_Mx_Frontend_Specification.md`, then `docs/Clinic_Mx_Feature_Ticket_List.md`, then the
-Blueprint. Design system v2: `docs/design/`. Workbooks: `docs/Joint wise AI Training/`. Ask when the
+Blueprint. Design system v3 (teal and gold): `docs/design/`. Workbooks: `docs/Joint wise AI Training/`. Ask when the
 documents are silent or conflict; never invent product behaviour or clinical content.
 
 ### Commands
