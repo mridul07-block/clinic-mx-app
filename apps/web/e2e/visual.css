@@ -1,0 +1,8 @@
+/* Applied only while a screenshot is taken (e2e/visual.ts): nothing that moves or blinks. */
+*,
+*::before,
+*::after {
+  transition: none !important;
+  animation: none !important;
+  caret-color: transparent !important;
+}

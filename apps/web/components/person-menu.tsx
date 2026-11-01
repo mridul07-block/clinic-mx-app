@@ -31,20 +31,23 @@ export function PersonMenu({
 
   return (
     <details ref={menu} data-testid="person-menu">
-      <summary
-        aria-label={`${name}, ${role}: menu`}
-        className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-control px-1 hover:bg-surface-hover xl:justify-start xl:px-2 [&::-webkit-details-marker]:hidden"
-      >
+      {/* Named by the words it shows (WCAG 2.5.3): the name and role, read on the rail too,
+          then "menu". */}
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-control px-1 hover:bg-surface-hover xl:justify-start xl:px-2 [&::-webkit-details-marker]:hidden">
         <span
           aria-hidden
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-surface-sunken text-xs font-semibold text-ink-secondary"
         >
           {initialsOf(name)}
         </span>
-        <span aria-hidden className="hidden min-w-0 flex-col xl:flex">
+        <span className="sr-only min-w-0 flex-col xl:not-sr-only xl:flex">
           <span className="truncate font-medium text-ink">{name}</span>
-          <span className="truncate text-xs text-ink-muted">{role}</span>
+          <span className="truncate text-xs text-ink-muted">
+            <span className="sr-only">, </span>
+            {role}
+          </span>
         </span>
+        <span className="sr-only">: menu</span>
       </summary>
       <div className="fixed bottom-3 left-[calc(var(--rail-width)+0.5rem)] z-50 flex w-60 flex-col gap-2 rounded-panel border border-line bg-surface p-3 shadow-float xl:left-[calc(var(--sidebar-width)+0.5rem)]">
         <Link href="/app/account" className="text-accent underline underline-offset-2">

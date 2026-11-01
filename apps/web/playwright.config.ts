@@ -16,6 +16,18 @@ export default defineConfig({
   retries: isCI ? 1 : 0,
   workers: isCI ? 2 : undefined,
   reporter: isCI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  // UIX-07: screenshots per platform and project (fonts render differently on Windows and
+  // Linux); steady settings for every comparison (e2e/visual.ts).
+  snapshotPathTemplate:
+    '{testDir}/__screenshots__/{platform}/{projectName}/{testFilePath}/{arg}{ext}',
+  expect: {
+    toHaveScreenshot: {
+      animations: 'disabled',
+      caret: 'hide',
+      scale: 'css',
+      maxDiffPixelRatio: 0.002,
+    },
+  },
   use: {
     baseURL: `http://localhost:${PORT}`,
     locale: 'en-IN',

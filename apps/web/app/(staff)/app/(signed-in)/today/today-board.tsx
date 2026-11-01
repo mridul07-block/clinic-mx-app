@@ -223,10 +223,11 @@ export function TodayBoard({
                 <Link
                   href={calendarHref({ centreId, date, appointmentId: appointment.id })}
                   className="row-span-2 text-sm text-ink tabular-nums underline-offset-2 hover:underline md:row-span-1"
-                  aria-label={`Open ${appointment.number} at ${timeOf(appointment.startsAt)}`}
                 >
                   {timeOf(appointment.startsAt)}
                   <span className="block text-xs text-ink-muted">{timeOf(appointment.endsAt)}</span>
+                  {/* Named by the times it shows first (WCAG 2.5.3), then what it opens. */}
+                  <span className="sr-only">, open {appointment.number}</span>
                 </Link>
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <Link
