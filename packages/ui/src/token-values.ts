@@ -5,12 +5,12 @@
  * only when a non-CSS consumer needs it.
  */
 export const tokenValues = {
-  canvas: '#f7f5f3',
+  canvas: '#f5f7f9',
   surface: '#ffffff',
-  ink: '#1b1915',
-  'ink-secondary': '#45423d',
-  'ink-muted': '#66635d',
-  'ink-faint': '#8f8c86',
+  ink: '#0f1a24',
+  'ink-secondary': '#334252',
+  'ink-muted': '#4a5868',
+  'ink-faint': '#66737f',
   brand: '#fcb714',
 } as const;
 

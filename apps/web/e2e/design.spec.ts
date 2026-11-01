@@ -1,6 +1,15 @@
 import { expect, test } from '@playwright/test';
+import { tokenValues } from '@clinic-mx/ui';
 
-// FND-06: the design tokens reach the page, at 360 px (phone project) and on desktop.
+// FND-06: the design tokens reach the page, at 360 px (phone project) and on desktop. The colours
+// come from tokenValues (checked against tokens.css by pnpm check:design), so a palette change
+// such as design system v3 (UIX-03) needs no edit here.
+
+/** '#f5f7f9' as the browser reports it: 'rgb(245, 247, 249)'. */
+function rgb(hex: string): string {
+  const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
+  return `rgb(${String(r)}, ${String(g)}, ${String(b)})`;
+}
 
 test('staff pages use the canvas, ink and IBM Plex Sans at 14 px', async ({ page }) => {
   await page.goto('/app');
@@ -13,8 +22,8 @@ test('staff pages use the canvas, ink and IBM Plex Sans at 14 px', async ({ page
       size: style.fontSize,
     };
   });
-  expect(body.background).toBe('rgb(247, 245, 243)');
-  expect(body.color).toBe('rgb(27, 25, 21)');
+  expect(body.background).toBe(rgb(tokenValues.canvas));
+  expect(body.color).toBe(rgb(tokenValues.ink));
   expect(body.font).toMatch(/IBM Plex Sans/);
   expect(body.size).toBe('14px');
 });

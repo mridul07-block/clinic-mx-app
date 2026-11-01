@@ -39,9 +39,9 @@ describe('checkTokens', () => {
 
   it('reports a missing token', () => {
     const missing = new Map(tokens);
-    missing.delete('focus');
+    missing.delete('viz-detractor');
     expect(checkTokens(missing, 't')).toEqual([
-      expect.objectContaining({ message: 'token --focus is missing' }),
+      expect.objectContaining({ message: 'token --viz-detractor is missing' }),
     ]);
   });
 });
