@@ -27,6 +27,8 @@ import { z } from 'zod';
 import { FormMessage } from '../../../../../../components/forms';
 import { PackageMeter } from '../../../../../../components/package-meter';
 import { RecordTabs } from '../../../../../../components/record-tabs';
+import { Page } from '@clinic-mx/ui/components/page';
+import { ChevronRight } from 'lucide-react';
 import { Tag } from '../../../../../../components/tag';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { patientPackagesFor } from '../../../../../../modules/billing/packages';
@@ -127,7 +129,7 @@ export default async function PatientPage({
   const pricesPlans = can(staff, 'bills.view_amounts');
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="content">
       <div className="flex flex-col gap-1.5">
         <Link href="/app/patients" className="text-sm text-ink-muted underline underline-offset-2">
           Patients
@@ -177,240 +179,266 @@ export default async function PatientPage({
       ) : null}
 
       {tab === 'overview' ? (
-        <>
-          {opening ? (
-            <p
-              className="rounded-panel border border-line bg-surface p-4 text-ink-secondary"
-              data-testid="opening-entry-note"
-            >
-              In treatment before launch: an opening entry on{' '}
-              {formatIstDate(istDate(opening.createdAt))} with {opening.physioName} at{' '}
-              {opening.centreName}. Session numbers start again from launch; the opening package
-              holds the sessions left.
-            </p>
-          ) : null}
-          {record ? (
-            <SummaryCard
-              patientId={patient.id}
-              summary={record.summary}
-              nextVisit={record.nextVisit}
-            />
-          ) : null}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <div className="flex min-w-0 flex-col gap-6">
+            {opening ? (
+              <p
+                className="rounded-panel border border-line bg-surface p-4 text-ink-secondary"
+                data-testid="opening-entry-note"
+              >
+                In treatment before launch: an opening entry on{' '}
+                {formatIstDate(istDate(opening.createdAt))} with {opening.physioName} at{' '}
+                {opening.centreName}. Session numbers start again from launch; the opening package
+                holds the sessions left.
+              </p>
+            ) : null}
+            {record ? (
+              <SummaryCard
+                patientId={patient.id}
+                summary={record.summary}
+                nextVisit={record.nextVisit}
+              />
+            ) : null}
 
-          {canEdit ? (
-            <PatientForm
-              today={istDate(new Date())}
-              patient={{
-                patientId: patient.id,
-                name: patient.name,
-                phone: patient.phone,
-                email: patient.email ?? '',
-                dateOfBirth: patient.dateOfBirth ?? '',
-                sex: patient.sex ?? '',
-                occupation: patient.occupation ?? '',
-              }}
-            />
-          ) : (
-            <dl className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-4 text-ink-secondary">
-              <dt className="font-medium text-ink">Mobile</dt>
-              <dd>{formatIndianPhone(patient.phone)}</dd>
-              <dt className="font-medium text-ink">Email</dt>
-              <dd className="break-all">{patient.email ?? 'Not given'}</dd>
-              <dt className="font-medium text-ink">Date of birth</dt>
-              <dd>{patient.dateOfBirth ? formatIstDate(patient.dateOfBirth) : 'Not given'}</dd>
-              <dt className="font-medium text-ink">Sex</dt>
-              <dd>{patient.sex ? patientSexLabels[patient.sex] : 'Not given'}</dd>
-              <dt className="font-medium text-ink">Occupation</dt>
-              <dd>{patient.occupation ?? 'Not given'}</dd>
-            </dl>
-          )}
+            {record ? null : (
+              <section aria-labelledby="episodes" className="flex flex-col gap-3">
+                <h2 id="episodes" className="font-semibold text-ink">
+                  Episodes
+                </h2>
+                {episodes.length === 0 ? (
+                  <p className="text-ink-muted">
+                    No episodes yet. Booking a consultation opens one.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {episodes.map((episode) => (
+                      <li
+                        key={episode.id}
+                        data-testid="episode"
+                        className="rounded-panel border border-line bg-surface p-4"
+                      >
+                        <EpisodeHeading episode={episode} episodes={episodes} />
+                        {/* BIL-01: a proposed or active plan is priced at the desk. */}
+                        {pricesPlans &&
+                        (episode.status === 'plan_proposed' || episode.status === 'active') ? (
+                          <Link
+                            href={`/app/plans/${episode.id}`}
+                            className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-accent underline underline-offset-2"
+                          >
+                            Plan and payment
+                          </Link>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
 
-          {record ? null : (
-            <section aria-labelledby="episodes" className="flex flex-col gap-3">
-              <h2 id="episodes" className="font-semibold text-ink">
-                Episodes
-              </h2>
-              {episodes.length === 0 ? (
-                <p className="text-ink-muted">No episodes yet. Booking a consultation opens one.</p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {episodes.map((episode) => (
-                    <li
-                      key={episode.id}
-                      data-testid="episode"
-                      className="rounded-panel border border-line bg-surface p-4"
-                    >
-                      <EpisodeHeading episode={episode} episodes={episodes} />
-                      {/* BIL-01: a proposed or active plan is priced at the desk. */}
-                      {pricesPlans &&
-                      (episode.status === 'plan_proposed' || episode.status === 'active') ? (
-                        <Link
-                          href={`/app/plans/${episode.id}`}
-                          className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-accent underline underline-offset-2"
-                        >
-                          Plan and payment
-                        </Link>
-                      ) : null}
+            {invoices ? (
+              <section aria-labelledby="invoices" className="flex flex-col gap-3">
+                <h2 id="invoices" className="font-semibold text-ink">
+                  Invoices
+                </h2>
+                {invoices.length > 0 ? (
+                  <DocumentList documents={invoices} />
+                ) : (
+                  <p className="text-ink-muted">Invoices appear here once a bill is paid.</p>
+                )}
+              </section>
+            ) : null}
+
+            {packages && packages.length > 0 ? (
+              <section aria-labelledby="packages" className="flex flex-col gap-3">
+                <h2 id="packages" className="font-semibold text-ink">
+                  Packages
+                </h2>
+                <ul className="flex flex-col gap-2" data-testid="patient-packages">
+                  {packages.map((entry) => (
+                    <li key={entry.id}>
+                      <PackageMeter entry={entry} today={today} expiringDays={expiringDays} />
                     </li>
                   ))}
                 </ul>
-              )}
-            </section>
-          )}
-
-          {invoices ? (
-            <section aria-labelledby="invoices" className="flex flex-col gap-3">
-              <h2 id="invoices" className="font-semibold text-ink">
-                Invoices
+              </section>
+            ) : null}
+          </div>
+          <div className="flex min-w-0 flex-col gap-6">
+            {/* View, then edit (design system v3 section 7): the details read first; Edit details
+              opens the form. */}
+            <section aria-labelledby="contact" className="flex flex-col gap-3">
+              <h2 id="contact" className="font-semibold text-ink">
+                Contact details
               </h2>
-              {invoices.length > 0 ? (
-                <DocumentList documents={invoices} />
-              ) : (
-                <p className="text-ink-muted">Invoices appear here once a bill is paid.</p>
-              )}
-            </section>
-          ) : null}
-
-          {packages && packages.length > 0 ? (
-            <section aria-labelledby="packages" className="flex flex-col gap-3">
-              <h2 id="packages" className="font-semibold text-ink">
-                Packages
-              </h2>
-              <ul className="flex flex-col gap-2" data-testid="patient-packages">
-                {packages.map((entry) => (
-                  <li key={entry.id}>
-                    <PackageMeter entry={entry} today={today} expiringDays={expiringDays} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {selfBooking ? (
-            <section aria-labelledby="self-booking" className="flex flex-col gap-3">
-              <h2 id="self-booking" className="font-semibold text-ink">
-                Self booking
-              </h2>
-              {selfBooking.blocked ? (
-                <div
-                  data-testid="self-booking-blocked"
-                  className="flex flex-col gap-1 rounded-panel border border-waiting-line bg-waiting-soft p-4"
-                >
-                  <span className="font-semibold text-ink">
-                    Self booking blocked:{' '}
-                    {selfBooking.because === 'reschedules'
-                      ? `${String(selfBooking.reschedules)} reschedules asked by the patient.`
-                      : `${String(selfBooking.noShows)} no shows.`}
-                  </span>
-                  <span className="text-ink-secondary">
-                    They are asked to call; book them at the front desk.
-                  </span>
-                </div>
-              ) : (
-                <p className="text-ink-secondary" data-testid="self-booking-allowed">
-                  Can book on WhatsApp.
-                </p>
-              )}
-              <p className="text-sm text-ink-secondary tabular-nums" data-testid="booking-counts">
-                Reschedules asked by the patient {selfBooking.reschedules} of{' '}
-                {selfBooking.limits.reschedules} · No shows {selfBooking.noShows} of{' '}
-                {selfBooking.limits.noShows}
-              </p>
-              {selfBooking.liftedAt ? (
-                <p className="text-sm text-ink-muted">
-                  Last allowed again
-                  {selfBooking.liftedByName ? ` by ${selfBooking.liftedByName}` : ''},{' '}
-                  {formatIstDate(istDate(selfBooking.liftedAt))}
-                </p>
-              ) : null}
-              {canLift && (selfBooking.reschedules > 0 || selfBooking.noShows > 0) ? (
-                <LiftBlockForm patientId={patient.id} />
-              ) : null}
-            </section>
-          ) : null}
-
-          {showGuardians ? (
-            <section aria-labelledby="guardians" className="flex flex-col gap-3">
-              <h2 id="guardians" className="font-semibold text-ink">
-                Guardians
-              </h2>
-              <p className="text-sm text-ink-secondary">
-                {minor
-                  ? `Patients under ${adultAge} need a guardian, who signs the consent and attends.`
-                  : `Needed for patients under ${adultAge}. Add one if the patient is a child.`}
-              </p>
-              {guardians.length === 0 ? (
-                <p className="text-ink-muted">No guardian yet.</p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {guardians.map((guardian) => (
-                    <li
-                      key={guardian.id}
-                      data-testid="guardian"
-                      className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-4"
-                    >
-                      <span className="flex flex-wrap items-baseline justify-between gap-2">
-                        <span className="font-medium text-ink">{guardian.name}</span>
-                        <span className="text-sm text-ink-secondary">
-                          {guardianRelationshipLabels[guardian.relationship]}
-                        </span>
-                      </span>
-                      <span className="text-sm text-ink-secondary">
-                        {formatIndianPhone(guardian.phone)}
-                      </span>
-                      {canEdit ? (
-                        <details>
-                          <summary className="cursor-pointer text-accent underline underline-offset-2 pointer-coarse:py-3">
-                            Edit or remove {guardian.name}
-                          </summary>
-                          <div className="mt-3 flex flex-col gap-3">
-                            <GuardianForm patientId={patient.id} guardian={guardian} />
-                            <RemoveGuardianForm
-                              patientId={patient.id}
-                              guardianId={guardian.id}
-                              name={guardian.name}
-                            />
-                          </div>
-                        </details>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <dl className="grid grid-cols-1 gap-x-4 gap-y-1 rounded-panel border border-line bg-surface p-4 text-ink-secondary sm:grid-cols-[9rem_minmax(0,1fr)]">
+                <dt className="font-medium text-ink">Mobile</dt>
+                <dd>{formatIndianPhone(patient.phone)}</dd>
+                <dt className="font-medium text-ink">Email</dt>
+                <dd className="break-all">{patient.email ?? 'Not given'}</dd>
+                <dt className="font-medium text-ink">Date of birth</dt>
+                <dd>{patient.dateOfBirth ? formatIstDate(patient.dateOfBirth) : 'Not given'}</dd>
+                <dt className="font-medium text-ink">Sex</dt>
+                <dd>{patient.sex ? patientSexLabels[patient.sex] : 'Not given'}</dd>
+                <dt className="font-medium text-ink">Occupation</dt>
+                <dd>{patient.occupation ?? 'Not given'}</dd>
+              </dl>
               {canEdit ? (
-                <details open={guardians.length === 0 && minor ? true : undefined}>
-                  <summary className="cursor-pointer font-medium text-accent pointer-coarse:py-3">
-                    {guardians.length === 0 ? 'Add guardian' : 'Add another guardian'}
+                <details className="group rounded-panel border border-line bg-surface p-4">
+                  <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 font-medium text-accent [&::-webkit-details-marker]:hidden">
+                    <ChevronRight
+                      aria-hidden
+                      size={16}
+                      strokeWidth={1.75}
+                      className="transition-transform group-open:rotate-90 motion-reduce:transition-none"
+                    />
+                    Edit details
                   </summary>
                   <div className="mt-3">
-                    <GuardianForm patientId={patient.id} defaultPhone={patient.phone} />
+                    <PatientForm
+                      today={istDate(new Date())}
+                      patient={{
+                        patientId: patient.id,
+                        name: patient.name,
+                        phone: patient.phone,
+                        email: patient.email ?? '',
+                        dateOfBirth: patient.dateOfBirth ?? '',
+                        sex: patient.sex ?? '',
+                        occupation: patient.occupation ?? '',
+                      }}
+                    />
                   </div>
                 </details>
               ) : null}
             </section>
-          ) : null}
 
-          {family.length > 0 ? (
-            <section aria-labelledby="same-mobile" className="flex flex-col gap-2">
-              <h2 id="same-mobile" className="font-semibold text-ink">
-                Also on this mobile
-              </h2>
-              <ul className="flex flex-col gap-2" data-testid="same-mobile">
-                {family.map((other) => (
-                  <li key={other.id}>
-                    <Link
-                      href={`/app/patients/${other.id}`}
-                      className="flex flex-wrap items-baseline justify-between gap-2 rounded-panel border border-line bg-surface p-4 hover:bg-surface-hover"
-                    >
-                      <span className="font-medium text-ink">{other.name}</span>
-                      <span className="font-mono text-sm text-ink-secondary">{other.opNumber}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-        </>
+            {selfBooking ? (
+              <section aria-labelledby="self-booking" className="flex flex-col gap-3">
+                <h2 id="self-booking" className="font-semibold text-ink">
+                  Self booking
+                </h2>
+                {selfBooking.blocked ? (
+                  <div
+                    data-testid="self-booking-blocked"
+                    className="flex flex-col gap-1 rounded-panel border border-waiting-line bg-waiting-soft p-4"
+                  >
+                    <span className="font-semibold text-ink">
+                      Self booking blocked:{' '}
+                      {selfBooking.because === 'reschedules'
+                        ? `${String(selfBooking.reschedules)} reschedules asked by the patient.`
+                        : `${String(selfBooking.noShows)} no shows.`}
+                    </span>
+                    <span className="text-ink-secondary">
+                      They are asked to call; book them at the front desk.
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-ink-secondary" data-testid="self-booking-allowed">
+                    Can book on WhatsApp.
+                  </p>
+                )}
+                <p className="text-sm text-ink-secondary tabular-nums" data-testid="booking-counts">
+                  Reschedules asked by the patient {selfBooking.reschedules} of{' '}
+                  {selfBooking.limits.reschedules} · No shows {selfBooking.noShows} of{' '}
+                  {selfBooking.limits.noShows}
+                </p>
+                {selfBooking.liftedAt ? (
+                  <p className="text-sm text-ink-muted">
+                    Last allowed again
+                    {selfBooking.liftedByName ? ` by ${selfBooking.liftedByName}` : ''},{' '}
+                    {formatIstDate(istDate(selfBooking.liftedAt))}
+                  </p>
+                ) : null}
+                {canLift && (selfBooking.reschedules > 0 || selfBooking.noShows > 0) ? (
+                  <LiftBlockForm patientId={patient.id} />
+                ) : null}
+              </section>
+            ) : null}
+
+            {showGuardians ? (
+              <section aria-labelledby="guardians" className="flex flex-col gap-3">
+                <h2 id="guardians" className="font-semibold text-ink">
+                  Guardians
+                </h2>
+                <p className="text-sm text-ink-secondary">
+                  {minor
+                    ? `Patients under ${adultAge} need a guardian, who signs the consent and attends.`
+                    : `Needed for patients under ${adultAge}. Add one if the patient is a child.`}
+                </p>
+                {guardians.length === 0 ? (
+                  <p className="text-ink-muted">No guardian yet.</p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {guardians.map((guardian) => (
+                      <li
+                        key={guardian.id}
+                        data-testid="guardian"
+                        className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-4"
+                      >
+                        <span className="flex flex-wrap items-baseline justify-between gap-2">
+                          <span className="font-medium text-ink">{guardian.name}</span>
+                          <span className="text-sm text-ink-secondary">
+                            {guardianRelationshipLabels[guardian.relationship]}
+                          </span>
+                        </span>
+                        <span className="text-sm text-ink-secondary">
+                          {formatIndianPhone(guardian.phone)}
+                        </span>
+                        {canEdit ? (
+                          <details>
+                            <summary className="cursor-pointer text-accent underline underline-offset-2 pointer-coarse:py-3">
+                              Edit or remove {guardian.name}
+                            </summary>
+                            <div className="mt-3 flex flex-col gap-3">
+                              <GuardianForm patientId={patient.id} guardian={guardian} />
+                              <RemoveGuardianForm
+                                patientId={patient.id}
+                                guardianId={guardian.id}
+                                name={guardian.name}
+                              />
+                            </div>
+                          </details>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {canEdit ? (
+                  <details open={guardians.length === 0 && minor ? true : undefined}>
+                    <summary className="cursor-pointer font-medium text-accent pointer-coarse:py-3">
+                      {guardians.length === 0 ? 'Add guardian' : 'Add another guardian'}
+                    </summary>
+                    <div className="mt-3">
+                      <GuardianForm patientId={patient.id} defaultPhone={patient.phone} />
+                    </div>
+                  </details>
+                ) : null}
+              </section>
+            ) : null}
+
+            {family.length > 0 ? (
+              <section aria-labelledby="same-mobile" className="flex flex-col gap-2">
+                <h2 id="same-mobile" className="font-semibold text-ink">
+                  Also on this mobile
+                </h2>
+                <ul className="flex flex-col gap-2" data-testid="same-mobile">
+                  {family.map((other) => (
+                    <li key={other.id}>
+                      <Link
+                        href={`/app/patients/${other.id}`}
+                        className="flex flex-wrap items-baseline justify-between gap-2 rounded-panel border border-line bg-surface p-4 hover:bg-surface-hover"
+                      >
+                        <span className="font-medium text-ink">{other.name}</span>
+                        <span className="font-mono text-sm text-ink-secondary">
+                          {other.opNumber}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </div>
+        </div>
       ) : null}
 
       {record && tab === 'notes' ? (
@@ -442,6 +470,6 @@ export default async function PatientPage({
           opensAlerts={(alert) => actsOnAlerts && worksAtCentre(staff, alert.centreId)}
         />
       ) : null}
-    </main>
+    </Page>
   );
 }

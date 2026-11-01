@@ -114,6 +114,8 @@ test('a message WhatsApp could not deliver shows on Today until the desk marks i
   await signIn(page, desk.email);
   await page.goto('/app/today');
   const panel = page.getByTestId('not-delivered');
+  // Folded to its heading (UIX-13); the list opens on a tap.
+  await panel.getByText(/^Show the /).click();
   const item = panel.getByTestId('not-delivered-item').filter({ hasText: patient.name });
   await expect(item).toHaveCount(1);
   await expect(panel.getByRole('heading', { name: /^Not delivered \(\d+\)$/ })).toBeVisible();

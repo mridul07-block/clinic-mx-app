@@ -1,12 +1,11 @@
 import { centreList } from '@clinic-mx/db';
+import { buttonVariants } from '@clinic-mx/ui/components/button';
+import { Page } from '@clinic-mx/ui/components/page';
+import { StickyActions } from '@clinic-mx/ui/components/sticky-actions';
 import { can, istDate, staffRoleLabels, todayFilters, type TodayFilter } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import {
-  FormMessage,
-  primaryButtonClass,
-  secondaryButtonClass,
-} from '../../../../../components/forms';
+import { FormMessage } from '../../../../../components/forms';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../modules/access/staff-db';
 import { loadCheckIn } from '../../../../../modules/front-desk/check-in';
@@ -85,9 +84,32 @@ export default async function TodayPage({
   const doneOptions: CheckInDone[] = ['checked-in', 'undone', 'tablet', 'reports', 'assisted'];
   const done = doneOptions.find((d) => d === params.done);
 
+  const actions = (
+    <>
+      {/* A walk in (INT-12): today's free starts, then book and check in in one action. */}
+      <Link
+        href={calendarHref({
+          centreId: centre.id,
+          date,
+          newBooking: { on: date },
+          walkIn: true,
+        })}
+        className={buttonVariants({ variant: 'secondary' })}
+      >
+        Walk in
+      </Link>
+      <Link
+        href={calendarHref({ centreId: centre.id, date, newBooking: {} })}
+        className={buttonVariants()}
+      >
+        New booking
+      </Link>
+    </>
+  );
+
   return (
     <>
-      <main className="flex w-full flex-col gap-4 px-4 py-6">
+      <Page width="full" className="gap-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
             <nav aria-label="Go to" className="flex flex-wrap gap-x-4 gap-y-1">
@@ -102,6 +124,7 @@ export default async function TodayPage({
               </Link>
             </nav>
             <h1 className="text-title font-semibold">Today</h1>
+            {/* Who is signed in stays on the screen: front desk computers are shared. */}
             <p className="text-sm text-ink-muted">
               {centre.name} · {signedInAs}
             </p>
@@ -116,26 +139,8 @@ export default async function TodayPage({
               Paper health form and consent (PDF)
             </a>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            {/* A walk in (INT-12): today's free starts, then book and check in in one action. */}
-            <Link
-              href={calendarHref({
-                centreId: centre.id,
-                date,
-                newBooking: { on: date },
-                walkIn: true,
-              })}
-              className={`${secondaryButtonClass} sm:w-auto`}
-            >
-              Walk in
-            </Link>
-            <Link
-              href={calendarHref({ centreId: centre.id, date, newBooking: {} })}
-              className={`${primaryButtonClass} sm:w-auto`}
-            >
-              New booking
-            </Link>
-          </div>
+          {/* The screen's actions: in the header from 768 px, pinned above the tabs on phones. */}
+          <div className="hidden gap-2 md:flex">{actions}</div>
         </div>
         {centres.length > 1 ? (
           <nav aria-label="Centre" className="flex flex-wrap gap-2">
@@ -146,8 +151,8 @@ export default async function TodayPage({
                 aria-current={c.id === centre.id ? 'page' : undefined}
                 className={`${pillClass} ${
                   c.id === centre.id
-                    ? 'border-ink bg-surface font-medium text-ink'
-                    : 'border-line-control text-ink-secondary'
+                    ? 'border-accent bg-accent-soft font-medium text-accent'
+                    : 'border-line-control text-ink-secondary hover:bg-surface-hover'
                 }`}
               >
                 {c.name}
@@ -169,6 +174,8 @@ export default async function TodayPage({
           pricesPlans={can(staff, 'bills.view_amounts')}
           notDelivered={undelivered.map((message) => message.patientId)}
         />
+        {/* Last in the page, so its spacer keeps the board's end clear of the pinned bar. */}
+        <StickyActions className="flex-row md:hidden">{actions}</StickyActions>
         {opened ? (
           <CheckInDrawer
             view={opened}
@@ -180,7 +187,7 @@ export default async function TodayPage({
             maxReportMegabytes={maxReportMegabytes}
           />
         ) : null}
-      </main>
+      </Page>
     </>
   );
 }
