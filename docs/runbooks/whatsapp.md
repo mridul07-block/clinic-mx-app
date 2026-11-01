@@ -30,12 +30,30 @@ Decisions (user, 30 October 2026, WA-02):
 
 ## The test number
 
+Since 1 November 2026 staging uses the **Branmart** business portfolio's app "Clinic Mx Demo" (App
+ID 28310574528641645) and its test number. Branmart is verified, which Meta needs before it sends a
+form (Flow, see "Health"); the first app, "Clinic Mx Demo VelyxLabs" under the unverified
+VelyxLabs portfolio, had every form refused with 139000 (user decision, 1 November 2026: test on
+the verified business).
+
 | What | Value |
 | --- | --- |
-| Test number | +1 555 647 2996 |
-| Phone Number ID | 1429559720231717 |
-| WhatsApp Business Account ID | 1103346035769121 |
+| Test number | +1 555 171 0876 |
+| Phone Number ID | 1202342662968646 |
+| WhatsApp Business Account ID | 1381844343847616 ("Test WhatsApp Business Account", Branmart) |
+| Booking form (Flow) | 1110236325051774, a draft |
+| Reschedule form (Flow) | 1448719870542271, a draft |
+| System user | `clinic-mx-server` (Admin, Branmart), its token never expiring |
 | Graph API version | v25.0 |
+
+Notes on this account:
+- Branmart has no payment method on WhatsApp (141006 in "Health"): conversations the patient
+  starts work, and so do the replies, forms and confirmations in them; a template outside the 24
+  hour window does not.
+- The same WhatsApp account also sends its webhooks to the app "Ideora Service Demo" (kept, user
+  decision), so that app's server, when it runs, also gets these test messages.
+- The VelyxLabs number (+1 555 647 2996, Phone Number ID 1429559720231717, WhatsApp Business
+  Account 1103346035769121) is no longer used; its IDs stay in `.env.local` as `#OLD_` lines.
 
 None of these is secret, but they live in the environment, not in code, so production switches
 number by configuration only.
