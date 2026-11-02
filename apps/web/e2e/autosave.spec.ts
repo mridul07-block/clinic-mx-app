@@ -119,7 +119,7 @@ test('saves an offline draft on reconnect even after leaving its screen', async 
   await page.goto('/app');
   await expect(page.getByRole('heading', { name: 'You are offline' })).toBeVisible();
   await context.setOffline(false);
-  await expect(page.getByRole('heading', { name: 'Clinic Mx' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'More', level: 1 })).toBeVisible();
   await expect.poll(() => savedText(request)).toBe('Left this screen while offline');
 });
 

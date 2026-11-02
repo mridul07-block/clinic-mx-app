@@ -10,16 +10,16 @@ has 16 GB.
 ## Before every merge: `pnpm ci:local`
 
 From the repository root on the branch, with Docker running and nothing on port 3000
-(`scripts/ci-local.sh`). It runs every job of `.github/workflows/ci.yml`, in order, and stops at
-the first failure:
+(`scripts/ci-local.sh`). It runs every job of `.github/workflows/ci.yml` and stops at the first
+failure:
 
 | Step | CI job |
 | --- | --- |
-| `pnpm verify` (format, lint, design check, typecheck, unit tests) | Format, lint, typecheck, unit tests |
+| `pnpm verify` (format, lint, design check, typecheck, unit tests), alongside the database steps | Format, lint, typecheck, unit tests |
 | Migrations match the schema; migrations are forward only against `origin/main` | Same job |
 | Local database reset and every migration applied to it; seed; knowledge base import | Local Supabase stack |
 | Database tests | Local Supabase stack |
-| End to end, phone then desktop (`CI=1`: a fresh build, one retry, as on CI) | End to end (phone 1/3 to 3/3), (desktop 1/3 to 3/3) |
+| End to end, phone and desktop together (`CI=1`: a fresh build, one retry, as on CI) | End to end (phone 1/3 to 3/3), (desktop 1/3 to 3/3) |
 | Secret scan of the whole history (the gitleaks 8.30.1 release binary, checked against a pinned hash) | Secret scan |
 
 It ends with "Local gate passed at <commit>". The pull request notes that it passed locally, with
@@ -27,8 +27,25 @@ the commit; a merge waits for that line, as it waited for green CI. It resets th
 (the seed and the knowledge base import put back what the tests need) and changes the local staff
 password unless `CLINIC_MX_SEED_STAFF_PASSWORD` is set.
 
-The run takes about 10 to 14 minutes on the current laptop; the two end to end projects run one
-after the other to stay within 8 GB.
+The two heavy parts run side by side and the phone and desktop tests run together on 4 workers
+(`E2E_WORKERS` changes it), so a run takes less time than doing each in turn. A run stops after 10
+browser test failures, since by then it is broken.
+
+## Keeping it fast
+
+Measured on 3 November 2026: 566 browser tests, typically 3.4 seconds each, took 22 of the 32 minutes
+on 2 workers, one device after the other. No test stands out, so parallel workers are what helps.
+
+- **One run for a stack of branches.** Build related changes on top of each other, run the gate once
+  on the top branch, then merge them in order. Their combined result is what was tested.
+- **While working,** run only what the change touches: `pnpm verify` and the specs for that area
+  (`pnpm test:e2e navigation.spec`, with the gate's variables). Run the gate when the work is ready.
+- **Leave the machine alone during a run.** Lint or a build at the same time starves the tests, and
+  they fail with sign in and page timeouts that are not real. One run on 3 November took 23.7 minutes
+  and had 9 such failures while lint ran beside it.
+- **Do not add `eslint --cache`.** Lint here uses type information, so a change in one file can break
+  another that the cache would skip (typescript-eslint issue 4694).
+- **A flaky test is a bug to fix.** Each retry costs its whole length again.
 
 ## Time of day
 
