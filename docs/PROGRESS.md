@@ -791,6 +791,10 @@ the code location.
 - 22 October 2026 (SET-03): the Super Admin keeps appointment types (add, rename, length,
   deactivate) and each physio's own lengths for any type; lengths are whole 15 minute slots; Review
   45 and Zero Gravity Treadmill 30 minutes are placeholders.
+- 3 November 2026 (IAM-02): for client demos, test logins (`@clinicmx.test`) can skip two step
+  verification on staging while `STAGING_SKIP_TWO_STEP_FOR_TEST_LOGINS` is `on`. Real addresses
+  never skip it; off before staff train on staging (OPS-04) or real data goes there; never set on
+  production.
 - 1 November 2026 (UIX-01): design system v3 replaces v2 "ink and gold": deep teal actions, gold
   as the brand mark and patient primary button, cool slate neutrals, Inter, components on Base UI
   (React Aria for dates); the token names stay, so screens recolour without edits (UIX-03).
