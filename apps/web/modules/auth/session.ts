@@ -49,7 +49,12 @@ export const signInState = cache(async (): Promise<SignInState | null> => {
   }
   return {
     staff,
-    stage: signInStage({ role: staff.role, level: claims.aal, hasAuthenticator: twoStepOn }),
+    stage: signInStage({
+      role: staff.role,
+      email: staff.email,
+      level: claims.aal,
+      hasAuthenticator: twoStepOn,
+    }),
     twoStepOn,
   };
 });

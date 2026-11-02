@@ -151,6 +151,24 @@ staging password is in the repository secret `STAGING_SEED_STAFF_PASSWORD` (and 
 `apps/web/.env.local`); the Migrate staging workflow also needs `STAGING_SUPABASE_URL` and
 `STAGING_SUPABASE_SERVICE_ROLE_KEY`. Production never runs the seed.
 
+### Client demos without codes
+
+`STAGING_SKIP_TWO_STEP_FOR_TEST_LOGINS=on` on staging lets `@clinicmx.test` logins in with the
+password alone, whatever their role (`signInStage`; decision 3 November 2026). It is the one
+exception to the two step rule above.
+
+- **Who it covers**: only addresses ending in `@clinicmx.test` on the staff row. A real person's
+  address is still asked for a code. Production never gets these logins, because it never runs the
+  seed.
+- **Why an environment variable**: no screen or setting can turn it on. Any value other than `on`
+  stops the server with an error, and an empty value counts as off.
+- **The risk**: the shared password alone then opens a Super Admin account on staging. Staging must
+  hold only generated people while it is on, and the password stays with Velyx. Type it in during
+  the demo and do not hand it out.
+- **Turn it off** before the clinic's staff train on staging (OPS-04) or any real patient data goes
+  there: remove the variable from Vercel and redeploy. Never set it on production
+  (`upgrade-to-production.md`).
+
 ## Running the end to end tests locally
 
 ```sh

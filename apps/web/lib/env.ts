@@ -23,6 +23,12 @@ const serverEnvSchema = z.object({
    * Admin inviting staff and resetting two step verification). Never sent to the browser.
    */
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  /**
+   * Staging only, for showing the app to clients: "on" lets @clinicmx.test logins in without two
+   * step verification (docs/runbooks/auth.md). An environment variable and not a setting, so no
+   * screen can turn it on. Never set it on production.
+   */
+  STAGING_SKIP_TWO_STEP_FOR_TEST_LOGINS: z.enum(['on']).optional(),
   /** Sent by pg_cron with every job tick (FND-10); at least 32 characters. */
   JOBS_SECRET: z.string().min(32).optional(),
   /**

@@ -100,7 +100,12 @@ export async function signIn(_state: AuthFormState, form: FormData): Promise<Aut
   const hasAuthenticator = (data.user.factors ?? []).some(
     (factor) => factor.factor_type === 'totp' && factor.status === 'verified',
   );
-  const stage = signInStage({ role: staff.role, level: 'aal1', hasAuthenticator });
+  const stage = signInStage({
+    role: staff.role,
+    email: staff.email,
+    level: 'aal1',
+    hasAuthenticator,
+  });
   // Only a page asked for travels through two step verification; the home comes at the end.
   const next = safeNextPath(form.get('next'));
   if (stage !== 'complete') redirect(`${stagePath[stage]}${nextParam(next)}`);

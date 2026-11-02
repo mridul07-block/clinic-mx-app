@@ -17,7 +17,8 @@ done; until then FND-02, FND-03 and FND-12 are only complete for the free plans.
 2. **Supabase production project** in Mumbai (`ap-south-1`) on Pro with Small compute, spend cap on.
    Keep `clinic-mx-staging` for staging and previews.
 3. **Production variables** set in Vercel's Production target only, pointing at the production
-   Supabase project; staging values move to the staging environment.
+   Supabase project; staging values move to the staging environment. Staging uses the Production
+   target until then, so check `STAGING_SKIP_TWO_STEP_FOR_TEST_LOGINS` is not left on it (`auth.md`).
 4. **Spend alerts and monitoring** (FND-12, `monitoring.md`):
    - Vercel Pro: Settings, Billing, Spend Management on, with an amount, email notifications to
      the on call inbox, and pausing production off (the clinic keeps working; the alert is enough).

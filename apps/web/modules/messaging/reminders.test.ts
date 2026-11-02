@@ -115,7 +115,10 @@ describe('the day before reminders', () => {
 
   it('queue the next evening first, at the setting’s time, then the reminders', async () => {
     settings.values['reminders.day_before_time'] = '17:30';
+    // The run reads the clock, and sends nothing once the appointments' day has begun.
+    vi.useFakeTimers({ now: evening, toFake: ['Date'] });
     await runDayBeforeReminders({} as Db, { date });
+    vi.useRealTimers();
     expect(db.queueNextReminders).toHaveBeenCalledWith(
       'system-tx',
       'whatsapp.day_before_reminders',
