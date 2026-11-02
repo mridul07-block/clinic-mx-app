@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { ownOutcomes, readsOwnOutcomes } from '../../../../../../modules/reporting/own-outcomes';
 
-export const metadata: Metadata = { title: 'My patients’ outcomes · Clinic Mx' };
+export const metadata: Metadata = { title: 'My results · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
 // My patients' outcomes (DSH-06; docs/runbooks/own-outcomes.md): the Centre Manager's Outcomes tab
@@ -33,7 +33,7 @@ export default async function OwnOutcomesPage({
         >
           My day
         </Link>
-        <h1 className="text-title font-semibold">My patients’ outcomes</h1>
+        <h1 className="text-title font-semibold">My results</h1>
         <p className="text-sm text-ink-secondary">
           Episodes whose current plan names you as treating physio, at any centre. The clinic’s
           targets are shown for context; no colleague’s figures are.

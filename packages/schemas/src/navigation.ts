@@ -87,6 +87,16 @@ const navRules: readonly NavRule[] = [
     section: 'daily',
     may: 'visits.start',
   },
+  {
+    label: 'My results',
+    href: '/app/my-patients/outcomes',
+    icon: 'dashboard',
+    section: 'daily',
+    may: (staff) =>
+      accessScope(staff, 'dashboard.own_patients') !== null &&
+      staff.treatsPatients &&
+      !staff.support,
+  },
   { label: 'Today', href: '/app/today', icon: 'today', section: 'daily', may: 'check_in.manage' },
   {
     label: 'Calendar',

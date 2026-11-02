@@ -116,6 +116,7 @@ describe('the main links', () => {
 
   it('put alerts, the knowledge base and the audit log on More, under headings', () => {
     expect(moreLabels(person('physiotherapist'))).toEqual([
+      'My results',
       'My leave',
       'Alerts',
       'Red flags',

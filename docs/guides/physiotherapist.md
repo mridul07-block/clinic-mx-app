@@ -11,7 +11,7 @@ Your main links, on the left of a computer and at the bottom of a phone (hidden 
 - **My day**: your visits, and **Colleagues today**.
 - **Calendar** and **Patients**: bookings and patient records.
 - **To do**: your tasks, most urgent first.
-- **More**: **Alerts** (open red flag alerts at your centres), **My leave**, **Red flags**, **Knowledge base** and **Account**.
+- **More**: **My results**, **Alerts** (open red flag alerts at your centres), **My leave**, **Red flags**, **Knowledge base** and **Account**.
 
 ## Everyday tasks
 
@@ -19,7 +19,7 @@ Your main links, on the left of a computer and at the bottom of a phone (hidden 
 
 1. Once the desk checks the patient in, tap **Start session**. Later, tap **Open session**.
 2. If **Gate blocked** shows instead, send the patient to the desk.
-3. To cover a colleague, tap **Start session** under **Colleagues today**. The note is then yours.
+3. To cover a colleague, open **Colleagues today** under your list and tap **Start session**. The note is then yours.
 
 ### Write the session note
 
@@ -58,7 +58,7 @@ Your main links, on the left of a computer and at the bottom of a phone (hidden 
 
 ### See your outcomes
 
-1. On My day, tap **My patients’ outcomes**.
+1. On **More**, tap **My results**.
 2. Choose **Last 30 days**, **Last 90 days** or **Last 12 months**.
 
 ## What the tags mean
