@@ -91,6 +91,7 @@ export function PhoneTabBar({
                   {count > 0 ? (
                     <span
                       data-testid="tab-count"
+                      data-volatile
                       className="absolute top-1 left-1/2 ml-2 min-w-5 rounded-full bg-accent px-1 text-center text-sm leading-5 font-normal text-on-accent tabular-nums"
                     >
                       <span className="sr-only">, </span>

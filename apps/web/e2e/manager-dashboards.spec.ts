@@ -43,6 +43,8 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
   await page.screenshot({ path: test.info().outputPath('dashboard-alerts.png'), fullPage: true });
 
   // Reports opens on Centres: HSR Layout today, the week's cells, no money anywhere.
+  // In the sidebar, or on More on a phone.
+  await page.goto('/app');
   await page.getByRole('link', { name: 'Reports', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Reports', level: 1 })).toBeVisible();
   await expect(page.getByRole('main').getByRole('link', { name: 'Money' })).toHaveCount(0);

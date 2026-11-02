@@ -45,7 +45,7 @@ test('the Super Admin changes a setting, checked and on the value read', async (
   await expect(page.getByText('day.running_late_minutes')).toHaveCount(0);
   const advanced = page.getByTestId('settings-advanced');
   await expect(advanced.getByText('limits.sign_in_per_email')).toBeHidden();
-  await advanced.locator('summary').click();
+  await advanced.locator('summary').first().click();
   await expect(advanced.getByText('limits.sign_in_per_email')).toBeVisible();
 
   // Find looks through all of them.

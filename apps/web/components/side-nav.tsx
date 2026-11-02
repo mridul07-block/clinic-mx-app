@@ -126,6 +126,7 @@ export function SideNav({
               {count > 0 ? (
                 <span
                   aria-hidden
+                  data-volatile
                   className="absolute top-0.5 right-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-sm leading-4 text-on-accent xl:static xl:bg-transparent xl:px-0 xl:text-ink-muted"
                 >
                   {count}
