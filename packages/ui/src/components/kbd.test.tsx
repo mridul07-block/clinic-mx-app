@@ -9,7 +9,7 @@ describe('Kbd', () => {
     for (const part of ['h-5', 'min-w-5', 'rounded-[4px]', 'border-line', 'bg-surface']) {
       expect(html).toContain(part);
     }
-    expect(html).toContain('font-mono text-xs text-ink-muted');
+    expect(html).toContain('font-mono text-sm text-ink-muted');
   });
 
   it('takes layout classes', () => {

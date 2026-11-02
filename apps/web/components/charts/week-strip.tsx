@@ -56,13 +56,13 @@ export function WeekStrip({
                 className={`size-7 rounded-control border-2 ${mark[day.state]}`}
                 aria-hidden="true"
               />
-              <span className="text-xs text-ink-muted">{day.day}</span>
+              <span className="text-sm text-ink-muted">{day.day}</span>
               <span className="sr-only">{weekDayStateLabels[day.state]}</span>
             </li>
           ))}
         </ol>
         <ul
-          className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-secondary"
+          className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-secondary"
           aria-hidden="true"
         >
           {weekDayStates

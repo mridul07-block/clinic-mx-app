@@ -56,7 +56,7 @@ export function CentreSwitcher({
   const id = useId();
   return (
     <form className="flex flex-col gap-1 px-2">
-      <label htmlFor={id} className="text-xs text-ink-muted">
+      <label htmlFor={id} className="text-sm text-ink-muted">
         Centre
       </label>
       <select
@@ -109,7 +109,7 @@ export function RailCentreSwitcher({
       <summary
         aria-label={`Centre: ${current ? `${current.code}, ${current.name}` : 'none'}. Change`}
         title={current?.name}
-        className="flex min-h-11 cursor-pointer list-none items-center justify-center rounded-control border border-line-control bg-surface text-xs font-semibold text-ink shadow-xs [&::-webkit-details-marker]:hidden"
+        className="flex min-h-11 cursor-pointer list-none items-center justify-center rounded-control border border-line-control bg-surface text-sm font-semibold text-ink shadow-xs [&::-webkit-details-marker]:hidden"
       >
         {current?.code ?? '—'}
       </summary>

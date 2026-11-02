@@ -191,6 +191,7 @@
 | UIX-13 | Done (pilot; the check in drawer moves to the kit Sheet with the calendar, UIX-17) | Today, the pilot's first screen. New booking and Walk in sit in the header from 768 px and are pinned above the tabs on phones, side by side. "Not delivered" is amber (needs attention, not an emergency) and folds to its heading and count, so the day's board stays first; its tag on a row is amber too. The filter chips are the kit's count chips (the chosen one on the teal tint), the centre pills likewise, and an empty day says so with a Book an appointment link. Who is signed in stays in the header line: front desk computers are shared. |
 | UIX-14 | Done (pilot; Patients showing recent and today's patients before a search needs a new query and waits for its own ticket) | The patient record at the content width (1040 px) instead of a 400 px column, in two columns from 1024 px: the clinical summary, episodes, invoices and packages on the left, contact details, self booking, guardians and others on the same mobile on the right. Contact details read first; Edit details opens the form (view, then edit). |
 | UIX-15 | Done (pilot) | Plan and payment at the content width, in the order the desk works: the plan, its per session and package prices, the patient's choice and Part B consent on the left, the money (bills, bought packages, plan sessions, the patient link QR codes) on the right from 1024 px, one column in that order on a phone. The phone-width ratchet came down to 47. |
+| UIX-16a | Done | Bigger text everywhere (the user's review, 3 November 2026: every role too complicated, text too small). Body 16 px and secondary text 14 px for staff, nothing under 14 px; 12 px only for chart axes and the smallest avatar (`text-axis`). `text-xs` is gone from the theme and `pnpm check:design` refuses it and any size in brackets. Controls 40 px high with a mouse; Calendar rows 32 px so a 30 minute block holds its lines; charts stop growing past 448 px so their labels stay in proportion; Today's action column widened. Plan: simplify every role (the steps after this one). | Decision below |
 
 ## Tooling
 
@@ -791,6 +792,7 @@ the code location.
 - 22 October 2026 (SET-03): the Super Admin keeps appointment types (add, rename, length,
   deactivate) and each physio's own lengths for any type; lengths are whole 15 minute slots; Review
   45 and Zero Gravity Treadmill 30 minutes are placeholders.
+- 3 November 2026 (UIX-16a, the user's review): the interface is to be simple for every role. Staff text is 16 px with a 14 px floor (reverses UIX-01's 14 px body); features are hidden and recorded here before anything is deleted.
 - 3 November 2026 (IAM-02): for client demos, test logins (`@clinicmx.test`) can skip two step
   verification on staging while `STAGING_SKIP_TWO_STEP_FOR_TEST_LOGINS` is `on`. Real addresses
   never skip it; off before staff train on staging (OPS-04) or real data goes there; never set on

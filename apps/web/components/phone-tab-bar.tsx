@@ -71,7 +71,7 @@ export function PhoneTabBar({ tabs }: { tabs: readonly PhoneTab[] }) {
                   href={tab.href}
                   aria-current={here ? 'page' : undefined}
                   className={[
-                    'relative flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 text-xs',
+                    'relative flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 text-sm',
                     here ? 'font-semibold text-accent' : 'text-ink-secondary hover:text-ink',
                   ].join(' ')}
                 >

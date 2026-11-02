@@ -73,7 +73,7 @@ export function CalendarBlock({
       scroll={false}
       data-testid="calendar-block"
       aria-current={selected ? 'true' : undefined}
-      className={`@container relative flex h-full flex-col overflow-hidden rounded-control border py-0.5 pr-1.5 pl-2.5 text-xs leading-tight text-ink ${fill} ${
+      className={`@container relative flex h-full flex-col overflow-hidden rounded-control border py-0.5 pr-1.5 pl-2.5 text-sm leading-tight text-ink ${fill} ${
         selected ? 'border-ink' : 'border-line'
       }`}
     >

@@ -531,7 +531,7 @@ export function PlanInputs({
                   <span className="flex flex-wrap items-center gap-2 font-medium">
                     {questionnaire.name}
                     {suggested.includes(questionnaire.key) ? (
-                      <span className="rounded-full border border-current px-1.5 text-xs font-normal">
+                      <span className="rounded-full border border-current px-1.5 text-sm font-normal">
                         Suggested
                       </span>
                     ) : null}

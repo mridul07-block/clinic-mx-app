@@ -16,9 +16,8 @@ const RIGHT = 6;
 const TOP = 16;
 // Room for the category labels, and a second line for "so far".
 const BOTTOM = 32;
-/** About how wide one character is, in viewBox units, at 10 px and 11 px. */
-const CHAR_10 = 5.6;
-const CHAR_11 = 6;
+/** About how wide one character is, in viewBox units, at the axis size. */
+const CHAR = 6.6;
 
 /** A label centred on `x`, or held inside the chart when centring would cut it off at an edge. */
 function edgeSafe(x: number, width: number): { x: number; textAnchor: 'start' | 'middle' | 'end' } {
@@ -59,7 +58,7 @@ export function BarChart({
   const top = niceMax(highest);
   const ticks = [0, top / 2, top];
   // Room on the left for the longest tick label.
-  const axis = 8 + Math.max(...ticks.map((tick) => format(tick).length)) * CHAR_11;
+  const axis = 8 + Math.max(...ticks.map((tick) => format(tick).length)) * CHAR;
   const plotWidth = WIDTH - axis - RIGHT;
   const plotHeight = HEIGHT - TOP - BOTTOM;
   const baseline = TOP + plotHeight;
@@ -76,7 +75,7 @@ export function BarChart({
     ),
   );
   // A value is written on its bar only when every value fits its column.
-  const valuesFit = single && widest * CHAR_10 + 4 <= group;
+  const valuesFit = single && widest * CHAR + 4 <= group;
   /** The comparison (last year) is complete; every other series is still filling in `soFar`. */
   const filling = (index: number, each: BarSeries) => index === soFar && each.tone !== 'compare';
   const words = (index: number, each: BarSeries, value: number) =>
@@ -112,7 +111,7 @@ export function BarChart({
         viewBox={`0 0 ${String(WIDTH)} ${String(HEIGHT)}`}
         role="img"
         aria-label={label}
-        className="h-auto w-full"
+        className="h-auto w-full max-w-md"
       >
         <defs>
           <clipPath id={clip}>
@@ -147,7 +146,7 @@ export function BarChart({
               y={y(tick)}
               textAnchor="end"
               dominantBaseline="middle"
-              className="fill-ink-muted text-[11px]"
+              className="fill-ink-muted text-axis"
             >
               {format(tick)}
             </text>
@@ -196,7 +195,7 @@ export function BarChart({
                         paintOrder="stroke"
                         strokeWidth={3}
                         strokeLinejoin="round"
-                        className="fill-ink stroke-canvas text-[10px] font-medium"
+                        className="fill-ink stroke-canvas text-axis font-medium"
                         data-testid="bar-value"
                       >
                         {format(value)}
@@ -207,18 +206,18 @@ export function BarChart({
               })}
               {index % every === 0 ? (
                 <text
-                  {...edgeSafe(middle, category.length * CHAR_11)}
+                  {...edgeSafe(middle, category.length * CHAR)}
                   y={HEIGHT - 17}
-                  className="fill-ink-muted text-[11px]"
+                  className="fill-ink-muted text-axis"
                 >
                   {category}
                 </text>
               ) : null}
               {index === soFar ? (
                 <text
-                  {...edgeSafe(middle, 'so far'.length * CHAR_10)}
+                  {...edgeSafe(middle, 'so far'.length * CHAR)}
                   y={HEIGHT - 4}
-                  className="fill-ink-muted text-[10px]"
+                  className="fill-ink-muted text-axis"
                 >
                   so far
                 </text>
@@ -244,7 +243,7 @@ export function BarChart({
               paintOrder="stroke"
               strokeWidth={3}
               strokeLinejoin="round"
-              className="fill-ink-muted stroke-canvas text-[10px]"
+              className="fill-ink-muted stroke-canvas text-axis"
             >
               {target.label}
             </text>
@@ -252,7 +251,7 @@ export function BarChart({
         ) : null}
       </svg>
       {series.length > 1 ? (
-        <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-secondary">
+        <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-secondary">
           {series.map((each) => (
             <li key={each.name} className="flex items-center gap-1">
               <svg width={10} height={10} aria-hidden="true">

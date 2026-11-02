@@ -36,7 +36,7 @@ export function DocumentList({ documents }: { documents: DocumentEntry[] }) {
           </a>
           {earlier.length > 0 ? (
             <div className="flex flex-col gap-1 border-t border-line pt-2">
-              <span className="text-xs font-medium text-ink-secondary">Earlier versions</span>
+              <span className="text-sm font-medium text-ink-secondary">Earlier versions</span>
               <ul className="flex flex-wrap gap-x-4">
                 {earlier.map((version) => (
                   <li key={version.id}>

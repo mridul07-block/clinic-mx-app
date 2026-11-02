@@ -51,7 +51,7 @@ export function DayGrid({
         className="grid min-w-max"
         style={{
           gridTemplateColumns: `4rem repeat(${String(day.columns.length)}, minmax(11rem, 1fr))`,
-          gridTemplateRows: `auto repeat(${String(rows)}, 1.5rem)`,
+          gridTemplateRows: `auto repeat(${String(rows)}, 2rem)`,
         }}
       >
         <div className="sticky top-0 left-0 z-30 border-b border-line bg-surface" />
@@ -82,7 +82,7 @@ export function DayGrid({
           return (
             <div
               key={row}
-              className={`sticky left-0 z-10 bg-surface pr-2 text-right text-xs text-ink-muted tabular-nums ${
+              className={`sticky left-0 z-10 bg-surface pr-2 text-right text-sm text-ink-muted tabular-nums ${
                 minute === 0 ? 'border-t border-line' : ''
               }`}
               style={{ gridColumn: 1, gridRow: row + 2 }}
@@ -123,7 +123,7 @@ export function DayGrid({
                   scroll={false}
                   aria-label={`Free at ${timeOf(at)} with ${column.physioName}`}
                   data-testid="free-cell"
-                  className={`group flex items-center border-l border-line px-2 text-xs text-ink-muted hover:bg-surface-hover ${line} ${
+                  className={`group flex items-center border-l border-line px-2 text-sm text-ink-muted hover:bg-surface-hover ${line} ${
                     freedSpans.some((a) => overlaps(cell, a)) ? 'z-[7] ml-[50%]' : ''
                   }`}
                   style={place}
@@ -148,7 +148,7 @@ export function DayGrid({
           column.held.map((hold) => (
             <div
               key={`${column.physioId}@${hold.startsAt.toISOString()}`}
-              className="z-[5] m-0.5 flex items-start rounded-control border border-dashed border-line-strong bg-surface-sunken px-2 py-0.5 text-xs text-ink-secondary"
+              className="z-[5] m-0.5 flex items-start rounded-control border border-dashed border-line-strong bg-surface-sunken px-2 py-0.5 text-sm text-ink-secondary"
               style={{
                 gridColumn: index + 2,
                 gridRow: `${String(rowOf(hold.startsAt))} / ${String(rowOf(hold.endsAt))}`,
@@ -204,7 +204,7 @@ export function DayGrid({
               className="absolute inset-x-0 flex items-center"
               style={{ top: `${String((nowRow % 1) * 100)}%` }}
             >
-              <span className="w-16 bg-surface pr-1 text-right text-xs font-medium text-accent tabular-nums">
+              <span className="w-16 bg-surface pr-1 text-right text-sm font-medium text-accent tabular-nums">
                 {timeOf(new Date(now))}
               </span>
               <span className="h-0.5 flex-1 bg-accent" />

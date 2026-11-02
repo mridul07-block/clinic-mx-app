@@ -116,7 +116,7 @@ Stacked parts are separated by a 2 px white gap. Series hues sit away from statu
 
 | Role | Font | Why |
 |---|---|---|
-| All UI | **Inter** (variable) | Drawn for dense screens: tall x-height, clear at 12 to 14 px, narrower than IBM Plex so more fits at 360 px. Tabular figures, the ₹ glyph, open licence (OFL) |
+| All UI | **Inter** (variable) | Drawn for dense screens: tall x-height, clear at 14 to 16 px, narrower than IBM Plex so more fits at 360 px. Tabular figures, the ₹ glyph, open licence (OFL) |
 | IDs, invoice numbers, keyboard hints | **Inter with `tnum` and `ss02`** (the `font-mono` utility) | Tabular figures line IDs up; `ss02` is Inter's set for characters that must not be confused (slashed zero, `l` with a tail, `I` with serifs). One font file instead of two |
 
 Load Inter with `next/font/google` (self hosted on our domain, rule 9). Keep the Latin Extended subset: the ₹ sign lives there. Many popular fonts (Onest, Instrument Sans, Hanken Grotesk) have no ₹; check the font file before swapping. English only (rule 8), so no other scripts.
@@ -129,14 +129,14 @@ Load Inter with `next/font/google` (self hosted on our domain, rule 9). Keep the
 
 PDFs (react-pdf) embed Inter's static Regular, Medium and SemiBold files; OP and bill numbers there keep IBM Plex Mono if react-pdf cannot apply Inter's `ss02` (Frontend Specification section 11).
 
-### 3.2 Scale (staff base 14 px, patient pages 16 px)
+### 3.2 Scale (base 16 px for staff and patients, nothing under 14 px)
 
 | Token | Size / line height | Tracking | Weight | Use |
 |---|---|---|---|---|
-| `xs` | 12 / 16 | | 400 or 500 | Axis labels, captions, grid times, small tags |
-| `sm` | 13 / 18 | | 400 | Secondary lines, tags, meta, table headers |
-| `base` | 14 / 20 | | 400, 500 for emphasis | Body, table rows, inputs, buttons |
-| `md` | 16 / 24 | -0.01em on titles | 600 | Panel and drawer titles; patient page body |
+| `axis` | 12 / 16 | | 400 or 500 | Chart axes and the 24 px avatar's initials only |
+| `sm` | 14 / 20 | | 400 | Secondary lines, tags, meta, table headers, grid times; the smallest text anywhere else |
+| `base` | 16 / 24 | | 400, 500 for emphasis | Body, table rows, inputs, buttons |
+| `md` | 16 / 24 | -0.01em on titles | 600 | Panel and drawer titles |
 | `lg` | 18 / 26 | | 600 | Error panel titles, kiosk answers |
 | `xl` | 22 / 30 | -0.01em | 600 | A measure against its target; large input |
 | `title` | 24 / 32 | -0.015em | 600 | Page title, the page's only h1 |
@@ -205,7 +205,7 @@ Panels are defined by a **1 px `line` border plus `shadow-xs`**. Only things tha
 | `target-patient` | 56 px | Kiosk and patient pages |
 | answer | 64 px | Kiosk Yes / No |
 
-The switch follows the **pointer, not the width**: `@media (pointer: coarse)` gives 44 px, a mouse keeps 36 px at any screen size.
+The switch follows the **pointer, not the width**: `@media (pointer: coarse)` gives 44 px, a mouse keeps 40 px at any screen size.
 
 ### 4.5 Layout sizes and stacking
 
@@ -326,8 +326,8 @@ Base: inline flex, centred, 8 px gap, 8 px radius, 1 px border, weight 500, text
 
 | Size | Height | Padding x | Text | Icon |
 |---|---|---|---|---|
-| small | 28 px (44 on touch) | 10 px | 13 px | 14 px |
-| default | 36 px (44 on touch) | 14 px | 14 px | 16 px |
+| small | 28 px (44 on touch) | 10 px | 14 px | 14 px |
+| default | 40 px (44 on touch) | 14 px | 16 px | 16 px |
 | large | 56 px | 24 px | 16 px | 20 px |
 | answer | 64 px | 24 px | 18 px | 24 px |
 
@@ -337,10 +337,10 @@ While an action runs the button is disabled with fixed text ("Saving"), **no spi
 Square, 36 px (44 touch), a lucide icon, required name used for the tooltip and `aria-label`. Close buttons in drawers and toasts: `ink-muted`, hover `surface-hover` and `ink`.
 
 ### Inputs (Input, Select trigger, Combobox, TextArea)
-Full width, 36 px high (44 touch), 12 px horizontal padding, 8 px radius, **1 px `line-control` border**, `surface` fill, `shadow-xs`, 14 px `ink` text (16 px on touch, section 3.2), placeholder `ink-faint`. The right `inputmode` and `autocomplete` on every field (mobile numbers `tel`, amounts `decimal`). Hover: border `ink-muted`. Invalid (`aria-invalid`): border `danger`. Disabled: `line` border, `surface-subtle` fill, `ink-faint`, no shadow. A **large** input (48 px, 22 px semibold tabular) for the one figure that is the point of a screen.
+Full width, 40 px high (44 touch), 12 px horizontal padding, 8 px radius, **1 px `line-control` border**, `surface` fill, `shadow-xs`, 16 px `ink` text, placeholder `ink-faint`. The right `inputmode` and `autocomplete` on every field (mobile numbers `tel`, amounts `decimal`). Hover: border `ink-muted`. Invalid (`aria-invalid`): border `danger`. Disabled: `line` border, `surface-subtle` fill, `ink-faint`, no shadow. A **large** input (48 px, 22 px semibold tabular) for the one figure that is the point of a screen.
 
 ### Field
-Label above (14 px, 500), helper text below in `sm ink-muted`, error below the helper in `danger` with an icon. Optional fields say "(optional)"; required ones are not starred. Placeholders are never labels. Errors appear when the form is sent, not while typing; a form with more than one error also shows an error summary at its top linking to each field (NHS pattern). What the person typed is never cleared.
+Label above (16 px, 500), helper text below in `sm ink-muted`, error below the helper in `danger` with an icon. Optional fields say "(optional)"; required ones are not starred. Placeholders are never labels. Errors appear when the form is sent, not while typing; a form with more than one error also shows an error summary at its top linking to each field (NHS pattern). What the person typed is never cleared.
 
 ### Floating list (Select, Combobox, Menu)
 Panel: 12 px radius, `line` border, `surface`, 4 px padding, `shadow-float`. Options: min 32 px (44 touch), 6 px radius, 10 px left padding, 8 px gap; highlighted on `surface-hover`; a tick on the right for the chosen one.
@@ -351,7 +351,7 @@ Panel: 12 px radius, `line` border, `surface`, 4 px padding, `shadow-float`. Opt
 * ChoiceGroup: one of a few answers as large selectable rows.
 
 ### Tag and StatusBadge
-Inline flex, 6 px radius, 1 px border, weight 500, no wrap. Default 24 px high, 8 px padding, 13 px text; small 20 px, 6 px padding, 12 px. Optional 6 px round dot before the word.
+Inline flex, 6 px radius, 1 px border, weight 500, no wrap. Default 24 px high, 8 px padding, 14 px text; small 22 px, 6 px padding, 14 px. Optional 6 px round dot before the word.
 
 | Tone | Border | Fill | Text | Dot |
 |---|---|---|---|---|

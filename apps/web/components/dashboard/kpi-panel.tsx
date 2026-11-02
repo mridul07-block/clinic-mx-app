@@ -30,7 +30,7 @@ export function KpiPanel({ cells }: { cells: readonly KpiCell[] }) {
           <dd className="text-display font-semibold tabular-nums break-words text-ink">
             {cell.value}
           </dd>
-          <dd className="text-xs text-ink-secondary">{cell.change}</dd>
+          <dd className="text-sm text-ink-secondary">{cell.change}</dd>
         </div>
       ))}
     </dl>

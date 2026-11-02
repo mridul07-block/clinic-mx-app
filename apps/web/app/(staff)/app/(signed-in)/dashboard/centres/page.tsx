@@ -105,7 +105,7 @@ export default async function DashboardCentresPage() {
               label={`How bookings came in, last ${String(view.channels.days)} days`}
               rows={view.channels.parts.map((part) => ({ label: part.label, value: part.value }))}
             />
-            <p className="text-xs text-ink-muted">
+            <p className="text-sm text-ink-muted">
               Not in the chart: {view.channels.automatic} booked by Clinic Mx (6 week reviews).
             </p>
           </div>

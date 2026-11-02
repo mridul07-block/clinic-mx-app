@@ -30,7 +30,7 @@ export default async function DashboardTeamPage() {
               rows={view.notesOnTime}
               format={(value) => `${String(value)}%`}
             />
-            <p className="text-xs text-ink-muted">
+            <p className="text-sm text-ink-muted">
               Target over {view.notesTarget}%. Each physio:{' '}
               {view.notesOnTime.map((row) => `${row.label} ${row.counted}`).join(', ')}.
             </p>

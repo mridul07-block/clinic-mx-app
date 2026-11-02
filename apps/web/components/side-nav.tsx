@@ -129,11 +129,11 @@ export function SideNav({
         <Search aria-hidden size={16} strokeWidth={1.75} className="text-ink-muted" />
         <span className="sr-only">Search or jump to</span>
         <span aria-hidden className="hidden flex-1 text-left xl:inline">
-          Search or jump to
+          Search
         </span>
         <kbd
           aria-hidden
-          className="hidden h-5 items-center rounded-tag border border-line px-1 font-mono text-xs text-ink-muted xl:inline-flex"
+          className="hidden h-5 items-center rounded-tag border border-line px-1 font-mono text-sm text-ink-muted xl:inline-flex"
         >
           Ctrl K
         </kbd>
@@ -146,7 +146,7 @@ export function SideNav({
             aria-label={group.label}
             className="flex flex-col gap-0.5"
           >
-            <p className="hidden px-2 pt-1 text-xs text-ink-muted xl:block">{group.label}</p>
+            <p className="hidden px-2 pt-1 text-sm text-ink-muted xl:block">{group.label}</p>
             <hr className="mx-2 border-line xl:hidden" />
             {group.items.map((item) => {
               const Icon = icons[item.icon];
@@ -187,14 +187,14 @@ export function SideNav({
                   </span>
                   <span
                     aria-hidden
-                    className="hidden max-w-full truncate text-xs pointer-coarse:block xl:pointer-coarse:hidden"
+                    className="hidden max-w-full truncate text-sm pointer-coarse:block xl:pointer-coarse:hidden"
                   >
                     {item.label}
                   </span>
                   {count > 0 ? (
                     <span
                       aria-hidden
-                      className="absolute top-0.5 right-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-xs leading-4 text-on-accent xl:static xl:bg-transparent xl:px-0 xl:text-ink-muted"
+                      className="absolute top-0.5 right-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-sm leading-4 text-on-accent xl:static xl:bg-transparent xl:px-0 xl:text-ink-muted"
                     >
                       {count}
                     </span>

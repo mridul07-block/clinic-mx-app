@@ -234,7 +234,7 @@ export function TodayBoard({
               <li
                 key={appointment.id}
                 data-testid="today-row"
-                className="relative grid grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1.5 py-3 pr-4 pl-5 md:grid-cols-[3rem_minmax(0,1fr)_14rem_10rem] md:items-center"
+                className="relative grid grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1.5 py-3 pr-4 pl-5 md:grid-cols-[3rem_minmax(0,1fr)_14rem_12rem] md:items-center"
               >
                 <span
                   aria-hidden="true"
@@ -245,7 +245,7 @@ export function TodayBoard({
                   className="row-span-2 text-sm text-ink tabular-nums underline-offset-2 hover:underline md:row-span-1"
                 >
                   {timeOf(appointment.startsAt)}
-                  <span className="block text-xs text-ink-muted">{timeOf(appointment.endsAt)}</span>
+                  <span className="block text-sm text-ink-muted">{timeOf(appointment.endsAt)}</span>
                   {/* Named by the times it shows first (WCAG 2.5.3), then what it opens. */}
                   <span className="sr-only">, open {appointment.number}</span>
                 </Link>

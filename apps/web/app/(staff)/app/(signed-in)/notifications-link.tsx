@@ -20,7 +20,7 @@ export function NotificationsLink({ unread }: { unread: number }) {
       <span className="hidden md:inline">Notifications</span>
       {shown > 0 ? (
         <span
-          className="absolute top-1 right-0.5 min-w-5 rounded-full bg-danger px-1.5 text-center text-xs leading-5 font-semibold text-on-danger md:static md:min-w-6 md:px-2"
+          className="absolute top-1 right-0.5 min-w-5 rounded-full bg-danger px-1.5 text-center text-sm leading-5 font-semibold text-on-danger md:static md:min-w-6 md:px-2"
           data-testid="notifications-unread"
         >
           {shown}

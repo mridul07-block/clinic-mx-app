@@ -86,7 +86,7 @@ export default async function SettingsPage() {
                   <p className="text-sm break-words text-ink-secondary" data-testid="setting-value">
                     Now: <span className="font-mono">{settingDisplay(key, entry.value)}</span>
                   </p>
-                  <p className="text-xs text-ink-muted">
+                  <p className="text-sm text-ink-muted">
                     Changed {formatIstDateTime(entry.updatedAt)} by{' '}
                     {entry.updatedByName ?? 'the system'}. Source: {definition.source}
                   </p>

@@ -228,7 +228,7 @@ export async function CheckInDrawer({
                   <figcaption className="text-center text-sm text-ink-secondary">
                     Scan with your phone camera. Works until{' '}
                     {formatIstDateTime(healthForm.expiresAt)}.
-                    <span className="mt-1 block font-mono text-xs break-all text-ink-muted">
+                    <span className="mt-1 block font-mono text-sm break-all text-ink-muted">
                       {healthForm.path}
                     </span>
                   </figcaption>

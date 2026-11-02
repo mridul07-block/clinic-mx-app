@@ -15,14 +15,14 @@
     }
   }
 
-  /* Ink on the canvas, Inter, staff base size 14/20. Prose uses proportional figures;
+  /* Ink on the canvas, Inter, base size 16/24 for staff and patients alike. Prose uses proportional figures;
      tables, times, money and KPIs opt into tabular ones with the tabular-nums utility. */
   body {
     background-color: var(--canvas);
     color: var(--ink);
     font-family: var(--font-sans);
-    font-size: 0.875rem;
-    line-height: 1.25rem;
+    font-size: 1rem;
+    line-height: 1.5rem;
     font-variant-numeric: proportional-nums;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
@@ -59,7 +59,7 @@
  * Form controls on touch screens are 16/24 (design system v3 section 3.2, UIX-05): iOS Safari
  * zooms the page into any field under 16 px. Outside @layer on purpose, so it wins over the
  * text-base or text-sm a control carries; a control set larger (text-lg and up) keeps its size.
- * With a mouse, controls keep the staff 14 px. Zoom is never blocked.
+ * With a mouse, a control keeps the size its class gives it. Zoom is never blocked.
  */
 @media (pointer: coarse) {
   :is(

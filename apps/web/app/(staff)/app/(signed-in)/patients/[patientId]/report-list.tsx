@@ -42,7 +42,7 @@ export function ReportList({ reports }: { reports: PatientReportEntry[] }) {
                 `Open PDF, ${reportSizeText(report.sizeBytes)}`
               )}
             </a>
-            <span className="text-xs text-ink-secondary">
+            <span className="text-sm text-ink-secondary">
               {reportKindLabels[report.contentType]} · {reportAddedBy(report)} ·{' '}
               {formatIstDateTime(report.createdAt)}
             </span>

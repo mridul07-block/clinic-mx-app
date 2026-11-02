@@ -238,6 +238,6 @@ export function AssessmentInputs({
 
 function SuggestedTag() {
   return (
-    <span className="rounded-full border border-current px-1.5 text-xs font-normal">Suggested</span>
+    <span className="rounded-full border border-current px-1.5 text-sm font-normal">Suggested</span>
   );
 }

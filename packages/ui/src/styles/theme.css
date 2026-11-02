@@ -3,7 +3,7 @@
  *
  * Tailwind's own colours, fonts, type sizes, radii, shadows and weights are removed, so
  * only our tokens exist as utilities: bg-canvas, text-ink, border-line-control, text-base
- * (14/20), rounded-panel, shadow-xs, font-semibold. A class such as bg-red-500 or
+ * (16/24), rounded-panel, shadow-xs, font-semibold. A class such as bg-red-500 or
  * font-bold generates nothing.
  *
  * `inline` makes utilities use var(--token) from tokens.css directly; `reference` stops
@@ -88,15 +88,16 @@
   /* IDs line up and never confuse 0 and O, 1, l and I (Inter's tabular figures and ss02). */
   --font-mono--font-feature-settings: 'tnum', 'ss02';
 
-  /* Type scale: staff base 14 px, patient pages 16 px; two display sizes, the page title
-     (24/32) and the one number that matters (32/40). */
+  /* Type scale: every page reads at 16 px and nothing is under 14 px (user decision, 3 November
+     2026); text-axis (12 px) is for chart axes and the smallest avatar's initials only. Two
+     display sizes, the page title (24/32) and the one number that matters (32/40). */
   --text-*: initial;
-  --text-xs: 0.75rem;
-  --text-xs--line-height: 1rem;
-  --text-sm: 0.8125rem;
-  --text-sm--line-height: 1.125rem;
-  --text-base: 0.875rem;
-  --text-base--line-height: 1.25rem;
+  --text-axis: 0.75rem;
+  --text-axis--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
   --text-md: 1rem;
   --text-md--line-height: 1.5rem;
   --text-lg: 1.125rem;
@@ -133,9 +134,9 @@
 
   --ease-standard: var(--ease-standard);
 
-  /* Sizes from the layout tokens: h-row (36 px), h-row-touch (44 px), h-target-patient
+  /* Sizes from the layout tokens: h-row (40 px), h-row-touch (44 px), h-target-patient
      (56 px), w-drawer (480 px), w-sidebar (240 px), w-rail (64 px) and max-w-signin (400 px). Controls use h-row
-     with pointer-coarse:h-row-touch, so touch screens get 44 px and a mouse keeps 36 px
+     with pointer-coarse:h-row-touch, so touch screens get 44 px and a mouse keeps 40 px
      at any width. */
   --spacing-row: var(--row-height);
   --spacing-row-touch: var(--row-height-touch);

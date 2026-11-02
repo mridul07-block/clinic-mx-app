@@ -33,7 +33,7 @@ export function HorizontalBars({
         {shown.map((row, index) => (
           <li
             key={String(index)}
-            className="grid grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)] items-center gap-2 text-sm"
+            className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)] items-center gap-2 text-sm"
             data-words={`${row.label}: ${format(row.value)}`}
             data-testid="hbar"
           >

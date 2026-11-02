@@ -48,7 +48,7 @@ export function OutcomeBulletCard({ bullet }: { bullet: OutcomeBullet }) {
             targetLabel={`Target ${bullet.targetText.toLowerCase()}`}
             lowerIsBetter={bullet.lowerIsBetter}
           />
-          <span className="text-xs text-ink-muted">
+          <span className="text-sm text-ink-muted">
             {bullet.counted}
             {bullet.earlier === null
               ? ''

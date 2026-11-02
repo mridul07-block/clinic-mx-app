@@ -24,8 +24,8 @@ Clinic Mx is a calm clinical instrument in deep teal and Movementology gold: pho
 | Where | Health form, consent, "My plan", questionnaires, feedback | Every staff screen |
 | Brand | Logo at top; gold primary buttons with ink text | Small logo; gold only as the location marker; teal for actions |
 | Primary button | Gold #FCB714, ink text | Teal #0E6B6B, white text |
-| Base text | 16 px | 14 px (form controls 16 px on touch screens) |
-| Touch targets | 56 px; 64 px for Yes and No answers | 36 px with a mouse, 44 px on touch |
+| Base text | 16 px | 16 px, secondary text 14 px, nothing smaller except chart axes (decision, 3 November 2026) |
+| Touch targets | 56 px; 64 px for Yes and No answers | 40 px with a mouse, 44 px on touch |
 | Tone | Warm, encouraging, plain words | Short, factual, status first |
 
 Design system v3 (`docs/design/README.md`, code in `packages/ui`) carries the full recipes; where it and this spec differ, this spec wins. v3 replaced v2 "ink and gold" on 1 November 2026 after the user reviewed staging: a deep teal action colour, cool slate neutrals and Inter, so the next step is easy to spot and more fits on a phone.
@@ -126,7 +126,7 @@ Screens are designed at 360 px first and widen into rails and drawers; staff scr
 | 768 to 1279 px (tablet) | Two panels (list and detail) | 64 px icon rail | Right panel |
 | 1280 px and up (desktop) | Up to three panels | 240 px sidebar with centre switcher at the top | 480 px right drawer, calendar stays visible |
 
-Touch size follows the pointer, not the width: 36 px rows with a mouse, 44 px on touch screens at any width.
+Touch size follows the pointer, not the width: 40 px rows with a mouse, 44 px on touch screens at any width.
 
 ### Bottom tabs by role (phones)
 
