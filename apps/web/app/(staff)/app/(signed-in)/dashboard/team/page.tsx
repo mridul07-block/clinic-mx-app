@@ -5,7 +5,7 @@ import { HorizontalBars } from '../../../../../../components/charts/horizontal-b
 import { requireStaff } from '../../../../../../modules/auth/session';
 import { teamDashboard } from '../../../../../../modules/reporting/manager';
 
-export const metadata: Metadata = { title: 'Team · Dashboard · Clinic Mx' };
+export const metadata: Metadata = { title: 'Team · Reports · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
 // Team (DSH-03): notes signed the same day by each physio and each physio's visits, with the

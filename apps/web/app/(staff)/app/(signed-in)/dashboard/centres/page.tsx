@@ -7,7 +7,7 @@ import { HorizontalBars } from '../../../../../../components/charts/horizontal-b
 import { requireStaff } from '../../../../../../modules/auth/session';
 import { centresDashboard } from '../../../../../../modules/reporting/manager';
 
-export const metadata: Metadata = { title: 'Centres · Dashboard · Clinic Mx' };
+export const metadata: Metadata = { title: 'Centres · Reports · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
 const centreTones: readonly Tone[] = ['centre-1', 'centre-2', 'centre-3'];

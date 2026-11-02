@@ -8,7 +8,7 @@ import { HorizontalBars } from '../../../../../../components/charts/horizontal-b
 import { requireStaff } from '../../../../../../modules/auth/session';
 import { outcomesDashboard } from '../../../../../../modules/reporting/manager';
 
-export const metadata: Metadata = { title: 'Outcomes · Dashboard · Clinic Mx' };
+export const metadata: Metadata = { title: 'Outcomes · Reports · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
 // Outcomes (DSH-03): completion and conversion against their SOP targets, the funnel from a

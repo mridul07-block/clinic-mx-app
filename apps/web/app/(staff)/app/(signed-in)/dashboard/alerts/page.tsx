@@ -1,15 +1,18 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { requireStaff } from '../../../../../../modules/auth/session';
 import { alertsDashboard } from '../../../../../../modules/reporting/manager';
 
-export const metadata: Metadata = { title: 'Alerts · Dashboard · Clinic Mx' };
+export const metadata: Metadata = { title: 'Home · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
-// Alerts (DSH-03, the Centre Manager's home): what needs attention now at each centre the reader
-// sees, as counts linking to their lists; never a patient here.
+// The Centre Manager's Home (DSH-03): what needs attention now at each centre they see, as counts
+// linking to their lists; never a patient here. The Super Admin's Home shows the same counts.
 export default async function DashboardAlertsPage() {
-  const view = await alertsDashboard(await requireStaff());
+  const staff = await requireStaff();
+  if (staff.role === 'super_admin') redirect('/app/overview');
+  const view = await alertsDashboard(staff);
   const waiting = view.items.filter((item) => item.total > 0);
   const clear = view.items.filter((item) => item.total === 0);
   return (

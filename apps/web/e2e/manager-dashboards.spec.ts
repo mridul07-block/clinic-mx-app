@@ -24,9 +24,7 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
 
   await signInWithCode(page, manager.email, manager.secret);
   await expect(page).toHaveURL(/\/app\/dashboard\/alerts/);
-  await expect(
-    page.getByRole('main').getByRole('link', { name: 'Alerts', exact: true }),
-  ).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible();
   // The episodes on hold at HSR Layout, as counted from the records.
   const held = page.locator('[data-testid="alert-count"][data-item="episodes_on_hold"]');
   await expect
@@ -44,8 +42,10 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
   expect(await fits()).toBe(true);
   await page.screenshot({ path: test.info().outputPath('dashboard-alerts.png'), fullPage: true });
 
-  // Centres: HSR Layout today, the week's cells, no money anywhere.
-  await page.getByRole('main').getByRole('link', { name: 'Centres', exact: true }).click();
+  // Reports opens on Centres: HSR Layout today, the week's cells, no money anywhere.
+  await page.getByRole('link', { name: 'Reports', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Reports', level: 1 })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('link', { name: 'Money' })).toHaveCount(0);
   const hsr = page.locator('[data-testid="centre-today"][data-centre="HSR Layout"]');
   await expect(hsr).toBeVisible();
   await expect(page.getByTestId('centre-today')).toHaveCount(1);

@@ -1,5 +1,6 @@
 import { kpiPeriodLabels, kpiPeriods, kpiStatusLabels, type KpiStatus } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { figuresView, type Figure } from '../../../../../modules/reporting/kpis';
 
@@ -23,6 +24,12 @@ export default async function FiguresPage() {
   return (
     <main className="flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
       <div className="flex flex-col gap-1">
+        <Link
+          href="/app/dashboard/centres"
+          className="text-sm text-ink-muted underline underline-offset-2 pointer-coarse:py-2"
+        >
+          Reports
+        </Link>
         <h1 className="text-title font-semibold">Figures</h1>
         <p className="text-ink-secondary">
           All centres, counted from the records at{' '}

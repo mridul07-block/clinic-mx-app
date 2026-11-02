@@ -94,7 +94,9 @@ describe('the main links', () => {
         const asMain = mainNavigationFor(staff).some(
           (main) => main.icon === item.icon || main.href === item.href,
         );
-        return asMain || more.includes(item.label);
+        // The Super Admin's Reports holds Money and Figures as tabs.
+        const inReports = staff.role === 'super_admin' && ['Money', 'Figures'].includes(item.label);
+        return asMain || inReports || more.includes(item.label);
       });
       expect(reached).toHaveLength(navigationFor(staff).length);
     }
@@ -106,6 +108,10 @@ describe('the main links', () => {
     expect(currentNavItem(items, '/app/dashboard/alerts')?.label).toBe('Home');
     expect(currentNavItem(items, '/app/dashboard/outcomes')?.label).toBe('Reports');
     expect(currentNavItem(items, '/app/patients/abc')?.label).toBe('Patients');
+    const admin = mainNavigationFor(person('super_admin', { centreIds: [] }));
+    expect(currentNavItem(admin, '/app/finance/unpaid')?.label).toBe('Reports');
+    expect(currentNavItem(admin, '/app/figures')?.label).toBe('Reports');
+    expect(currentNavItem(admin, '/app/overview')?.label).toBe('Home');
   });
 
   it('put alerts, the knowledge base and the audit log on More, under headings', () => {
@@ -118,7 +124,6 @@ describe('the main links', () => {
     const admin = moreNavigationFor(person('super_admin', { centreIds: [] }));
     expect(navigationBySection(admin).map((group) => group.label)).toEqual([
       'Day to day',
-      'Reports',
       'Clinic',
       'People',
       'Clinical content',
@@ -145,7 +150,7 @@ describe('the navigation', () => {
     );
     expect(labels(person('finance', { centreIds: [] }))).not.toContain('Calendar');
     const admin = labels(person('super_admin', { centreIds: [] }));
-    expect(admin).toEqual(expect.arrayContaining(['Staff', 'Settings', 'Audit log', 'Overview']));
+    expect(admin).toEqual(expect.arrayContaining(['Staff', 'Settings', 'Audit log', 'Home']));
     expect(new Set(admin).size).toBe(admin.length);
   });
 

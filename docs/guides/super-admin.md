@@ -2,16 +2,16 @@
 
 ## Where you start
 
-After you sign in you land on the **Overview**: every centre today, the last 7 days, the SOP targets and revenue.
+After you sign in you land on **Home**: what needs you now, every centre today and the last 7 days.
 
 ## Finding your way
 
 Your main links, on the left of a computer and at the bottom of a phone:
 
-- **Home**: every centre today, the last 7 days, the SOP targets and revenue.
+- **Home**: what needs you now, every centre today and the last 7 days. Tap a line under **Needs you now** to open its list.
 - **Calendar** and **Patients**.
 - **To do**: your tasks and your role's.
-- **Reports**: the numbers for every centre, with **Money** and **Figures** on **Setup** (on a phone, all are on **Setup**).
+- **Reports**: tabs for **Centres**, **Outcomes**, **Team**, **Feedback**, **Money** and **Figures**. On a phone, it is on **Setup**.
 - **Setup**: everything else, under headings:
   - **Day to day**: **Today**, **Alerts** and **Packages**.
   - **Clinic**: **Centres**, **Appointment types**, **Prices** and **Kiosk tablets**.

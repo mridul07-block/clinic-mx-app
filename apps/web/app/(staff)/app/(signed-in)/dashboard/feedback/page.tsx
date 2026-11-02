@@ -11,7 +11,7 @@ import {
   type FeedbackTally,
 } from '../../../../../../modules/reporting/manager';
 
-export const metadata: Metadata = { title: 'Feedback · Dashboard · Clinic Mx' };
+export const metadata: Metadata = { title: 'Feedback · Reports · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
 /** The Net Promoter Score in words: "+40", "−10", "0", or "No scores". */

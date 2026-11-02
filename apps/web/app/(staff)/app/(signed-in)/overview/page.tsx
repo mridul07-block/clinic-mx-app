@@ -1,107 +1,116 @@
-import { kpiText, monthLabel } from '@clinic-mx/schemas';
+import { Page, PageHeader } from '@clinic-mx/ui/components/page';
 import type { Metadata } from 'next';
-import { BarChart } from '../../../../../components/charts/bar-chart';
+import Link from 'next/link';
 import { KpiPanel } from '../../../../../components/dashboard/kpi-panel';
-import { OutcomeBulletCard } from '../../../../../components/dashboard/outcome-bullet-card';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { overviewView } from '../../../../../modules/reporting/overview';
 
-export const metadata: Metadata = { title: 'Overview · Clinic Mx' };
+export const metadata: Metadata = { title: 'Home · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
-const lakhs = (paise: number) => kpiText(Math.round(paise), 'paise');
 const minutes = (value: number | null) => (value === null ? 'none' : `${String(value)} min`);
 
-// The Super Admin's overview (DSH-05): every centre at a glance today, the week, the SOP targets,
-// revenue by month and the AI's top 3 accuracy (with AI-03). The Super Admin lands here.
-export default async function OverviewPage() {
+// The Super Admin's Home (DSH-05; the user's review, 3 November 2026): what needs them now, each
+// centre today, and the week. Charts, targets and every other figure are on Reports.
+export default async function HomePage() {
   const staff = await requirePermission('dashboard.overview');
   const view = await overviewView(staff);
   return (
-    <main className="flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-title font-semibold">Overview</h1>
-        <p className="text-sm text-ink-secondary">
-          All centres, counted at <span className="tabular-nums">{view.countedAt}</span>.
-        </p>
-      </div>
-      <section className="flex flex-col gap-3" aria-labelledby="overview-today">
-        <h2 id="overview-today" className="font-semibold text-ink">
-          Today
+    <Page>
+      <PageHeader title="Home" context={`All centres, counted at ${view.countedAt}`} />
+      <section className="flex flex-col gap-3" aria-labelledby="home-needs">
+        <h2 id="home-needs" className="font-semibold text-ink">
+          Needs you now
         </h2>
-        <ul className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        {view.needs.length === 0 ? (
+          <p className="text-ink-secondary" data-testid="home-clear">
+            Nothing waiting.
+          </p>
+        ) : (
+          <ul className="divide-y divide-line overflow-clip rounded-panel border border-line bg-surface">
+            {view.needs.map((item) => {
+              const row = (
+                <>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="text-ink">{item.label}</span>
+                    {item.link ? null : (
+                      <span className="text-sm text-ink-secondary">{item.where}</span>
+                    )}
+                  </span>
+                  <span className="text-lg font-semibold text-ink tabular-nums">{item.total}</span>
+                </>
+              );
+              const rowClass = 'flex min-h-row-touch items-center justify-between gap-3 px-4 py-2';
+              return (
+                <li key={item.item} data-testid="home-need" data-item={item.item}>
+                  {item.link ? (
+                    <Link href={item.link} className={`${rowClass} hover:bg-surface-hover`}>
+                      {row}
+                    </Link>
+                  ) : (
+                    <div className={rowClass}>{row}</div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+      <section className="flex flex-col gap-3" aria-labelledby="home-today">
+        <h2 id="home-today" className="font-semibold text-ink">
+          Today by centre
+        </h2>
+        <ul className="divide-y divide-line overflow-clip rounded-panel border border-line bg-surface">
           {view.centres.map((entry) => (
             <li
               key={entry.id}
-              className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-4"
+              className="grid grid-cols-2 gap-x-4 gap-y-3 p-4 md:grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(0,1fr))] md:items-center"
               data-testid="overview-centre"
               data-centre={entry.name}
             >
-              <h3 className="font-medium text-ink">{entry.name}</h3>
-              <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm tabular-nums">
-                <dt className="text-ink-muted">Collected</dt>
-                <dd className="text-ink" data-testid="overview-collected">
-                  {entry.collected}
-                </dd>
-                <dt className="text-ink-muted">Utilisation</dt>
-                <dd className="text-ink">
-                  {entry.utilisation === null ? 'No hours today' : `${String(entry.utilisation)}%`}
-                </dd>
-                <dt className="text-ink-muted">No shows</dt>
-                <dd className="text-ink">{entry.noShows}</dd>
-                <dt className="text-ink-muted">Waiting now</dt>
-                <dd
-                  className={
-                    (entry.waiting.longestNow ?? 0) > view.runningLateMinutes
-                      ? 'font-medium text-waiting'
-                      : 'text-ink'
-                  }
-                >
-                  {entry.waiting.now === 0
-                    ? 'Nobody'
-                    : `${String(entry.waiting.now)}, longest ${minutes(entry.waiting.longestNow)}`}
-                </dd>
-                <dt className="text-ink-muted">Payment pending</dt>
-                <dd className="text-ink">
-                  {entry.paymentPending.sinceToday + entry.paymentPending.earlier === 0
-                    ? 'None'
-                    : `${String(entry.paymentPending.sinceToday)} today, ${String(entry.paymentPending.earlier)} earlier`}
-                </dd>
+              <h3 className="col-span-2 font-medium text-ink md:col-span-1">{entry.name}</h3>
+              <dl className="contents tabular-nums">
+                <div className="flex flex-col">
+                  <dt className="text-sm text-ink-muted">Collected</dt>
+                  <dd className="font-medium text-ink" data-testid="overview-collected">
+                    {entry.collected}
+                  </dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-sm text-ink-muted">Waiting</dt>
+                  <dd
+                    className={
+                      (entry.waiting.longestNow ?? 0) > view.runningLateMinutes
+                        ? 'font-medium text-waiting'
+                        : 'text-ink'
+                    }
+                  >
+                    {entry.waiting.now === 0
+                      ? 'Nobody'
+                      : `${String(entry.waiting.now)}, longest ${minutes(entry.waiting.longestNow)}`}
+                  </dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-sm text-ink-muted">No shows</dt>
+                  <dd className="text-ink">{entry.noShows}</dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-sm text-ink-muted">Payment pending</dt>
+                  <dd className="text-ink">
+                    {entry.paymentPending.sinceToday + entry.paymentPending.earlier}
+                  </dd>
+                </div>
               </dl>
             </li>
           ))}
         </ul>
       </section>
-      <section className="flex flex-col gap-3" aria-labelledby="overview-week">
-        <h2 id="overview-week" className="font-semibold text-ink">
+      <section className="flex flex-col gap-3" aria-labelledby="home-week">
+        <h2 id="home-week" className="font-semibold text-ink">
           Last 7 days
         </h2>
         <KpiPanel cells={view.cells} />
       </section>
-      <section className="flex flex-col gap-3" aria-labelledby="overview-targets">
-        <h2 id="overview-targets" className="font-semibold text-ink">
-          Against the SOP targets, last 90 days
-        </h2>
-        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {view.bullets.map((bullet) => (
-            <OutcomeBulletCard key={bullet.key} bullet={bullet} />
-          ))}
-        </ul>
-      </section>
-      {[...view.revenue.thisYear, ...view.revenue.lastYear].some((value) => value > 0) ? (
-        <BarChart
-          label="Revenue by month against the year before"
-          categories={view.revenue.months.map((month) => monthLabel(month))}
-          series={[
-            { name: 'A year before', tone: 'compare', values: view.revenue.lastYear },
-            { name: 'This year', tone: 'viz-1', values: view.revenue.thisYear },
-          ]}
-          soFar={view.revenue.months.length - 1}
-          format={lakhs}
-        />
-      ) : (
-        <p className="text-sm text-ink-muted">No payments in the last two years.</p>
-      )}
-    </main>
+    </Page>
   );
 }

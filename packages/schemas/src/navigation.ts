@@ -198,14 +198,14 @@ const navRules: readonly NavRule[] = [
     may: 'opening_entries.manage',
   },
   {
-    label: 'Overview',
+    label: 'Home',
     href: '/app/overview',
     icon: 'overview',
     section: 'reports',
     may: 'dashboard.overview',
   },
   {
-    label: 'Dashboard',
+    label: 'Reports',
     href: '/app/dashboard',
     icon: 'dashboard',
     section: 'reports',
@@ -256,6 +256,8 @@ interface MainLink {
   label?: string;
   href?: string;
   also?: readonly string[];
+  /** Other screens this link's page reaches, so More need not list them. */
+  holds?: readonly string[];
 }
 
 const reportsLink: MainLink = {
@@ -263,6 +265,13 @@ const reportsLink: MainLink = {
   label: 'Reports',
   href: '/app/dashboard/centres',
   also: ['/app/dashboard'],
+};
+
+/** The Super Admin's Reports also holds Money and Figures, as tabs. */
+const adminReportsLink: MainLink = {
+  ...reportsLink,
+  also: ['/app/dashboard', '/app/finance', '/app/figures'],
+  holds: ['/app/finance', '/app/figures'],
 };
 
 /** Each role's main links, in order: what it needs daily (the user's review, 3 November 2026). */
@@ -300,7 +309,7 @@ const mainLinksByRole: Record<StaffAccess['role'], readonly MainLink[]> = {
     { rule: '/app/calendar' },
     { rule: '/app/patients' },
     { rule: '/app/tasks' },
-    reportsLink,
+    adminReportsLink,
   ],
 };
 
@@ -337,7 +346,9 @@ export function mainNavigationFor(staff: StaffAccess): NavItem[] {
 
 /** Everything else the person may open: what More or Setup lists. */
 export function moreNavigationFor(staff: StaffAccess): NavItem[] {
-  const main = new Set(mainLinksByRole[staff.role].map((link) => link.rule));
+  const main = new Set(
+    mainLinksByRole[staff.role].flatMap((link) => [link.rule, ...(link.holds ?? [])]),
+  );
   return navigationFor(staff).filter((item) => !main.has(item.href));
 }
 

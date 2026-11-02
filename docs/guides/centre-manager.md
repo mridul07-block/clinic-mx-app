@@ -2,7 +2,7 @@
 
 ## Where you start
 
-After you sign in you land on **Alerts** in your **Dashboard**: what needs you now at your centres. You see counts, never money.
+After you sign in you land on **Home**: what needs you now at your centres. You see counts, never money.
 
 ## Finding your way
 
@@ -21,7 +21,7 @@ Your main links, on the left of a computer and at the bottom of a phone:
 
 ### Do your daily checks
 
-1. On **Alerts**, read each line under **Needs attention now**. Tap **Open the list** to see what is behind a count.
+1. On **Home**, read each line under **Needs attention now**. Tap **Open the list** to see what is behind a count.
 2. On **Centres**, check **Waiting now** and **Payment pending**.
 3. Open **To do**. Each night you get an **Unsigned notes** task for each centre with notes not signed. Follow up with the physio.
 

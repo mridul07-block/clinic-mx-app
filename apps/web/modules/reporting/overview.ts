@@ -1,22 +1,21 @@
 import 'server-only';
 import type { StaffMember } from '@clinic-mx/db';
-import { can, formatRupees, kpiCatalogue } from '@clinic-mx/schemas';
+import { can, formatRupees } from '@clinic-mx/schemas';
 import { NotAllowedError } from '../access/guard';
-import { collectionsView, revenueView, type RevenueView } from './finance';
+import { collectionsView } from './finance';
 import {
+  alertsDashboard,
   centresDashboard,
-  outcomesDashboard,
+  type AlertsDashboard,
   type CentreToday,
   type KpiCell,
-  type OutcomeBullet,
 } from './manager';
 
 /**
- * The Super Admin's overview (DSH-05, Frontend Specification section 6 "Overview across all
- * centres"; docs/runbooks/super-admin-overview.md): every centre at a glance today with its money,
- * the week against the week before (revenue included), the SOP targets, revenue by month against
- * the year before, and the AI's right diagnosis in its top 3, which comes with AI-03. Built from
- * the Centre Manager's and Finance's views, which the Super Admin reads in full.
+ * The Super Admin's Home (DSH-05; the user's review, 3 November 2026;
+ * docs/runbooks/super-admin-overview.md): what needs them now, every centre today with its money,
+ * and four numbers for the week against the week before. One screen; everything else is on
+ * Reports. Built from the Centre Manager's and Finance's views, which the Super Admin reads in full.
  */
 
 export interface OverviewCentre extends CentreToday {
@@ -25,20 +24,21 @@ export interface OverviewCentre extends CentreToday {
 
 export interface OverviewView {
   countedAt: string;
+  /** What is waiting, largest first; nothing with a count of zero. */
+  needs: AlertsDashboard['items'];
   centres: OverviewCentre[];
   cells: KpiCell[];
-  bullets: OutcomeBullet[];
-  revenue: Pick<RevenueView, 'months' | 'thisYear' | 'lastYear'>;
-  aiTop3: { label: string; target: string; needs: string };
   runningLateMinutes: number;
 }
+
+/** The week's numbers on Home; today's no shows are already on each centre's row. */
+const homeCells = new Set(['consultations', 'plan_acceptance', 'active_patients', 'revenue']);
 
 export async function overviewView(actor: StaffMember, now = new Date()): Promise<OverviewView> {
   if (!can(actor, 'dashboard.overview')) throw new NotAllowedError();
   const centres = await centresDashboard(actor, now);
   const collections = await collectionsView(actor, now);
-  const outcomes = await outcomesDashboard(actor, '90', now);
-  const revenue = await revenueView(actor, now);
+  const alerts = await alertsDashboard(actor);
 
   // Revenue over the last 7 days against the 7 before, from the 30 days of collections less
   // the refunds given on each (BIL-11), as the Revenue tab counts it.
@@ -58,22 +58,15 @@ export async function overviewView(actor: StaffMember, now = new Date()): Promis
         : `${difference > 0 ? '+' : '−'}${formatRupees(Math.abs(difference))} on the 7 days before`,
     status: null,
   };
-  const ai = kpiCatalogue.find((figure) => figure.key === 'ai_top3');
   return {
     countedAt: centres.countedAt,
+    needs: alerts.items.filter((item) => item.total > 0).sort((a, b) => b.total - a.total),
     centres: centres.centres.map((entry) => ({
       ...entry,
       collected:
         collections.today.byCentre.find((row) => row.name === entry.name)?.text ?? formatRupees(0),
     })),
-    cells: [...centres.cells, revenueCell],
-    bullets: outcomes.bullets,
-    revenue: { months: revenue.months, thisYear: revenue.thisYear, lastYear: revenue.lastYear },
-    aiTop3: {
-      label: ai?.label ?? 'Right diagnosis in AI top 3',
-      target: ai?.targetNote ?? 'Set after the first 3 months',
-      needs: ai && ai.measured !== true ? ai.measured.needs : 'AI-03',
-    },
+    cells: [...centres.cells, revenueCell].filter((cell) => homeCells.has(cell.key)),
     runningLateMinutes: centres.runningLateMinutes,
   };
 }
