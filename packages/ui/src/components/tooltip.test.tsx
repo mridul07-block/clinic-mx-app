@@ -29,7 +29,7 @@ describe('Tooltip', () => {
   it('is a small ink panel with white text', () => {
     expect(tooltipPopupClass).toContain('bg-ink');
     expect(tooltipPopupClass).toContain('text-on-accent');
-    expect(tooltipPopupClass).toContain('text-xs');
+    expect(tooltipPopupClass).toContain('text-sm');
     expect(tooltipPopupClass).toContain('rounded-tag');
   });
 });

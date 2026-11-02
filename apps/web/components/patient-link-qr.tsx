@@ -75,7 +75,7 @@ export function PatientLinkQr({
           <figcaption className="text-center text-sm text-ink-secondary">
             Works until {formatIstDateTime(new Date(state.expiresAt))}.
             <span
-              className="mt-1 block font-mono text-xs break-all text-ink-muted"
+              className="mt-1 block font-mono text-sm break-all text-ink-muted"
               data-testid={`${id}-path`}
             >
               {state.path}

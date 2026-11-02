@@ -27,7 +27,7 @@ export const tagVariants = cva(
       },
       size: {
         default: 'h-6 gap-1.5 px-2 text-sm',
-        small: 'h-5 gap-1 px-1.5 text-xs',
+        small: 'h-5 gap-1 px-1.5 text-sm',
       },
     },
     defaultVariants: { tone: 'neutral', size: 'default' },

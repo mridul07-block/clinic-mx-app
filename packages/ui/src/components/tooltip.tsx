@@ -10,7 +10,7 @@ type Side = 'top' | 'bottom' | 'left' | 'right';
  * radius, 8 x 4 px padding, at z-index 50 with menus and lists (section 4.5).
  */
 export const tooltipPopupClass =
-  'max-w-64 rounded-tag bg-ink px-2 py-1 text-xs text-on-accent shadow-float transition-opacity duration-[var(--duration-quick)] ease-standard data-starting-style:opacity-0 data-ending-style:opacity-0';
+  'max-w-64 rounded-tag bg-ink px-2 py-1 text-sm text-on-accent shadow-float transition-opacity duration-[var(--duration-quick)] ease-standard data-starting-style:opacity-0 data-ending-style:opacity-0';
 
 export interface TooltipProps {
   /** The words shown; also the trigger's accessible name unless `labelsTrigger` is false. */

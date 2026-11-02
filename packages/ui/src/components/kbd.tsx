@@ -11,7 +11,7 @@ import { cn } from '../cn';
  * `line` border, white, 12 px `font-mono` in `ink-muted`.
  */
 export const kbdClass =
-  'inline-flex h-5 min-w-5 items-center justify-center rounded-[4px] border border-line bg-surface px-1 font-mono text-xs text-ink-muted';
+  'inline-flex h-5 min-w-5 items-center justify-center rounded-[4px] border border-line bg-surface px-1 font-mono text-sm text-ink-muted';
 
 /** One key: `<Kbd>Ctrl</Kbd> <Kbd>K</Kbd>`. */
 export function Kbd({ className, ...props }: HTMLAttributes<HTMLElement>) {

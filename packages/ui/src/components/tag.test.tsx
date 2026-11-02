@@ -35,7 +35,7 @@ describe('Tag', () => {
   it('is 20 px when small', () => {
     const small = tagVariants({ size: 'small' });
     expect(small).toContain('h-5');
-    expect(small).toContain('text-xs');
+    expect(small).toContain('text-sm');
   });
 
   it('puts a dot before the word, strong amber on waiting and a ring on outline', () => {

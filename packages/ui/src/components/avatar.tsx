@@ -3,8 +3,8 @@ import { cn } from '../cn';
 export type AvatarSize = 24 | 32 | 48;
 
 const sizeClass: Record<AvatarSize, string> = {
-  24: 'size-6 text-[0.625rem]',
-  32: 'size-8 text-xs',
+  24: 'size-6 text-axis',
+  32: 'size-8 text-sm',
   48: 'size-12 text-md',
 };
 

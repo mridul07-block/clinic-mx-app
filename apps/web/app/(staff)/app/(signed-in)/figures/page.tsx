@@ -92,7 +92,7 @@ function FigureCard({ figure }: { figure: Figure }) {
           const shown = figure.periods[period];
           return (
             <div key={period} className="flex min-w-0 flex-col" data-period={period}>
-              <dt className="text-xs text-ink-muted">{kpiPeriodLabels[period]}</dt>
+              <dt className="text-sm text-ink-muted">{kpiPeriodLabels[period]}</dt>
               {shown.status === 'no_data' || shown.text === 'No data yet' ? (
                 <dd className="text-sm text-ink-muted">No data yet</dd>
               ) : (
@@ -101,7 +101,7 @@ function FigureCard({ figure }: { figure: Figure }) {
                 </dd>
               )}
               {shown.status && shown.status !== 'no_data' ? (
-                <dd className={`text-xs ${statusClass[shown.status]}`}>
+                <dd className={`text-sm ${statusClass[shown.status]}`}>
                   {kpiStatusLabels[shown.status]}
                 </dd>
               ) : null}
@@ -117,7 +117,7 @@ function FigureCard({ figure }: { figure: Figure }) {
           <table className="w-full text-left tabular-nums">
             <caption className="sr-only">{figure.label} by centre</caption>
             <thead>
-              <tr className="text-xs text-ink-muted">
+              <tr className="text-sm text-ink-muted">
                 <th scope="col" className="py-1 font-normal">
                   Centre
                 </th>

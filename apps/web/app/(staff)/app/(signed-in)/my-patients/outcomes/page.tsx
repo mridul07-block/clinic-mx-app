@@ -81,7 +81,7 @@ export default async function OwnOutcomesPage({
             label="From consultation to completed plan"
             stages={view.funnel.map((stage) => ({ label: stage.label, value: stage.episodes }))}
           />
-          <p className="text-xs text-ink-muted">
+          <p className="text-sm text-ink-muted">
             Your episodes whose first consultation is in the window; {view.inTreatment} still in
             treatment, so not yet discharged.
           </p>
@@ -119,7 +119,7 @@ export default async function OwnOutcomesPage({
           </p>
         )}
         {view.tooFew.length > 0 ? (
-          <p className="text-xs text-ink-muted">
+          <p className="text-sm text-ink-muted">
             Too few to compare (under {view.minimumEpisodes}):{' '}
             {view.tooFew.map((row) => `${row.label} (${String(row.episodes)})`).join(', ')}.
           </p>

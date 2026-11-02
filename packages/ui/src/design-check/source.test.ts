@@ -64,6 +64,32 @@ describe("Tailwind's default palette and weights", () => {
   );
 });
 
+describe('small text', () => {
+  it.each([
+    `<p className="text-xs">`,
+    `<p className="pointer-coarse:text-xs">`,
+    `<text className="text-[11px]" />`,
+    `<span className="text-[0.625rem]" />`,
+  ])('fails on %s', (text) => {
+    expect(rulesIn(text)).toContain('small-text');
+  });
+
+  it.each([`<p className="text-sm">`, `<p className="text-base">`, `<p className="text-wrap">`])(
+    'passes %s',
+    (text) => {
+      expect(rulesIn(text)).toEqual([]);
+    },
+  );
+
+  it('keeps 12 px to chart axes and the smallest avatar', () => {
+    const axis = `<text className="text-axis" />`;
+    const rules = (file: string) => checkSource(file, axis).map((problem) => problem.rule);
+    expect(rules('apps/web/app/today/page.tsx')).toContain('axis-text');
+    expect(rules('apps/web/components/charts/bar-chart.tsx')).toEqual([]);
+    expect(rules('packages/ui/src/components/avatar.tsx')).toEqual([]);
+  });
+});
+
 describe('strong status tones as text', () => {
   it.each([
     `<p className="text-sm text-waiting-strong">`,

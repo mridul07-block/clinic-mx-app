@@ -58,7 +58,7 @@ export function LineChart({
       viewBox={`0 0 ${String(WIDTH)} ${String(HEIGHT)}`}
       role="img"
       aria-label={label}
-      className="h-auto w-full"
+      className="h-auto w-full max-w-md"
     >
       {ticks.map((tick) => (
         <g key={tick}>
@@ -75,7 +75,7 @@ export function LineChart({
             y={y(tick)}
             textAnchor="end"
             dominantBaseline="middle"
-            className="fill-ink-muted text-[11px]"
+            className="fill-ink-muted text-axis"
           >
             {tick}
           </text>
@@ -97,7 +97,7 @@ export function LineChart({
             paintOrder="stroke"
             strokeWidth={3}
             strokeLinejoin="round"
-            className="fill-ink-muted stroke-canvas text-[10px]"
+            className="fill-ink-muted stroke-canvas text-axis"
           >
             {band.label}
           </text>
@@ -121,7 +121,7 @@ export function LineChart({
             paintOrder="stroke"
             strokeWidth={3}
             strokeLinejoin="round"
-            className="fill-ink-muted stroke-canvas text-[10px]"
+            className="fill-ink-muted stroke-canvas text-axis"
           >
             {target.label}
           </text>
@@ -154,7 +154,7 @@ export function LineChart({
               x={x(index)}
               y={y(point.value) - 8}
               textAnchor="middle"
-              className="fill-ink text-[11px] font-medium"
+              className="fill-ink text-axis font-medium"
             >
               {point.value}
             </text>
@@ -166,7 +166,7 @@ export function LineChart({
           x={x(0)}
           y={HEIGHT - 6}
           textAnchor={points.length === 1 ? 'middle' : 'start'}
-          className="fill-ink-muted text-[11px]"
+          className="fill-ink-muted text-axis"
         >
           {first.label}
         </text>
@@ -176,7 +176,7 @@ export function LineChart({
           x={x(points.length - 1)}
           y={HEIGHT - 6}
           textAnchor="end"
-          className="fill-ink-muted text-[11px]"
+          className="fill-ink-muted text-axis"
         >
           {last.label}
         </text>

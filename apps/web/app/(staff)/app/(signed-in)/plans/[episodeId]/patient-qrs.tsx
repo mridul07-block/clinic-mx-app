@@ -145,7 +145,7 @@ export async function LeaveReviewQr({ link }: { link: string | null }) {
             className="size-60"
           />
           <figcaption
-            className="font-mono text-xs break-all text-ink-muted"
+            className="font-mono text-sm break-all text-ink-muted"
             data-testid="leave-review-link"
           >
             {link}

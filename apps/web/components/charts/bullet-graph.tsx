@@ -37,7 +37,7 @@ export function BulletGraph({
       viewBox={`0 0 ${String(WIDTH)} ${String(HEIGHT)}`}
       role="img"
       aria-label={label}
-      className="h-auto w-full"
+      className="h-auto w-full max-w-md"
     >
       <rect x={0} y={BAND_TOP} width={WIDTH} height={BAND_HEIGHT} className="fill-surface-sunken" />
       <rect
@@ -70,7 +70,7 @@ export function BulletGraph({
         x={x(target) + (x(target) > WIDTH - 70 ? -4 : 4)}
         y={BAND_TOP - 4}
         textAnchor={x(target) > WIDTH - 70 ? 'end' : 'start'}
-        className="fill-ink-muted text-[10px]"
+        className="fill-ink-muted text-axis"
       >
         {targetLabel}
       </text>

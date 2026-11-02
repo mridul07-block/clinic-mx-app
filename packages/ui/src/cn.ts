@@ -17,7 +17,7 @@ export const themeColours = [
   'viz-passive', 'viz-detractor', 'viz-ramp-1', 'viz-ramp-2', 'viz-ramp-3', 'viz-ramp-4',
   'viz-ramp-5', 'viz-ramp-6', 'viz-ramp-7',
 ]; // prettier-ignore
-export const themeTextSizes = ['xs', 'sm', 'base', 'md', 'lg', 'xl', '2xl', 'title', 'display'];
+export const themeTextSizes = ['axis', 'sm', 'base', 'md', 'lg', 'xl', '2xl', 'title', 'display'];
 export const themeRadii = ['control', 'tag', 'panel', 'sheet', 'drawer'];
 export const themeShadows = ['xs', 'float', 'drawer'];
 

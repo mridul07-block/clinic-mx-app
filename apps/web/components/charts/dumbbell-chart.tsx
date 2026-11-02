@@ -10,7 +10,7 @@ const WIDTH = 320;
 const ROW = 36;
 const SIDE = 10;
 /** About how many 11 px characters fit across a row. */
-const ROW_CHARACTERS = Math.floor((WIDTH - SIDE * 2) / 6);
+const ROW_CHARACTERS = Math.floor((WIDTH - SIDE * 2) / 6.6);
 
 /** A row name that fits its line, cut with an ellipsis; the full name is in its words. */
 function fitted(name: string): string {
@@ -57,13 +57,13 @@ export function DumbbellChart({
         viewBox={`0 0 ${String(WIDTH)} ${String(height)}`}
         role="img"
         aria-label={label}
-        className="h-auto w-full"
+        className="h-auto w-full max-w-md"
       >
         {rows.map((row, index) => {
           const y = index * ROW + 26;
           return (
             <g key={row.label} data-words={words(row)} data-testid="dumbbell-row">
-              <text x={SIDE} y={y - 10} className="fill-ink text-[11px]">
+              <text x={SIDE} y={y - 10} className="fill-ink text-axis">
                 {fitted(row.label)}
               </text>
               <line
@@ -87,19 +87,14 @@ export function DumbbellChart({
             </g>
           );
         })}
-        <text x={SIDE} y={height - 4} className="fill-ink-muted text-[11px]">
+        <text x={SIDE} y={height - 4} className="fill-ink-muted text-axis">
           {format(min)}
         </text>
-        <text
-          x={WIDTH - SIDE}
-          y={height - 4}
-          textAnchor="end"
-          className="fill-ink-muted text-[11px]"
-        >
+        <text x={WIDTH - SIDE} y={height - 4} textAnchor="end" className="fill-ink-muted text-axis">
           {format(max)}
         </text>
       </svg>
-      <ul className="mt-1 flex gap-3 text-xs text-ink-secondary">
+      <ul className="mt-1 flex gap-3 text-sm text-ink-secondary">
         <li className="flex items-center gap-1">
           <svg width={10} height={10} aria-hidden="true">
             <circle cx={5} cy={5} r={5} className="fill-viz-compare" />

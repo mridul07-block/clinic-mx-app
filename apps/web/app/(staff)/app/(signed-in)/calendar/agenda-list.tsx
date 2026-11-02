@@ -87,7 +87,7 @@ export function AgendaList({
             if (row.kind === 'now') {
               return (
                 <li key="now" aria-label="Now" className="flex items-center gap-2 px-4 py-1">
-                  <span className="text-xs font-medium text-accent tabular-nums">
+                  <span className="text-sm font-medium text-accent tabular-nums">
                     {timeOf(new Date(now))}
                   </span>
                   <span className="h-0.5 flex-1 bg-accent" />
@@ -153,7 +153,7 @@ export function AgendaList({
                     className={`w-12 shrink-0 text-sm text-ink tabular-nums ${freed ? 'line-through' : ''}`}
                   >
                     {timeOf(appointment.startsAt)}
-                    <span className="block text-xs text-ink-muted">
+                    <span className="block text-sm text-ink-muted">
                       {timeOf(appointment.endsAt)}
                     </span>
                   </span>

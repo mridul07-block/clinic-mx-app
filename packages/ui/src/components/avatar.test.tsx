@@ -15,13 +15,13 @@ describe('Avatar', () => {
     expect(html).toContain(
       'rounded-full border border-line bg-surface-sunken font-semibold text-ink-secondary',
     );
-    expect(html).toContain('size-8 text-xs');
+    expect(html).toContain('size-8 text-sm');
     expect(html).toContain('aria-hidden="true"');
     expect(html).toContain('>AR</span>');
   });
 
   it.each([
-    [24, 'size-6 text-[0.625rem]'],
+    [24, 'size-6 text-axis'],
     [48, 'size-12 text-md'],
   ] as const)('is %s px', (size, expected) => {
     expect(renderToStaticMarkup(<Avatar name="Asha Rao" size={size} />)).toContain(expected);

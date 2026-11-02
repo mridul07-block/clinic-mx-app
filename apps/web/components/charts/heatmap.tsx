@@ -13,7 +13,7 @@ const TOP = 14;
 const CELL_HEIGHT = 20;
 const GAP = 2;
 /** Where the key's swatches start, after the word "Fewer". */
-const KEY_LEFT = 32;
+const KEY_LEFT = 40;
 
 export function Heatmap({
   label,
@@ -50,7 +50,7 @@ export function Heatmap({
         viewBox={`0 0 ${String(WIDTH)} ${String(height)}`}
         role="img"
         aria-label={label}
-        className="h-auto w-full"
+        className="h-auto w-full max-w-md"
       >
         {columns.map((column, index) =>
           index % every === 0 ? (
@@ -59,7 +59,7 @@ export function Heatmap({
               x={LEFT + cellWidth * index + cellWidth / 2}
               y={TOP - 4}
               textAnchor="middle"
-              className="fill-ink-muted text-[10px]"
+              className="fill-ink-muted text-axis"
             >
               {column}
             </text>
@@ -72,7 +72,7 @@ export function Heatmap({
               y={TOP + rowIndex * CELL_HEIGHT + (CELL_HEIGHT - GAP) / 2}
               textAnchor="end"
               dominantBaseline="middle"
-              className="fill-ink-muted text-[11px]"
+              className="fill-ink-muted text-axis"
             >
               {row.label}
             </text>
@@ -101,7 +101,7 @@ export function Heatmap({
             })}
           </g>
         ))}
-        <text x={0} y={keyTop + 9} className="fill-ink-muted text-[10px]">
+        <text x={0} y={keyTop + 9} className="fill-ink-muted text-axis">
           Fewer
         </text>
         {rampFill.map((fill, index) => (
@@ -118,7 +118,7 @@ export function Heatmap({
         <text
           x={KEY_LEFT + rampFill.length * 16 + 2}
           y={keyTop + 9}
-          className="fill-ink-muted text-[10px]"
+          className="fill-ink-muted text-axis"
         >
           More (up to {max} {unit})
         </text>
@@ -132,7 +132,7 @@ export function Heatmap({
           strokeDasharray="2 2"
           className="fill-surface stroke-line-control"
         />
-        <text x={KEY_LEFT + 18} y={keyTop + 25} className="fill-ink-muted text-[10px]">
+        <text x={KEY_LEFT + 18} y={keyTop + 25} className="fill-ink-muted text-axis">
           No data
         </text>
       </svg>

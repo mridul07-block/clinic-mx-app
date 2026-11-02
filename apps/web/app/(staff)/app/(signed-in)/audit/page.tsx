@@ -209,7 +209,7 @@ function AuditEntry({ entry }: { entry: AuditLogEntry }) {
         {formatIstDateTime(entry.at)}, {auditActorLabel(entry.actor, entry.actorName)}
       </p>
       {entry.entityId ? (
-        <p className="font-mono text-xs break-all text-ink-muted">Record {entry.entityId}</p>
+        <p className="font-mono text-sm break-all text-ink-muted">Record {entry.entityId}</p>
       ) : null}
       {entry.redacted && entry.changed?.length ? (
         <p className="text-sm text-ink-secondary" data-testid="audit-hidden">

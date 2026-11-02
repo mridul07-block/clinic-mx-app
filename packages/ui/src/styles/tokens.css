@@ -103,7 +103,7 @@
 
   /* Layout. Controls and rows are 36 px with a mouse and 44 px on touch screens, whatever
      the width; the kiosk and patient pages use 56 px targets. */
-  --row-height: 36px;
+  --row-height: 40px;
   --row-height-touch: 44px;
   --touch-target-patient: 56px;
   --sidebar-width: 240px;

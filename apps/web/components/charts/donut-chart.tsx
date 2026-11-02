@@ -129,7 +129,7 @@ export function DonutChart({
             x={SIZE / 2}
             y={SIZE / 2 - 2}
             textAnchor="middle"
-            className="fill-ink text-[22px] font-semibold"
+            className="fill-ink text-xl font-semibold"
           >
             {centre}
           </text>
@@ -137,7 +137,7 @@ export function DonutChart({
             x={SIZE / 2}
             y={SIZE / 2 + 16}
             textAnchor="middle"
-            className="fill-ink-muted text-[11px]"
+            className="fill-ink-muted text-axis"
           >
             {centreCaption}
           </text>

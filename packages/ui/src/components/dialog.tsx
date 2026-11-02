@@ -137,7 +137,12 @@ export function DialogContent({
             </BaseDialog.Close>
           </div>
         )}
-        <div className={cn('min-h-0 flex-1 overflow-y-auto', hideHeader ? '' : 'px-5 pb-5')}>
+        {/* It scrolls when the content is long, so the keyboard must reach it (WCAG 2.1.1). Without
+            a header the content takes the first focus (the search palette), never this box. */}
+        <div
+          tabIndex={hideHeader ? undefined : 0}
+          className={cn('min-h-0 flex-1 overflow-y-auto', hideHeader ? '' : 'px-5 pb-5')}
+        >
           {children}
         </div>
         {footer ? (

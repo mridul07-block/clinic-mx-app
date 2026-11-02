@@ -53,14 +53,14 @@ export function PersonMenu({
       >
         <span
           aria-hidden
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-surface-sunken text-xs font-semibold text-ink-secondary"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-surface-sunken text-sm font-semibold text-ink-secondary"
         >
           {initialsOf(name)}
         </span>
         <span className={top ? 'sr-only' : 'sr-only min-w-0 flex-col xl:not-sr-only xl:flex'}>
           <span className="truncate font-medium text-ink">{name}</span>
           {/* No comma between them: the account page already says "Name, Role". */}
-          <span className="truncate text-xs text-ink-muted">{role}</span>
+          <span className="truncate text-sm text-ink-muted">{role}</span>
         </span>
         <span className="sr-only">: menu</span>
       </summary>

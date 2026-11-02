@@ -4,7 +4,7 @@ import type { Problem } from './problems';
  * Source rules (Frontend Specification section 10, design system v3 section 13): colours come
  * only from tokens.css, gold is never text, Tailwind's default palette and bold do not exist,
  * strong status tones are never text, shadcn's token names and dead radius or shadow utilities
- * are refused, and class names are written out in full so Tailwind can see them.
+ * are refused, nothing is under 14 px, and class names are written out in full so Tailwind can see them.
  */
 
 const tailwindPalette = [
@@ -31,6 +31,8 @@ const rules: {
   skipRawColour?: boolean;
   /** Apply the rule only to files whose path matches. */
   onlyIn?: RegExp;
+  /** Skip files whose path matches. */
+  skipIn?: RegExp;
 }[] = [
   {
     rule: 'raw-colour',
@@ -86,6 +88,19 @@ const rules: {
       'generates nothing under our theme; use a token radius (rounded-control, -tag, -panel, -sheet, -drawer, -full) or shadow (shadow-xs, -float, -drawer)',
   },
   {
+    rule: 'small-text',
+    // Nothing under 14 px (user decision, 3 November 2026): text-xs is gone from the theme, and
+    // a text size in brackets would get past it.
+    pattern: /(?<![\w-])(?:[\w-]+:)*text-(?:xs|\[[\d.]+(?:px|rem|em)\])(?![\w-])/g,
+    message: 'nothing is under 14 px and sizes come from the scale; use text-sm or larger',
+  },
+  {
+    rule: 'axis-text',
+    pattern: /(?<![\w-])(?:[\w-]+:)*text-axis(?![\w-])/g,
+    message: '12 px is for chart axes and the smallest avatar only; use text-sm or larger',
+    skipIn: /components[\\/]charts[\\/]|components[\\/]avatar/,
+  },
+  {
     rule: 'dynamic-class',
     pattern: /(?<![\w-])(?:[\w-]+:)*-?[a-z]+(?:-[a-z0-9]+)*-\$\{/g,
     message: 'class name built at run time; Tailwind cannot see it. Write it out in full',
@@ -111,9 +126,10 @@ export function stripComments(text: string): string {
 export function checkSource(file: string, text: string, allowRawColour = false): Problem[] {
   const problems: Problem[] = [];
   const lines = stripComments(text).split('\n');
-  for (const { rule, pattern, message, skipRawColour, onlyIn } of rules) {
+  for (const { rule, pattern, message, skipRawColour, onlyIn, skipIn } of rules) {
     if (skipRawColour && allowRawColour) continue;
     if (onlyIn && !onlyIn.test(file)) continue;
+    if (skipIn?.test(file)) continue;
     lines.forEach((content, index) => {
       for (const match of content.matchAll(pattern)) {
         problems.push({ file, line: index + 1, rule, message: `${match[0]}: ${message}` });

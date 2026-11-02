@@ -11,7 +11,7 @@ function rgb(hex: string): string {
   return `rgb(${String(r)}, ${String(g)}, ${String(b)})`;
 }
 
-test('staff pages use the canvas, ink and Inter at 14 px', async ({ page }) => {
+test('staff pages use the canvas, ink and Inter at 16 px', async ({ page }) => {
   await page.goto('/app');
   const body = await page.evaluate(() => {
     const style = getComputedStyle(document.body);
@@ -25,7 +25,7 @@ test('staff pages use the canvas, ink and Inter at 14 px', async ({ page }) => {
   expect(body.background).toBe(rgb(tokenValues.canvas));
   expect(body.color).toBe(rgb(tokenValues.ink));
   expect(body.font).toMatch(/Inter/);
-  expect(body.size).toBe('14px');
+  expect(body.size).toBe('16px');
 });
 
 test('the brand gold token is #FCB714', async ({ page }) => {
@@ -54,10 +54,9 @@ test('Inter has loaded, including the rupee sign', async ({ page }) => {
   expect(loaded).toBe(true);
 });
 
-// UIX-05: iOS Safari zooms into any field under 16 px, so on a touch screen fields are 16 px;
-// with a mouse they keep the staff 14 px.
-test('form fields are 16 px on a touch screen and 14 px with a mouse', async ({ page }) => {
+// UIX-05: iOS Safari zooms into any field under 16 px, and staff text is 16 px everywhere now.
+test('form fields are 16 px', async ({ page }) => {
   await page.goto('/app/sign-in');
   const size = await page.getByLabel('Email').evaluate((el) => getComputedStyle(el).fontSize);
-  expect(size).toBe(test.info().project.name === 'phone' ? '16px' : '14px');
+  expect(size).toBe('16px');
 });

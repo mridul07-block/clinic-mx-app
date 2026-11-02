@@ -26,9 +26,9 @@ export const tabClass = [
 /** A count beside a tab's label; `attention` puts it on the waiting tint (open alerts). */
 export const tabCountClass = {
   neutral:
-    'rounded-tag border border-line bg-surface-sunken px-1.5 text-xs font-medium text-ink-secondary tabular-nums',
+    'rounded-tag border border-line bg-surface-sunken px-1.5 text-sm font-medium text-ink-secondary tabular-nums',
   attention:
-    'rounded-tag border border-waiting-line bg-waiting-soft px-1.5 text-xs font-medium text-waiting tabular-nums',
+    'rounded-tag border border-waiting-line bg-waiting-soft px-1.5 text-sm font-medium text-waiting tabular-nums',
 };
 
 export interface LinkTab {

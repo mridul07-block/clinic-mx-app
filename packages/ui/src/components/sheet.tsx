@@ -122,7 +122,9 @@ export function Sheet({
               <X aria-hidden strokeWidth={1.75} />
             </BaseDialog.Close>
           </div>
+          {/* It scrolls when the content is long, so the keyboard must reach it (WCAG 2.1.1). */}
           <div
+            tabIndex={0}
             className={cn(
               'flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-5 py-4',
               footer ? '' : 'pb-[max(1rem,env(safe-area-inset-bottom))]',

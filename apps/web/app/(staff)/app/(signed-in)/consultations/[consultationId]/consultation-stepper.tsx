@@ -180,7 +180,7 @@ export function ConsultationStepper({
                   <span
                     aria-hidden="true"
                     className={[
-                      'flex size-6 shrink-0 items-center justify-center rounded-full border text-xs tabular-nums',
+                      'flex size-6 shrink-0 items-center justify-center rounded-full border text-sm tabular-nums',
                       written
                         ? 'border-accent bg-accent text-on-accent'
                         : current
