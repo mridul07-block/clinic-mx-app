@@ -5,6 +5,7 @@ import { notFound, redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireStaff } from '../../../../../../../modules/auth/session';
 import { loadExplanation } from '../../../../../../../modules/consultations/explain';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Explain to patient · Clinic Mx' };
 export const dynamic = 'force-dynamic';
@@ -27,7 +28,7 @@ export default async function ExplainPage({
   if (!view) notFound();
   const back = `/app/consultations/${view.consultationId}`;
   return (
-    <main className="flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
+    <Page width="content">
       <Link href={back} className="text-sm text-ink-muted underline underline-offset-2">
         Back to the consultation
       </Link>
@@ -75,6 +76,6 @@ export default async function ExplainPage({
           ) : null}
         </div>
       )}
-    </main>
+    </Page>
   );
 }

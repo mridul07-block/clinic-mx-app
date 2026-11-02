@@ -12,6 +12,7 @@ import { serviceContext } from '../../../../../modules/access/staff-db';
 import { requireStaff } from '../../../../../modules/auth/session';
 import { markRead, notificationsOf } from '../../../../../modules/notifications/services';
 import { calendarHref } from '../../../../../modules/scheduling/links';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Notifications · Clinic Mx' };
 export const dynamic = 'force-dynamic';
@@ -27,7 +28,7 @@ export default async function NotificationsPage() {
   if (unread.length > 0 && !staff.support) await markRead(await serviceContext(), unread);
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-title font-semibold">Notifications</h1>
       </div>
@@ -98,6 +99,6 @@ export default async function NotificationsPage() {
           ))}
         </ul>
       )}
-    </main>
+    </Page>
   );
 }

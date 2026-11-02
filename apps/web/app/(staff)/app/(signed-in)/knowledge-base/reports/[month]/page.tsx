@@ -11,6 +11,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { requireStaff } from '../../../../../../../modules/auth/session';
 import { loadKbReport } from '../../../../../../../modules/ai/kb-report';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Knowledge base report · Clinic Mx' };
 
@@ -69,7 +70,7 @@ export default async function KbReportPage({ params }: { params: Promise<{ month
   ];
 
   return (
-    <main className="flex w-full max-w-3xl flex-col gap-4 px-4 py-6">
+    <Page width="content">
       <div className="flex flex-col gap-1.5">
         <Link
           href="/app/knowledge-base"
@@ -198,6 +199,6 @@ export default async function KbReportPage({ params }: { params: Promise<{ month
         Knowledge base edits go live only as a new version you approve. Feedback never weakens
         safety: must rule out rows and red flag rules stay fixed.
       </p>
-    </main>
+    </Page>
   );
 }

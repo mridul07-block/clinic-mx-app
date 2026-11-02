@@ -11,6 +11,7 @@ import {
 } from '../../../../../../modules/reassessments/services';
 import { DecisionForm } from './decision-form';
 import { ReassessmentRows } from './reassessment-rows';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Reassessment · Clinic Mx' };
 
@@ -35,7 +36,7 @@ export default async function ReassessmentPage({
   if (!screen) notFound();
   const { visit, sessionNumber, rows, decision, signs, consultantName } = screen;
   return (
-    <main className="flex w-full max-w-3xl flex-col gap-4 px-4 py-6">
+    <Page width="content">
       <div className="flex flex-col gap-1.5">
         <Link href="/app/tasks" className="text-sm text-ink-muted underline underline-offset-2">
           Tasks
@@ -91,6 +92,6 @@ export default async function ReassessmentPage({
           <p className="text-ink-muted">Awaiting {consultantName}&apos;s review.</p>
         )}
       </section>
-    </main>
+    </Page>
   );
 }

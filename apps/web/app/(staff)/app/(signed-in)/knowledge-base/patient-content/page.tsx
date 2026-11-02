@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Tag } from '../../../../../../components/tag';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { loadPatientContentList } from '../../../../../../modules/knowledge-base/patient-content';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Patient content · Knowledge base · Clinic Mx' };
 export const dynamic = 'force-dynamic';
@@ -49,7 +50,7 @@ export default async function PatientContentListPage({
   const href = (next: Show) =>
     `/app/knowledge-base/patient-content?${new URLSearchParams({ ...(q ? { q } : {}), show: next }).toString()}`;
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <Link
           href="/app/knowledge-base"
@@ -115,6 +116,6 @@ export default async function PatientContentListPage({
           ))}
         </ul>
       )}
-    </main>
+    </Page>
   );
 }

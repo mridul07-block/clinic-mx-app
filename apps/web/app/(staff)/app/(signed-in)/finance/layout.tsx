@@ -2,13 +2,14 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { FinanceTabs } from './finance-tabs';
+import { Page } from '@clinic-mx/ui/components/page';
 
 // Finance's dashboards (DSH-04): Collections, Unpaid, Packages and Revenue, for the Super Admin and
 // Finance. Each tab reads its own figures; each table downloads as CSV.
 export default async function FinanceLayout({ children }: { children: ReactNode }) {
   const staff = await requirePermission('dashboard.finance');
   return (
-    <main className="flex w-full max-w-5xl flex-col gap-4 px-4 py-6">
+    <Page width="content">
       <div className="flex flex-col gap-1">
         {staff.role === 'super_admin' ? (
           <Link
@@ -22,6 +23,6 @@ export default async function FinanceLayout({ children }: { children: ReactNode 
       </div>
       <FinanceTabs />
       {children}
-    </main>
+    </Page>
   );
 }

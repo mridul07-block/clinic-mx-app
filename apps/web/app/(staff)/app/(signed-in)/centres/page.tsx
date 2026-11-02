@@ -8,6 +8,7 @@ import { requirePermission } from '../../../../../modules/access/require-permiss
 import { asStaff } from '../../../../../modules/access/staff-db';
 import { allColoursInUse } from '../../../../../modules/centres/services';
 import { CentreSwatch } from './centre-swatch';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Centres · Clinic Mx' };
 
@@ -21,7 +22,7 @@ export default async function CentresPage() {
   const colourFree = centreColours.some((colour) => !used.has(colour.value));
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-title font-semibold">Centres</h1>
         <p className="text-ink-secondary">
@@ -70,6 +71,6 @@ export default async function CentresPage() {
           </li>
         ))}
       </ul>
-    </main>
+    </Page>
   );
 }

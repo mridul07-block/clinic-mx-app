@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { figuresView, type Figure } from '../../../../../modules/reporting/kpis';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Figures · Clinic Mx' };
 
@@ -22,7 +23,7 @@ export default async function FiguresPage() {
   const view = await figuresView(staff);
   const measured = view.figures.filter((figure) => figure.needs === null);
   return (
-    <main className="flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
+    <Page width="content">
       <div className="flex flex-col gap-1">
         <Link
           href="/app/dashboard/centres"
@@ -49,7 +50,7 @@ export default async function FiguresPage() {
           ))}
         </ul>
       </section>
-    </main>
+    </Page>
   );
 }
 

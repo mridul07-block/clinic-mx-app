@@ -7,6 +7,7 @@ import { requirePermission } from '../../../../../../modules/access/require-perm
 import { asStaff } from '../../../../../../modules/access/staff-db';
 import { allColoursInUse } from '../../../../../../modules/centres/services';
 import { CentreForm } from '../centre-form';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Add a centre · Clinic Mx' };
 
@@ -19,7 +20,7 @@ export default async function NewCentrePage() {
   );
   const colourFree = centreColours.some((colour) => !takenBy[colour.value]);
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1">
         <Link href="/app/centres" className="text-sm text-ink-muted underline underline-offset-2">
           Centres
@@ -34,6 +35,6 @@ export default async function NewCentrePage() {
         // No form to fill in vain: the service refuses the same way if one is sent anyway.
         <FormMessage tone="info">{allColoursInUse}</FormMessage>
       )}
-    </main>
+    </Page>
   );
 }

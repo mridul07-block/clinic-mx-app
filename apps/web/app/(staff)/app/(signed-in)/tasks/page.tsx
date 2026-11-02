@@ -29,6 +29,7 @@ import { Tag } from '../../../../../components/tag';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { inboxOf } from '../../../../../modules/tasks/services';
 import { CloseTaskForm, TakeForm } from './task-forms';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'To do · Clinic Mx' };
 export const dynamic = 'force-dynamic';
@@ -253,7 +254,7 @@ export default async function TasksPage() {
   const opensPatients = can(staff, 'patients.view_contact');
   const readsReports = readsKbReports(staff);
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-title font-semibold">To do</h1>
         <p className="text-sm text-ink-muted">
@@ -314,6 +315,6 @@ export default async function TasksPage() {
           </ul>
         </section>
       ) : null}
-    </main>
+    </Page>
   );
 }

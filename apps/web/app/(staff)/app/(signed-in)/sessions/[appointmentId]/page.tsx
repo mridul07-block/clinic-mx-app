@@ -43,7 +43,7 @@ export default async function SessionPage({
     // On phones the note's Close session bar is fixed to the bottom of the screen: the page ends
     // with room for it, below whatever comes last (the next session panel included).
     <main
-      className={`flex w-full max-w-5xl flex-col gap-4 px-4 py-6 ${
+      className={`mx-auto flex w-full max-w-[65rem] flex-col gap-6 px-4 py-6 lg:px-6 xl:px-8 ${
         note?.editable ? 'pb-32 md:pb-6' : ''
       }`}
     >

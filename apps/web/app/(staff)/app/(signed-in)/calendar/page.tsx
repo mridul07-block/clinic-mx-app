@@ -33,6 +33,7 @@ import { CancelSheet, NoShowSheet, RescheduleConfirm, ReschedulePicker } from '.
 import { AppointmentDrawer, SlotDrawer } from './drawer';
 import { calendarHref, readSlot } from './links';
 import { chosenCentreId } from '../../../../../modules/navigation/centres';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Calendar · Clinic Mx' };
 
@@ -88,10 +89,10 @@ export default async function CalendarPage({
     centres[0];
   if (!centre) {
     return (
-      <main className="flex flex-col gap-4 px-4 py-6">
+      <Page width="full">
         <h1 className="text-title font-semibold">Calendar</h1>
         <FormMessage tone="info">There is no centre to show.</FormMessage>
-      </main>
+      </Page>
     );
   }
 
@@ -270,7 +271,7 @@ export default async function CalendarPage({
 
   const dayLabel = `${weekday(date)}, ${formatIstDate(date)}`;
   return (
-    <main className="flex w-full flex-col gap-4 px-4 py-6">
+    <Page width="full">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="text-title font-semibold">Calendar</h1>
@@ -475,6 +476,6 @@ export default async function CalendarPage({
           walkIn={walkIn}
         />
       ) : null}
-    </main>
+    </Page>
   );
 }

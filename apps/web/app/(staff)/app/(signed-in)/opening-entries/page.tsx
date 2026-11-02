@@ -4,6 +4,7 @@ import { FormMessage } from '../../../../../components/forms';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { openingEntriesView } from '../../../../../modules/opening-entries/services';
 import { OpeningEntryCard, OpeningEntryForm, SwitchForm } from './opening-entry-forms';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Opening entries · Clinic Mx' };
 
@@ -17,7 +18,7 @@ export default async function OpeningEntriesPage() {
   const today = istDate(new Date());
   const writes = view.open && !staff.support;
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1">
         <h1 className="text-title font-semibold">Opening entries</h1>
         <p className="text-ink-secondary">
@@ -63,6 +64,6 @@ export default async function OpeningEntriesPage() {
           </ul>
         )}
       </section>
-    </main>
+    </Page>
   );
 }

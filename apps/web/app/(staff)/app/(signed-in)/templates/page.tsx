@@ -26,6 +26,7 @@ import { requirePermission } from '../../../../../modules/access/require-permiss
 import { recentMessagesOf, templateVersionsOf } from '../../../../../modules/messaging/services';
 import { getSetting } from '../../../../../modules/settings/settings';
 import { TestMessageForm } from './test-message';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'WhatsApp templates · Clinic Mx' };
 export const dynamic = 'force-dynamic';
@@ -66,7 +67,7 @@ function RecentMessages({ messages }: { messages: MessageEntry[] }) {
           data-testid="recent-message"
           data-status={entry.status}
           data-direction={entry.direction}
-          className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-3"
+          className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-4"
         >
           <span className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-medium text-ink">{messageName(entry)}</span>
@@ -190,7 +191,7 @@ export default async function TemplatesPage() {
     templateVersionsOf(staff),
   ]);
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-title font-semibold">WhatsApp templates</h1>
         <p className="text-ink-secondary">
@@ -233,6 +234,6 @@ export default async function TemplatesPage() {
           />
         ))}
       </ul>
-    </main>
+    </Page>
   );
 }

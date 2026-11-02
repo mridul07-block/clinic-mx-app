@@ -11,6 +11,7 @@ import { requirePermission } from '../../../../../modules/access/require-permiss
 import { asStaff } from '../../../../../modules/access/staff-db';
 import { loadKbReports } from '../../../../../modules/ai/kb-report';
 import { StandingTag } from './standing-tag';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Knowledge base · Clinic Mx' };
 
@@ -27,7 +28,7 @@ export default async function KnowledgeBasePage() {
   const reports = await loadKbReports(staff);
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-title font-semibold">Knowledge base</h1>
         <p className="text-ink-secondary">
@@ -120,6 +121,6 @@ export default async function KnowledgeBasePage() {
           </ul>
         )}
       </section>
-    </main>
+    </Page>
   );
 }

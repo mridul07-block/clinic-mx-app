@@ -2,5 +2,5 @@
   "$comment": "What the front end redesign replaces; each count may only fall (ratchet.ts, UIX-02). Lower a number in the commit that removes some.",
   "raw-select": 23,
   "raw-date-input": 17,
-  "phone-width-page": 46
+  "phone-width-page": 13
 }

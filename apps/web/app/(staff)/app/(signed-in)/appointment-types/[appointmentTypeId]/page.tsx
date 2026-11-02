@@ -10,6 +10,7 @@ import { requirePermission } from '../../../../../../modules/access/require-perm
 import { asStaff } from '../../../../../../modules/access/staff-db';
 import { getSetting } from '../../../../../../modules/settings/settings';
 import { AppointmentTypeActiveForm, AppointmentTypeForm } from '../appointment-type-forms';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Appointment type · Clinic Mx' };
 
@@ -37,7 +38,7 @@ export default async function AppointmentTypePage({
   const notice = notices[(await searchParams).done ?? ''];
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <Link
           href="/app/appointment-types"
@@ -75,6 +76,6 @@ export default async function AppointmentTypePage({
           </section>
         </>
       )}
-    </main>
+    </Page>
   );
 }

@@ -22,6 +22,7 @@ import { NotAllowedError } from '../../../../../modules/access/guard';
 import { readAuditLog, type AuditLogPage } from '../../../../../modules/audit/services';
 import { requireStaff } from '../../../../../modules/auth/session';
 import { getSetting } from '../../../../../modules/settings/settings';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Audit log · Clinic Mx' };
 
@@ -81,7 +82,7 @@ export default async function AuditLogPageView({
     : null;
 
   return (
-    <main className="flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
+    <Page width="content">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-title font-semibold">Audit log</h1>
         <p className="text-ink-secondary">
@@ -167,7 +168,7 @@ export default async function AuditLogPageView({
           Older
         </Link>
       ) : null}
-    </main>
+    </Page>
   );
 }
 
@@ -191,7 +192,7 @@ function AuditEntry({ entry }: { entry: AuditLogEntry }) {
         }));
   return (
     <li
-      className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-3"
+      className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-4"
       data-testid="audit-entry"
       data-entity={entry.entity}
       data-record={entry.entityId ?? ''}

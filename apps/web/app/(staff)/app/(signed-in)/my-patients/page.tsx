@@ -5,6 +5,7 @@ import { loadColleagues, loadMyPatients } from '../../../../../modules/my-patien
 import { getSetting } from '../../../../../modules/settings/settings';
 import { ColleaguesToday } from './colleagues-today';
 import { MyPatientsList } from './my-patients-list';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'My day · Clinic Mx' };
 
@@ -28,7 +29,7 @@ export default async function MyPatientsPage({
   const { date, visits, version } = await loadMyPatients(staff);
   const colleagues = await loadColleagues(staff);
   return (
-    <main className="flex w-full max-w-5xl flex-col gap-4 px-4 py-6">
+    <Page width="content">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-title font-semibold">My day</h1>
         <p className="text-sm text-ink-muted">
@@ -53,6 +54,6 @@ export default async function MyPatientsPage({
         showCentre={staff.centreIds.length > 1 || staff.role === 'super_admin'}
       />
       {staff.treatsPatients && !staff.support ? <ColleaguesToday colleagues={colleagues} /> : null}
-    </main>
+    </Page>
   );
 }

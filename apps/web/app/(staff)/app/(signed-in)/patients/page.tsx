@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { secondaryButtonClass } from '../../../../../components/forms';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../modules/access/staff-db';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Patients · Clinic Mx' };
 
@@ -24,7 +25,7 @@ export default async function PatientsPage({
   const canAdd = accessScope(staff, 'patients.edit_contact') && !staff.support;
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-title font-semibold">Patients</h1>
         <p className="text-ink-secondary">
@@ -94,6 +95,6 @@ export default async function PatientsPage({
           </section>
         )
       ) : null}
-    </main>
+    </Page>
   );
 }

@@ -10,6 +10,7 @@ import { getSetting } from '../../../../../modules/settings/settings';
 import { loginsWithPendingInvite } from '../../../../../modules/staff/directory';
 import { StaffStatus } from '../staff/staff-status';
 import { AddSupportLoginForm, EndAccessForm, GrantForm } from './support-forms';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Support access · Clinic Mx' };
 
@@ -36,7 +37,7 @@ export default async function SupportAccessPage({
   const readOnly = staff.support;
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-title font-semibold">Support access</h1>
         <p className="text-ink-secondary">
@@ -154,6 +155,6 @@ export default async function SupportAccessPage({
         )}
         {readOnly ? null : <AddSupportLoginForm />}
       </section>
-    </main>
+    </Page>
   );
 }

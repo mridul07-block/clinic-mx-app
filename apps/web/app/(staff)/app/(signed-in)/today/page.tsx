@@ -53,11 +53,11 @@ export default async function TodayPage({
   const signedInAs = `Signed in as ${staff.name}, ${staffRoleLabels[staff.role]}`;
   if (!centre) {
     return (
-      <main className="flex flex-col gap-4 px-4 py-6">
+      <Page width="full">
         <h1 className="text-title font-semibold">Today</h1>
         <p className="text-sm text-ink-muted">{signedInAs}</p>
         <FormMessage tone="info">There is no centre to show.</FormMessage>
-      </main>
+      </Page>
     );
   }
 

@@ -15,6 +15,7 @@ import { Tag } from '../../../../../../components/tag';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { dataRequestFor } from '../../../../../../modules/data-requests/services';
 import { CloseDataRequestForm } from '../data-request-forms';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Data request · Clinic Mx' };
 
@@ -35,7 +36,7 @@ export default async function DataRequestPage({
   const open = request.status === 'open';
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <Link
           href="/app/data-requests"
@@ -128,6 +129,6 @@ export default async function DataRequestPage({
           <CloseDataRequestForm requestId={request.id} />
         </section>
       ) : null}
-    </main>
+    </Page>
   );
 }

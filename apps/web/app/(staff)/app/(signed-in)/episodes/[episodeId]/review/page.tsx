@@ -12,6 +12,7 @@ import { DischargeForm } from './discharge-form';
 import { FinalTestForm } from './final-test-form';
 import { FinalTestRows } from './final-test-rows';
 import { ReadinessPanel } from './readiness-panel';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Review and discharge · Clinic Mx' };
 
@@ -34,7 +35,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ episode
   if (!screen) notFound();
   const { episode, patient, items, finalTest, signs, sessionNumber, readiness, discharge } = screen;
   return (
-    <main className="flex w-full max-w-3xl flex-col gap-4 px-4 py-6">
+    <Page width="content">
       <div className="flex flex-col gap-1.5">
         <Link
           href={`/app/patients/${patient.id}`}
@@ -110,6 +111,6 @@ export default async function ReviewPage({ params }: { params: Promise<{ episode
           <p className="text-ink-muted">A consultant discharges the episode.</p>
         )}
       </section>
-    </main>
+    </Page>
   );
 }

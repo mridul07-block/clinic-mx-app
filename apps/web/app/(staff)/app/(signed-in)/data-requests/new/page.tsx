@@ -8,6 +8,7 @@ import { requirePermission } from '../../../../../../modules/access/require-perm
 import { asStaff } from '../../../../../../modules/access/staff-db';
 import { getSetting } from '../../../../../../modules/settings/settings';
 import { RecordDataRequestForm } from '../data-request-forms';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'New data request · Clinic Mx' };
 
@@ -26,7 +27,7 @@ export default async function NewDataRequestPage({
   const days = await getSetting('privacy.request_response_days');
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <Link
           href={['/app/patients', patient.id].join('/')}
@@ -41,6 +42,6 @@ export default async function NewDataRequestPage({
         </p>
       </div>
       <RecordDataRequestForm patientId={patient.id} today={istDate(new Date())} />
-    </main>
+    </Page>
   );
 }

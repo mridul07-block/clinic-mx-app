@@ -8,6 +8,7 @@ import { HorizontalBars } from '../../../../../../components/charts/horizontal-b
 import { redirect } from 'next/navigation';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { ownOutcomes, readsOwnOutcomes } from '../../../../../../modules/reporting/own-outcomes';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'My results · Clinic Mx' };
 export const dynamic = 'force-dynamic';
@@ -25,7 +26,7 @@ export default async function OwnOutcomesPage({
   const window = outcomeWindow((await searchParams).window);
   const view = await ownOutcomes(staff, window);
   return (
-    <main className="flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
+    <Page width="content">
       <div className="flex flex-col gap-1.5">
         <Link
           href="/app/my-patients"
@@ -115,6 +116,6 @@ export default async function OwnOutcomesPage({
           </p>
         ) : null}
       </section>
-    </main>
+    </Page>
   );
 }

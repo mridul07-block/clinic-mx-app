@@ -73,8 +73,11 @@ export function ColleaguesToday({ colleagues }: { colleagues: ColleagueRow[] }) 
                             </span>
                           ) : null}
                           {visit.session?.label ? (
-                            <span data-testid="session-label">
-                              <Tag tone="outline">{visit.session.label}</Tag>
+                            <span
+                              data-testid="session-label"
+                              className="text-sm text-ink-secondary"
+                            >
+                              {visit.session.label}
                             </span>
                           ) : null}
                         </span>

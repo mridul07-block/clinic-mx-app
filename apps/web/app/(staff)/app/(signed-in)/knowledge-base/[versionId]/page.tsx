@@ -27,6 +27,7 @@ import { requirePermission } from '../../../../../../modules/access/require-perm
 import { asStaff } from '../../../../../../modules/access/staff-db';
 import { StandingTag } from '../standing-tag';
 import { ApproveForm } from './approve-form';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Knowledge base version · Clinic Mx' };
 
@@ -90,7 +91,7 @@ export default async function KnowledgeVersionPage({
   const approved = (await searchParams).done === 'approved';
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <Link
           href="/app/knowledge-base"
@@ -313,6 +314,6 @@ export default async function KnowledgeVersionPage({
           <p className="text-sm text-ink-muted">This version’s import report could not be read.</p>
         )}
       </section>
-    </main>
+    </Page>
   );
 }

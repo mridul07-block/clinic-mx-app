@@ -6,6 +6,7 @@ import { FormMessage } from '../../../../../../components/forms';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../../modules/access/staff-db';
 import { PatientForm } from '../patient-form';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Add patient · Clinic Mx' };
 
@@ -17,7 +18,7 @@ export default async function NewPatientPage() {
     .filter((centre) => centre.active)
     .map(({ id, name }) => ({ id, name }));
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1">
         <Link href="/app/patients" className="text-sm text-ink-muted underline underline-offset-2">
           Patients
@@ -33,6 +34,6 @@ export default async function NewPatientPage() {
       ) : (
         <PatientForm centres={centres} today={istDate(new Date())} />
       )}
-    </main>
+    </Page>
   );
 }

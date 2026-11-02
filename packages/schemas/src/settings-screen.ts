@@ -83,9 +83,7 @@ export const clinicRuleGroups: readonly { label: string; keys: readonly SettingK
 
 /** A setting's description without the ticket codes that mean nothing to the clinic. */
 export function settingPlainDescription(description: string): string {
-  return description
-    .replace(/\s*\([A-Z]{2,3}-\d{2}[^)]*\)/g, '')
-    .replace(/\s+\./g, '.');
+  return description.replace(/\s*\([A-Z]{2,3}-\d{2}[^)]*\)/g, '').replace(/\s+\./g, '.');
 }
 
 /** The settings whose description or name holds every word typed, for the screen's search. */

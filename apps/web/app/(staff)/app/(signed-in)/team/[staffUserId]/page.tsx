@@ -19,6 +19,7 @@ import { getSetting } from '../../../../../../modules/settings/settings';
 import { LeaveForm } from '../../leave/leave-forms';
 import { LeaveList } from '../../leave/leave-list';
 import { RosterForm } from '../roster-form';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Team member · Clinic Mx' };
 
@@ -77,7 +78,7 @@ export default async function TeamMemberPage({
   const notice = notices[(await searchParams).done ?? ''];
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <Link href="/app/team" className="text-sm text-ink-muted underline underline-offset-2">
           Team
@@ -168,6 +169,6 @@ export default async function TeamMemberPage({
           </>
         )}
       </section>
-    </main>
+    </Page>
   );
 }

@@ -8,6 +8,7 @@ import { requireStaff } from '../../../../../modules/auth/session';
 import { getSetting } from '../../../../../modules/settings/settings';
 import { LeaveForm } from './leave-forms';
 import { LeaveList } from './leave-list';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'My leave · Clinic Mx' };
 
@@ -30,7 +31,7 @@ export default async function MyLeavePage({
   const notice = notices[(await searchParams).done ?? ''];
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-title font-semibold">My leave</h1>
         <p className="text-ink-secondary">
@@ -55,6 +56,6 @@ export default async function MyLeavePage({
           back="/app/leave"
         />
       </section>
-    </main>
+    </Page>
   );
 }
