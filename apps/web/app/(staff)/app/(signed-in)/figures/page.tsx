@@ -20,7 +20,6 @@ export default async function FiguresPage() {
   const staff = await requirePermission('dashboard.overview');
   const view = await figuresView(staff);
   const measured = view.figures.filter((figure) => figure.needs === null);
-  const waiting = view.figures.filter((figure) => figure.needs !== null);
   return (
     <main className="flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
       <div className="flex flex-col gap-1">
@@ -40,28 +39,6 @@ export default async function FiguresPage() {
         <ul className="grid grid-cols-1 gap-3 md:grid-cols-2" data-testid="figures-measured">
           {measured.map((figure) => (
             <FigureCard key={figure.key} figure={figure} />
-          ))}
-        </ul>
-      </section>
-      <section className="flex flex-col gap-3" aria-labelledby="figures-waiting">
-        <h2 id="figures-waiting" className="font-semibold text-ink">
-          Not measured yet
-        </h2>
-        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2" data-testid="figures-waiting">
-          {waiting.map((figure) => (
-            <li
-              key={figure.key}
-              className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-4"
-              data-testid="figure"
-              data-figure={figure.key}
-            >
-              <h3 className="font-medium text-ink">{figure.label}</h3>
-              {figure.target ? (
-                <p className="text-sm text-ink-secondary">Target: {figure.target}</p>
-              ) : null}
-              <p className="text-sm text-ink-muted">{figure.definition}</p>
-              <p className="text-sm text-ink-secondary">Waiting for: {figure.needs}</p>
-            </li>
           ))}
         </ul>
       </section>

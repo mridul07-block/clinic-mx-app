@@ -39,7 +39,7 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
       { timeout: 20_000 },
     )
     .toBe(true);
-  await expect(page.getByTestId('alert-coming')).toHaveCount(1);
+  await expect(page.getByText('Not measured yet')).toHaveCount(0);
   const fits = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
   expect(await fits()).toBe(true);
   await page.screenshot({ path: test.info().outputPath('dashboard-alerts.png'), fullPage: true });
@@ -62,8 +62,8 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
   await page.getByRole('main').getByRole('link', { name: 'Outcomes', exact: true }).click();
   await page.getByRole('link', { name: 'Last 12 months' }).click();
   await expect(page).toHaveURL(/window=365/);
-  await expect(page.getByTestId('outcome-bullet')).toHaveCount(4);
-  await expect(page.locator('[data-figure="reinjury"]')).toContainText('Not measured yet');
+  await expect(page.getByTestId('outcome-bullet')).toHaveCount(2);
+  await expect(page.locator('[data-figure="reinjury"]')).toHaveCount(0);
   await expect(page.getByTestId('funnel-stage')).toHaveCount(5);
   expect(await fits()).toBe(true);
   await page.screenshot({ path: test.info().outputPath('dashboard-outcomes.png'), fullPage: true });

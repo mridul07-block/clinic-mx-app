@@ -1,5 +1,7 @@
 # Figures: the KPI query layer (DSH-01)
 
+> **3 November 2026 (UIX-16c):** figures and targets not measured yet no longer show on any screen, by the user's decision. The definitions and `needs` text stay in the code, so each appears by itself once its data exists. Wording below about "Not measured yet" describes what the data says, not the screen.
+
 The source is PRD section 9 ("the SOP's own KPIs become the product's targets, tracked automatically
 on the dashboards from launch") and the KPI cards in Frontend Specification section 8. Ticket
 DSH-01 asks for daily aggregates for every metric in PRD section 9, by centre.

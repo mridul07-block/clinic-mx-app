@@ -9,10 +9,11 @@ const statusClass = {
 } as const;
 
 /**
- * One SOP target as a bullet graph with its value, status word and count, or what brings it when
- * it is not measured yet (DSH-03, DSH-05).
+ * One SOP target as a bullet graph with its value, status word and count (DSH-03, DSH-05). A target
+ * not measured yet shows nothing until it can be (the user's review, 3 November 2026).
  */
 export function OutcomeBulletCard({ bullet }: { bullet: OutcomeBullet }) {
+  if (bullet.needs) return null;
   return (
     <li
       className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-4"
@@ -23,9 +24,7 @@ export function OutcomeBulletCard({ bullet }: { bullet: OutcomeBullet }) {
         <span className="font-medium text-ink">{bullet.label}</span>
         <span className="text-sm text-ink-secondary">Target: {bullet.targetText}</span>
       </span>
-      {bullet.needs ? (
-        <p className="text-sm text-ink-secondary">Not measured yet: {bullet.needs}</p>
-      ) : bullet.value === null ? (
+      {bullet.value === null ? (
         <p className="text-sm text-ink-muted">No data yet in this window.</p>
       ) : (
         <>

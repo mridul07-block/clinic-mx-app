@@ -72,7 +72,7 @@ export default async function DashboardOutcomesPage({
         </h2>
         <p className="text-sm text-ink-secondary">
           Pain during activity (0 to 10), from the consultation to the last session, for episodes
-          discharged after treatment. Questionnaire scores join when questionnaires arrive (OUT-02).
+          discharged after treatment.
         </p>
         {view.outcomes.length > 0 ? (
           <DumbbellChart

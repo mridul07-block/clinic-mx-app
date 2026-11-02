@@ -1,6 +1,5 @@
 import { kpiText, monthLabel } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { BarChart } from '../../../../../components/charts/bar-chart';
 import { KpiPanel } from '../../../../../components/dashboard/kpi-panel';
 import { OutcomeBulletCard } from '../../../../../components/dashboard/outcome-bullet-card';
@@ -24,17 +23,6 @@ export default async function OverviewPage() {
         <h1 className="text-title font-semibold">Overview</h1>
         <p className="text-sm text-ink-secondary">
           All centres, counted at <span className="tabular-nums">{view.countedAt}</span>.
-        </p>
-        <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          <Link href="/app/dashboard" className="text-accent underline underline-offset-2">
-            Alerts and outcomes
-          </Link>
-          <Link href="/app/finance" className="text-accent underline underline-offset-2">
-            Finance
-          </Link>
-          <Link href="/app/figures" className="text-accent underline underline-offset-2">
-            All figures
-          </Link>
         </p>
       </div>
       <section className="flex flex-col gap-3" aria-labelledby="overview-today">
@@ -98,16 +86,6 @@ export default async function OverviewPage() {
           {view.bullets.map((bullet) => (
             <OutcomeBulletCard key={bullet.key} bullet={bullet} />
           ))}
-          <li
-            className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-4"
-            data-testid="overview-ai"
-          >
-            <span className="font-medium text-ink">{view.aiTop3.label}, by month</span>
-            <span className="text-sm text-ink-secondary">Target: {view.aiTop3.target}</span>
-            <span className="text-sm text-ink-secondary">
-              Not measured yet: {view.aiTop3.needs}
-            </span>
-          </li>
         </ul>
       </section>
       {[...view.revenue.thisYear, ...view.revenue.lastYear].some((value) => value > 0) ? (

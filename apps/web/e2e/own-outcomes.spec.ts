@@ -49,13 +49,13 @@ test('a treating physio sees their own patients’ outcomes against the clinic�
     'page',
   );
 
-  await expect(page.getByTestId('outcome-bullet')).toHaveCount(4);
+  await expect(page.getByTestId('outcome-bullet')).toHaveCount(2);
   const completion = page.locator('[data-figure="treatment_completion"]');
   await expect(completion).toContainText('1 of 1');
   await expect(completion).toContainText('100%');
   await expect(page.locator('[data-figure="consultation_conversion"]')).toContainText('1 of 1');
-  await expect(page.locator('[data-figure="meaningful_change"]')).toContainText('Not measured yet');
-  await expect(page.getByTestId('own-coming')).toContainText('PAT-02');
+  await expect(page.locator('[data-figure="meaningful_change"]')).toHaveCount(0);
+  await expect(page.getByText('Not measured yet')).toHaveCount(0);
   await expect(page.getByTestId('funnel-stage')).toHaveCount(5);
   await expect(page.getByText(conditionName).first()).toBeVisible();
   await expect(page.locator('body')).not.toContainText('₹');

@@ -51,7 +51,7 @@ export function ChartReadout({ label, children }: { label: string; children: Rea
   return (
     <div className="flex flex-col gap-1">
       <p className="min-h-5 text-sm text-ink" aria-live="polite" data-testid="chart-readout">
-        {words ?? <span className="text-ink-muted">Tap a mark, or use the arrow keys.</span>}
+        {words}
       </p>
       <div
         ref={box}

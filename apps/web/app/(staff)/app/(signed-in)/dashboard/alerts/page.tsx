@@ -61,15 +61,6 @@ export default async function DashboardAlertsPage() {
           None now: {clear.map((item) => item.label.toLowerCase()).join('; ')}.
         </p>
       ) : null}
-      <h2 className="font-semibold text-ink">Not measured yet</h2>
-      <ul className="flex flex-col gap-1 text-sm">
-        {view.coming.map((entry) => (
-          <li key={entry.label} data-testid="alert-coming">
-            <span className="text-ink">{entry.label}:</span>{' '}
-            <span className="text-ink-secondary">{entry.needs}</span>
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }

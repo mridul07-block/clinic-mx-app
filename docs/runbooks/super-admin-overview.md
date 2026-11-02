@@ -1,5 +1,7 @@
 # Super Admin overview (DSH-05)
 
+> **3 November 2026 (UIX-16c):** figures and targets not measured yet no longer show on any screen, by the user's decision. The definitions and `needs` text stay in the code, so each appears by itself once its data exists. Wording below about "Not measured yet" describes what the data says, not the screen.
+
 Frontend Specification section 6 gives the Super Admin an "Overview across all centres", and the
 section 4 tabs for the role are "Overview, Alerts, Settings, More". Ticket DSH-05 asks for all
 centres at a glance plus the AI's top 3 accuracy by month.

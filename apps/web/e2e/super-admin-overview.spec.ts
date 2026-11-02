@@ -7,7 +7,7 @@ import { signInWithCode, temporaryWithCode } from './staff';
 
 // DSH-05 done when: all centres at a glance; AI top 3 accuracy by month. Recommended defaults
 // under the user's standing approval (28 October 2026): the Super Admin lands on the Overview; the
-// AI's accuracy waits for AI-03 and says so.
+// Targets with no data yet do not show.
 
 const physios: string[] = [];
 const bills: string[] = [];
@@ -42,14 +42,12 @@ test('the Super Admin lands on the Overview and sees every centre at a glance', 
   // Every active centre, the week with revenue, the targets and the AI's accuracy to come.
   await expect(page.getByTestId('overview-centre')).not.toHaveCount(0);
   await expect(page.locator('[data-kpi="revenue"]')).toBeVisible();
-  await expect(page.getByTestId('outcome-bullet')).toHaveCount(4);
-  await expect(page.getByTestId('overview-ai')).toContainText('AI-03');
+  await expect(page.getByTestId('outcome-bullet')).toHaveCount(2);
+  await expect(page.getByText('Not measured yet')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
   await page.screenshot({ path: test.info().outputPath('overview.png'), fullPage: true });
-  await page.getByRole('link', { name: 'Alerts and outcomes' }).click();
-  await expect(page).toHaveURL(/\/app\/dashboard\/alerts/);
 });
 
 test('Centre Managers and Finance do not open the Overview', async ({ browser }) => {

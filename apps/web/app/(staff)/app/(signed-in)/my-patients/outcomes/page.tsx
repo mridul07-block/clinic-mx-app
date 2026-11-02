@@ -63,16 +63,6 @@ export default async function OwnOutcomesPage({
           {view.bullets.map((bullet) => (
             <OutcomeBulletCard key={bullet.key} bullet={bullet} />
           ))}
-          {view.coming.map((item) => (
-            <li
-              key={item.label}
-              className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-4"
-              data-testid="own-coming"
-            >
-              <span className="font-medium text-ink">{item.label}</span>
-              <span className="text-sm text-ink-muted">Not measured yet: {item.needs}.</span>
-            </li>
-          ))}
         </ul>
       </section>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -98,7 +88,7 @@ export default async function OwnOutcomesPage({
         </h2>
         <p className="text-sm text-ink-secondary">
           Pain during activity (0 to 10), from the consultation to the last session, for episodes
-          discharged after treatment. Questionnaire scores join when questionnaires arrive (OUT-02).
+          discharged after treatment.
         </p>
         {view.outcomes.length > 0 ? (
           <DumbbellChart
