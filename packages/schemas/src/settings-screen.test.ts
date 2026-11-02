@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { settingKeys, type settingDefinitions } from './settings';
 import {
+  clinicRuleGroups,
+  matchSettings,
+  settingPlainDescription,
   parseSettingField,
   settingDisplay,
   settingOrderPairs,
@@ -111,5 +114,29 @@ describe('the settings screen', () => {
 
   it('shows money in paise also in rupees', () => {
     expect(settingDisplay('ai.daily_spend_cap_paise', 50000)).toBe('50000 paise (₹500)');
+  });
+});
+
+// The user's review, 3 November 2026: the clinic's rules first, in plain words.
+describe('the clinic’s rules', () => {
+  const rules = clinicRuleGroups.flatMap((group) => group.keys);
+
+  it('lists each rule once, about thirty in all, every one changeable here', () => {
+    expect(new Set(rules).size).toBe(rules.length);
+    expect(rules.length).toBeLessThanOrEqual(35);
+    for (const key of rules) expect(settingChangedElsewhere(key)).toBeNull();
+  });
+
+  it('takes ticket codes out of descriptions and leaves other brackets', () => {
+    expect(settingPlainDescription('Every slot is whole (SET-03).')).toBe('Every slot is whole.');
+    expect(settingPlainDescription('Worst pain (0 to 10) above this (CLN-06).')).toBe(
+      'Worst pain (0 to 10) above this.',
+    );
+  });
+
+  it('searches by words in any order, and an empty search finds nothing', () => {
+    expect(matchSettings('late running')).toContain('day.running_late_minutes');
+    expect(matchSettings('   ')).toEqual([]);
+    expect(matchSettings('nothing like this')).toEqual([]);
   });
 });

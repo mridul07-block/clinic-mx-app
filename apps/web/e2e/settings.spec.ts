@@ -40,6 +40,21 @@ test('the Super Admin changes a setting, checked and on the value read', async (
   const fits = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
   expect(await fits()).toBe(true);
 
+  // The clinic's rules first, in plain words; everything else folded under Advanced.
+  await expect(page.getByRole('heading', { name: 'The day', level: 2 })).toBeVisible();
+  await expect(page.getByText('day.running_late_minutes')).toHaveCount(0);
+  const advanced = page.getByTestId('settings-advanced');
+  await expect(advanced.getByText('limits.sign_in_per_email')).toBeHidden();
+  await advanced.locator('summary').click();
+  await expect(advanced.getByText('limits.sign_in_per_email')).toBeVisible();
+
+  // Find looks through all of them.
+  await page.getByLabel('Find a setting').fill('sign in per email');
+  await page.getByRole('button', { name: 'Find' }).click();
+  await expect(page).toHaveURL(/\?q=/);
+  await expect(page.getByTestId('setting')).not.toHaveCount(0);
+  await page.getByRole('link', { name: 'Show all settings' }).click();
+
   // Switched on its own page: read only here.
   const gate = page.locator('[data-testid="setting"][data-key="ai.preparation_sheet"]');
   await expect(gate.getByTestId('setting-elsewhere')).toContainText('blind test');
