@@ -24,9 +24,6 @@ export default async function DataRequestsPage() {
   return (
     <main className="flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
       <div className="flex flex-col gap-1.5">
-        <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-          Home
-        </Link>
         <h1 className="text-title font-semibold">Data requests</h1>
         <p className="text-ink-secondary">
           A patient’s requests for a copy of their data, a correction or deletion. To record one,

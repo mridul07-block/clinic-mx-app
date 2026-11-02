@@ -273,9 +273,6 @@ export default async function CalendarPage({
     <main className="flex w-full flex-col gap-4 px-4 py-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-            Home
-          </Link>
           <h1 className="text-title font-semibold">Calendar</h1>
           <p className="text-sm text-ink-muted">
             {centre.name} · {dayLabel}

@@ -26,9 +26,6 @@ export default async function AppointmentTypesPage() {
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
       <div className="flex flex-col gap-1.5">
-        <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-          Home
-        </Link>
         <h1 className="text-title font-semibold">Appointment types</h1>
         <p className="text-ink-secondary">
           How long each kind of appointment takes. The calendar books with these lengths, or with a

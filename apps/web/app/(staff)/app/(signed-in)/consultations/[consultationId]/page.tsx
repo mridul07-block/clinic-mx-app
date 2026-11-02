@@ -50,7 +50,7 @@ export default async function ConsultationPage({
           href="/app/my-patients"
           className="text-sm text-ink-muted underline underline-offset-2"
         >
-          My patients today
+          My day
         </Link>
         <h1 className="text-title font-semibold">Consultation</h1>
         <p className="text-sm text-ink-muted">

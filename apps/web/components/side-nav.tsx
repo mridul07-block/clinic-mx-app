@@ -1,86 +1,22 @@
 'use client';
 
-import {
-  currentNavItem,
-  navigationBySection,
-  type NavIcon,
-  type NavItem,
-} from '@clinic-mx/schemas';
-import {
-  BookOpen,
-  Building2,
-  CalendarCheck2,
-  CalendarDays,
-  CalendarOff,
-  ChartColumn,
-  ChartLine,
-  ClipboardList,
-  Clock,
-  Dumbbell,
-  FileLock,
-  FileText,
-  History,
-  IndianRupee,
-  KeyRound,
-  LayoutDashboard,
-  ListChecks,
-  type LucideIcon,
-  MessageSquareText,
-  Package,
-  Receipt,
-  Search,
-  Settings,
-  ShieldAlert,
-  Stethoscope,
-  Tablet,
-  TriangleAlert,
-  UserCog,
-  Users,
-  UsersRound,
-} from 'lucide-react';
+import { currentNavItem, type NavItem } from '@clinic-mx/schemas';
+import { Search } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { navIconComponents } from './nav-icons';
 
 // The tablet rail and the desktop sidebar (UI-02; Frontend Specification section 4, design system
 // v2 section 7). From 768 px a 64 px rail of 18 px icons, names in tooltips with a mouse and small
 // words under them on touch; from 1280 px a 240 px sidebar on the canvas: the logo, the centre
-// switcher, Search or jump to, the person's screens by section, their menu at the foot. The
-// current screen sits on a white pill with a 3 px gold bar on its left edge.
-
-const icons: Record<NavIcon, LucideIcon> = {
-  tasks: ListChecks,
-  'my-patients': Stethoscope,
-  today: CalendarCheck2,
-  calendar: CalendarDays,
-  patients: Users,
-  centres: Building2,
-  team: UsersRound,
-  leave: CalendarOff,
-  'appointment-types': Clock,
-  ai: ClipboardList,
-  alerts: TriangleAlert,
-  'red-flags': ShieldAlert,
-  'knowledge-base': BookOpen,
-  templates: MessageSquareText,
-  packages: Package,
-  prices: Receipt,
-  staff: UserCog,
-  support: KeyRound,
-  settings: Settings,
-  audit: History,
-  'opening-entries': FileText,
-  overview: LayoutDashboard,
-  dashboard: ChartLine,
-  finance: IndianRupee,
-  figures: ChartColumn,
-  kiosk: Tablet,
-  'data-requests': FileLock,
-  exercises: Dumbbell,
-};
+// switcher, Search, the role's main links then More or Setup, their menu at the foot. A screen
+// that is not a main link counts as More or Setup. The current one sits on a white pill with a 3 px
+// gold bar on its left edge.
 
 export function SideNav({
   items,
+  homeHref,
   counts,
   centreSwitcher,
   railCentreSwitcher,
@@ -88,6 +24,8 @@ export function SideNav({
   onSearch,
 }: {
   items: readonly NavItem[];
+  /** The person's landing screen, where the logo goes. */
+  homeHref: string;
   /** Things needing action, by screen: shown beside its name, or as a badge on the rail. */
   counts: Record<string, number>;
   centreSwitcher: ReactNode;
@@ -103,7 +41,10 @@ export function SideNav({
       className="sticky top-0 hidden h-dvh w-rail shrink-0 flex-col gap-3 overflow-y-auto bg-canvas px-2 py-3 md:flex xl:w-sidebar xl:px-3"
       data-testid="side-nav"
     >
-      <Link href="/app" className="flex h-8 items-center justify-center xl:justify-start xl:px-2">
+      <Link
+        href={homeHref}
+        className="flex h-8 items-center justify-center xl:justify-start xl:px-2"
+      >
         {/* eslint-disable-next-line @next/next/no-img-element -- a small static SVG; the image optimiser adds nothing */}
         <img
           src="/brand/movementology-mark.svg"
@@ -138,72 +79,61 @@ export function SideNav({
           Ctrl K
         </kbd>
       </button>
-      <nav aria-label="Main" className="flex flex-col gap-3">
-        {navigationBySection(items).map((group) => (
-          <div
-            key={group.section}
-            role="group"
-            aria-label={group.label}
-            className="flex flex-col gap-0.5"
-          >
-            <p className="hidden px-2 pt-1 text-sm text-ink-muted xl:block">{group.label}</p>
-            <hr className="mx-2 border-line xl:hidden" />
-            {group.items.map((item) => {
-              const Icon = icons[item.icon];
-              const here = current?.href === item.href;
-              const count = counts[item.href] ?? 0;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={here ? 'page' : undefined}
-                  title={item.label}
-                  className={[
-                    'relative flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-control border px-1 text-ink-secondary',
-                    'xl:min-h-8 xl:flex-row xl:justify-start xl:gap-2.5 xl:px-2 xl:pointer-coarse:min-h-row-touch',
-                    here
-                      ? 'border-line bg-surface font-medium text-accent shadow-xs'
-                      : 'border-transparent hover:bg-surface-hover hover:text-ink',
-                  ].join(' ')}
+      <nav aria-label="Main" className="flex flex-col gap-1">
+        {items.map((item) => {
+          const Icon = navIconComponents[item.icon];
+          const here = current?.href === item.href;
+          const count = counts[item.href] ?? 0;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={here ? 'page' : undefined}
+              title={item.label}
+              className={[
+                'relative flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-control border px-1 text-ink-secondary',
+                'xl:min-h-10 xl:flex-row xl:justify-start xl:gap-2.5 xl:px-2 xl:pointer-coarse:min-h-row-touch',
+                here
+                  ? 'border-line bg-surface font-medium text-accent shadow-xs'
+                  : 'border-transparent hover:bg-surface-hover hover:text-ink',
+              ].join(' ')}
+            >
+              {here ? (
+                <span
+                  aria-hidden
+                  className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-brand"
+                />
+              ) : null}
+              {/* The name, for screen readers; the words shown are a picture of it. */}
+              <span className="sr-only">
+                {count > 0 ? `${item.label}, ${String(count)}` : item.label}
+              </span>
+              <Icon
+                aria-hidden
+                size={18}
+                strokeWidth={1.75}
+                className={here ? 'text-accent' : 'text-ink-muted'}
+              />
+              <span aria-hidden className="hidden flex-1 truncate xl:inline">
+                {item.label}
+              </span>
+              <span
+                aria-hidden
+                className="hidden max-w-full truncate text-sm pointer-coarse:block xl:pointer-coarse:hidden"
+              >
+                {item.label}
+              </span>
+              {count > 0 ? (
+                <span
+                  aria-hidden
+                  className="absolute top-0.5 right-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-sm leading-4 text-on-accent xl:static xl:bg-transparent xl:px-0 xl:text-ink-muted"
                 >
-                  {here ? (
-                    <span
-                      aria-hidden
-                      className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-brand"
-                    />
-                  ) : null}
-                  {/* The name, for screen readers; the words shown are a picture of it. */}
-                  <span className="sr-only">
-                    {count > 0 ? `${item.label}, ${String(count)}` : item.label}
-                  </span>
-                  <Icon
-                    aria-hidden
-                    size={18}
-                    strokeWidth={1.75}
-                    className={here ? 'text-accent' : 'text-ink-muted'}
-                  />
-                  <span aria-hidden className="hidden flex-1 truncate xl:inline">
-                    {item.label}
-                  </span>
-                  <span
-                    aria-hidden
-                    className="hidden max-w-full truncate text-sm pointer-coarse:block xl:pointer-coarse:hidden"
-                  >
-                    {item.label}
-                  </span>
-                  {count > 0 ? (
-                    <span
-                      aria-hidden
-                      className="absolute top-0.5 right-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-sm leading-4 text-on-accent xl:static xl:bg-transparent xl:px-0 xl:text-ink-muted"
-                    >
-                      {count}
-                    </span>
-                  ) : null}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
+                  {count}
+                </span>
+              ) : null}
+            </Link>
+          );
+        })}
       </nav>
       <div className="mt-auto">{personMenu}</div>
     </div>

@@ -11,7 +11,7 @@ import { requirePermission } from '../../../../../../modules/access/require-perm
 import { refundsView } from '../../../../../../modules/billing/refunds';
 import { RefundForm } from './refund-form';
 
-export const metadata: Metadata = { title: 'Refunds · Finance · Clinic Mx' };
+export const metadata: Metadata = { title: 'Refunds · Money · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
 // Refunds (BIL-11, Frontend Specification section 6 "Refunds and credits"): Finance or the Super

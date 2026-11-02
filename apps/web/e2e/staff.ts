@@ -424,11 +424,11 @@ export async function signInWithCode(page: Page, email: string, secret: string) 
 }
 
 /**
- * Physios land on My patients today (CLN-01): wait for it, so nothing interrupts the landing,
+ * Physios land on My day (CLN-01): wait for it, so nothing interrupts the landing,
  * then go on to Home, where the links are.
  */
 export async function physioLanded(page: Page, then: string = '/app') {
-  await expect(page.getByRole('heading', { name: 'My patients today', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'My day', exact: true })).toBeVisible();
   await page.goto(then);
 }
 

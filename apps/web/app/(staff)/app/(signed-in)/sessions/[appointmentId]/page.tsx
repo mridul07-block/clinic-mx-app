@@ -52,7 +52,7 @@ export default async function SessionPage({
           href="/app/my-patients"
           className="text-sm text-ink-muted underline underline-offset-2"
         >
-          My patients today
+          My day
         </Link>
         <span className="flex flex-wrap items-center gap-2">
           <h1 className="text-title font-semibold">{visit.typeName}</h1>

@@ -70,7 +70,7 @@ test('a role that requires it sets up an authenticator app at first sign in', as
   await page.getByRole('button', { name: 'Verify' }).click();
   await expect(page.getByText('That code did not work.')).toBeVisible();
   await enterCode(page, secret);
-  // A physiotherapist lands on My patients today (CLN-01).
+  // A physiotherapist lands on My day (CLN-01).
   await expect(page).toHaveURL(/\/app\/my-patients$/);
   await expect(page.getByText(`Signed in as ${name}`)).toBeVisible();
 
@@ -111,10 +111,10 @@ test('a role that requires it cannot skip setup', async ({ page }) => {
 
 test('Front Desk signs in with the password alone', async ({ page }) => {
   await signInWithPassword(page, testStaff.desk.email);
-  // The Front Desk lands on Today (INT-01); Account is on Home.
+  // The Front Desk lands on Today (INT-01); Account is on More.
   await expect(page).toHaveURL(/\/app\/today$/);
   await expect(page.getByText(`Signed in as ${testStaff.desk.name}, Front Desk`)).toBeVisible();
-  await page.getByRole('link', { name: 'Home' }).click();
+  await page.getByRole('link', { name: 'More', exact: true }).click();
   await page.getByRole('main').getByRole('link', { name: 'Account' }).click();
   await expect(page.getByText('Off. Turn it on')).toBeVisible();
 });

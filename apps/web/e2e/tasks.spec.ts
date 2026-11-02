@@ -49,11 +49,9 @@ test('the desk sees its tasks by urgency, takes one, and closes it only with a d
 
   const deskOne = await temporaryDesk();
   await signIn(page, deskOne.email);
-  // The front desk lands on Today; the inbox is linked from Home.
-  await page.goto('/app');
-  await expect(page.getByTestId('home-tasks')).toContainText('open');
-  await page.getByTestId('home-tasks').click();
-  await expect(page.getByRole('heading', { name: 'Tasks', level: 1 })).toBeVisible();
+  // The front desk lands on Today; To do is a main link, with the count.
+  await page.getByRole('link', { name: /^To do\b.*\d+$/ }).click();
+  await expect(page.getByRole('heading', { name: 'To do', level: 1 })).toBeVisible();
 
   // Most urgent first: the urgent one, then the overdue, then the rest.
   const order = await page
@@ -114,7 +112,7 @@ test('a physio does not see the front desk’s tasks', async ({ page }) => {
   const physio = await temporaryWithCode('physiotherapist', ['HSR Layout']);
   await signInWithCode(page, physio.email, physio.secret);
   await physioLanded(page);
-  await page.getByTestId('home-tasks').click();
-  await expect(page.getByRole('heading', { name: 'Tasks', level: 1 })).toBeVisible();
+  await page.getByRole('link', { name: /^To do/ }).click();
+  await expect(page.getByRole('heading', { name: 'To do', level: 1 })).toBeVisible();
   await expect(card(page, title)).toHaveCount(0);
 });

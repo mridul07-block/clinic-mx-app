@@ -8,7 +8,7 @@ import { getSetting } from '../../../../../modules/settings/settings';
 import { ColleaguesToday } from './colleagues-today';
 import { MyPatientsList } from './my-patients-list';
 
-export const metadata: Metadata = { title: 'My patients today · Clinic Mx' };
+export const metadata: Metadata = { title: 'My day · Clinic Mx' };
 
 // My patients today (CLN-01, Frontend Specification "Physiotherapist": the physio's home). The
 // signed in clinician's own visits today in time order with status, form status and open alerts;
@@ -32,10 +32,7 @@ export default async function MyPatientsPage({
   return (
     <main className="flex w-full max-w-5xl flex-col gap-4 px-4 py-6">
       <div className="flex flex-col gap-1.5">
-        <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-          Home
-        </Link>
-        <h1 className="text-title font-semibold">My patients today</h1>
+        <h1 className="text-title font-semibold">My day</h1>
         <p className="text-sm text-ink-muted">
           {formatIstDate(date)} · Signed in as {staff.name}, {staffRoleLabels[staff.role]}
         </p>

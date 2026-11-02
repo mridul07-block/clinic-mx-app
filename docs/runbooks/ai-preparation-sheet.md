@@ -11,7 +11,7 @@
     physio confirms it."
   - "The sheet shows the top 3 suggestions expanded and 2 under "Also consider"".
 - **TAD section 7, steps 5 to 7.**
-- **Frontend Specification:** "Preparation sheet", "AI suggestion card", and My patients today's
+- **Frontend Specification:** "Preparation sheet", "AI suggestion card", and My day's
   "Preparation sheet ready".
 - **AI-03, ticket text:** "Unknown IDs dropped; knowledge base text shown word for word; Keep and
   Dismiss stored; ready within 15 s".
@@ -101,7 +101,7 @@ ranked shows as a suggestion too.
 - **The sheet:** `/app/episodes/{episodeId}/preparation-sheet`, for consultants (Consultant tick)
   at a centre that sees the episode, while the AI gate is on. Otherwise the page is not found, or
   not allowed.
-- **"Preparation sheet ready":** on My patients today, for a made sheet (ready or unavailable),
+- **"Preparation sheet ready":** on My day, for a made sheet (ready or unavailable),
   until a consultation on the episode is signed.
 - **The panels:**
   - Likely diagnoses: the top 3 open, Also consider folded.

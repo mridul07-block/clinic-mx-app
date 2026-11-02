@@ -1276,9 +1276,9 @@ export {
   type RegionPhase,
 } from './ai-patient-content';
 export {
-  MORE_TAB,
   currentPhoneTab,
   phoneTabIcons,
+  mainLinksWithoutTab,
   phoneTabsFor,
   screensWithoutTabs,
   showsPhoneTabs,
@@ -1334,6 +1334,9 @@ export {
   navSectionLabels,
   navSections,
   navigationBySection,
+  mainNavigationFor,
+  moreLabel,
+  moreNavigationFor,
   navigationFor,
   type NavIcon,
   type NavItem,

@@ -192,6 +192,7 @@
 | UIX-14 | Done (pilot; Patients showing recent and today's patients before a search needs a new query and waits for its own ticket) | The patient record at the content width (1040 px) instead of a 400 px column, in two columns from 1024 px: the clinical summary, episodes, invoices and packages on the left, contact details, self booking, guardians and others on the same mobile on the right. Contact details read first; Edit details opens the form (view, then edit). |
 | UIX-15 | Done (pilot) | Plan and payment at the content width, in the order the desk works: the plan, its per session and package prices, the patient's choice and Part B consent on the left, the money (bills, bought packages, plan sessions, the patient link QR codes) on the right from 1024 px, one column in that order on a phone. The phone-width ratchet came down to 47. |
 | UIX-16a | Done | Bigger text everywhere (the user's review, 3 November 2026: every role too complicated, text too small). Body 16 px and secondary text 14 px for staff, nothing under 14 px; 12 px only for chart axes and the smallest avatar (`text-axis`). `text-xs` is gone from the theme and `pnpm check:design` refuses it and any size in brackets. Controls 40 px high with a mouse; Calendar rows 32 px so a 30 minute block holds its lines; charts stop growing past 448 px so their labels stay in proportion; Today's action column widened. Plan: simplify every role (the steps after this one). | Decision below |
+| UIX-16b | Done | Simple menus (the user's review, 3 November 2026). Each role sees its few daily links, in the same words on a phone and a computer: Front Desk 4, Physio 4, Finance 4, Centre Manager 6, Super Admin 5, one more with the Treats tick, then More (Setup for the Super Admin), which lists the rest under headings. Tasks is now To do, My patients today is My day, Finance is Money. 28 Home links and Today's Go to row are gone; the logo goes to the person's landing screen. No permission changed, nothing removed: a test checks every screen is a main link or on More, and Search finds them all. How it works: `docs/runbooks/navigation.md`. | Decision below |
 
 ## Tooling
 
@@ -792,6 +793,7 @@ the code location.
 - 22 October 2026 (SET-03): the Super Admin keeps appointment types (add, rename, length,
   deactivate) and each physio's own lengths for any type; lengths are whole 15 minute slots; Review
   45 and Zero Gravity Treadmill 30 minutes are placeholders.
+- 3 November 2026 (UIX-16b, the user's review): each role's main links replace the specification's tabs and the sidebar of every screen (UI-01, UI-02 defaults); Alerts moves from the main links to More for physios and managers, with To do naming open red flag alerts and the emergency banner unchanged.
 - 3 November 2026 (UIX-16a, the user's review): the interface is to be simple for every role. Staff text is 16 px with a 14 px floor (reverses UIX-01's 14 px body); features are hidden and recorded here before anything is deleted.
 - 3 November 2026 (IAM-02): for client demos, test logins (`@clinicmx.test`) can skip two step
   verification on staging while `STAGING_SKIP_TWO_STEP_FOR_TEST_LOGINS` is `on`. Real addresses

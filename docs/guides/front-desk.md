@@ -4,19 +4,15 @@
 
 You land on **Today**: your centre's appointments today. The chips at the top count and filter.
 
-## Your tabs
+## Finding your way
 
-On a phone, the bar at the bottom holds **Today**, **Calendar**, **Patients** and **More**. **More**
-opens **Home**, which reaches everything:
+Your main links, on the left of a computer and at the bottom of a phone:
 
-- **Tasks**: call tasks, most urgent first.
 - **Today**: check in, **Walk in**, **New booking**.
 - **Calendar**: each physio's day.
 - **Patients**: find anyone by mobile or name.
-- **Packages**: active, expiring and expired packages, with sessions left.
-- **Prices**: the price list, read only.
-- **Kiosk tablets**: set up or stop the desk tablet.
-- **Account**: your details, two step verification.
+- **To do**: call tasks, most urgent first.
+- **More**: **Packages** (active, expiring and expired, with sessions left), **Prices** (read only), **Kiosk tablets** (set up or stop the desk tablet) and **Account** (your details, two step verification).
 
 ## Everyday tasks
 
@@ -37,7 +33,7 @@ For a first visit about a problem, press **Form and reports** on the row.
 
 ### Set up the desk tablet
 
-1. On the tablet, sign in and open **Kiosk tablets** from Home.
+1. On the tablet, sign in and open **Kiosk tablets** from **More**.
 2. Press **Set up as kiosk and sign out**, then lock the tablet to the browser.
 3. To stop it, open **Kiosk tablets** on another device and press **Stop kiosk**.
 
@@ -72,7 +68,7 @@ For a first visit about a problem, press **Form and reports** on the row.
 
 1. In the Calendar, open the appointment and press **Mark no show** (from 25 minutes after the
    start), then confirm.
-2. In **Tasks**, **Take it**, call the patient, then **Close with decision**.
+2. In **To do**, **Take it**, call the patient, then **Close with decision**.
 3. They arrive after all? **Undo no show**, the same day.
 
 ### Use the paper form

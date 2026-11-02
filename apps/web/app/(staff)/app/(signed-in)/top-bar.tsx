@@ -9,10 +9,13 @@ import { SearchButton } from './search-button';
 // phone reaches all of them without going through More. From 768 px the rail or sidebar holds the
 // logo, search, centres and the person, and the bar keeps notifications at the right.
 export function TopBar({
+  homeHref,
   unread,
   findsPatients,
   personMenu,
 }: {
+  /** The person's landing screen, where the mark goes. */
+  homeHref: string;
   unread: number;
   findsPatients: boolean;
   /** The phone's person menu (PersonMenu with placement "top"). */
@@ -24,7 +27,7 @@ export function TopBar({
       className="sticky top-0 z-20 flex min-h-14 items-center gap-1 border-b border-line bg-surface px-2 pt-[env(safe-area-inset-top)] md:static md:min-h-12 md:px-4"
     >
       <Link
-        href="/app"
+        href={homeHref}
         aria-label="Clinic Mx"
         className="flex size-11 items-center justify-center rounded-control hover:bg-surface-hover md:hidden"
       >

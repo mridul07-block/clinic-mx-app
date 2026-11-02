@@ -31,7 +31,7 @@ export default async function OwnOutcomesPage({
           href="/app/my-patients"
           className="text-sm text-ink-muted underline underline-offset-2"
         >
-          My patients today
+          My day
         </Link>
         <h1 className="text-title font-semibold">My patients’ outcomes</h1>
         <p className="text-sm text-ink-secondary">

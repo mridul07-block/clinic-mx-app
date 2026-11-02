@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { requireStaff } from '../../../../../../modules/auth/session';
 import { packagesView } from '../../../../../../modules/reporting/finance';
 
-export const metadata: Metadata = { title: 'Packages · Finance · Clinic Mx' };
+export const metadata: Metadata = { title: 'Packages · Money · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
 // Packages (DSH-04): live packages per centre (active, expiring soon, expired with sessions left),

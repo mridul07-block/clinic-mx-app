@@ -43,7 +43,7 @@ test('the physio lands on their visits in time order, starts one, and sees a che
 
   await signInWithCode(page, physio.email, physio.secret);
   await expect(page).toHaveURL(/\/app\/my-patients$/);
-  await expect(page.getByRole('heading', { name: 'My patients today', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'My day', exact: true })).toBeVisible();
   const rows = page.getByTestId('my-patient');
   await expect
     .poll(() => rows.evaluateAll((all) => all.map((row) => row.getAttribute('data-appointment'))))
@@ -62,7 +62,7 @@ test('the physio lands on their visits in time order, starts one, and sees a che
     .click();
   // Start consultation opens the consultation (CLN-02); back on the list it is with them.
   await expect(page).toHaveURL(/\/app\/consultations\/[0-9a-f-]+$/);
-  await page.getByRole('main').getByRole('link', { name: 'My patients today' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'My day' }).click();
   await expect(row(here.name)).toContainText(/With you since \d\d:\d\d/);
   await expect(row(here.name).getByRole('button')).toHaveCount(0);
   await expect(row(here.name).getByTestId('open-consultation')).toHaveText('Open consultation');
@@ -83,7 +83,7 @@ test('the physio lands on their visits in time order, starts one, and sees a che
   await expect(deskPage.getByTestId('today-row').filter({ hasText: here.name })).toContainText(
     'In progress',
   );
-  // The desk has no My patients today.
+  // The desk has no My day.
   await deskPage.goto('/app/my-patients');
   await expect(deskPage).toHaveURL(/\/app\/not-allowed/);
   await deskPage.context().close();
@@ -95,6 +95,8 @@ test('a physio with nobody booked today is told so', async ({ page }) => {
   await signInWithCode(page, physio.email, physio.secret);
   await expect(page).toHaveURL(/\/app\/my-patients$/);
   await expect(page.getByText('No patients booked with you today.')).toBeVisible();
-  await page.goto('/app');
-  await expect(page.getByTestId('home-my-patients')).toHaveText('My patients today');
+  await expect(page.getByRole('link', { name: 'My day', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
 });

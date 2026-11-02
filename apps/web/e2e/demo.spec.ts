@@ -70,7 +70,7 @@ test('the front desk sees a full Today and calendar', async ({ page }) => {
 test('the physio sees their patients and a full record', async ({ page }) => {
   await signInAs(page, 'physio.hsr@clinicmx.test');
   await physioLanded(page, '/app/my-patients');
-  await expect(page.getByRole('heading', { name: 'My patients today', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'My day', exact: true })).toBeVisible();
   await shot(page, 'my-patients');
   await page.goto(`/app/patients/${await demoPatientId('hsr-01')}?tab=notes`);
   // The signed consultation and the sessions after it, newest first.

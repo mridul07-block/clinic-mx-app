@@ -47,9 +47,6 @@ export default async function TeamPage({
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
       <div className="flex flex-col gap-1.5">
-        <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-          Home
-        </Link>
         <h1 className="text-title font-semibold">Team</h1>
         <p className="text-ink-secondary">
           Working hours and leave for the people who treat patients. Patients are booked only in

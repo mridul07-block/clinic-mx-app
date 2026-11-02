@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { loadLibrary } from '../../../../../modules/exercises/services';
 import { getSetting } from '../../../../../modules/settings/settings';
@@ -22,9 +21,6 @@ export default async function ExercisesPage() {
   return (
     <main className="flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
       <div className="flex flex-col gap-1.5">
-        <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-          Home
-        </Link>
         <h1 className="text-title font-semibold">Exercise library</h1>
         <p className="text-ink-secondary">
           The clinic’s exercises, each with its default dose and a short video. Clinicians add them

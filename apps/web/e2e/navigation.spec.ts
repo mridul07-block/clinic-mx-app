@@ -35,7 +35,8 @@ async function expectTabs(page: Page, labels: string[], current: string, sidebar
     return;
   }
   await expect(side(page)).toBeHidden();
-  await expect(bar(page).getByRole('link')).toHaveText(labels);
+  // A tab may carry a count after its word.
+  await expect(bar(page).getByRole('link')).toContainText(labels);
   await expect(bar(page).getByRole('link', { name: current, exact: true })).toHaveAttribute(
     'aria-current',
     'page',
@@ -56,13 +57,13 @@ async function moreGoesHome(page: Page) {
   );
 }
 
-test('the Front Desk has Today, Calendar and Patients, and a tab goes to its screen', async ({
+test('the Front Desk has Today, Calendar, Patients and To do, and a tab goes to its screen', async ({
   page,
 }) => {
   const desk = await temporaryDesk();
   await signIn(page, desk.email);
   await expect(page).toHaveURL(/\/app\/today/);
-  await expectTabs(page, ['Today', 'Calendar', 'Patients', 'More'], 'Today', 'Today');
+  await expectTabs(page, ['Today', 'Calendar', 'Patients', 'To do', 'More'], 'Today', 'Today');
   await page.screenshot({ path: test.info().outputPath('desk-tabs.png') });
   if (onPhone()) {
     await bar(page).getByRole('link', { name: 'Patients', exact: true }).click();
@@ -75,7 +76,7 @@ test('the Front Desk has Today, Calendar and Patients, and a tab goes to its scr
   await moreGoesHome(page);
 });
 
-test('a physio has My patients, Today and Notes; the bar stands aside in a consultation', async ({
+test('a physio has My day, Calendar, Patients and To do; the bar stands aside in a consultation', async ({
   page,
 }) => {
   test.slow();
@@ -96,14 +97,9 @@ test('a physio has My patients, Today and Notes; the bar stands aside in a consu
 
   await signInWithCode(page, physio.email, physio.secret);
   await expect(page).toHaveURL(/\/app\/my-patients/);
-  await expectTabs(
-    page,
-    ['My patients', 'Today', 'Notes', 'More'],
-    'My patients',
-    'My patients today',
-  );
+  await expectTabs(page, ['My day', 'Calendar', 'Patients', 'To do', 'More'], 'My day', 'My day');
   if (onPhone()) {
-    await bar(page).getByRole('link', { name: 'Notes', exact: true }).click();
+    await bar(page).getByRole('link', { name: 'To do', exact: true }).click();
     await expect(page).toHaveURL(/\/app\/tasks/);
   }
 
@@ -117,30 +113,40 @@ test('a physio has My patients, Today and Notes; the bar stands aside in a consu
   await moreGoesHome(page);
 });
 
-test('a Centre Manager has the dashboard’s Alerts, Centres and Outcomes', async ({ page }) => {
+test('a Centre Manager has Home, Calendar, Patients and To do', async ({ page }) => {
   const manager = await temporaryWithCode('centre_manager', ['HSR Layout']);
   await signInWithCode(page, manager.email, manager.secret);
   await expect(page).toHaveURL(/\/app\/dashboard\/alerts/);
-  await expectTabs(page, ['Alerts', 'Centres', 'Outcomes', 'More'], 'Alerts', 'Dashboard');
+  await expectTabs(page, ['Home', 'Calendar', 'Patients', 'To do', 'More'], 'Home', 'Home');
   await moreGoesHome(page);
 });
 
-test('Finance has Bills, Unpaid and Packages; Revenue counts as Bills', async ({ page }) => {
+test('Finance has Money, Patients, Prices and To do; Revenue counts as Money', async ({ page }) => {
   const finance = await temporaryWithCode('finance');
   await signInWithCode(page, finance.email, finance.secret);
   await expect(page).toHaveURL(/\/app\/finance\/collections/);
-  await expectTabs(page, ['Bills', 'Unpaid', 'Packages', 'More'], 'Bills', 'Finance');
+  await expectTabs(page, ['Money', 'Patients', 'Prices', 'To do', 'More'], 'Money', 'Money');
   await page.goto('/app/finance/revenue');
-  await expectTabs(page, ['Bills', 'Unpaid', 'Packages', 'More'], 'Bills', 'Finance');
+  await expectTabs(page, ['Money', 'Patients', 'Prices', 'To do', 'More'], 'Money', 'Money');
   await moreGoesHome(page);
 });
 
-test('the Super Admin has Overview, Alerts and Settings', async ({ page }) => {
+test('the Super Admin has Home, Calendar, Patients and To do, then Setup', async ({ page }) => {
   const admin = await temporaryWithCode('super_admin');
   await signInWithCode(page, admin.email, admin.secret);
   await expect(page).toHaveURL(/\/app\/overview/);
-  await expectTabs(page, ['Overview', 'Alerts', 'Settings', 'More'], 'Overview', 'Overview');
-  await moreGoesHome(page);
+  await expectTabs(page, ['Home', 'Calendar', 'Patients', 'To do', 'Setup'], 'Home', 'Home');
+  if (!onPhone()) await expect(side(page).getByRole('link', { name: 'Reports' })).toBeVisible();
+  await page.getByRole('link', { name: 'Setup', exact: true }).click();
+  await expect(page).toHaveURL(/\/app$/);
+  for (const heading of ['Clinic', 'People', 'Rules', 'Records and access']) {
+    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+  }
+  await expect(page.getByRole('main').getByRole('link', { name: 'Settings' })).toBeVisible();
+  // Reports has no tab on a phone, so Setup lists it; the sidebar holds it on a computer.
+  if (onPhone()) {
+    await expect(page.getByRole('main').getByRole('link', { name: 'Reports' })).toBeVisible();
+  }
 });
 
 test('from 1280 px the Super Admin jumps with Ctrl K and switches the centre Today opens on', async ({
@@ -150,9 +156,6 @@ test('from 1280 px the Super Admin jumps with Ctrl K and switches the centre Tod
   const admin = await temporaryWithCode('super_admin');
   await signInWithCode(page, admin.email, admin.secret);
   await expect(side(page)).toBeVisible();
-  for (const section of ['Day to day', 'Clinical', 'Figures', 'Setup']) {
-    await expect(side(page).locator('p').getByText(section, { exact: true })).toBeVisible();
-  }
 
   // Search or jump to: words of a screen, then Enter.
   await page.keyboard.press('Control+k');
@@ -165,7 +168,7 @@ test('from 1280 px the Super Admin jumps with Ctrl K and switches the centre Tod
   ]);
   await search.press('Enter');
   await expect(page).toHaveURL(/\/app\/audit$/);
-  await expect(side(page).getByRole('link', { name: 'Audit log' })).toHaveAttribute(
+  await expect(side(page).getByRole('link', { name: 'Setup' })).toHaveAttribute(
     'aria-current',
     'page',
   );

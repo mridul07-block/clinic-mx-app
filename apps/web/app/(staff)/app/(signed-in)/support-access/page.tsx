@@ -38,9 +38,6 @@ export default async function SupportAccessPage({
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
       <div className="flex flex-col gap-1.5">
-        <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-          Home
-        </Link>
         <h1 className="text-title font-semibold">Support access</h1>
         <p className="text-ink-secondary">
           Velyx support can sign in only while access is on. It is read only, and every page it

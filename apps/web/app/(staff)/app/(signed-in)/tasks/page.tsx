@@ -30,7 +30,7 @@ import { requirePermission } from '../../../../../modules/access/require-permiss
 import { inboxOf } from '../../../../../modules/tasks/services';
 import { CloseTaskForm, TakeForm } from './task-forms';
 
-export const metadata: Metadata = { title: 'Tasks · Clinic Mx' };
+export const metadata: Metadata = { title: 'To do · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
 const priorityTone: Record<TaskPriority, Tone> = {
@@ -255,10 +255,7 @@ export default async function TasksPage() {
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
       <div className="flex flex-col gap-1.5">
-        <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-          Home
-        </Link>
-        <h1 className="text-title font-semibold">Tasks</h1>
+        <h1 className="text-title font-semibold">To do</h1>
         <p className="text-sm text-ink-muted">
           Most urgent first. Close each with what was done or decided.
         </p>

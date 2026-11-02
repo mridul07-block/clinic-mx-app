@@ -1,7 +1,6 @@
 import { centreOptions, kioskDevices, type KioskDeviceEntry } from '@clinic-mx/db';
 import { formatIstDateTime } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { FormMessage } from '../../../../../components/forms';
 import { Tag } from '../../../../../components/tag';
 import { requirePermission } from '../../../../../modules/access/require-permission';
@@ -35,9 +34,6 @@ export default async function KioskTabletsPage({
   return (
     <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
       <div className="flex flex-col gap-1.5">
-        <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-          Home
-        </Link>
         <h1 className="text-title font-semibold">Kiosk tablets</h1>
         <p className="text-ink-secondary">
           A kiosk tablet shows only the patient form the front desk sends to it, and goes back to

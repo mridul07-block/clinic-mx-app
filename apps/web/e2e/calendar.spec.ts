@@ -66,7 +66,7 @@ test('the front desk sees each physio’s fee, appointments and free slots', asy
   const desk = await temporaryDesk();
   await signIn(page, desk.email);
 
-  await page.getByRole('main').getByRole('link', { name: 'Calendar' }).click();
+  await page.getByRole('link', { name: 'Calendar', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Calendar', exact: true })).toBeVisible();
   await openCalendar(page);
   const block = appointmentAt(page, testInfo, patient.name);
@@ -164,9 +164,10 @@ test('a physio sees only their own column, without fees', async ({ page }, testI
 test('Finance has no calendar', async ({ page }) => {
   const finance = await temporaryWithCode('finance');
   await signInWithCode(page, finance.email, finance.secret);
-  // Finance lands on Collections (DSH-04); the home links are on home.
+  // Finance lands on Money (DSH-04), and neither its links nor More offer a calendar.
+  await expect(page.getByRole('link', { name: 'Money', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Calendar' })).toHaveCount(0);
   await page.goto('/app');
-  await expect(page.getByRole('main').getByRole('link', { name: 'Finance' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Calendar' })).toHaveCount(0);
   await page.goto('/app/calendar');
   await expect(page).toHaveURL(/\/app\/not-allowed/);

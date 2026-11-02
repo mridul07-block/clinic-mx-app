@@ -4,18 +4,15 @@
 
 After you sign in you land on **Collections** in **Finance**: the money taken today across all centres.
 
-## Your tabs
+## Finding your way
 
-On a phone, the bar at the bottom holds **Bills** (Collections), **Unpaid**, **Packages** and
-**More**. **More** opens **Home**, which reaches everything:
+Your main links, on the left of a computer and at the bottom of a phone:
 
-- **Finance**: tabs for **Collections**, **Unpaid**, **Packages**, **Revenue** and **Refunds**.
-- **Packages**: the list of patients' packages.
-- **Prices**: the price list, package types and preset discounts.
+- **Money**: tabs for **Collections**, **Unpaid**, **Packages**, **Revenue** and **Refunds**.
 - **Patients**: patient records.
-- **Tasks**: your tasks and your role's.
-- **Audit log** (with **Download (CSV)** for chosen days): every change to bills, payments, refunds, packages and prices.
-- **Account**: your own sign in details.
+- **Prices**: the price list, package types and preset discounts.
+- **To do**: your tasks and your role's.
+- **More**: **Packages** (the list of patients' packages), **Audit log** (with **Download (CSV)** for chosen days: every change to bills, payments, refunds, packages and prices) and **Account**.
 
 ## Everyday tasks
 
