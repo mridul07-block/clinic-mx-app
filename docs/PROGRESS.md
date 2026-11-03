@@ -199,6 +199,7 @@
 | UIX-23 | Done | Settings in plain words (the user's review, 3 November 2026). The clinic's own 32 rules come first in 7 groups (Booking, The day, Patient care, Money and packages, WhatsApp, Targets, Security), with no technical names or ticket codes; a Find box searches all 125; the other 93 are folded under Advanced. Every value stays in the table and can still be changed (rule 6). `clinicRuleGroups` in `packages/schemas/src/settings-screen.ts`; runbook `docs/runbooks/settings.md`. | Decision below |
 | UIX-16d | Done | One layout (the user's review, 3 November 2026): every signed in staff page now uses the kit's `Page`, so all share one left edge, the same padding and three widths (form 640 px, content 1040 px, full), in place of 14 different classes. Cards share one padding. On Today a session's number is words under the name, not a tag. The design check's limit on phone-width pages falls with it. | |
 | FND-13a | Done | A faster local gate (the user, 3 November 2026: checks take too long). Lint, types and unit tests run alongside the database steps; phone and desktop browser tests run together on 4 workers on one build, in place of 2 workers one device after the other; a run stops after 10 browser failures; a stack of branches shares one run. Runbook: `docs/runbooks/local-gate.md`. | |
+| FND-13b | Done | Two levels of checks (the user, 3 November 2026). `pnpm ci:quick` merges to staging on every cheap check and the browser tests a change can reach (`scripts/affected-specs.mjs`), and becomes the full gate for anything shared or unknown, or after 24 hours without a full pass. The live system always takes `pnpm ci:local`. Tests about something else now sign in directly with a real session, not through the screens. Runbook: `docs/runbooks/local-gate.md`. | Decision below |
 
 ## Tooling
 
@@ -799,6 +800,7 @@ the code location.
 - 22 October 2026 (SET-03): the Super Admin keeps appointment types (add, rename, length,
   deactivate) and each physio's own lengths for any type; lengths are whole 15 minute slots; Review
   45 and Zero Gravity Treadmill 30 minutes are placeholders.
+- 3 November 2026 (FND-13b): merging to staging needs `pnpm ci:quick`, which runs everything at least daily; production always needs `pnpm ci:local`. This changes the 25 October rule that every merge takes the whole gate.
 - 3 November 2026 (UIX-23, the user's review): the settings screen shows the clinic's rules first and folds the rest under Advanced (changes the ADM-02 default of showing every key alike). The grouping is judged from what each setting does; no real use exists yet, so move any the clinic asks for.
 - 3 November 2026 (UIX-16c, the user's review): figures and targets not measured yet no longer show anywhere (reverses the decision of 28 October, DSH-01). Their definitions stay, and each appears on its own once its data exists.
 - 3 November 2026 (UIX-16b, the user's review): each role's main links replace the specification's tabs and the sidebar of every screen (UI-01, UI-02 defaults); Alerts moves from the main links to More for physios and managers, with To do naming open red flag alerts and the emergency banner unchanged.

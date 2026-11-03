@@ -29,4 +29,5 @@ done; until then FND-02, FND-03 and FND-12 are only complete for the free plans.
 5. **Backups** (`backups.md`): confirm Supabase daily backups on Pro; add the production secrets and
    a production job to `backup.yml`; run it, then run and record a restore test from its copy.
 6. **Domain**: production hostname on the clinic domain through Cloudflare (FND-05).
-7. Update `environments.md` and the FND-02, FND-03 and FND-12 rows in `docs/PROGRESS.md`.
+7. **Every release to production takes the full gate**, `pnpm ci:local`, never the quick check (`local-gate.md`).
+8. Update `environments.md` and the FND-02, FND-03 and FND-12 rows in `docs/PROGRESS.md`.
