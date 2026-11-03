@@ -13,8 +13,12 @@ import {
   withStaffAccess,
 } from '@clinic-mx/db';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { and, eq, gt, lt, sql } from 'drizzle-orm';
+import { DEVICE_COOKIE, LAST_SEEN_COOKIE } from '../lib/session-cookies';
+import { authCookieOptions } from '../lib/supabase/cookies';
+import { homePath } from '../modules/auth/next-path';
 import { totpCode } from './totp';
 
 // Signing in for end to end tests (IAM-01, IAM-02). The staff are the seed's generated test
@@ -112,10 +116,85 @@ export async function enterCode(page: Page, secret: string) {
 }
 
 /**
- * Signs in through the sign in page, with a code from the authenticator app when the account
- * has one from global setup, and waits for the page it leads to.
+ * These specs test signing in itself or what it records, or need what the sign in page sets up
+ * (the service worker, for offline tests), so they use the real screens.
+ */
+const specsUsingTheForm =
+  /(auth|two-step|sessions|rate-limits|support-access|staff-management|audit-log|permissions|smoke|kiosk|a11y|autosave|pwa)\.spec\.ts$/;
+
+/**
+ * Gives the page the session the sign in form would give, without its screens, then opens the
+ * person's landing screen. The cookies come from the same Supabase library the app uses, so they
+ * are the real thing; measured on 3 November 2026 it saves about 8% of a test's time (FND-13b,
+ * docs/runbooks/local-gate.md). Only for tests about something else: see `specsUsingTheForm`.
+ */
+async function signInDirectly(page: Page, email: string, secret: string | undefined) {
+  let jar: { name: string; value: string }[] = [];
+  const supabase = createServerClient(supabaseUrl(), required('SUPABASE_ANON_KEY'), {
+    cookieOptions: authCookieOptions,
+    cookies: {
+      getAll: () => jar,
+      setAll: (list) => {
+        const names = new Set(list.map((cookie) => cookie.name));
+        jar = [
+          ...jar.filter((cookie) => !names.has(cookie.name)),
+          ...list
+            .filter((cookie) => cookie.value !== '')
+            .map(({ name, value }) => ({ name, value })),
+        ];
+      },
+    },
+  });
+  const { error } = await supabase.auth.signInWithPassword({ email, password: seedPassword() });
+  if (error) throw error;
+  if (secret) {
+    const { data, error: listed } = await supabase.auth.mfa.listFactors();
+    const factor = data?.totp[0];
+    if (listed || !factor) throw listed ?? new Error(`No authenticator app for ${email}`);
+    // Two code checks at once can deadlock in Supabase Auth, as the app's own retries allow for.
+    for (let attempt = 1; ; attempt += 1) {
+      const { error: wrong } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: factor.id,
+        code: totpCode(secret),
+      });
+      if (!wrong) break;
+      if (attempt === 3) throw wrong;
+    }
+  }
+  const session = (name: string, value: string) => ({
+    name,
+    value,
+    domain: 'localhost',
+    path: '/',
+    httpOnly: true,
+    secure: authCookieOptions.secure,
+    sameSite: 'Lax' as const,
+  });
+  await page
+    .context()
+    .addCookies([
+      ...jar.map(({ name, value }) => session(name, value)),
+      session(DEVICE_COOKIE, test.info().project.name === 'phone' ? 'phone' : 'desktop'),
+      session(LAST_SEEN_COOKIE, String(Date.now())),
+    ]);
+  const { role } = await staffRow(email);
+  await page.goto(homePath(role));
+}
+
+const usesTheForm = (page: Page) =>
+  specsUsingTheForm.test(test.info().file) || page.url().includes('/app/sign-in');
+
+/**
+ * Signs in, with a code from the authenticator app when the account has one from global setup, and
+ * waits for the page it leads to. Through the sign in page where that is what is being tested, or
+ * with another password; otherwise directly.
  */
 export async function signIn(page: Page, email: string, password = seedPassword()) {
+  if (password === seedPassword() && !usesTheForm(page)) {
+    const withCode = accountsWithAuthenticator.some((account) => account.email === email);
+    await signInDirectly(page, email, withCode ? twoStepSecret(email) : undefined);
+    return;
+  }
   if (!page.url().includes('/app/sign-in')) await page.goto('/app/sign-in');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill(password);
@@ -412,8 +491,12 @@ export async function temporaryWithCode(
   return { id, email, name, secret: await addAuthenticator(email) };
 }
 
-/** Signs in through the sign in page and enters the code from `secret`. */
+/** Signs in with the code from `secret`: through the screens, or directly, as `signIn` does. */
 export async function signInWithCode(page: Page, email: string, secret: string) {
+  if (!usesTheForm(page)) {
+    await signInDirectly(page, email, secret);
+    return;
+  }
   await page.goto('/app/sign-in');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill(seedPassword());

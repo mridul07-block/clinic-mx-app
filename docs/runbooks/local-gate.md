@@ -31,6 +31,37 @@ The two heavy parts run side by side and the phone and desktop tests run togethe
 (`E2E_WORKERS` changes it), so a run takes less time than doing each in turn. A run stops after 10
 browser test failures, since by then it is broken.
 
+## Two levels (user decision 3 November 2026)
+
+| Before | Run | Takes |
+| --- | --- | --- |
+| Merging to staging | `pnpm ci:quick` | A few minutes for most changes |
+| The live system, always | `pnpm ci:local` | About 20 minutes |
+
+`pnpm ci:quick` runs format, lint, design check, typecheck, unit tests and the secret scan on every
+change, and only the browser tests the change can reach, plus `smoke`, `navigation`, `permissions` and
+`design` (`scripts/affected-specs.mjs`). It ends with "Quick check passed at <commit>". It becomes the
+full gate by itself when:
+
+- **a change touches something shared:** dependencies, migrations, `packages/db`, `packages/schemas`, shared styles, `apps/web/lib`, sign in and access, the app's frame, or test helpers;
+- **it cannot find a test** for a changed file, or a change reaches over 40 specs;
+- **no full run has passed in the last 24 hours** (`ci-local-last-pass` in the git directory, set when the gate passes).
+
+So staging can only go a day without every test, and a bug the quick check misses is caught by the
+next full run. It never skips tests for the live system: `upgrade-to-production.md` requires the full
+gate.
+
+## Signing in, in tests
+
+Most tests are not about signing in, so `signIn` and `signInWithCode` (`apps/web/e2e/staff.ts`) give the
+page a real session directly, from the same Supabase library the app uses, then open the person's
+landing screen. Specs about signing in or what it records use the real screens: `specsUsingTheForm` in
+the same file. Add a spec there if it needs the form. Measured on the same 48 tests at 4 workers, it
+took 331 test seconds against 358 through the form, about 8%.
+
+Going from 2 to 4 workers took a typical test from 3.4 to about 5.3 seconds, so more workers help less
+and less: the app server, the database and Auth all run on this one machine.
+
 ## Keeping it fast
 
 Measured on 3 November 2026: 566 browser tests, typically 3.4 seconds each, took 22 of the 32 minutes
