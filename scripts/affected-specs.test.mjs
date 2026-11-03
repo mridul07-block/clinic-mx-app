@@ -11,11 +11,20 @@ const specs = new Map([
   ['prices.spec.ts', "await page.goto('/app/prices');"],
   ['my-plan.spec.ts', "await page.goto('/p/abc');"],
   ['auth.spec.ts', ''],
+  ['consultation.spec.ts', ''],
   ['two-step.spec.ts', ''],
 ]);
 const area = 'apps/web/app/(staff)/app/(signed-in)';
 const sources = new Map([
-  [`${area}/today/page.tsx`, "import { loadToday } from '../../modules/front-desk/today';"],
+  [
+    `${area}/today/page.tsx`,
+    `import { Page } from '@clinic-mx/ui/components/page';
+import { loadToday } from '../../../../../modules/front-desk/today';`,
+  ],
+  [`${area}/prices/page.tsx`, "import { Page } from '@clinic-mx/ui/components/page';"],
+  ['packages/ui/src/components/page.tsx', ''],
+  ['apps/web/components/shared.tsx', ''],
+  [`${area}/tasks/page.tsx`, "import { Shared } from '../../../../../components/shared';"],
   ['apps/web/modules/front-desk/today.ts', "import { x } from './helper';"],
   ['apps/web/modules/front-desk/helper.ts', ''],
   ['apps/web/components/orphan.tsx', ''],
@@ -37,6 +46,24 @@ describe('which browser tests a change needs', () => {
   it('follows imports from a module to the pages using it', () => {
     const result = pick('apps/web/modules/front-desk/helper.ts');
     expect(result).toEqual({ specs: [...alwaysRun, 'check-in.spec.ts', 'today.spec.ts'].sort() });
+  });
+
+  it('does not confuse two files of the same name: every route is a page.tsx', () => {
+    expect(pick(`${area}/today/page.tsx`)).toEqual({
+      specs: [...alwaysRun, 'check-in.spec.ts', 'today.spec.ts'].sort(),
+    });
+  });
+
+  it('finds a spec named for the singular of its folder', () => {
+    expect(pick(`${area}/consultations/[id]/page.tsx`)).toEqual({
+      specs: [...alwaysRun, 'consultation.spec.ts'].sort(),
+    });
+  });
+
+  it('follows a kit component to every page using it', () => {
+    expect(pick('packages/ui/src/components/page.tsx')).toEqual({
+      specs: [...alwaysRun, 'check-in.spec.ts', 'prices.spec.ts', 'today.spec.ts'].sort(),
+    });
   });
 
   it('runs a changed spec, and the spec of a changed screenshot', () => {

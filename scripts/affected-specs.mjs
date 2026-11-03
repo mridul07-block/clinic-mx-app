@@ -5,7 +5,7 @@
 // never skips a test.
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, join, posix } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 /** Always run: signing in, the menus, access, and the look of every page's frame. */
@@ -19,7 +19,7 @@ export const alwaysRun = [
 /** Above this many specs a change touches nearly everything, so run it all. */
 const TOO_MANY_SPECS = 40;
 
-const noBrowserEffect = /^docs\/|\.md$|\.test\.tsx?$|^\.github\/|^LICENSE/;
+const noBrowserEffect = /^docs\/|\.md$|\.test\.tsx?$|^\.github\/|^LICENSE|^scripts\/affected-specs/;
 
 /** Whatever every page or test stands on. */
 const everythingStandsOn = [
@@ -46,19 +46,40 @@ const authPage = /^apps\/web\/app\/\(staff\)\/app\/\(auth\)\//;
 const importable =
   /^(apps\/web\/(components|modules)|apps\/web\/app|packages\/ui\/src\/components)\/.*\.tsx?$/;
 
-const importsFile = (text, file) => {
-  const name = basename(file).replace(/\.tsx?$/, '');
-  return text.includes(`/${name}'`) || text.includes(`/${name}"`);
-};
+const noExtension = (path) => path.replace(/\.tsx?$/, '');
+const importPattern = /(?:from\s+|import\(\s*|^import\s+)['"]([^'"]+)['"]/gm;
 
-/** The pages a source file reaches through what imports it, by file name, so it errs wide. */
-function pagesReaching(file, sources) {
+/** The source path an import names, without its extension, or null for a package. */
+function importedPath(importer, name) {
+  const kit = '@clinic-mx/ui/components/';
+  if (name.startsWith(kit)) return `packages/ui/src/components/${name.slice(kit.length)}`;
+  if (!name.startsWith('.')) return null;
+  return noExtension(posix.normalize(posix.join(posix.dirname(importer), name)));
+}
+
+/** Every file's importers, from the imports it really has. */
+function importersOf(sources) {
+  const importers = new Map();
+  for (const [path, text] of sources) {
+    for (const match of text.matchAll(importPattern)) {
+      const target = importedPath(path, match[1]);
+      if (target) importers.set(target, [...(importers.get(target) ?? []), path]);
+    }
+  }
+  return importers;
+}
+
+/** The pages a source file reaches through what imports it, directly or not. */
+function pagesReaching(file, importers) {
   const seen = new Set([file]);
   const queue = [file];
   while (queue.length > 0) {
-    const current = queue.shift();
-    for (const [path, text] of sources) {
-      if (!seen.has(path) && importsFile(text, current)) {
+    const current = noExtension(queue.shift());
+    for (const path of [
+      ...(importers.get(current) ?? []),
+      ...(importers.get(current.replace(/\/index$/, '')) ?? []),
+    ]) {
+      if (!seen.has(path)) {
         seen.add(path);
         queue.push(path);
       }
@@ -73,8 +94,10 @@ function specsForPage(path, specs) {
   }
   const area = staffArea.exec(path)?.[1];
   if (!area || area.startsWith('(')) return [];
+  // A folder is often the plural of its spec: consultations, consultation.spec.ts.
+  const stem = area.replace(/s$/, '');
   return [...specs]
-    .filter(([name, text]) => name.startsWith(area) || text.includes(`/app/${area}`))
+    .filter(([name, text]) => name.startsWith(stem) || text.includes(`/app/${area}`))
     .map(([name]) => name);
 }
 
@@ -88,6 +111,7 @@ export function selectSpecs(changed, specs, sources) {
   const files = changed.filter((file) => !noBrowserEffect.test(file));
   if (files.length === 0) return { specs: [] };
   const chosen = new Set(alwaysRun);
+  const importers = importersOf(sources);
   for (const file of files) {
     if (/^apps\/web\/e2e\/[^/]+\.spec\.ts$/.test(file)) {
       chosen.add(basename(file));
@@ -105,7 +129,7 @@ export function selectSpecs(changed, specs, sources) {
       continue;
     }
     if (!importable.test(file)) return { full: file };
-    const pages = pagesReaching(file, sources);
+    const pages = pagesReaching(file, importers);
     const found = pages.flatMap((page) => specsForPage(page, specs));
     if (found.length === 0) return { full: `no test found for ${file}` };
     for (const name of found) chosen.add(name);
