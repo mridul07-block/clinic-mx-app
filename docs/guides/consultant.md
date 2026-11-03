@@ -4,9 +4,9 @@ This page adds what the Consultant tick gives you; read the physiotherapist quic
 
 ## Where you start
 
-The same **My patients today**. A consultation shows **Start consultation**, and a review shows **Start review**.
+The same **My day**. A consultation shows **Start consultation**, and a review shows **Start review**.
 
-## Your tabs
+## Finding your way
 
 As in the physiotherapist guide. **Knowledge base** also holds **Patient content**.
 

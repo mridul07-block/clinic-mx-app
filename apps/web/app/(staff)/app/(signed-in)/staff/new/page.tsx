@@ -5,6 +5,7 @@ import { FormMessage } from '../../../../../../components/forms';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../../modules/access/staff-db';
 import { InviteForm } from './invite-form';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Invite staff · Clinic Mx' };
 
@@ -14,7 +15,7 @@ export default async function InviteStaffPage() {
   const staff = await requirePermission('staff.manage');
   const centres = staff.support ? [] : await asStaff(staff, (tx) => centreOptions(tx));
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1">
         <Link href="/app/staff" className="text-sm text-ink-muted underline underline-offset-2">
           Staff
@@ -26,6 +27,6 @@ export default async function InviteStaffPage() {
       ) : (
         <InviteForm centres={centres} />
       )}
-    </main>
+    </Page>
   );
 }

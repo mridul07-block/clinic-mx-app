@@ -509,6 +509,7 @@ test('a paid session checks in as Session 1 of 12 and starts on its summary card
       });
       await checkedIn(third.id, desk.id);
       await otherPage.goto('/app/my-patients');
+      await otherPage.getByTestId('colleagues-today').locator('summary').click();
       const colleague = otherPage.locator(
         `[data-testid="colleague-visit"][data-appointment="${third.id}"]`,
       );

@@ -2,24 +2,24 @@
 
 ## Where you start
 
-After you sign in you land on the **Overview**: every centre today, the last 7 days, the SOP targets and revenue.
+After you sign in you land on **Home**: what needs you now, every centre today and the last 7 days.
 
-## Your tabs
+## Finding your way
 
-On a phone, the bar at the bottom holds **Overview**, **Alerts**, **Settings** and **More**. **More** opens
-**Home**, which reaches everything:
+Your main links, on the left of a computer and at the bottom of a phone:
 
-- **Overview**, **Dashboard**, **Finance** and **Figures**: the numbers for every centre.
-- **Alerts**, **Tasks**, **Today**, **Calendar** and **Patients**.
-- **Staff**, **Centres**, **Team**, **Prices**, **Packages** and **Appointment types**.
-- **Knowledge base**, **Red flags** and **AI preparation sheet**.
-- **WhatsApp templates**, **Support access**, **Opening entries**, **Kiosk tablets** and **Account**.
-- **Audit log** (with **Download (CSV)** for chosen days): every change and every opened record, newest first.
-- **Data requests**: patients' requests for a copy of their data, a correction or deletion. Record
-  one from the patient's record with **Record a data request**.
-- **Settings**: the clinic's rules, such as minutes until running late. Open **Change**, enter
-  the new value and tap **Save**.
-- With the Treats patients tick, also **My patients today** and **My leave**.
+- **Home**: what needs you now, every centre today and the last 7 days. Tap a line under **Needs you now** to open its list.
+- **Calendar** and **Patients**.
+- **To do**: your tasks and your role's.
+- **Reports**: tabs for **Centres**, **Outcomes**, **Team**, **Feedback**, **Money** and **Figures**. On a phone, it is on **Setup**.
+- **Setup**: everything else, under headings:
+  - **Day to day**: **Today**, **Alerts** and **Packages**.
+  - **Clinic**: **Centres**, **Appointment types**, **Prices** and **Kiosk tablets**.
+  - **People**: **Staff** and **Team**.
+  - **Clinical content**: **Knowledge base**, **Red flags**, **Exercise library** and **WhatsApp templates**.
+  - **Rules**: **AI preparation sheet**, and **Settings**, the clinic's rules such as minutes until running late. Open **Change**, enter the new value and tap **Save**.
+  - **Records and access**: **Audit log** (with **Download (CSV)** for chosen days: every change and every opened record, newest first), **Data requests** (patients' requests for a copy of their data, a correction or deletion; record one from the patient's record with **Record a data request**), **Support access** and **Opening entries**.
+- With the Treats patients tick, also **My day** and **My leave**.
 
 ## Everyday tasks
 

@@ -22,13 +22,13 @@ test('the Super Admin reads every figure, overall and by centre, counted from th
   await heldConsultation(physio.id, (await testPatient()).id);
 
   await signInWithCode(page, admin.email, admin.secret);
-  await page.goto('/app');
+  // A tab of Reports.
+  await page.goto('/app/dashboard/centres');
   await page.getByRole('main').getByRole('link', { name: 'Figures' }).click();
   await expect(page.getByRole('heading', { name: 'Figures', level: 1 })).toBeVisible();
-  // The ten measured, and the eight PRD section 9 figures waiting for their data.
+  // The ten measured; figures waiting for their data do not show.
   await expect(page.getByTestId('figures-measured').locator(':scope > li')).toHaveCount(10);
-  await expect(page.getByTestId('figures-waiting').locator(':scope > li')).toHaveCount(8);
-  await expect(page.locator('[data-figure="nps"]')).toContainText('Waiting for: daily figures');
+  await expect(page.locator('[data-figure="nps"]')).toHaveCount(0);
   await expect(page.locator('[data-figure="consultation_conversion"]')).toContainText(
     'Target: Over 75%',
   );

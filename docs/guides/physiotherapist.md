@@ -2,19 +2,16 @@
 
 ## Where you start
 
-You land on **My patients today**: your visits today, in time order, kept up to date.
+You land on **My day**: your visits today, in time order, kept up to date.
 
-## Your tabs
+## Finding your way
 
-On a phone, the bar at the bottom holds **My patients**, **Today** (your Calendar), **Notes** (your
-Tasks) and **More**. It hides inside a visit, which has its own buttons. **More** opens **Home**,
-which reaches everything:
+Your main links, on the left of a computer and at the bottom of a phone (hidden inside a visit, which has its own buttons):
 
-- **Tasks**: your tasks, most urgent first.
-- **My patients today**: your day, and **Colleagues today**.
+- **My day**: your visits, and **Colleagues today**.
 - **Calendar** and **Patients**: bookings and patient records.
-- **Alerts**: open red flag alerts at your centres.
-- **Red flags**, **Knowledge base**, **My leave**, **Account**.
+- **To do**: your tasks, most urgent first.
+- **More**: **My results**, **Alerts** (open red flag alerts at your centres), **My leave**, **Red flags**, **Knowledge base** and **Account**.
 
 ## Everyday tasks
 
@@ -22,7 +19,7 @@ which reaches everything:
 
 1. Once the desk checks the patient in, tap **Start session**. Later, tap **Open session**.
 2. If **Gate blocked** shows instead, send the patient to the desk.
-3. To cover a colleague, tap **Start session** under **Colleagues today**. The note is then yours.
+3. To cover a colleague, open **Colleagues today** under your list and tap **Start session**. The note is then yours.
 
 ### Write the session note
 
@@ -56,12 +53,12 @@ which reaches everything:
 
 ### Work your tasks
 
-1. In **Tasks**, tap **Take it** to make a shared task yours.
+1. In **To do**, tap **Take it** to make a shared task yours.
 2. Tap **Close…**, write the **Decision**, then **Close with decision**.
 
 ### See your outcomes
 
-1. On My patients today, tap **My patients’ outcomes**.
+1. On **More**, tap **My results**.
 2. Choose **Last 30 days**, **Last 90 days** or **Last 12 months**.
 
 ## What the tags mean

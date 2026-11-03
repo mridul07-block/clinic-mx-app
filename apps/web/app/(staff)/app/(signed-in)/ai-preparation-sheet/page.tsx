@@ -1,10 +1,10 @@
 import { formatIstDate, formatIstDateTime, istDate } from '@clinic-mx/schemas';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { FormMessage } from '../../../../../components/forms';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { aiSheetView } from '../../../../../modules/ai/switch';
 import { AiSwitchForm } from './ai-switch-form';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'AI preparation sheet · Clinic Mx' };
 
@@ -29,11 +29,8 @@ export default async function AiPreparationSheetPage() {
   }
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1">
-        <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-          Home
-        </Link>
         <h1 className="text-title font-semibold">AI preparation sheet</h1>
         <p className="text-ink-secondary">
           The AI suggestions consultants read before a consultation. They stay off until the blind
@@ -74,6 +71,6 @@ export default async function AiPreparationSheetPage() {
           <AiSwitchForm choices={view.choices} today={istDate(new Date())} />
         )}
       </section>
-    </main>
+    </Page>
   );
 }

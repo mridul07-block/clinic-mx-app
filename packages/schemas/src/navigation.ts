@@ -2,21 +2,32 @@ import { auditPartsFor } from './audit-log';
 import { accessScope, type Action, type StaffAccess } from './permissions';
 
 /**
- * Every staff screen one navigates to, once (UI-02): Home lists them, the tablet rail and the
- * desktop sidebar show them by section (Frontend Specification section 4, design system v2
- * section 7), and Search or jump to (Ctrl K) finds them. Each shows only to those who may open it,
- * the same check the page makes. Recommended defaults chosen under the user's standing approval,
- * 29 October 2026 (DECISION UI-02; docs/runbooks/navigation.md).
+ * Every staff screen one navigates to, once (UI-02). A role's few main links show in the rail,
+ * the sidebar and the phone's tabs (the user's review, 3 November 2026: `mainNavigationFor`);
+ * the rest sit under headings on More, Setup for the Super Admin (`moreNavigationFor`), and Search
+ * (Ctrl K) finds them all. Each shows only to those who may open it, the same check the page
+ * makes (docs/runbooks/navigation.md).
  */
 
-export const navSections = ['daily', 'clinical', 'figures', 'setup'] as const;
+export const navSections = [
+  'daily',
+  'reports',
+  'clinic',
+  'people',
+  'content',
+  'rules',
+  'records',
+] as const;
 export type NavSection = (typeof navSections)[number];
 
 export const navSectionLabels: Record<NavSection, string> = {
   daily: 'Day to day',
-  clinical: 'Clinical',
-  figures: 'Figures',
-  setup: 'Setup',
+  reports: 'Reports',
+  clinic: 'Clinic',
+  people: 'People',
+  content: 'Clinical content',
+  rules: 'Rules',
+  records: 'Records and access',
 };
 
 export const navIcons = [
@@ -48,6 +59,7 @@ export const navIcons = [
   'kiosk',
   'data-requests',
   'exercises',
+  'more',
 ] as const;
 export type NavIcon = (typeof navIcons)[number];
 
@@ -56,6 +68,8 @@ export interface NavItem {
   href: string;
   icon: NavIcon;
   section: NavSection;
+  /** Paths that count as this link, beyond its own. */
+  also?: readonly string[];
 }
 
 interface NavRule extends NavItem {
@@ -65,13 +79,23 @@ interface NavRule extends NavItem {
 
 // In Home's order, Home's words.
 const navRules: readonly NavRule[] = [
-  { label: 'Tasks', href: '/app/tasks', icon: 'tasks', section: 'daily', may: 'tasks.view' },
+  { label: 'To do', href: '/app/tasks', icon: 'tasks', section: 'daily', may: 'tasks.view' },
   {
-    label: 'My patients today',
+    label: 'My day',
     href: '/app/my-patients',
     icon: 'my-patients',
     section: 'daily',
     may: 'visits.start',
+  },
+  {
+    label: 'My results',
+    href: '/app/my-patients/outcomes',
+    icon: 'dashboard',
+    section: 'daily',
+    may: (staff) =>
+      accessScope(staff, 'dashboard.own_patients') !== null &&
+      staff.treatsPatients &&
+      !staff.support,
   },
   { label: 'Today', href: '/app/today', icon: 'today', section: 'daily', may: 'check_in.manage' },
   {
@@ -92,10 +116,10 @@ const navRules: readonly NavRule[] = [
     label: 'Centres',
     href: '/app/centres',
     icon: 'centres',
-    section: 'setup',
+    section: 'clinic',
     may: 'centres.manage',
   },
-  { label: 'Team', href: '/app/team', icon: 'team', section: 'setup', may: 'rosters.manage' },
+  { label: 'Team', href: '/app/team', icon: 'team', section: 'people', may: 'rosters.manage' },
   {
     label: 'My leave',
     href: '/app/leave',
@@ -107,14 +131,14 @@ const navRules: readonly NavRule[] = [
     label: 'Appointment types',
     href: '/app/appointment-types',
     icon: 'appointment-types',
-    section: 'setup',
+    section: 'clinic',
     may: 'settings.manage',
   },
   {
     label: 'AI preparation sheet',
     href: '/app/ai-preparation-sheet',
     icon: 'ai',
-    section: 'setup',
+    section: 'rules',
     may: 'settings.manage',
   },
   { label: 'Alerts', href: '/app/alerts', icon: 'alerts', section: 'daily', may: 'red_flags.view' },
@@ -122,21 +146,21 @@ const navRules: readonly NavRule[] = [
     label: 'Red flags',
     href: '/app/red-flags',
     icon: 'red-flags',
-    section: 'clinical',
+    section: 'content',
     may: 'knowledge_base.view',
   },
   {
     label: 'Knowledge base',
     href: '/app/knowledge-base',
     icon: 'knowledge-base',
-    section: 'clinical',
+    section: 'content',
     may: 'knowledge_base.view',
   },
   {
     label: 'WhatsApp templates',
     href: '/app/templates',
     icon: 'templates',
-    section: 'setup',
+    section: 'content',
     may: 'templates.manage',
   },
   {
@@ -146,83 +170,83 @@ const navRules: readonly NavRule[] = [
     section: 'daily',
     may: 'bills.view_amounts',
   },
-  { label: 'Prices', href: '/app/prices', icon: 'prices', section: 'setup', may: 'prices.view' },
-  { label: 'Staff', href: '/app/staff', icon: 'staff', section: 'setup', may: 'staff.manage' },
+  { label: 'Prices', href: '/app/prices', icon: 'prices', section: 'clinic', may: 'prices.view' },
+  { label: 'Staff', href: '/app/staff', icon: 'staff', section: 'people', may: 'staff.manage' },
   {
     label: 'Support access',
     href: '/app/support-access',
     icon: 'support',
-    section: 'setup',
+    section: 'records',
     may: 'support_access.grant',
   },
   {
     label: 'Exercise library',
     href: '/app/exercises',
     icon: 'exercises',
-    section: 'setup',
+    section: 'content',
     may: 'exercises.manage',
   },
   {
     label: 'Settings',
     href: '/app/settings',
     icon: 'settings',
-    section: 'setup',
+    section: 'rules',
     may: 'settings.manage',
   },
   {
     label: 'Audit log',
     href: '/app/audit',
     icon: 'audit',
-    section: 'setup',
+    section: 'records',
     may: (staff) => auditPartsFor(staff).length > 0,
   },
   {
     label: 'Opening entries',
     href: '/app/opening-entries',
     icon: 'opening-entries',
-    section: 'setup',
+    section: 'records',
     may: 'opening_entries.manage',
   },
   {
-    label: 'Overview',
+    label: 'Home',
     href: '/app/overview',
     icon: 'overview',
-    section: 'figures',
+    section: 'reports',
     may: 'dashboard.overview',
   },
   {
-    label: 'Dashboard',
+    label: 'Reports',
     href: '/app/dashboard',
     icon: 'dashboard',
-    section: 'figures',
+    section: 'reports',
     may: 'dashboard.clinical_operations',
   },
   {
-    label: 'Finance',
+    label: 'Money',
     href: '/app/finance',
     icon: 'finance',
-    section: 'figures',
+    section: 'reports',
     may: 'dashboard.finance',
   },
   {
     label: 'Figures',
     href: '/app/figures',
     icon: 'figures',
-    section: 'figures',
+    section: 'reports',
     may: 'dashboard.overview',
   },
   {
     label: 'Data requests',
     href: '/app/data-requests',
     icon: 'data-requests',
-    section: 'setup',
+    section: 'records',
     may: 'data_requests.manage',
   },
   {
     label: 'Kiosk tablets',
     href: '/app/kiosk-tablets',
     icon: 'kiosk',
-    section: 'setup',
+    section: 'clinic',
     may: 'check_in.manage',
   },
 ];
@@ -234,6 +258,108 @@ export function navigationFor(staff: StaffAccess): NavItem[] {
       typeof rule.may === 'function' ? rule.may(staff) : accessScope(staff, rule.may) !== null,
     )
     .map(({ label, href, icon, section }) => ({ label, href, icon, section }));
+}
+
+interface MainLink {
+  /** The navigation rule behind it: who may open it, its icon. */
+  rule: string;
+  label?: string;
+  href?: string;
+  also?: readonly string[];
+  /** Other screens this link's page reaches, so More need not list them. */
+  holds?: readonly string[];
+}
+
+const reportsLink: MainLink = {
+  rule: '/app/dashboard',
+  label: 'Reports',
+  href: '/app/dashboard/centres',
+  also: ['/app/dashboard'],
+};
+
+/** The Super Admin's Reports also holds Money and Figures, as tabs. */
+const adminReportsLink: MainLink = {
+  ...reportsLink,
+  also: ['/app/dashboard', '/app/finance', '/app/figures'],
+  holds: ['/app/finance', '/app/figures'],
+};
+
+/** Each role's main links, in order: what it needs daily (the user's review, 3 November 2026). */
+const mainLinksByRole: Record<StaffAccess['role'], readonly MainLink[]> = {
+  front_desk: [
+    { rule: '/app/today' },
+    { rule: '/app/calendar' },
+    { rule: '/app/patients' },
+    { rule: '/app/tasks' },
+  ],
+  physiotherapist: [
+    { rule: '/app/my-patients' },
+    { rule: '/app/calendar' },
+    { rule: '/app/patients' },
+    { rule: '/app/tasks' },
+  ],
+  centre_manager: [
+    { rule: '/app/dashboard', label: 'Home', href: '/app/dashboard/alerts' },
+    { rule: '/app/my-patients' },
+    { rule: '/app/today' },
+    { rule: '/app/calendar' },
+    { rule: '/app/patients' },
+    { rule: '/app/tasks' },
+    reportsLink,
+  ],
+  finance: [
+    { rule: '/app/finance', href: '/app/finance/collections', also: ['/app/finance'] },
+    { rule: '/app/patients' },
+    { rule: '/app/prices' },
+    { rule: '/app/tasks' },
+  ],
+  super_admin: [
+    { rule: '/app/overview', label: 'Home' },
+    { rule: '/app/my-patients' },
+    { rule: '/app/calendar' },
+    { rule: '/app/patients' },
+    { rule: '/app/tasks' },
+    adminReportsLink,
+  ],
+};
+
+/** The name of the page holding everything else: Setup for the Super Admin, More for the rest. */
+export function moreLabel(role: StaffAccess['role']): string {
+  return role === 'super_admin' ? 'Setup' : 'More';
+}
+
+/** The rail's and sidebar's links: the role's main ones it may open, then More or Setup. */
+export function mainNavigationFor(staff: StaffAccess): NavItem[] {
+  const allowed = navigationFor(staff);
+  const main = mainLinksByRole[staff.role].flatMap((link): NavItem[] => {
+    const rule = allowed.find((item) => item.href === link.rule);
+    if (!rule) return [];
+    return [
+      {
+        ...rule,
+        label: link.label ?? rule.label,
+        href: link.href ?? rule.href,
+        ...(link.also ? { also: link.also } : {}),
+      },
+    ];
+  });
+  return [
+    ...main,
+    {
+      label: moreLabel(staff.role),
+      href: '/app',
+      icon: staff.role === 'super_admin' ? 'settings' : 'more',
+      section: 'daily',
+    },
+  ];
+}
+
+/** Everything else the person may open: what More or Setup lists. */
+export function moreNavigationFor(staff: StaffAccess): NavItem[] {
+  const main = new Set(
+    mainLinksByRole[staff.role].flatMap((link) => [link.rule, ...(link.holds ?? [])]),
+  );
+  return navigationFor(staff).filter((item) => !main.has(item.href));
 }
 
 /** The items by section, sections in order, empty ones left out. */
@@ -252,9 +378,15 @@ export function navigationBySection(
 /** The item a path belongs to: its own path or one under it, the longest winning. */
 export function currentNavItem(items: readonly NavItem[], pathname: string): NavItem | undefined {
   let best: NavItem | undefined;
+  let length = 0;
   for (const item of items) {
-    const hit = pathname === item.href || pathname.startsWith(`${item.href}/`);
-    if (hit && (!best || item.href.length > best.href.length)) best = item;
+    for (const path of [item.href, ...(item.also ?? [])]) {
+      const hit = pathname === path || pathname.startsWith(`${path}/`);
+      if (hit && path.length > length) {
+        best = item;
+        length = path.length;
+      }
+    }
   }
   return best;
 }

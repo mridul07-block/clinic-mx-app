@@ -8,6 +8,94 @@ import { settingDefinitions, settingKeys, type SettingKey } from './settings';
  * validated by the registry's schema; the few with their own screen or flow are read only here.
  */
 
+/**
+ * The clinic's own rules, in plain groups, shown first (the user's review, 3 November 2026): what
+ * PRD section 7 marks as a setting and what the clinic edits itself. Everything else stays in the
+ * table and on the screen, folded under Advanced (rule 6: every rule is still a setting).
+ */
+export const clinicRuleGroups: readonly { label: string; keys: readonly SettingKey[] }[] = [
+  {
+    label: 'Booking',
+    keys: [
+      'booking.whatsapp_days_ahead',
+      'booking.self_booking_block_reschedules',
+      'booking.self_booking_block_no_shows',
+    ],
+  },
+  {
+    label: 'The day',
+    keys: [
+      'day.running_late_minutes',
+      'day.no_show_allowed_minutes',
+      'reminders.day_before_time',
+      'reminders.morning_time',
+    ],
+  },
+  {
+    label: 'Patient care',
+    keys: [
+      'clinical.baseline_reuse_days',
+      'clinical.reassessment_session',
+      'clinical.review_weeks',
+      'clinical.lost_to_follow_up_days',
+      'engagement.follow_ups_after_discharge',
+      'engagement.follow_up_time',
+      'documents.summary_prints_category',
+    ],
+  },
+  {
+    label: 'Money and packages',
+    keys: [
+      'billing.consultation_fee_timing',
+      'billing.unpaid_sessions_flag_above',
+      'billing.think_about_it_follow_up_days',
+      'packages.validity_months',
+      'packages.expiry_reminder_days',
+      'packages.reschedules_per_10_sessions',
+    ],
+  },
+  {
+    label: 'WhatsApp',
+    keys: [
+      'whatsapp.emergency_phrases',
+      'whatsapp.emergency_advice',
+      'whatsapp.greeting_words',
+      'whatsapp.front_desk_email',
+      'whatsapp.test_recipients_only',
+      'whatsapp.test_recipients',
+    ],
+  },
+  {
+    label: 'Targets',
+    keys: [
+      'kpi.target_red_flag_documentation_percent',
+      'kpi.target_conversion_percent',
+      'kpi.target_completion_percent',
+      'kpi.target_notes_same_day_percent',
+      'kpi.target_nps',
+    ],
+  },
+  {
+    label: 'Security',
+    keys: ['security.desktop_idle_logout_minutes'],
+  },
+];
+
+/** A setting's description without the ticket codes that mean nothing to the clinic. */
+export function settingPlainDescription(description: string): string {
+  return description.replace(/\s*\([A-Z]{2,3}-\d{2}[^)]*\)/g, '').replace(/\s+\./g, '.');
+}
+
+/** The settings whose description or name holds every word typed, for the screen's search. */
+export function matchSettings(typed: string): SettingKey[] {
+  const words = typed.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  return settingKeys.filter((key) => {
+    const text = `${key} ${settingDefinitions[key].description}`.toLowerCase();
+    return words.every((word) => text.includes(word));
+  });
+}
+
 /** Areas by key prefix, in the order the screen lists them. */
 export const settingAreaLabels: Record<string, string> = {
   scheduling: 'Scheduling',

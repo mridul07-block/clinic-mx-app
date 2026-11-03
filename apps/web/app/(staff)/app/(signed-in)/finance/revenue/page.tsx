@@ -7,7 +7,7 @@ import { HorizontalBars } from '../../../../../../components/charts/horizontal-b
 import { requireStaff } from '../../../../../../modules/auth/session';
 import { revenueView } from '../../../../../../modules/reporting/finance';
 
-export const metadata: Metadata = { title: 'Revenue · Finance · Clinic Mx' };
+export const metadata: Metadata = { title: 'Revenue · Money · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
 const lakhs = (paise: number) => kpiText(Math.round(paise), 'paise');

@@ -19,11 +19,11 @@ import {
 } from '@clinic-mx/schemas';
 import type { Tone } from '@clinic-mx/ui';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { Tag } from '../../../../../components/tag';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../modules/access/staff-db';
 import { getSetting } from '../../../../../modules/settings/settings';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Red flags · Clinic Mx' };
 
@@ -154,11 +154,8 @@ export default async function RedFlagsPage() {
     : [];
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
-        <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-          Home
-        </Link>
         <h1 className="text-title font-semibold">Red flags</h1>
         <p className="text-ink-secondary">
           The rules the health form runs when a patient submits it, and each region’s red flag
@@ -207,6 +204,6 @@ export default async function RedFlagsPage() {
       ) : (
         <p className="text-ink-secondary">No knowledge base version has been imported yet.</p>
       )}
-    </main>
+    </Page>
   );
 }

@@ -22,9 +22,6 @@ export CLINIC_MX_SEED_TARGET=local
 export CLINIC_MX_SEED_STAFF_PASSWORD=${CLINIC_MX_SEED_STAFF_PASSWORD:-$(openssl rand -hex 16)}
 export PATIENT_LINK_SECRET=${PATIENT_LINK_SECRET:-$(openssl rand -hex 32)}
 
-step "Format, lint, design check, typecheck, unit tests"
-pnpm verify
-
 step "Migrations match the schema"
 pnpm db:generate >/dev/null
 if [ -n "$(git status --porcelain -- supabase/migrations)" ]; then
@@ -42,6 +39,25 @@ if [ -n "$changed" ]; then
   exit 1
 fi
 
+# The checks need no database and the database tests no checks, so they run side by side; the first
+# to fail ends the run.
+step "Format, lint, design check, typecheck, unit tests (alongside the database steps)"
+verify_log=$(mktemp)
+pnpm verify >"$verify_log" 2>&1 &
+verify_pid=$!
+trap 'kill "$verify_pid" 2>/dev/null || true; rm -f "$verify_log"' EXIT
+verify_failed() {
+  cat "$verify_log"
+  echo "The checks failed."
+  exit 1
+}
+# Stops at once if the checks have already failed.
+checks_still_fine() {
+  if ! kill -0 "$verify_pid" 2>/dev/null; then
+    wait "$verify_pid" || verify_failed
+  fi
+}
+
 step "Every migration applied to an empty database"
 pnpm db:start >/dev/null
 pnpm exec supabase db reset --local --no-seed --yes
@@ -50,18 +66,25 @@ eval "$(pnpm --silent exec supabase status -o env | tr -d '"' | sed -n \
   -e 's/^ANON_KEY=/export SUPABASE_ANON_KEY=/p' \
   -e 's/^SERVICE_ROLE_KEY=/export SUPABASE_SERVICE_ROLE_KEY=/p' \
   -e 's/^MAILPIT_URL=/export MAILPIT_URL=/p')"
+checks_still_fine
 
 step "Seed and the knowledge base"
 pnpm db:seed
 pnpm kb:import --apply
+checks_still_fine
 
 step "Database tests"
 pnpm --filter @clinic-mx/db test:integration
 
-for project in phone desktop; do
-  step "End to end ($project)"
-  CI=1 pnpm test:e2e --project="$project"
-done
+step "Waiting for the checks"
+wait "$verify_pid" || verify_failed
+cat "$verify_log"
+
+# Both projects at once on one build (the phone and desktop tests share nothing a test does not
+# lock with `exclusively`). A run with this many failures is broken, so it stops rather than waits.
+step "End to end (phone and desktop together)"
+CI=1 pnpm test:e2e --project=phone --project=desktop \
+  --workers="${E2E_WORKERS:-4}" --max-failures=10
 
 step "Secret scan"
 # The gitleaks release binary for this machine, checked against hashes pinned here from the

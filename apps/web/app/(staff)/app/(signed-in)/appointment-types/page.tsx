@@ -6,6 +6,7 @@ import { FormMessage, secondaryButtonClass } from '../../../../../components/for
 import { Tag } from '../../../../../components/tag';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../modules/access/staff-db';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Appointment types · Clinic Mx' };
 
@@ -24,11 +25,8 @@ export default async function AppointmentTypesPage() {
   const types = await asStaff(staff, (tx) => appointmentTypeList(tx));
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
-        <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-          Home
-        </Link>
         <h1 className="text-title font-semibold">Appointment types</h1>
         <p className="text-ink-secondary">
           How long each kind of appointment takes. The calendar books with these lengths, or with a
@@ -63,6 +61,6 @@ export default async function AppointmentTypesPage() {
           </li>
         ))}
       </ul>
-    </main>
+    </Page>
   );
 }

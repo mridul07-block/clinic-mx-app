@@ -6,6 +6,7 @@ import { FormMessage } from '../../../../../components/forms';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { asStaff } from '../../../../../modules/access/staff-db';
 import { DecideLeaveForm } from '../leave/leave-forms';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Team · Clinic Mx' };
 
@@ -45,11 +46,8 @@ export default async function TeamPage({
   const notice = notices[(await searchParams).done ?? ''];
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
-        <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-          Home
-        </Link>
         <h1 className="text-title font-semibold">Team</h1>
         <p className="text-ink-secondary">
           Working hours and leave for the people who treat patients. Patients are booked only in
@@ -108,6 +106,6 @@ export default async function TeamPage({
           ))}
         </ul>
       </section>
-    </main>
+    </Page>
   );
 }

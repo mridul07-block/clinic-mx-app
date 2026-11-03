@@ -1,4 +1,8 @@
-# Super Admin overview (DSH-05)
+# Super Admin Home (DSH-05)
+
+> **3 November 2026 (UIX-22a, the user's review):** the Overview is now **Home**, one screen: **Needs you now** (the dashboard's alert counts, largest first), **Today by centre** (collected, waiting, no shows, payment pending) and **Last 7 days** (consultations, plan acceptance, active patients, revenue). Targets and charts moved to **Reports**, the dashboard's page, which also has **Money** and **Figures** as tabs for the Super Admin. A Centre Manager's Home is the dashboard's Alerts, without tabs. The sections below describe the first version.
+
+> **3 November 2026 (UIX-16c):** figures and targets not measured yet no longer show on any screen, by the user's decision. The definitions and `needs` text stay in the code, so each appears by itself once its data exists. Wording below about "Not measured yet" describes what the data says, not the screen.
 
 Frontend Specification section 6 gives the Super Admin an "Overview across all centres", and the
 section 4 tabs for the role are "Overview, Alerts, Settings, More". Ticket DSH-05 asks for all

@@ -8,8 +8,9 @@ import { HorizontalBars } from '../../../../../../components/charts/horizontal-b
 import { redirect } from 'next/navigation';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { ownOutcomes, readsOwnOutcomes } from '../../../../../../modules/reporting/own-outcomes';
+import { Page } from '@clinic-mx/ui/components/page';
 
-export const metadata: Metadata = { title: 'My patients’ outcomes · Clinic Mx' };
+export const metadata: Metadata = { title: 'My results · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
 // My patients' outcomes (DSH-06; docs/runbooks/own-outcomes.md): the Centre Manager's Outcomes tab
@@ -25,15 +26,15 @@ export default async function OwnOutcomesPage({
   const window = outcomeWindow((await searchParams).window);
   const view = await ownOutcomes(staff, window);
   return (
-    <main className="flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
+    <Page width="content">
       <div className="flex flex-col gap-1.5">
         <Link
           href="/app/my-patients"
           className="text-sm text-ink-muted underline underline-offset-2"
         >
-          My patients today
+          My day
         </Link>
-        <h1 className="text-title font-semibold">My patients’ outcomes</h1>
+        <h1 className="text-title font-semibold">My results</h1>
         <p className="text-sm text-ink-secondary">
           Episodes whose current plan names you as treating physio, at any centre. The clinic’s
           targets are shown for context; no colleague’s figures are.
@@ -63,16 +64,6 @@ export default async function OwnOutcomesPage({
           {view.bullets.map((bullet) => (
             <OutcomeBulletCard key={bullet.key} bullet={bullet} />
           ))}
-          {view.coming.map((item) => (
-            <li
-              key={item.label}
-              className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-4"
-              data-testid="own-coming"
-            >
-              <span className="font-medium text-ink">{item.label}</span>
-              <span className="text-sm text-ink-muted">Not measured yet: {item.needs}.</span>
-            </li>
-          ))}
         </ul>
       </section>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -98,7 +89,7 @@ export default async function OwnOutcomesPage({
         </h2>
         <p className="text-sm text-ink-secondary">
           Pain during activity (0 to 10), from the consultation to the last session, for episodes
-          discharged after treatment. Questionnaire scores join when questionnaires arrive (OUT-02).
+          discharged after treatment.
         </p>
         {view.outcomes.length > 0 ? (
           <DumbbellChart
@@ -125,6 +116,6 @@ export default async function OwnOutcomesPage({
           </p>
         ) : null}
       </section>
-    </main>
+    </Page>
   );
 }

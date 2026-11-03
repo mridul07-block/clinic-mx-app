@@ -21,6 +21,7 @@ import { AccountActions } from './account-actions';
 import { EditForm } from './edit-form';
 import { FeeForm } from './fee-form';
 import { LengthsForm } from './lengths-form';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Staff member · Clinic Mx' };
 
@@ -54,7 +55,7 @@ export default async function StaffMemberPage({
   const slotMinutes = await getSetting('scheduling.slot_minutes');
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <Link href="/app/staff" className="text-sm text-ink-muted underline underline-offset-2">
           Staff
@@ -130,6 +131,6 @@ export default async function StaffMemberPage({
           />
         </>
       )}
-    </main>
+    </Page>
   );
 }

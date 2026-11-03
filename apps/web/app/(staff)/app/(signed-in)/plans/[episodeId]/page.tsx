@@ -73,7 +73,7 @@ function BillCard({
   return (
     <li
       data-testid="bill"
-      className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-3"
+      className="flex flex-col gap-2 rounded-panel border border-line bg-surface p-4"
     >
       <span className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex flex-col">
@@ -320,7 +320,7 @@ function recordedText(entry: PlanChoiceEntry): string {
 function CurrentChoice({ entry }: { entry: PlanChoiceEntry }) {
   return (
     <div
-      className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-3"
+      className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-4"
       data-testid="current-choice"
     >
       <span className="font-medium text-ink">{choiceText(entry)}</span>
@@ -502,7 +502,7 @@ export default async function PlanSheetPage({
                 <h2 id="per-session" className="font-semibold text-ink">
                   Pay per session
                 </h2>
-                <div className="flex items-baseline justify-between gap-3 rounded-panel border border-line bg-surface p-3">
+                <div className="flex items-baseline justify-between gap-3 rounded-panel border border-line bg-surface p-4">
                   <span className="text-sm text-ink-secondary">
                     {options.plannedSessions !== null
                       ? `${String(options.plannedSessions)} sessions × ${formatRupees(options.perSession.item.amountPaise)}`
@@ -550,7 +550,7 @@ export default async function PlanSheetPage({
                       <li
                         key={offer.id}
                         data-testid="package-option"
-                        className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-3"
+                        className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-4"
                       >
                         <span className="flex items-baseline justify-between gap-3">
                           <span className="font-medium text-ink">{offer.name}</span>

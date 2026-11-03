@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { FormMessage } from '../../../../../components/forms';
 import { Tag } from '../../../../../components/tag';
+import { Page } from '@clinic-mx/ui/components/page';
 
 /** The frame of every price master page below the list: back to Prices, the title, a notice. */
 export function PricePage({
@@ -20,7 +21,7 @@ export function PricePage({
   children: ReactNode;
 }) {
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <Link href="/app/prices" className="text-sm text-ink-muted underline underline-offset-2">
           Prices
@@ -35,7 +36,7 @@ export function PricePage({
       {notice ? <FormMessage tone="info">{notice}</FormMessage> : null}
       {readOnly ? <FormMessage tone="info">Velyx support access is read only.</FormMessage> : null}
       {children}
-    </main>
+    </Page>
   );
 }
 

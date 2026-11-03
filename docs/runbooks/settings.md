@@ -1,5 +1,7 @@
 # Settings
 
+> **3 November 2026 (UIX-23, the user's review):** the screen shows the clinic's rules first, in the groups of `clinicRuleGroups` (`packages/schemas/src/settings-screen.ts`), in plain words: no key names, source or ticket codes (`settingPlainDescription`). **Find a setting** (`?q=`, `matchSettings`) searches every key and description. Every other setting is folded under **Advanced**, with its key and source. All stay in the table and all can still be changed.
+
 FND-14, rule 6, TAD section 3. Every business rule the Super Admin can change (PRD section 7,
 rows marked Setting) is a row in the `setting` table. Code never holds the number.
 

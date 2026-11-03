@@ -10,6 +10,7 @@ import { requirePermission } from '../../../../../../modules/access/require-perm
 import { asStaff } from '../../../../../../modules/access/staff-db';
 import { CentreActiveForm, CentreForm } from '../centre-form';
 import { CentreSwatch } from '../centre-swatch';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Centre · Clinic Mx' };
 
@@ -41,7 +42,7 @@ export default async function CentrePage({
   const notice = notices[(await searchParams).done ?? ''];
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <Link href="/app/centres" className="text-sm text-ink-muted underline underline-offset-2">
           Centres
@@ -125,6 +126,6 @@ export default async function CentrePage({
           </section>
         </>
       )}
-    </main>
+    </Page>
   );
 }

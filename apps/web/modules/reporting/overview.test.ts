@@ -4,18 +4,16 @@ import { NotAllowedError } from '../access/guard';
 import { overviewView } from './overview';
 
 const views = vi.hoisted(() => ({
+  alertsDashboard: vi.fn(),
   centresDashboard: vi.fn(),
-  outcomesDashboard: vi.fn(),
   collectionsView: vi.fn(),
-  revenueView: vi.fn(),
 }));
 vi.mock('./manager', () => ({
+  alertsDashboard: views.alertsDashboard,
   centresDashboard: views.centresDashboard,
-  outcomesDashboard: views.outcomesDashboard,
 }));
 vi.mock('./finance', () => ({
   collectionsView: views.collectionsView,
-  revenueView: views.revenueView,
 }));
 
 const superAdmin: StaffMember = {
@@ -40,14 +38,15 @@ const today = (name: string) => ({
   paymentPending: { sinceToday: 0, earlier: 2 },
 });
 
-// DSH-05: the Super Admin's overview, built from the Centre Manager's and Finance's views.
-describe('the Super Admin’s overview', () => {
+// DSH-05: the Super Admin's Home, built from the Centre Manager's and Finance's views.
+describe('the Super Admin’s Home', () => {
   beforeEach(() => {
     views.centresDashboard.mockResolvedValue({
       countedAt: '28 Oct 2026, 15:00 IST',
       centres: [today('HSR Layout'), today('Whitefield')],
       cells: [
         { key: 'consultations', label: 'Consultations', value: '12', change: '+2', status: null },
+        { key: 'no_shows', label: 'No shows', value: '1', change: '+1', status: null },
       ],
       runningLateMinutes: 15,
     });
@@ -64,28 +63,28 @@ describe('the Super Admin’s overview', () => {
       // BIL-11: a refund of 500 on the last day comes off the week's revenue.
       refundsDaily: [...Array.from({ length: 29 }, () => 0), 50_000],
     });
-    views.outcomesDashboard.mockResolvedValue({ bullets: [{ key: 'treatment_completion' }] });
-    views.revenueView.mockResolvedValue({ months: ['2026-10'], thisYear: [5], lastYear: [3] });
+    views.alertsDashboard.mockResolvedValue({
+      items: [
+        { item: 'unsigned_notes', label: 'Notes', link: '/app/tasks', where: null, total: 2 },
+        { item: 'reviews_open', label: 'Reviews', link: '/app/tasks', where: null, total: 0 },
+        { item: 'red_flags', label: 'Red flags', link: '/app/alerts', where: null, total: 5 },
+      ],
+    });
   });
 
-  it('shows every centre with its money today, the week with revenue, and the AI top 3 to come', async () => {
+  it('shows what is waiting, largest first, every centre’s money today and the week', async () => {
     const view = await overviewView(superAdmin, now);
+    expect(view.needs.map((item) => item.label)).toEqual(['Red flags', 'Notes']);
     expect(view.centres.map((entry) => [entry.name, entry.collected])).toEqual([
       ['HSR Layout', '₹3,000'],
       ['Whitefield', '₹0'],
     ]);
+    // Today's no shows are on each centre's row, so the week leaves them out.
     expect(view.cells.map((cell) => cell.key)).toEqual(['consultations', 'revenue']);
     expect(view.cells[1]).toMatchObject({
       value: '₹13,500',
       change: '+₹6,500 on the 7 days before',
     });
-    expect(view.bullets).toHaveLength(1);
-    expect(view.aiTop3).toEqual({
-      label: 'Right diagnosis in AI top 3',
-      target: 'Set after the first 3 months',
-      needs: 'AI-03 (AI suggestions kept or dismissed)',
-    });
-    expect(views.outcomesDashboard).toHaveBeenCalledWith(superAdmin, '90', now);
   });
 
   it('is the Super Admin’s alone', async () => {

@@ -258,17 +258,18 @@ export function TodayBoard({
                   </Link>
                   <span className="truncate text-sm text-ink-secondary">
                     {appointment.typeName} · {appointment.physioName}
+                    {appointment.session?.label ? (
+                      // SES-01: the treatment session's number once checked in.
+                      <>
+                        {' · '}
+                        <span data-testid="session-label">{appointment.session.label}</span>
+                      </>
+                    ) : null}
                   </span>
                 </span>
                 <span className="col-start-2 row-start-2 flex flex-wrap items-center gap-2 md:col-start-3 md:row-start-1 md:justify-end">
                   {late ? <span className="text-sm text-waiting">{late}</span> : null}
                   <Tag tone={toneByAppointmentStatus[status]}>{label}</Tag>
-                  {appointment.session?.label ? (
-                    // SES-01: the treatment session's number once checked in.
-                    <span data-testid="session-label">
-                      <Tag tone="outline">{appointment.session.label}</Tag>
-                    </span>
-                  ) : null}
                   {appointment.session &&
                   !appointment.session.gate.met &&
                   ['booked', 'confirmed', 'checked_in'].includes(appointment.status) ? (

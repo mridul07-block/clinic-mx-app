@@ -1,4 +1,4 @@
-# My patients today
+# My day
 
 The physio's home at `/app/my-patients` (CLN-01; Frontend Specification "Physiotherapist": "My
 patients today (home): Patients in time order with status, form status, alerts, 'Preparation sheet
@@ -13,7 +13,7 @@ Decisions (user, 24 October 2026):
 ## Who and what
 
 - **For** everyone with the Treats patients tick (`visits.start`). Physiotherapists land on it
-  after signing in (`homePath`); others with the tick have "My patients today" on Home. Velyx
+  after signing in (`homePath`); others with the tick have "My day" on Home. Velyx
   support never has it.
 - **Lists** the person's own appointments today (IST) at every centre, by start, leaving out
   Cancelled and Rescheduled (`myPatientsToday`, `packages/db/src/my-patients.ts`).

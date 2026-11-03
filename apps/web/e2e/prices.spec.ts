@@ -30,7 +30,7 @@ test('Finance changes a price, and the list shows the new one', async ({ page })
   await signInFinance(page);
   await changingPrices(async () => {
     await page.goto('/app');
-    await page.getByRole('main').getByRole('link', { name: 'Prices' }).click();
+    await page.getByRole('link', { name: 'Prices', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Prices', exact: true })).toBeVisible();
     await expect(row(page, 'price-item', 'Consultation')).toContainText('₹750');
     await expect(row(page, 'price-item', 'Zero Gravity Treadmill')).toContainText('₹2,000');
@@ -108,8 +108,8 @@ test('Finance adds a package type and preset discounts, and deactivates one', as
 test('the front desk reads prices but cannot change them', async ({ page }) => {
   const desk = await temporaryDesk();
   await signIn(page, desk.email);
-  // The Front Desk lands on Today (INT-01); Prices is on Home.
-  await page.getByRole('link', { name: 'Home' }).click();
+  // The Front Desk lands on Today (INT-01); Prices is on More.
+  await page.getByRole('link', { name: 'More', exact: true }).click();
   await page.getByRole('main').getByRole('link', { name: 'Prices' }).click();
   await expect(row(page, 'price-item', 'Consultation')).toContainText('₹750');
   await expect(page.getByRole('link', { name: 'Add a price' })).toHaveCount(0);

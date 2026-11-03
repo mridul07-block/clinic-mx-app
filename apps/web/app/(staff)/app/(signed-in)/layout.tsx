@@ -2,6 +2,7 @@ import { activeGrant } from '@clinic-mx/db';
 import {
   accessScope,
   formatIstDateTime,
+  mainNavigationFor,
   navigationFor,
   phoneTabsFor,
   staffRoleLabels,
@@ -20,6 +21,7 @@ import { DEVICE_COOKIE, readDevice } from '../../../../lib/session-cookies';
 import { asStaff } from '../../../../modules/access/staff-db';
 import { StaffProvider } from '../../../../lib/staff-context';
 import { emergencyBannersOf } from '../../../../modules/alerts/services';
+import { homePath } from '../../../../modules/auth/next-path';
 import { requireStaff } from '../../../../modules/auth/session';
 import { unreadNotifications } from '../../../../modules/notifications/services';
 import { chosenCentreId, switchableCentres } from '../../../../modules/navigation/centres';
@@ -75,6 +77,8 @@ export default async function SignedInLayout({ children }: { children: ReactNode
         <div className="md:flex md:min-h-dvh">
           <NavShell
             items={items}
+            mainItems={mainNavigationFor(staff)}
+            homeHref={homePath(staff.role)}
             counts={{ '/app/tasks': openTasks }}
             findsPatients={accessScope(staff, 'patients.view_contact') !== null}
             centreSwitcher={
@@ -128,6 +132,7 @@ export default async function SignedInLayout({ children }: { children: ReactNode
                 />
               ))}
               <TopBar
+                homeHref={homePath(staff.role)}
                 unread={unread}
                 findsPatients={accessScope(staff, 'patients.view_contact') !== null}
                 personMenu={
@@ -151,7 +156,7 @@ export default async function SignedInLayout({ children }: { children: ReactNode
           </div>
         </div>
         {/* UI-01: the role's bottom tabs on phones. */}
-        <PhoneTabBar tabs={phoneTabsFor(staff)} />
+        <PhoneTabBar tabs={phoneTabsFor(staff)} counts={{ '/app/tasks': openTasks }} />
         <DraftSync />
         {staff.support ? null : (
           <EmergencyWatch

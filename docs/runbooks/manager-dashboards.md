@@ -1,5 +1,7 @@
 # Centre Manager dashboards (DSH-03)
 
+> **3 November 2026 (UIX-16c):** figures and targets not measured yet no longer show on any screen, by the user's decision. The definitions and `needs` text stay in the code, so each appears by itself once its data exists. Wording below about "Not measured yet" describes what the data says, not the screen.
+
 This covers the Centre Manager's Alerts, Centres, Outcomes, Team and Feedback screens, from
 Frontend Specification section 6 and the chart table in section 8. The figures come from DSH-01
 (`internal.kpi_daily`, `docs/runbooks/kpis.md`) and are drawn with the DSH-02 charts

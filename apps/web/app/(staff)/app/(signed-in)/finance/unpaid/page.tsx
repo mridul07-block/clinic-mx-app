@@ -4,7 +4,7 @@ import { Tag } from '../../../../../../components/tag';
 import { requireStaff } from '../../../../../../modules/auth/session';
 import { unpaidView } from '../../../../../../modules/reporting/finance';
 
-export const metadata: Metadata = { title: 'Unpaid · Finance · Clinic Mx' };
+export const metadata: Metadata = { title: 'Unpaid · Money · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
 // Unpaid (DSH-04, BIL-10): pay as you go balances per patient, flagged above the set number of

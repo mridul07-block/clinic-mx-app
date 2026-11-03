@@ -6,6 +6,7 @@ import { FormMessage, primaryButtonClass } from '../../../../../components/forms
 import { asStaff } from '../../../../../modules/access/staff-db';
 import { requireStaff, signInState } from '../../../../../modules/auth/session';
 import { SignOutButton } from '../sign-out-button';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Account · Clinic Mx' };
 
@@ -30,7 +31,7 @@ export default async function AccountPage({
       .join(', ') || 'None';
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1">
         <h1 className="text-title font-semibold">Account</h1>
         <p className="text-ink-secondary">
@@ -77,6 +78,6 @@ export default async function AccountPage({
       </section>
 
       <SignOutButton />
-    </main>
+    </Page>
   );
 }

@@ -2,39 +2,37 @@
 
 ## Where you start
 
-After you sign in you land on **Alerts** in your **Dashboard**: what needs you now at your centres. You see counts, never money.
+After you sign in you land on **Home**: what needs you now at your centres. You see counts, never money.
 
-## Your tabs
+## Finding your way
 
-On a phone, the bar at the bottom holds **Alerts**, **Centres**, **Outcomes** (the Dashboard tabs) and
-**More**. **More** opens **Home**, which reaches everything:
+Your main links, on the left of a computer and at the bottom of a phone:
 
-- **Dashboard**: tabs for **Alerts**, **Centres** (today's waiting and payment pending), **Outcomes**, **Team** and **Feedback**.
-- **Alerts**: red flag alerts at your centres.
-- **Tasks**: your tasks and your role's.
-- **Team**: rosters and leave.
-- **Today**, **Calendar** and **Patients**.
-- **Red flags**, **Knowledge base**, **Prices**, **Kiosk tablets** and **Account**.
-- **Audit log** (with **Download (CSV)** for chosen days): clinical changes and opened records at your centres. Without the Treats patients
+- **Home**: what needs you now at your centres.
+- **Today**, **Calendar** and **Patients** (on a phone, **Today** is on **More**).
+- **To do**: your tasks and your role's.
+- **Reports**: **Centres** (today's waiting and payment pending), **Outcomes**, **Team** and **Feedback** (on a phone, on **More**).
+- **More**: everything else, under headings: **Alerts**, **Team**, **Prices**, **Kiosk tablets**, **Red flags**, **Knowledge base** and **Account**.
+- **Audit log**, on **More** (with **Download (CSV)** for chosen days): clinical changes and opened records at your centres. Without the Treats patients
   tick you see which fields of a clinical record changed, not the values.
-- With the Treats patients tick, also **My patients today** and **My leave**.
+- With the Treats patients tick, also **My day** and **My leave**.
 
 ## Everyday tasks
 
 ### Do your daily checks
 
-1. On **Alerts**, read each line under **Needs attention now**. Tap **Open the list** to see what is behind a count.
+1. On **Home**, read each line under **Needs attention now**. Tap **Open the list** to see what is behind a count.
 2. On **Centres**, check **Waiting now** and **Payment pending**.
-3. Open **Tasks** from Home. Each night you get an **Unsigned notes** task for each centre with notes not signed. Follow up with the physio.
+3. Open **To do**. Each night you get an **Unsigned notes** task for each centre with notes not signed. Follow up with the physio.
 
 ### Look at a red flag alert
 
-1. Tap **Alerts** on Home. Each card shows the patient and each step with who and when.
+1. Tap **Alerts** on **More**. Each card shows the patient and each step with who and when.
 2. Only clinicians act. With the Treats patients tick you also see **I’m reviewing**, **Refer** and **Close with decision**.
 
 ### Close a task
 
-1. Open **Tasks**. The most urgent come first.
+1. Open **To do**. The most urgent come first.
 2. Tap **Take it**, so it leaves everyone else's list.
 3. Write what was done under **Decision** and tap **Close with decision**.
 
@@ -53,13 +51,13 @@ On a phone, the bar at the bottom holds **Alerts**, **Centres**, **Outcomes** (t
 
 ### Allow self booking again
 
-1. Open **Patients** from Home and search by **Mobile or name**.
+1. Open **Patients** and search by **Mobile or name**.
 2. On the patient's **Overview**, **Self booking** shows why they are blocked.
 3. Tap **Allow self booking again**. The counts reset.
 
 ### Keep the paper fallback stock
 
-1. Open **Today** from Home and tap **Paper health form and consent (PDF)**.
+1. Open **Today** and tap **Paper health form and consent (PDF)**.
 2. Print a stack for the desk. Reprint when the version in the footer changes; throw old copies away.
 3. Afterwards the desk enters each paper form with the patient through **Fill in with the patient**.
 

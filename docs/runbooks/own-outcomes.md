@@ -1,5 +1,9 @@
 # My patients' outcomes
 
+> **3 November 2026 (UIX-22b):** this page is now **My results**, on More, not a link on My day.
+>
+> **3 November 2026 (UIX-16c):** figures and targets not measured yet no longer show on any screen, by the user's decision. The definitions and `needs` text stay in the code, so each appears by itself once its data exists. Wording below about "Not measured yet" describes what the data says, not the screen.
+
 DSH-06: "Physio own outcomes". Done when: my patients' outcomes and adherence. Sources: PRD section
 2 (dashboards: physiotherapists see "Own patients"), M15 ("My patients (physio)"), J5.7 (adherence
 from the exercise ticks on My plan). The Frontend Specification has no screen for it. Recommended

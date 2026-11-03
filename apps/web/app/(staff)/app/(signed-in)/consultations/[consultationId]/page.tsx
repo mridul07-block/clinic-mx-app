@@ -44,13 +44,13 @@ export default async function ConsultationPage({
   const recheck = consultation.editable ? await loadRecheck(staff, consultation.id) : null;
   const { section } = await searchParams;
   return (
-    <main className="flex w-full max-w-5xl flex-col gap-4 px-4 pt-6 md:pb-6">
+    <main className="mx-auto flex w-full max-w-[65rem] flex-col gap-6 px-4 pt-6 md:pb-6 lg:px-6 xl:px-8">
       <div className="flex flex-col gap-1.5">
         <Link
           href="/app/my-patients"
           className="text-sm text-ink-muted underline underline-offset-2"
         >
-          My patients today
+          My day
         </Link>
         <h1 className="text-title font-semibold">Consultation</h1>
         <p className="text-sm text-ink-muted">

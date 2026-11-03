@@ -4,6 +4,7 @@ import { FormMessage } from '../../../../../../components/forms';
 import { requirePermission } from '../../../../../../modules/access/require-permission';
 import { getSetting } from '../../../../../../modules/settings/settings';
 import { AppointmentTypeForm } from '../appointment-type-forms';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Add an appointment type · Clinic Mx' };
 
@@ -12,7 +13,7 @@ export default async function NewAppointmentTypePage() {
   const staff = await requirePermission('settings.manage');
   const slotMinutes = await getSetting('scheduling.slot_minutes');
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1">
         <Link
           href="/app/appointment-types"
@@ -27,6 +28,6 @@ export default async function NewAppointmentTypePage() {
       ) : (
         <AppointmentTypeForm slotMinutes={slotMinutes} />
       )}
-    </main>
+    </Page>
   );
 }

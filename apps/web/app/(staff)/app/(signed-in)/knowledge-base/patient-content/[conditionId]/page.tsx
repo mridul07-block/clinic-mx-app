@@ -12,6 +12,7 @@ import type { PatientContentEntry } from '@clinic-mx/db';
 import { requirePermission } from '../../../../../../../modules/access/require-permission';
 import { loadPatientContent } from '../../../../../../../modules/knowledge-base/patient-content';
 import { DecideDraft, DraftForm } from './forms';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Patient content · Knowledge base · Clinic Mx' };
 export const dynamic = 'force-dynamic';
@@ -47,7 +48,7 @@ export default async function PatientContentPage({
   const { done } = await searchParams;
   const { name, draft, approved, draftIsOld, writes } = content;
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <div className="flex flex-col gap-1.5">
         <Link
           href="/app/knowledge-base/patient-content"
@@ -135,6 +136,6 @@ export default async function PatientContentPage({
           <p className="text-ink-muted">No draft.</p>
         )}
       </section>
-    </main>
+    </Page>
   );
 }

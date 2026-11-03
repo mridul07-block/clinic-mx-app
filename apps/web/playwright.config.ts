@@ -25,6 +25,7 @@ export default defineConfig({
   snapshotPathTemplate:
     '{testDir}/__screenshots__/{platform}/{projectName}/{testFilePath}/{arg}{ext}',
   expect: {
+    timeout: isCI ? 10_000 : 5_000,
     toHaveScreenshot: {
       animations: 'disabled',
       caret: 'hide',

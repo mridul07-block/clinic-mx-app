@@ -20,7 +20,7 @@ export function DocumentList({ documents }: { documents: DocumentEntry[] }) {
         <li
           key={latest.id}
           data-testid="patient-document"
-          className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-3"
+          className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-4"
         >
           <span className="font-medium text-ink">{documentKindLabels[latest.kind]}</span>
           <span className="text-sm text-ink-secondary">

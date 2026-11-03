@@ -23,7 +23,6 @@ import { chosenCentreId } from '../../../../../modules/navigation/centres';
 export const metadata: Metadata = { title: 'Today · Clinic Mx' };
 
 const pillClass = 'rounded-control border px-3 py-1.5 text-sm pointer-coarse:py-2.5';
-const linkClass = 'text-sm text-ink-secondary underline underline-offset-2';
 
 // The front desk Today board (INT-01, Frontend Specification "Front Desk": the Front Desk's home).
 // Count chips filter To arrive, Here now, With physio, Done and Not confirmed; rows by time with
@@ -54,14 +53,11 @@ export default async function TodayPage({
   const signedInAs = `Signed in as ${staff.name}, ${staffRoleLabels[staff.role]}`;
   if (!centre) {
     return (
-      <main className="flex flex-col gap-4 px-4 py-6">
-        <Link href="/app" className={linkClass}>
-          Home
-        </Link>
+      <Page width="full">
         <h1 className="text-title font-semibold">Today</h1>
         <p className="text-sm text-ink-muted">{signedInAs}</p>
         <FormMessage tone="info">There is no centre to show.</FormMessage>
-      </main>
+      </Page>
     );
   }
 
@@ -112,17 +108,6 @@ export default async function TodayPage({
       <Page width="full" className="gap-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <nav aria-label="Go to" className="flex flex-wrap gap-x-4 gap-y-1">
-              <Link href="/app" className={linkClass}>
-                Home
-              </Link>
-              <Link href={calendarHref({ centreId: centre.id, date })} className={linkClass}>
-                Calendar
-              </Link>
-              <Link href="/app/patients" className={linkClass}>
-                Patients
-              </Link>
-            </nav>
             <h1 className="text-title font-semibold">Today</h1>
             {/* Who is signed in stays on the screen: front desk computers are shared. */}
             <p className="text-sm text-ink-muted">

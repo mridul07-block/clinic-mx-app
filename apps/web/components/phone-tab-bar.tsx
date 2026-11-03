@@ -7,19 +7,15 @@ import {
   type PhoneTabIcon,
 } from '@clinic-mx/schemas';
 import {
-  Building2,
   CalendarCheck2,
   CalendarDays,
-  ChartLine,
   Ellipsis,
   IndianRupee,
   LayoutDashboard,
-  NotebookPen,
-  Package,
+  ListChecks,
   Receipt,
   Settings,
   Stethoscope,
-  TriangleAlert,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -36,19 +32,22 @@ const icons: Record<PhoneTabIcon, LucideIcon> = {
   calendar: CalendarDays,
   patients: Users,
   'my-patients': Stethoscope,
-  notes: NotebookPen,
-  alerts: TriangleAlert,
-  centres: Building2,
-  outcomes: ChartLine,
-  bills: Receipt,
-  unpaid: IndianRupee,
-  packages: Package,
+  tasks: ListChecks,
+  finance: IndianRupee,
+  prices: Receipt,
   overview: LayoutDashboard,
   settings: Settings,
   more: Ellipsis,
 };
 
-export function PhoneTabBar({ tabs }: { tabs: readonly PhoneTab[] }) {
+export function PhoneTabBar({
+  tabs,
+  counts,
+}: {
+  tabs: readonly PhoneTab[];
+  /** Things needing action, by screen: a badge on the tab. */
+  counts: Record<string, number>;
+}) {
   const pathname = usePathname();
   if (!showsPhoneTabs(pathname)) return null;
   const current = currentPhoneTab(tabs, pathname);
@@ -65,6 +64,7 @@ export function PhoneTabBar({ tabs }: { tabs: readonly PhoneTab[] }) {
           {tabs.map((tab) => {
             const Icon = icons[tab.icon];
             const here = current?.href === tab.href;
+            const count = counts[tab.href] ?? 0;
             return (
               <li key={tab.href} className="flex-1">
                 <Link
@@ -88,6 +88,16 @@ export function PhoneTabBar({ tabs }: { tabs: readonly PhoneTab[] }) {
                     className={here ? 'text-accent' : 'text-ink-muted'}
                   />
                   <span>{tab.label}</span>
+                  {count > 0 ? (
+                    <span
+                      data-testid="tab-count"
+                      data-volatile
+                      className="absolute top-1 left-1/2 ml-2 min-w-5 rounded-full bg-accent px-1 text-center text-sm leading-5 font-normal text-on-accent tabular-nums"
+                    >
+                      <span className="sr-only">, </span>
+                      {count}
+                    </span>
+                  ) : null}
                 </Link>
               </li>
             );

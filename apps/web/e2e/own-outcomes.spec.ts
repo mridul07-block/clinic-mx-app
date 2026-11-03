@@ -40,22 +40,22 @@ test('a treating physio sees their own patients’ outcomes against the clinic�
   await moveEpisode(episodeId, 'awaiting_consultation', ['plan_proposed', 'active', 'discharged']);
 
   await signInWithCode(page, physio.email, physio.secret);
-  await page.goto('/app/my-patients');
-  await page.getByTestId('my-outcomes-link').click();
-  await expect(page.getByRole('heading', { name: 'My patients’ outcomes' })).toBeVisible();
+  await page.goto('/app');
+  await page.getByRole('main').getByRole('link', { name: 'My results' }).click();
+  await expect(page.getByRole('heading', { name: 'My results' })).toBeVisible();
   await page.getByRole('link', { name: 'Last 12 months' }).click();
   await expect(page.getByRole('link', { name: 'Last 12 months' })).toHaveAttribute(
     'aria-current',
     'page',
   );
 
-  await expect(page.getByTestId('outcome-bullet')).toHaveCount(4);
+  await expect(page.getByTestId('outcome-bullet')).toHaveCount(2);
   const completion = page.locator('[data-figure="treatment_completion"]');
   await expect(completion).toContainText('1 of 1');
   await expect(completion).toContainText('100%');
   await expect(page.locator('[data-figure="consultation_conversion"]')).toContainText('1 of 1');
-  await expect(page.locator('[data-figure="meaningful_change"]')).toContainText('Not measured yet');
-  await expect(page.getByTestId('own-coming')).toContainText('PAT-02');
+  await expect(page.locator('[data-figure="meaningful_change"]')).toHaveCount(0);
+  await expect(page.getByText('Not measured yet')).toHaveCount(0);
   await expect(page.getByTestId('funnel-stage')).toHaveCount(5);
   await expect(page.getByText(conditionName).first()).toBeVisible();
   await expect(page.locator('body')).not.toContainText('₹');

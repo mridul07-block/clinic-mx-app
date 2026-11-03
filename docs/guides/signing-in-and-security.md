@@ -9,8 +9,8 @@ you to.
 
 ## Finding your way
 
-- **On a phone:** the bar at the bottom holds your role's main screens and **More** (Home).
-- **On a tablet or computer:** the bar on the left holds every screen you may open. On a computer it
+- **On a phone:** the bar at the bottom holds your role's main screens and **More** (**Setup** for the Super Admin), which lists the rest.
+- **On a tablet or computer:** the bar on the left holds the same main screens and **More**. On a computer it
   also holds the **Centre** Today and the Calendar open on (if you work at more than one; signing
   out forgets it), **Search or jump to**,
   and your name at the foot, for **Account** and **Sign out**.
@@ -20,10 +20,10 @@ you to.
 ## Your role
 
 - Front Desk: **Today**.
-- Physiotherapist: **My patients today**.
-- Centre Manager: **Dashboard**, on its **Alerts** tab.
-- Finance: **Finance**, on its **Collections** tab.
-- Super Admin: **Overview**.
+- Physiotherapist: **My day**.
+- Centre Manager: **Home**: what needs you now.
+- Finance: **Money**, on its **Collections** tab.
+- Super Admin: **Home**.
 
 ## Everyday tasks
 
@@ -36,7 +36,7 @@ you to.
 ### Set up two step verification
 
 The Super Admin, Centre Managers, Physiotherapists and Finance must use it. Front Desk may turn
-it on from **Account** on Home.
+it on from **Account** on **More**.
 
 1. Install an authenticator app on your phone, such as Google Authenticator or Microsoft
    Authenticator.

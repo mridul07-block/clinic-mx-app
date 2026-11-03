@@ -24,9 +24,7 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
 
   await signInWithCode(page, manager.email, manager.secret);
   await expect(page).toHaveURL(/\/app\/dashboard\/alerts/);
-  await expect(
-    page.getByRole('main').getByRole('link', { name: 'Alerts', exact: true }),
-  ).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible();
   // The episodes on hold at HSR Layout, as counted from the records.
   const held = page.locator('[data-testid="alert-count"][data-item="episodes_on_hold"]');
   await expect
@@ -39,13 +37,17 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
       { timeout: 20_000 },
     )
     .toBe(true);
-  await expect(page.getByTestId('alert-coming')).toHaveCount(1);
+  await expect(page.getByText('Not measured yet')).toHaveCount(0);
   const fits = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
   expect(await fits()).toBe(true);
   await page.screenshot({ path: test.info().outputPath('dashboard-alerts.png'), fullPage: true });
 
-  // Centres: HSR Layout today, the week's cells, no money anywhere.
-  await page.getByRole('main').getByRole('link', { name: 'Centres', exact: true }).click();
+  // Reports opens on Centres: HSR Layout today, the week's cells, no money anywhere.
+  // In the sidebar, or on More on a phone.
+  await page.goto('/app');
+  await page.getByRole('link', { name: 'Reports', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Reports', level: 1 })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('link', { name: 'Money' })).toHaveCount(0);
   const hsr = page.locator('[data-testid="centre-today"][data-centre="HSR Layout"]');
   await expect(hsr).toBeVisible();
   await expect(page.getByTestId('centre-today')).toHaveCount(1);
@@ -62,8 +64,8 @@ test('a Centre Manager lands on Alerts and reads every tab for their centre', as
   await page.getByRole('main').getByRole('link', { name: 'Outcomes', exact: true }).click();
   await page.getByRole('link', { name: 'Last 12 months' }).click();
   await expect(page).toHaveURL(/window=365/);
-  await expect(page.getByTestId('outcome-bullet')).toHaveCount(4);
-  await expect(page.locator('[data-figure="reinjury"]')).toContainText('Not measured yet');
+  await expect(page.getByTestId('outcome-bullet')).toHaveCount(2);
+  await expect(page.locator('[data-figure="reinjury"]')).toHaveCount(0);
   await expect(page.getByTestId('funnel-stage')).toHaveCount(5);
   expect(await fits()).toBe(true);
   await page.screenshot({ path: test.info().outputPath('dashboard-outcomes.png'), fullPage: true });

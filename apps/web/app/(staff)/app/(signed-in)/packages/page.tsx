@@ -11,6 +11,7 @@ import { packageMeterText, packageTag } from '../../../../../components/package-
 import { Tag } from '../../../../../components/tag';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { packageListFor } from '../../../../../modules/billing/packages';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Packages · Clinic Mx' };
 export const dynamic = 'force-dynamic';
@@ -43,7 +44,7 @@ export default async function PackagesPage({
       : packageListFilterLabels[filter];
 
   return (
-    <main className="flex w-full max-w-signin flex-col gap-6 px-4 py-6">
+    <Page width="form">
       <h1 className="text-title font-semibold">Packages</h1>
       <nav aria-label="Show" className="flex flex-wrap gap-2">
         {packageListFilters.map((filter) => (
@@ -101,6 +102,6 @@ export default async function PackagesPage({
           })}
         </ul>
       )}
-    </main>
+    </Page>
   );
 }

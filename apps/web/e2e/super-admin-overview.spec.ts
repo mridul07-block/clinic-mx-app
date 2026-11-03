@@ -7,7 +7,7 @@ import { signInWithCode, temporaryWithCode } from './staff';
 
 // DSH-05 done when: all centres at a glance; AI top 3 accuracy by month. Recommended defaults
 // under the user's standing approval (28 October 2026): the Super Admin lands on the Overview; the
-// AI's accuracy waits for AI-03 and says so.
+// Targets with no data yet do not show.
 
 const physios: string[] = [];
 const bills: string[] = [];
@@ -16,7 +16,7 @@ test.afterEach(async () => {
   if (physios.length) await removeCalendarRows(physios.splice(0));
 });
 
-test('the Super Admin lands on the Overview and sees every centre at a glance', async ({
+test('the Super Admin lands on Home and sees what needs them and every centre at a glance', async ({
   page,
 }) => {
   test.slow();
@@ -39,17 +39,25 @@ test('the Super Admin lands on the Overview and sees every centre at a glance', 
       { timeout: 20_000 },
     )
     .toBe(true);
-  // Every active centre, the week with revenue, the targets and the AI's accuracy to come.
+  // Every active centre, the week with revenue, on one screen; the rest is on Reports.
   await expect(page.getByTestId('overview-centre')).not.toHaveCount(0);
   await expect(page.locator('[data-kpi="revenue"]')).toBeVisible();
-  await expect(page.getByTestId('outcome-bullet')).toHaveCount(4);
-  await expect(page.getByTestId('overview-ai')).toContainText('AI-03');
+  await expect(page.getByTestId('outcome-bullet')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Needs you now' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Last 7 days' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
   await page.screenshot({ path: test.info().outputPath('overview.png'), fullPage: true });
-  await page.getByRole('link', { name: 'Alerts and outcomes' }).click();
-  await expect(page).toHaveURL(/\/app\/dashboard\/alerts/);
+  // Reports reaches the rest: Money and Figures are its tabs.
+  await page.goto('/app/dashboard/centres');
+  const tabs = page.getByRole('main').getByRole('navigation', { name: 'Reports' });
+  await tabs.getByRole('link', { name: 'Money' }).click();
+  await expect(page).toHaveURL(/\/app\/finance\/collections/);
+  await page.getByRole('main').getByRole('link', { name: 'Reports' }).click();
+  await expect(page).toHaveURL(/\/app\/dashboard\/centres/);
+  await tabs.getByRole('link', { name: 'Figures' }).click();
+  await expect(page).toHaveURL(/\/app\/figures/);
 });
 
 test('Centre Managers and Finance do not open the Overview', async ({ browser }) => {

@@ -11,7 +11,7 @@ import {
   type FeedbackTally,
 } from '../../../../../../modules/reporting/manager';
 
-export const metadata: Metadata = { title: 'Feedback · Dashboard · Clinic Mx' };
+export const metadata: Metadata = { title: 'Feedback · Reports · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
 /** The Net Promoter Score in words: "+40", "−10", "0", or "No scores". */
@@ -211,19 +211,6 @@ export default async function DashboardFeedbackPage({
         empty="No feedback in this window yet. The desk shows patients “Rate your visit” on the plan and payment sheet once their consultation is signed."
         view={view.afterConsultation}
       />
-      {view.figures.length > 0 ? (
-        <ul className="flex flex-col divide-y divide-line rounded-panel border border-line bg-surface">
-          {view.figures.map((figure) => (
-            <li key={figure.label} className="flex flex-col gap-1 p-4">
-              <span className="font-medium text-ink">{figure.label}</span>
-              {figure.target ? (
-                <span className="text-sm text-ink-secondary">Target: {figure.target}</span>
-              ) : null}
-              <span className="text-sm text-ink-muted">Not measured yet: {figure.needs}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
     </div>
   );
 }

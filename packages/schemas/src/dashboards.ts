@@ -68,8 +68,8 @@ export const alertItemLinks: Record<AlertItem, string | null> = {
 
 /** Where to find the items with no list of their own yet. */
 export const alertItemWhere: Partial<Record<AlertItem, string>> = {
-  episodes_on_hold: 'Each one shows on the patient’s record; a list of them is not built yet.',
-  reviews_overdue: 'Each is a task held by the episode’s consultant, in their Tasks.',
+  episodes_on_hold: 'Each one shows on the patient’s record.',
+  reviews_overdue: 'Each is a task held by the episode’s consultant, in their To do.',
 };
 
 /** A clinician's own outcomes (DSH-06) whose data no ticket has built yet. */

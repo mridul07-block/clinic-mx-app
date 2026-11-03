@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requirePermission } from '../../../../../modules/access/require-permission';
 import { figuresView, type Figure } from '../../../../../modules/reporting/kpis';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Figures · Clinic Mx' };
 
@@ -21,12 +22,14 @@ export default async function FiguresPage() {
   const staff = await requirePermission('dashboard.overview');
   const view = await figuresView(staff);
   const measured = view.figures.filter((figure) => figure.needs === null);
-  const waiting = view.figures.filter((figure) => figure.needs !== null);
   return (
-    <main className="flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
+    <Page width="content">
       <div className="flex flex-col gap-1">
-        <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-          Home
+        <Link
+          href="/app/dashboard/centres"
+          className="text-sm text-ink-muted underline underline-offset-2 pointer-coarse:py-2"
+        >
+          Reports
         </Link>
         <h1 className="text-title font-semibold">Figures</h1>
         <p className="text-ink-secondary">
@@ -47,29 +50,7 @@ export default async function FiguresPage() {
           ))}
         </ul>
       </section>
-      <section className="flex flex-col gap-3" aria-labelledby="figures-waiting">
-        <h2 id="figures-waiting" className="font-semibold text-ink">
-          Not measured yet
-        </h2>
-        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2" data-testid="figures-waiting">
-          {waiting.map((figure) => (
-            <li
-              key={figure.key}
-              className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-4"
-              data-testid="figure"
-              data-figure={figure.key}
-            >
-              <h3 className="font-medium text-ink">{figure.label}</h3>
-              {figure.target ? (
-                <p className="text-sm text-ink-secondary">Target: {figure.target}</p>
-              ) : null}
-              <p className="text-sm text-ink-muted">{figure.definition}</p>
-              <p className="text-sm text-ink-secondary">Waiting for: {figure.needs}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </main>
+    </Page>
   );
 }
 

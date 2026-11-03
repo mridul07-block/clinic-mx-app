@@ -132,11 +132,13 @@ Touch size follows the pointer, not the width: 40 px rows with a mouse, 44 px on
 
 | Role | Tabs |
 | --- | --- |
-| Front Desk | Today, Calendar, Patients, More |
-| Physiotherapist | My patients, Today, Notes, More |
-| Centre Manager | Alerts, Centres, Outcomes, More |
-| Finance | Bills, Unpaid, Packages, More |
-| Super Admin | Overview, Alerts, Settings, More |
+| Front Desk | Today, Calendar, Patients, To do, More |
+| Physiotherapist | My day, Calendar, Patients, To do, More |
+| Centre Manager | Home, Calendar, Patients, To do, More |
+| Finance | Money, Patients, Prices, To do, More |
+| Super Admin | Home, Calendar, Patients, To do, Setup |
+
+The rail and sidebar show the same links, plus Today and Reports for the Centre Manager and Reports for the Super Admin. More or Setup lists everything else under headings (the user's review, 3 November 2026).
 
 ### Page frame
 

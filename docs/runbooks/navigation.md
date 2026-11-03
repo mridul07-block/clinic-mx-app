@@ -4,38 +4,28 @@ UI-01: "Phone bottom tab bar per role". Sources:
 - Frontend Specification section 4, "Bottom tabs by role (phones)".
 - Design system v2: a 3 px gold bar marks the current section; lucide icons at 1.75 stroke.
 
-Every choice below is a recommended default chosen under the user's standing approval, 29 October 2026 (DECISION UI-01), for the client to confirm.
+The user's review of 3 November 2026 replaced the specification's first tabs: each role sees its daily screens, in the same words on a phone and a computer.
 
 ## The tabs
 
-`phoneTabsFor(staff)` in `packages/schemas/src/phone-tabs.ts` gives each role its tabs, in the specification's order and words, then **More**.
+`phoneTabsFor(staff)` in `packages/schemas/src/phone-tabs.ts` gives each role its tabs, then **More**.
 
-| Role | Tab | Screen | Shown to those allowed |
-| --- | --- | --- | --- |
-| Front Desk | Today | `/app/today` | `check_in.manage` |
-| | Calendar | `/app/calendar` | `calendar.view` |
-| | Patients | `/app/patients` | `patients.view_contact` |
-| Physiotherapist | My patients | `/app/my-patients` | `visits.start` |
-| | Today | `/app/calendar` (their own day) | `calendar.view` |
-| | Notes | `/app/tasks` (their Tasks inbox) | `tasks.view` |
-| Centre Manager | Alerts, Centres, Outcomes | `/app/dashboard/{alerts,centres,outcomes}` | `dashboard.clinical_operations` |
-| Finance | Bills | `/app/finance/collections`; Revenue and Refunds count as Bills | `dashboard.finance` |
-| | Unpaid | `/app/finance/unpaid` | `dashboard.finance` |
-| | Packages | `/app/finance/packages` | `dashboard.finance` |
-| Super Admin | Overview | `/app/overview` | `dashboard.overview` |
-| | Alerts | `/app/alerts` | `red_flags.view` |
-| | Settings | `/app/settings` (ADM-02) | `settings.manage` |
-| Everyone | More | `/app` (Home) | |
+| Role | Tabs |
+| --- | --- |
+| Front Desk | Today, Calendar, Patients, To do, More |
+| Physiotherapist | My day, Calendar, Patients, To do, More |
+| Centre Manager | Home (the dashboard's Alerts), Calendar, Patients, To do, More |
+| Finance | Money (Collections; all of `/app/finance` counts), Patients, Prices, To do, More |
+| Super Admin | Home (Overview), Calendar, Patients, To do, Setup |
 
-- **Who sees a tab:** a tab shows only when the person may open its screen, the same check the page makes (`accessScope`, own records included). A physio without the Treats patients tick has no My patients; Velyx support has no Alerts.
-- **More:** Home, which lists every screen the person may open. Nothing is reachable only from the bar.
-- **Notes:** no screen lists a physio's own unsigned notes, and the nightly unsigned notes flag goes to the Centre Manager (CLN-10), so Notes is the physio's Tasks inbox. The client confirms, or names the screen it should be.
-- **Alerts means two screens:** for a Centre Manager it is the dashboard's Alerts (the specification lists it first among their dashboard screens); for the Super Admin it is the red flag alerts. The client confirms.
-- **The current tab:** the longest matching path wins (`currentPhoneTab`), so `/app/patients/<id>` is Patients; More is current on Home only.
+- **Who sees a tab:** a tab shows only when the person may open its screen, the same check the page makes (`accessScope`, own records included).
+- **More:** `/app` lists everything else under headings, as **Setup** for the Super Admin; on a phone, first any main links with no tab (`mainLinksWithoutTab`). Nothing is reachable only from the bar.
+- **To do:** the `/app/tasks` inbox, with its open count as a badge. Open red flag alerts are named at its top, and **Alerts** stays on More.
+- **The current tab:** the longest matching path wins (`currentPhoneTab`), so `/app/patients/<id>` is Patients; More is current on `/app` only.
 
 ## Where the bar shows
 
-- **Phones only:** below 768 px (`md:hidden`). There is no tablet rail or desktop sidebar yet; on wider screens Home is the way round, as before.
+- **Phones only:** below 768 px (`md:hidden`). From 768 px the rail or sidebar takes over.
 - **Not on screens with their own bottom actions:** a consultation (`/app/consultations/<id>`, Back and Next) and a session (`/app/sessions/<id>`, Close session). Pages under them, such as Explain to patient, show the bar (`screensWithoutTabs`).
 - **Never covers content:** the bar keeps clear of the phone's home indicator (`safe-area-inset-bottom`), and a spacer of the bar's full height, inset included, ends every page under it.
 - **Patients:** the patient pages (`/p/...`) and the kiosk have no bar.
@@ -57,13 +47,13 @@ UI-02: "Tablet and desktop navigation". Sources:
 - Frontend Specification section 4, Breakpoints and Page frame.
 - Design system v2 section 7 (Layout): the canvas and inset sheet, the sidebar, Search or jump to, the command palette.
 
-Every choice below is a recommended default chosen under the user's standing approval, 29 October 2026 (DECISION UI-02), for the client to confirm.
-
 ## One list of screens
 
-`navigationFor(staff)` in `packages/schemas/src/navigation.ts` lists every screen a person may open, in Home's order and words, each shown only when the page's own check lets them in (`accessScope`, or the audit log's parts). Home, the rail, the sidebar and Search or jump to all read it, so a new screen is added once. Account and signing out are in the person's menu (and on Home).
+`navigationFor(staff)` in `packages/schemas/src/navigation.ts` lists every screen a person may open, each shown only when the page's own check would let them in. Search (`Ctrl K`) finds all of them.
 
-Sections, for the sidebar: **Day to day** (Tasks, My patients today, Today, Calendar, Patients, My leave, Alerts, Packages), **Clinical** (Red flags, Knowledge base), **Figures** (Overview, Dashboard, Finance, Figures) and **Setup** (the rest, Data requests included).
+- **`mainNavigationFor(staff)`:** the rail's and sidebar's links, from `mainLinksByRole`: the tabs above, plus Today and Reports for the Centre Manager, Reports for the Super Admin, and My day for anyone with the Treats patients tick. A link can rename a screen (Home) and count other paths as its own (`also`).
+- **`moreNavigationFor(staff)`:** the rest, which `/app` lists by section: **Day to day**, **Reports**, **Clinic**, **People**, **Clinical content**, **Rules**, **Records and access**.
+- **Nothing is taken away:** permissions are unchanged, and a test checks every screen is a main link or on More.
 
 ## The frame
 
@@ -71,11 +61,11 @@ Sections, for the sidebar: **Day to day** (Tasks, My patients today, Today, Cale
 
 - **Below 768 px:** no rail; the bottom tabs (above).
 - **768 to 1279 px:** a 64 px rail of 18 px icons. With a mouse, names show as tooltips; on touch, small words under the icons. Every target, Search included, at least 44 px. The centre switcher is the centre's code (HSR) in a 44 px button, opening the centres beside it, the one on screen marked current; after a choice, focus returns to the button (UI-03).
-- **From 1280 px:** the 240 px sidebar on the canvas: the logo, the centre switcher, **Search or jump to** (`Ctrl K`), the screens by section, the person at the foot.
+- **From 1280 px:** the 240 px sidebar on the canvas: the logo, the centre switcher, **Search** (`Ctrl K`), the main links, the person at the foot.
 - **The page:** from 768 px it sits on a white sheet (1 px line, 14 px corners, `shadow-xs`) 8 px from the window's edges; on phones it fills the screen as before.
 - **Skip to page:** the first link on every page, shown when focused, jumps past the rail or sidebar.
-- **The current screen:** a white pill with a 3 px gold bar on its left edge, `aria-current="page"`; the longest matching path wins (`currentNavItem`).
-- **Counts:** open tasks beside **Tasks** (a badge on the rail).
+- **The current screen:** a white pill with a 3 px gold bar on its left edge, `aria-current="page"`; the longest matching path wins (`currentNavItem`), so a screen that is not a main link counts as More or Setup.
+- **Counts:** open tasks beside **To do** (a badge on the rail and the phone tab).
 
 ## Search or jump to
 
@@ -87,7 +77,7 @@ For people who open Today or the Calendar and work at more than one centre (the 
 
 ## The person's menu
 
-Their initials (and from 1280 px their name and role) at the foot. It opens beside the sidebar: **Account** and **Sign out**, which saves drafts first, as on Home. It closes on Escape, a click elsewhere, or moving to another screen.
+Their initials (and from 1280 px their name and role) at the foot. It opens beside the sidebar: **Account** and **Sign out**, which saves drafts first, as on More. It closes on Escape, a click elsewhere, or moving to another screen.
 
 ## Not built
 

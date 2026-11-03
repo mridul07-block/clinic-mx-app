@@ -8,6 +8,7 @@ import { asStaff } from '../../../../../modules/access/staff-db';
 import { loginsWithPendingInvite } from '../../../../../modules/staff/directory';
 import { Tag } from '../../../../../components/tag';
 import { StaffStatus } from './staff-status';
+import { Page } from '@clinic-mx/ui/components/page';
 
 export const metadata: Metadata = { title: 'Staff · Clinic Mx' };
 
@@ -20,12 +21,9 @@ export default async function StaffPage() {
     loginsWithPendingInvite(),
   ]);
   return (
-    <main className="flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
+    <Page width="content">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
-          <Link href="/app" className="text-sm text-ink-muted underline underline-offset-2">
-            Home
-          </Link>
           <h1 className="text-title font-semibold">Staff</h1>
         </div>
         {staff.support ? null : (
@@ -62,6 +60,6 @@ export default async function StaffPage() {
           </li>
         ))}
       </ul>
-    </main>
+    </Page>
   );
 }

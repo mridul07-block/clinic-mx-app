@@ -11,7 +11,7 @@ import { requirePermission } from '../../../../../../modules/access/require-perm
 import { refundsView } from '../../../../../../modules/billing/refunds';
 import { RefundForm } from './refund-form';
 
-export const metadata: Metadata = { title: 'Refunds · Finance · Clinic Mx' };
+export const metadata: Metadata = { title: 'Refunds · Money · Clinic Mx' };
 export const dynamic = 'force-dynamic';
 
 // Refunds (BIL-11, Frontend Specification section 6 "Refunds and credits"): Finance or the Super
@@ -58,7 +58,7 @@ export default async function FinanceRefundsPage({
         ) : null}
         {found.status === 'found' ? (
           <div
-            className="flex flex-col gap-3 rounded-panel border border-line bg-surface p-3"
+            className="flex flex-col gap-3 rounded-panel border border-line bg-surface p-4"
             data-testid="refund-payment"
           >
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
@@ -118,7 +118,7 @@ export default async function FinanceRefundsPage({
             {view.history.map((refund) => (
               <li
                 key={refund.id}
-                className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-3 text-sm"
+                className="flex flex-col gap-1 rounded-panel border border-line bg-surface p-4 text-sm"
                 data-testid="refund-row"
               >
                 <span className="flex flex-wrap items-center justify-between gap-2">

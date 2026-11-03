@@ -22,13 +22,19 @@ interface Choice {
 
 export function NavShell({
   items,
+  mainItems,
+  homeHref,
   counts,
   findsPatients,
   centreSwitcher,
   railCentreSwitcher,
   personMenu,
 }: {
+  /** Every screen the person may open, for the palette. */
   items: readonly NavItem[];
+  /** The rail's and sidebar's links. */
+  mainItems: readonly NavItem[];
+  homeHref: string;
   counts: Record<string, number>;
   findsPatients: boolean;
   centreSwitcher: ReactNode;
@@ -102,7 +108,8 @@ export function NavShell({
   return (
     <>
       <SideNav
-        items={items}
+        items={mainItems}
+        homeHref={homeHref}
         counts={counts}
         centreSwitcher={centreSwitcher}
         railCentreSwitcher={railCentreSwitcher}
